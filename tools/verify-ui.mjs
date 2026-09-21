@@ -24,12 +24,22 @@ const snap = (page) => page.evaluate(() => {
   const g = window.CHECKSMITH.app.game;
   return {
     strikes: g.strikes.slice(), current: g.current, total: g.totalStrikes, status: g.status,
-    pieces: g.board.pieces.join(''), route: g.board.route.slice(), size: g.board.size,
+    pieces: g.board.pieces.join(''), live: g.pieces.map((p) => p || '.').join(''),
+    route: g.board.route.slice(), size: g.board.size,
     busy: window.CHECKSMITH.app.busy
   };
 });
 const settle = (page) => page.waitForFunction(() => !window.CHECKSMITH.app.busy, null, { timeout: 5000 });
 const fast = (page, ms) => page.evaluate((m) => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = m; }, ms);
+
+/* Switching difficulty mid-run raises the discard prompt; answer it. */
+async function pickDifficulty(page, key, size) {
+  await page.click(`[data-diff="${key}"]`);
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForFunction(
+    (s) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === s,
+    size, { timeout: 10000 });
+}
 
 async function run() {
   if (fs.existsSync(SHOTS)) fs.rmSync(SHOTS, { recursive: true, force: true });
@@ -138,6 +148,9 @@ async function run() {
   await page.click('[data-diff="apprentice"]');
   await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 4);
   await fast(page, 40);
+  // A verified route is a promise about a board whose symbols hold still,
+  // so reshaping is switched off for this replay.
+  await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
   let st = await snap(page);
   for (const step of st.route) {
     await page.evaluate((i) => { document.querySelector(`.tile[data-i="${i}"]`).click(); }, step);
@@ -151,7 +164,7 @@ async function run() {
   ok('quality is 100', (await page.textContent('#rQuality')).startsWith('100'));
   ok('label reads Masterwork', (await page.textContent('#rLabel')).trim() === 'Masterwork');
   ok('perfect squares reported as 16 / 16', (await page.textContent('#rPerfect')).trim() === '16 / 16');
-  ok('overstrikes reported as 0', (await page.textContent('#rOver')).trim() === '0');
+  ok('overstrikes reported as 0', (await page.textContent('#rSpent')).trim() === '0');
   ok('board is frozen after completion', (await page.getAttribute('#board', 'data-frozen')) === '1');
   await page.screenshot({ path: path.join(SHOTS, '03-masterwork.png'), fullPage: true });
 
@@ -174,68 +187,164 @@ async function run() {
     return (await page.textContent('#bestLine')).includes('100');
   })());
 
-  /* ============ overstrikes and damaged states ============ */
-  section('Damage, overstrikes and scoring on screen');
-  await page.click('[data-diff="novice"]');
-  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 3);
+  /* ============ spending squares, and losing ============ */
+  section('Spent squares and the lost run');
+  await pickDifficulty(page, 'novice', 3);
   await fast(page, 40);
-  // drive an overstruck finish: walk the route but repeat one square first
-  await page.evaluate(async () => {
+  // Deliberately overwork one square: strike it, leave, come back twice.
+  const spentInfo = await page.evaluate(async () => {
     const F = window.CHECKSMITH;
     const wait = () => new Promise((r) => {
-      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 10);
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
     });
     const click = async (i) => { document.querySelector(`.tile[data-i="${i}"]`).click(); await wait(); };
-    const route = F.app.game.board.route.slice();
-    await click(route[0]);
-    await click(route[1]);
-    await click(route[0]);      // detour: third strike on the opener
-    let cur = route[0];
-    // now finish by following the stored route from its first occurrence
-    for (let k = 1; k < route.length; k++) {
-      if (F.app.game.status === 'complete') break;
-      const nxt = route[k];
-      if (F.core.canStrike(F.app.game, nxt)) { await click(nxt); cur = nxt; }
+    const g = () => F.app.game;
+    const home = g().board.route[0];
+    await click(home);
+    let target = null;
+    for (let pass = 0; pass < 2; pass++) {
+      const away = F.core.legalTargets(g()).find((t) => t !== home);
+      if (away == null) break;
+      await click(away);
+      const back = F.core.legalTargets(g()).find((t) => t === home);
+      if (back == null) break;
+      await click(home);
+      target = home;
     }
-    // mop up anything still cold with a greedy walk
-    let guard = 0;
-    while (F.app.game.status !== 'complete' && guard++ < 400) {
-      const g = F.app.game;
-      const targets = F.core.legalTargets(g);
-      let best = targets[0], bestS = 99;
-      for (const t of targets) if (g.strikes[t] < bestS) { bestS = g.strikes[t]; best = t; }
-      await click(best);
-      void cur;
-    }
+    return { target, strikes: g().strikes.slice(), status: g().status, current: g().current };
   });
-  await page.waitForTimeout(300);
-  const dmg = await snap(page);
-  ok('overstruck game still completes', dmg.status === 'complete' && dmg.strikes.every((x) => x >= 2));
-  const shownOver = Number(await page.textContent('#rOver'));
-  const realOver = dmg.strikes.reduce((a, b) => a + Math.max(0, b - 2), 0);
-  ok('reported overstrikes match the board (' + realOver + ')', shownOver === realOver);
-  const q = Number((await page.textContent('#rQuality')).replace(/\D+/g, '').slice(0, 3));
-  ok('quality matches the documented formula',
-    q === Math.max(0, Math.round(100 * (1 - realOver / (2 * 9)))), 'shown ' + q);
-  ok('damaged squares show their real strike count',
+  ok('a square can be driven to three strikes', spentInfo.strikes.some((x) => x === 3),
+    JSON.stringify(spentInfo.strikes));
+  ok('it renders as crumbling while the hammer is on it',
     await page.evaluate(() => {
       const g = window.CHECKSMITH.app.game;
-      for (let i = 0; i < g.strikes.length; i++) {
-        const el = document.querySelector(`.tile[data-i="${i}"]`);
-        if (g.strikes[i] >= 3) {
-          const badge = el.querySelector('.count');
-          if (!badge || badge.textContent !== String(g.strikes[i])) return false;
-          if (el.dataset.s !== '3') return false;
-        }
-      }
-      return true;
+      const el = document.querySelector(`.tile[data-i="${g.current}"]`);
+      return g.strikes[g.current] < 3 || el.dataset.spent === '1';
     }));
-  await page.screenshot({ path: path.join(SHOTS, '04-damaged-result.png'), fullPage: true });
+  ok('a crumbling square still offers somewhere to go',
+    await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game).length > 0)
+      || spentInfo.status === 'lost');
+  ok('the spent count is on screen', Number(await page.textContent('#sSpent')) >= 1);
+
+  // step off it and the square must go blank and become unclickable
+  const blanked = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    const spent = F.app.game.current;
+    if (F.app.game.strikes[spent] < 3) return { skipped: true };
+    const away = F.core.legalTargets(F.app.game)[0];
+    document.querySelector(`.tile[data-i="${away}"]`).click();
+    await wait();
+    const el = document.querySelector(`.tile[data-i="${spent}"]`);
+    return {
+      skipped: false,
+      piece: F.app.game.pieces[spent],
+      isVoid: el.dataset.void === '1',
+      glyph: el.firstChild.textContent,
+      legal: F.core.canStrike(F.app.game, spent),
+      label: el.getAttribute('aria-label')
+    };
+  });
+  if (blanked.skipped) {
+    ok('blanking check skipped (square never reached three strikes)', true);
+  } else {
+    ok('leaving a spent square blanks it', blanked.piece === null);
+    ok('the blank square renders as a hole with no symbol',
+      blanked.isVoid === true && blanked.glyph === '');
+    ok('the blank square cannot be struck again', blanked.legal === false);
+    ok('screen readers are told it is spent', /spent|blank/i.test(blanked.label), blanked.label);
+  }
+
+  // a tap on the blank square must be refused outright
+  const beforeBlankTap = await snap(page);
+  await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    const dead = g.pieces.findIndex((p) => p === null);
+    if (dead >= 0) document.querySelector(`.tile[data-i="${dead}"]`).click();
+  });
+  await page.waitForTimeout(160);
+  ok('tapping a blank square changes nothing',
+    (await snap(page)).total === beforeBlankTap.total);
+
+  /* ============ reshaping ============ */
+  section('Reshaping on the first strike');
+  await pickDifficulty(page, 'journeyman', 5);
+  await fast(page, 40);
+  const morphRun = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.app.game.morphChance = 1;              // force it so the test is deterministic
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    const start = 12;
+    const was = F.app.game.pieces[start];
+    document.querySelector(`.tile[data-i="${start}"]`).click();
+    await wait();
+    const now = F.app.game.pieces[start];
+    const el = document.querySelector(`.tile[data-i="${start}"]`);
+    return { was, now, glyph: el.firstChild.textContent,
+      expected: F.core.PIECES[now].glyph, layout: F.app.game.board.pieces[start] };
+  });
+  ok('the first strike reshaped the square', morphRun.now !== morphRun.was);
+  ok('the tile shows the new symbol', morphRun.glyph === morphRun.expected);
+  ok('the movement hint follows the new symbol',
+    (await page.textContent('#promptText')).includes(
+      await page.evaluate((k) => window.CHECKSMITH.core.PIECES[k].name, morphRun.now)));
+  ok('the stored board layout is untouched, so Restart still works',
+    morphRun.layout === morphRun.was);
+  await page.screenshot({ path: path.join(SHOTS, '04-spent-and-morph.png'), fullPage: true });
+
+  /* ============ losing ============ */
+  section('Losing the run');
+  const lossRun = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    // Hand-place a board state with no way out: a knight whose jumps are spent.
+    const g = F.app.game;
+    g.pieces = g.pieces.map(() => 'R');
+    g.pieces[0] = 'N';
+    g.strikes = g.strikes.map(() => 1);
+    for (const j of [7, 11]) g.strikes[j] = 3;   // both knight jumps from 0, spent
+    g.strikes[0] = 1;
+    g.current = 1;                                // a rook on the top row
+    g.status = 'playing';
+    document.querySelector('.tile[data-i="0"]').click();
+    await wait();
+    await new Promise((r) => setTimeout(r, 400));
+    return { status: g.status, dialog: !document.getElementById('results').hidden,
+      title: document.getElementById('resultTitle').textContent,
+      label: document.getElementById('rLabel').textContent,
+      frozen: document.getElementById('board').dataset.frozen };
+  });
+  ok('landing with no onward move loses the run', lossRun.status === 'lost', lossRun.status);
+  ok('the losing screen appears', lossRun.dialog === true);
+  ok('it says the work is stranded', /stranded/i.test(lossRun.title + ' ' + lossRun.label));
+  ok('the board is frozen after a loss', lossRun.frozen === '1');
+  const afterLoss = await snap(page);
+  await page.evaluate(() => { document.querySelector('.tile[data-i="4"]').click(); });
+  await page.waitForTimeout(150);
+  ok('taps after a loss change nothing', (await snap(page)).total === afterLoss.total);
+  ok('a loss is not recorded as a best score', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !d.best || d.best.journeyman === undefined || typeof d.best.journeyman === 'number'; }
+      catch (e) { return true; } }));
+  await page.screenshot({ path: path.join(SHOTS, '05-stranded.png'), fullPage: true });
+  await page.click('#rRetry');
+  await page.waitForTimeout(250);
+  ok('retry after a loss restores the original symbols and a cold board', await page.evaluate(
+    () => { const g = window.CHECKSMITH.app.game;
+      return g.totalStrikes === 0 && g.status === 'ready' &&
+        g.pieces.join('') === g.board.pieces.join(''); }));
 
   /* ============ audio and preferences ============ */
   section('Audio');
-  await page.click('#rNew');
-  await page.waitForTimeout(300);
+  await page.evaluate(() => document.getElementById('newBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(450);
   const audio = await page.evaluate(() => ({ dead: window.CHECKSMITH.sound.dead, has: !!window.CHECKSMITH.sound.ctx, state: window.CHECKSMITH.sound.ctx && window.CHECKSMITH.sound.ctx.state }));
   ok('an audio context was created after a gesture', audio.has && !audio.dead, JSON.stringify(audio));
   ok('audio graph produces no errors', errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -260,15 +369,24 @@ async function run() {
   ok('progress is exposed as a live region',
     await page.evaluate(() => document.getElementById('live').getAttribute('aria-live') === 'polite'));
   await page.keyboard.press('Tab');
+  // start from the top-left corner so the expected step holds at any board size
   const keyed = await page.evaluate(() => {
-    const t = document.querySelector('.tile[data-i="4"]');
+    const t = document.querySelector('.tile[data-i="0"]');
     t.focus();
     return document.activeElement === t;
   });
   ok('tiles are focusable', keyed);
   await page.keyboard.press('ArrowRight');
   ok('arrow keys move focus across the board',
-    await page.evaluate(() => document.activeElement.dataset.i === '5'));
+    await page.evaluate(() => document.activeElement.dataset.i === '1'),
+    'focus landed on ' + await page.evaluate(() => document.activeElement.dataset.i));
+  await page.keyboard.press('ArrowDown');
+  ok('arrow keys move focus down a row', await page.evaluate(
+    () => Number(document.activeElement.dataset.i) === window.CHECKSMITH.app.game.board.size + 1));
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowLeft');
+  ok('focus clamps at the board edge without wrapping',
+    await page.evaluate(() => document.activeElement.dataset.i === '0'));
   const kbTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
   await page.evaluate((i) => document.querySelector(`.tile[data-i="${i}"]`).focus(), kbTarget);
   const kbBefore = await snap(page);

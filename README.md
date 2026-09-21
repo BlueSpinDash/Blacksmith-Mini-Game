@@ -1,9 +1,10 @@
 # Checksmith
 
 A smithing puzzle for the phone, and the standalone minigame for a future fantasy
-business game. The board is a metal mold; every square carries a permanent chess
-symbol that describes movement. Strike every square exactly twice and you produce
-a masterwork.
+business game. The board is a metal die; every square carries a chess symbol that
+describes movement. Strike every square exactly twice and you produce a
+masterwork. Hot metal does not sit still, though: a square can reshape itself
+under the hammer, and a square struck once too often crumbles into a hole.
 
 **[`index.html`](index.html) is the whole game** — one self-contained file with
 embedded CSS and JavaScript, procedural Web Audio sound and inline SVG/CSS
@@ -45,10 +46,24 @@ verified about the build.
 2. **The piece on the square you are standing on decides where the hammer may go
    next.** The symbol on the destination is irrelevant — it only matters once you
    are standing there.
-3. Two strikes forge a square perfectly. A third cracks it and costs quality.
-   Damaged squares stay usable, and revisiting them is sometimes the only way to
-   finish.
+3. Two strikes forge a square perfectly.
 4. The board finishes by itself once every square has at least two strikes.
+
+Two things make that harder than it sounds:
+
+**The metal reshapes.** A square's *first* strike can knock it into a different
+piece entirely. Later strikes never change it. The odds rise with difficulty and
+Novice never reshapes at all, so a memorised route is worth less the higher you
+climb — read the board again after every blow.
+
+**Third strikes are fatal to the square.** Strike a finished square again and it
+cracks apart. Its symbol carries you away one last time, and then the square goes
+blank: a hole that nothing can ever land on again. Blank squares still count as
+forged, but each one costs quality.
+
+**You can lose.** If the square you are standing on has no legal destination
+left, the run ends where it stands and nothing is scored. Spend squares
+carelessly and you will wall yourself in.
 
 Rooks, bishops and queens slide over anything in the way; only the destination is
 struck. There are no captures, no blockers, no timer. Tapping the square you are
@@ -62,12 +77,12 @@ already on is not a move.
 | Knight | Two squares along one axis and one along the other; jumps |
 | Queen | Any positive distance horizontally, vertically or diagonally |
 
-| Difficulty | Board | Piece pool | Strikes for perfection |
-| --- | --- | --- | --- |
-| Novice | 3 × 3 | King, Rook | 18 |
-| Apprentice | 4 × 4 | King, Rook, Bishop | 32 |
-| Journeyman | 5 × 5 | King, Rook, Bishop, Knight | 50 |
-| Master | 6 × 6 | King, Rook, Bishop, Knight, occasional Queens | 72 |
+| Difficulty | Board | Piece pool | Strikes for perfection | Reshape chance |
+| --- | --- | --- | --- | --- |
+| Novice | 3 × 3 | King, Rook | 18 | 0% |
+| Apprentice | 4 × 4 | King, Rook, Bishop | 32 | 15% |
+| Journeyman | 5 × 5 | King, Rook, Bishop, Knight | 50 | 25% |
+| Master | 6 × 6 | King, Rook, Bishop, Knight, occasional Queens | 72 | 35% |
 
 Scoring at completion:
 
@@ -77,9 +92,12 @@ overstrikes  = sum(max(0, square.strikes - 2))
 quality      = max(0, round(100 * (1 - overstrikes / (2 * N))))
 ```
 
-100 = Masterwork · 90–99 Excellent · 75–89 Good · 50–74 Rough · 0–49 Poor. There
-is no time penalty. Best quality per difficulty and your audio settings are
-remembered locally when storage is available.
+Because a square can never be struck more than three times, every spent square
+costs exactly one overstrike — so `overstrikes` is simply the number of holes you
+punched in the work. 100 = Masterwork · 90–99 Excellent · 75–89 Good · 50–74 Rough
+· 0–49 Poor. There is no time penalty. A stranded run scores nothing at all. Best
+quality per difficulty and your audio settings are remembered locally when
+storage is available.
 
 ## Fair boards
 
@@ -94,6 +112,13 @@ so any opening choice can still finish if you accept extra strikes.
 A verified perfect route exists from *one* starting square. That does not mean
 perfection is reachable from every starting square, and the game never claims it
 is. The route is kept for internal verification and is never revealed in play.
+
+**Reshaping voids that guarantee, deliberately.** The verified route is a promise
+about a board whose symbols hold still. Once a first strike can reshape a square,
+the promise only covers the board you start with — from there you are reading and
+re-planning, and you can be stranded. Novice keeps the old guarantee intact by
+never reshaping; the test suite replays every verified route with reshaping
+switched off, which is the only condition under which that route means anything.
 
 The search is bounded by node count and wall clock, so the interface can never
 hang. If a search is bounded out, the game falls back to one of twelve embedded
@@ -110,15 +135,17 @@ Everything tunable sits in one `CONFIG` object near the top of the script in
 
 ```js
 CONFIG.difficulties.master.size        // board edge length
-CONFIG.difficulties.master.pool        // piece pool used by the route search
+CONFIG.difficulties.master.pool        // piece pool: route search, and reshaping
 CONFIG.difficulties.master.maxQueens   // queens promoted in after the search
+CONFIG.difficulties.master.morphChance // odds a first strike reshapes a square
+CONFIG.rules.perfect                   // strikes that finish a square
+CONFIG.rules.spent                     // strikes that blank a square for good
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
 CONFIG.animation.impactAt              // fraction of strikeMs where the head lands
 CONFIG.animation.reducedMs             // duration under prefers-reduced-motion
 CONFIG.animation.liftDeg / .sparks     // swing arc and spark count
-CONFIG.scoring.perfect                 // strikes that make a square perfect
 CONFIG.scoring.penaltyScale            // divisor in the quality formula
 ```
 
@@ -142,8 +169,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 65 rule/generation checks
-node tools/verify-ui.mjs                                    # 67 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 91 rule/generation checks
+node tools/verify-ui.mjs                                    # 94 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

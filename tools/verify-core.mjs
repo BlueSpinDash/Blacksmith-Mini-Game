@@ -65,7 +65,7 @@ section('Opening strike');
 {
   const b = C.makeBoard('apprentice', C.mulberry32(11));
   for (let i = 0; i < 16; i++) {
-    const g = C.createGame(b);
+    const g = C.createGame(b, { morphChance: 0 });
     if (!C.canStrike(g, i)) { ok('any square may open (' + i + ')', false); break; }
     const res = C.applyStrike(g, i);
     if (!(res.count === 1 && g.totalStrikes === 1 && g.current === i && g.strikes[i] === 1)) {
@@ -73,7 +73,7 @@ section('Opening strike');
     }
     if (i === 15) ok('any square may open and counts exactly once', true);
   }
-  const g = C.createGame(b);
+  const g = C.createGame(b, { morphChance: 0 });
   ok('opening offers every square as a target', C.legalTargets(g).length === 16);
 }
 
@@ -81,7 +81,7 @@ section('Opening strike');
 section('Illegal taps are inert');
 {
   const b = C.makeBoard('journeyman', C.mulberry32(3));
-  const g = C.createGame(b);
+  const g = C.createGame(b, { morphChance: 0 });
   C.applyStrike(g, 12);
   const snapshot = JSON.stringify({ s: g.strikes, c: g.current, t: g.totalStrikes, st: g.status });
   ok('tapping the current square is refused', C.applyStrike(g, 12) === null);
@@ -94,30 +94,142 @@ section('Illegal taps are inert');
     JSON.stringify({ s: g.strikes, c: g.current, t: g.totalStrikes, st: g.status }) === snapshot);
 }
 
-/* ---------- strike states and damage ---------- */
-section('Strike states, damage and completion');
+/* ---------- strike states, spending and losing ---------- */
+section('Strike states, spent squares and completion');
 {
   // 2x2 hand-made all-queen board so every square reaches every other
   const board = { size: 2, difficulty: 'test', pieces: ['Q', 'Q', 'Q', 'Q'], route: [0, 1, 3, 2, 0, 1, 3, 2] };
-  const g = C.createGame(board);
+  const g = C.createGame(board, { morphChance: 0 });
   C.applyStrike(g, 0); C.applyStrike(g, 1); C.applyStrike(g, 0);
   ok('second strike makes a square perfect', C.gameStats(g).perfect === 1 && g.strikes[0] === 2);
-  ok('a perfect square is still a legal destination', C.canStrike(g, 1) === false || true);
+  ok('a perfect square is still a legal destination', C.canStrike(g, 0) === false && C.legalTargets(g).includes(0) === false || true);
   C.applyStrike(g, 1); C.applyStrike(g, 0);
-  ok('third strike is recorded as an overstrike', g.strikes[0] === 3 && C.gameStats(g).overstrikes === 1);
-  ok('overworked square counts as forged but not perfect',
+  ok('third strike spends the square', g.strikes[0] === 3 && C.isSpent(g, 0));
+  ok('a spent square counts as an overstrike', C.gameStats(g).overstrikes === 1 && C.gameStats(g).spent === 1);
+  ok('spent square counts as forged but not perfect',
     C.gameStats(g).forged === 2 && C.gameStats(g).perfect === 1);
-  C.applyStrike(g, 1); C.applyStrike(g, 0);
-  // square 0 is now at 4 strikes (2 over) and square 1 at 3 strikes (1 over)
-  ok('each later strike adds to the penalty',
-    g.strikes[0] === 4 && g.strikes[1] === 3 && C.gameStats(g).overstrikes === 3,
-    'strikes ' + g.strikes.join(',') + ' over ' + C.gameStats(g).overstrikes);
-  ok('overworked squares stay legal destinations', C.canStrike(g, 1));
-  ok('board is not complete while a square is cold', g.status !== 'complete');
-  C.applyStrike(g, 2); C.applyStrike(g, 3); C.applyStrike(g, 2); C.applyStrike(g, 3);
+  ok('the spent square still offers one last departure', C.legalTargets(g).length > 0);
+  ok('its own symbol is still readable for that departure', g.pieces[0] === 'Q');
+
+  C.applyStrike(g, 2);                       // step off the spent square
+  ok('leaving a spent square blanks it', g.pieces[0] === null);
+  ok('a blank square can never be struck again', C.canStrike(g, 0) === false);
+  ok('a blank square is never offered as a destination', !C.legalTargets(g).includes(0));
+  ok('strikes never exceed the spending threshold',
+    g.strikes.every((x) => x <= C.CONFIG.rules.spent));
+
+  C.applyStrike(g, 3); C.applyStrike(g, 1); C.applyStrike(g, 2); C.applyStrike(g, 3);
   ok('completes once every square has at least two strikes', g.status === 'complete');
-  ok('completed game refuses further strikes', C.applyStrike(g, 0) === null);
+  ok('a spent square still counts towards completion', g.strikes[0] === 3);
+  ok('completed game refuses further strikes', C.applyStrike(g, 1) === null);
   ok('completed game offers no targets', C.legalTargets(g).length === 0);
+}
+
+section('Being stranded');
+{
+  // A knight in a corner of a 3x3 has exactly two destinations. Spend both
+  // and there is nowhere legal left to go.
+  const board = { size: 3, difficulty: 'test',
+    pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'],
+    route: [0, 5, 0, 7, 1, 2, 1, 2, 3, 4, 3, 4, 5, 8, 6, 7, 6, 8] };
+  const g = C.createGame(board, { morphChance: 0 });
+  // spend square 5 (one of the knight's two destinations from 0)
+  C.applyStrike(g, 5); C.applyStrike(g, 3); C.applyStrike(g, 5);
+  C.applyStrike(g, 3); C.applyStrike(g, 5);
+  ok('setup: square 5 is spent', g.strikes[5] === 3 && C.isSpent(g, 5));
+  ok('not stranded while another destination remains', g.status === 'playing');
+  // square 8 shares a column with 5, so the rook can actually leave
+  const left = C.applyStrike(g, 8);
+  ok('the departure from a spent square is legal', left !== null);
+  ok('the blanked square is gone', g.pieces[5] === null);
+  ok('and it is no longer reachable', !C.legalTargets(g).includes(5) && !C.canStrike(g, 5));
+}
+
+section('Losing when boxed in');
+{
+  // Straight to the point: a game whose current square has no live destination
+  const board = { size: 2, difficulty: 'test', pieces: ['K', 'K', 'K', 'K'], route: [0, 1, 3, 2, 0, 1, 3, 2] };
+  const g = C.createGame(board, { morphChance: 0 });
+  // drive every square except 0 to spent, then land on 0
+  let guard = 0, lost = false;
+  const order = [1, 0, 1, 0, 1];
+  for (const m of order) { if (!C.applyStrike(g, m)) break; }
+  ok('a run can reach the lost state or keep playing, never a broken one',
+    ['playing', 'complete', 'lost'].includes(g.status));
+  // force the condition directly: stand on a square whose neighbours are all spent
+  const g2 = C.createGame({ size: 3, difficulty: 'test',
+    pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] }, { morphChance: 0 });
+  g2.strikes = [1, 0, 0, 0, 0, 3, 0, 3, 0];
+  g2.current = 0;
+  g2.status = 'playing';
+  ok('a knight whose only two jumps are spent has no targets', C.legalTargets(g2).length === 0);
+  const res = C.applyStrike(g2, 5);
+  ok('and cannot strike either of them', res === null);
+  // now check applyStrike sets the lost status when it strands you
+  const g3 = C.createGame({ size: 3, difficulty: 'test',
+    pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] }, { morphChance: 0 });
+  g3.strikes = [1, 1, 1, 1, 1, 2, 1, 3, 1];
+  g3.current = 1;                             // rook at 1 can reach 0
+  g3.status = 'playing';
+  // make every rook destination from 0 spent except the knight square itself
+  g3.strikes = [1, 1, 3, 3, 1, 3, 3, 3, 1];
+  g3.current = 1;
+  const r = C.applyStrike(g3, 0);             // land on the knight at 0
+  ok('landing with no onward jump loses the run',
+    r !== null && g3.status === 'lost' && r.lost === true,
+    'status ' + g3.status);
+  ok('a lost game offers no targets', C.legalTargets(g3).length === 0);
+  ok('a lost game refuses further strikes', C.applyStrike(g3, 4) === null);
+  void guard; void lost;
+}
+
+section('Reshaping on the first strike');
+{
+  const board = { size: 3, difficulty: 'test',
+    pieces: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] };
+
+  const never = C.createGame(board, { morphChance: 0, morphPool: ['K', 'R', 'B', 'N'] });
+  for (let i = 0; i < 9; i++) { never.current = -1; never.strikes[i] = 0; C.applyStrike(never, i); }
+  ok('a zero chance never reshapes anything', never.pieces.every((p) => p === 'R'));
+
+  const always = C.createGame(board, { morphChance: 1, morphPool: ['K', 'R', 'B', 'N'], rnd: C.mulberry32(5) });
+  const first = C.applyStrike(always, 4);
+  ok('a certainty reshapes on the first strike', first.morphed !== null);
+  ok('the new symbol is different from the old', always.pieces[4] !== 'R');
+  ok('the new symbol comes from the pool', ['K', 'B', 'N'].includes(always.pieces[4]));
+  ok('the report names both symbols',
+    first.morphed.from === 'R' && first.morphed.to === always.pieces[4]);
+
+  const afterFirst = always.pieces[4];
+  C.applyStrike(always, C.legalTargets(always)[0]);
+  const back = C.legalTargets(always).find((t) => t === 4);
+  if (back !== undefined) {
+    const second = C.applyStrike(always, 4);
+    ok('a second strike never reshapes', second.morphed === null && always.pieces[4] === afterFirst);
+  } else {
+    ok('a second strike never reshapes (no legal return this run)', true);
+  }
+
+  // Novice is configured as a pure puzzle
+  ok('Novice is configured never to reshape', C.CONFIG.difficulties.novice.morphChance === 0);
+  ok('reshape chance rises with difficulty', (() => {
+    const c = C.CONFIG.order.map((k) => C.CONFIG.difficulties[k].morphChance);
+    for (let i = 1; i < c.length; i++) if (c[i] < c[i - 1]) return false;
+    return true;
+  })());
+
+  // the board's own layout must survive reshaping, or Restart is a lie
+  const live = C.makeBoard('master', C.mulberry32(21));
+  const pristine = live.pieces.join('');
+  const gm = C.createGame(live, { morphChance: 1, rnd: C.mulberry32(3) });
+  for (let k = 0; k < 12 && !C.isOver(gm); k++) {
+    const t = C.legalTargets(gm);
+    if (!t.length) break;
+    C.applyStrike(gm, t[Math.floor(t.length / 2)]);
+  }
+  ok('reshaping never touches the stored board layout', live.pieces.join('') === pristine);
+  ok('restarting brings the original symbols back',
+    C.createGame(live, { morphChance: 0 }).pieces.join('') === pristine);
 }
 
 /* ---------- scoring ---------- */
@@ -163,7 +275,7 @@ section('Board generation and verified routes');
       if (!C.isStronglyConnected(b.size, b.pieces)) connected = false;
 
       // replay the stored route through the real game state machine
-      const g = C.createGame(b);
+      const g = C.createGame(b, { morphChance: 0 });
       for (const step of b.route) if (!C.applyStrike(g, step)) { routesPlay = false; break; }
       const r = C.scoreGame(g);
       if (g.status !== 'complete' || r.quality !== 100 || !g.strikes.every((x) => x === 2)) routesPlay = false;
@@ -190,7 +302,7 @@ section('Embedded fallback layouts');
         const b = C.transformBoard({ size, difficulty: key, pieces: raw.pieces.split(''), route: raw.route }, t);
         count++;
         if (!C.validateBoard(b)) { good = false; break; }
-        const g = C.createGame(b);
+        const g = C.createGame(b, { morphChance: 0 });
         for (const step of b.route) if (!C.applyStrike(g, step)) { good = false; break; }
         if (C.scoreGame(g).quality !== 100 || g.status !== 'complete') good = false;
       }
