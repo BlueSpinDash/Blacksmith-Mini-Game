@@ -145,6 +145,9 @@ input[type=range]{
   border:1px solid #14161b;
   cursor:pointer;
   display:flex;align-items:center;justify-content:center;
+  /* first line is the fallback for WebViews without container queries;
+     the second wins wherever cqw is supported */
+  font-size:clamp(14px, calc(46vw / var(--n,4)), 44px);
   font-size:calc(52cqw / var(--n,4));
   line-height:1;
   color:#b9c0cb;
@@ -189,6 +192,7 @@ input[type=range]{
   position:absolute;top:3%;right:4%;z-index:4;
   min-width:36%;padding:1px 2px;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:clamp(8px, calc(17vw / var(--n,4)), 16px);
   font-size:calc(19cqw / var(--n,4));
   line-height:1.15;text-align:center;
   color:#fff;background:rgba(160,36,20,.92);

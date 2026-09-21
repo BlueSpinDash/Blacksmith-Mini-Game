@@ -22,6 +22,23 @@ Portrait phones are the design target, down to 320 CSS pixels wide. Mouse,
 touch and keyboard all work; arrow keys move the focus ring across the board and
 Enter or Space swings the hammer.
 
+## Installing on Android
+
+`android/` wraps the same `index.html` in a minimal WebView shell so the game
+installs as a real app with a launcher icon and runs completely offline. No
+permissions are requested.
+
+```sh
+cd android && ./gradlew assembleRelease
+# -> app/build/outputs/apk/release/app-release.apk  (~1.2 MB)
+```
+
+Min SDK 24 (Android 7.0), target SDK 35. The build copies the root
+`index.html` into the APK every time, so the game has one source of truth —
+edit it at the root and rebuild. See [android/README.md](android/README.md) for
+installing, signing for Play, regenerating the icon, and what is and is not
+verified about the build.
+
 ## Playing
 
 1. Tap any square for the opening blow. That square becomes your position.

@@ -311,6 +311,33 @@ async function run() {
   ok('effects are cleared when hidden',
     await page.evaluate(() => document.getElementById('fx').childElementCount === 0));
 
+  /* The Android shell hands the hardware back gesture to the page with
+     exactly this snippet, so test the snippet against the real page. */
+  section('Android back-button handler (as used by the APK shell)');
+  const BACK = `(function(){
+      var open=document.querySelector('.overlay:not([hidden])');
+      if(!open) return false;
+      var close=open.querySelector('#helpClose,#confirmNo,#rChange');
+      if(close){close.click();} else {open.hidden=true;}
+      return true;
+    })()`;
+  ok('returns false when no dialog is open, so the app would exit',
+    (await page.evaluate(BACK)) === false);
+  await page.click('#helpBtn');
+  ok('how to play is open', await page.isVisible('#help'));
+  ok('back reports it handled the press', (await page.evaluate(BACK)) === true);
+  ok('back closed how to play', await page.isHidden('#help'));
+  await page.evaluate(() => document.getElementById('newBtn').click());
+  const hadConfirm = await page.isVisible('#confirm');
+  if (hadConfirm) {
+    ok('back dismisses the discard prompt without discarding',
+      (await page.evaluate(BACK)) === true && await page.isHidden('#confirm'));
+  } else {
+    ok('discard prompt not applicable (run not started)', true);
+  }
+  await page.waitForTimeout(150);
+  ok('back leaves the board untouched', (await snap(page)).status !== 'complete');
+
   ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));
   await ctx.close();
 

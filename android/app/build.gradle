@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The game itself lives at the repository root as a single self-contained
+// file. Copy it into the APK's assets at build time so there is exactly one
+// source of truth: edit index.html, rebuild, done.
+def gameAssets = layout.buildDirectory.dir('generated/gameAssets')
+def copyGame = tasks.register('copyGame', Copy) {
+    from rootProject.file('../index.html')
+    into gameAssets
+}
+
+android {
+    namespace 'com.bluespindash.forgepattern'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.bluespindash.forgepattern"
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+        resourceConfigurations += ['en']
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += gameAssets
+        }
+    }
+
+    // Release signing is read from keystore.properties when present, so the
+    // key never lives in version control. Without it, release builds fall
+    // back to the debug key, which is fine for sideloading but not for Play.
+    def keystorePropsFile = rootProject.file('keystore.properties')
+    def hasKeystore = keystorePropsFile.exists()
+    if (hasKeystore) {
+        def props = new Properties()
+        keystorePropsFile.withInputStream { props.load(it) }
+        signingConfigs {
+            release {
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false          // there is almost no Java here to shrink
+            shrinkResources false
+            signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    androidResources {
+        noCompress += ['html']
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name == 'preBuild') task.dependsOn(copyGame)
+}
