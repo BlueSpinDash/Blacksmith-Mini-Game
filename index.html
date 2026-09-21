@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#14151a">
+<meta name="description" content="Forge Pattern - a chess-movement smithing puzzle. Strike every square twice.">
+<title>Forge Pattern</title>
+<style>
+/* ---------------------------------------------------------------
+   Forge Pattern - styles
+   Palette: charcoal metal, ember accents, restrained brass.
+   --------------------------------------------------------------- */
+:root{
+  --bg:#14151a;
+  --bg-2:#0f1014;
+  --panel:#1d1f26;
+  --panel-2:#23262f;
+  --edge:#3a3e49;
+  --edge-soft:#2b2e37;
+  --text:#ece7dd;
+  --muted:#9d988d;
+  --ember:#ff8a3d;
+  --ember-deep:#c4521a;
+  --gold:#f3d791;
+  --brass:#caa64a;
+  --danger:#ff6a52;
+  --focus:#6fd3ff;
+  --radius:12px;
+  --gap:4px;
+  --tap:44px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  background:
+    radial-gradient(120% 70% at 50% -10%, #2a1c14 0%, rgba(42,28,20,0) 60%),
+    linear-gradient(180deg,var(--bg) 0%, var(--bg-2) 100%);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:"Iowan Old Style","Palatino Linotype",Georgia,"Times New Roman",serif;
+  min-height:100dvh;
+  -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
+button,input,select{font-family:inherit;color:inherit;}
+.sr-only{
+  position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;
+}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;}
+
+.app{
+  width:100%;
+  max-width:520px;
+  margin:0 auto;
+  padding:10px 10px calc(18px + env(safe-area-inset-bottom));
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;gap:8px;}
+.brand{display:flex;align-items:center;gap:8px;min-width:0;flex:1;}
+.brand .logo{
+  font-size:22px;line-height:1;color:var(--ember);
+  text-shadow:0 0 10px rgba(255,138,61,.55);
+}
+.brand h1{
+  font-size:clamp(17px,5.4vw,22px);
+  margin:0;letter-spacing:.04em;font-weight:600;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.audio-ctl{display:flex;align-items:center;gap:6px;}
+.icon-btn{
+  min-width:var(--tap);min-height:var(--tap);
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--panel);border:1px solid var(--edge);border-radius:10px;
+  font-size:18px;cursor:pointer;padding:0 8px;
+}
+.icon-btn[aria-pressed="true"]{border-color:var(--ember);color:var(--ember);}
+.icon-btn:active{transform:translateY(1px);}
+input[type=range]{
+  width:78px;accent-color:var(--ember);height:var(--tap);
+}
+
+/* ---------- difficulty ---------- */
+.difficulty{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+}
+.diff-btn{
+  min-height:var(--tap);
+  padding:5px 2px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  background:var(--panel);border:1px solid var(--edge);border-radius:10px;
+  cursor:pointer;font-size:13px;letter-spacing:.02em;line-height:1.1;
+}
+.diff-btn small{font-size:10.5px;color:var(--muted);letter-spacing:.06em;}
+.diff-btn[aria-pressed="true"]{
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);color:var(--gold);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.25),0 0 12px rgba(255,138,61,.18);
+}
+.diff-btn[aria-pressed="true"] small{color:var(--brass);}
+
+/* ---------- prompt ---------- */
+.prompt{
+  margin:0;padding:9px 11px;min-height:54px;
+  display:flex;align-items:center;gap:9px;
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  border:1px solid var(--edge-soft);border-left:3px solid var(--ember);
+  border-radius:10px;font-size:14px;line-height:1.35;
+}
+.prompt .pc-glyph{
+  font-size:26px;line-height:1;color:var(--gold);
+  text-shadow:0 1px 0 #000;flex:0 0 auto;
+}
+.prompt b{color:var(--gold);font-weight:600;}
+
+/* ---------- board ---------- */
+.board-wrap{
+  position:relative;
+  padding:7px;
+  border-radius:var(--radius);
+  background:linear-gradient(180deg,#22242c,#16171c);
+  border:1px solid var(--edge);
+  box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.board{
+  display:grid;
+  grid-template-columns:repeat(var(--n,4),1fr);
+  gap:var(--gap);
+  container-type:inline-size;
+  touch-action:manipulation;
+}
+.tile{
+  position:relative;
+  aspect-ratio:1/1;
+  min-width:0;
+  padding:0;
+  border-radius:9px;
+  border:1px solid #14161b;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:calc(52cqw / var(--n,4));
+  line-height:1;
+  color:#b9c0cb;
+  background:
+    linear-gradient(160deg,#3c414c 0%,#2a2e37 45%,#22252c 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 4px rgba(0,0,0,.45);
+  transition:transform .09s ease, box-shadow .16s ease, background .2s ease;
+  -webkit-user-select:none;user-select:none;
+}
+.tile .glyph{
+  position:relative;z-index:2;
+  text-shadow:0 1px 1px #0b0c0f, 0 0 2px rgba(0,0,0,.8);
+  pointer-events:none;
+}
+/* rough hammered texture on untouched metal */
+.tile::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;z-index:1;
+  background-image:
+    radial-gradient(circle at 24% 30%, rgba(255,255,255,.055) 0 12%, transparent 13%),
+    radial-gradient(circle at 70% 62%, rgba(0,0,0,.30) 0 14%, transparent 15%),
+    radial-gradient(circle at 48% 80%, rgba(255,255,255,.035) 0 10%, transparent 11%);
+  pointer-events:none;
+}
+
+/* strike marks (notches along the bottom edge) */
+.marks{
+  position:absolute;left:0;right:0;bottom:5%;z-index:3;
+  display:flex;justify-content:center;gap:11%;
+  pointer-events:none;
+}
+.marks i{
+  display:block;width:14%;height:0;padding-bottom:5%;
+  border-radius:2px;background:var(--gold);
+  box-shadow:0 0 4px rgba(243,215,145,.7),0 1px 0 #000;
+  transform:skewX(-20deg);
+}
+.tile[data-s="1"] .marks i{background:var(--ember);box-shadow:0 0 5px rgba(255,138,61,.8);}
+.tile[data-s="3"] .marks i{background:var(--danger);box-shadow:none;}
+
+/* count badge for overworked squares */
+.count{
+  position:absolute;top:3%;right:4%;z-index:4;
+  min-width:36%;padding:1px 2px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:calc(19cqw / var(--n,4));
+  line-height:1.15;text-align:center;
+  color:#fff;background:rgba(160,36,20,.92);
+  border:1px solid rgba(255,140,120,.7);border-radius:5px;
+  pointer-events:none;
+}
+
+/* strike states */
+.tile[data-s="1"]{
+  background:linear-gradient(160deg,#7a3f16 0%,#5a2c10 48%,#3d1f0c 100%);
+  color:#ffe6c9;
+  box-shadow:inset 0 1px 0 rgba(255,200,150,.25), inset 0 -2px 5px rgba(0,0,0,.5), 0 0 12px rgba(255,138,61,.30);
+}
+.tile[data-s="1"]::before{background-image:radial-gradient(circle at 50% 60%, rgba(255,150,60,.35) 0 42%, transparent 60%);}
+.tile[data-s="2"]{
+  background:linear-gradient(160deg,#cfd3da 0%,#9aa1ad 42%,#6f7683 100%);
+  color:#2a2118;
+  border-color:#e4d3a4;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 5px rgba(0,0,0,.35), 0 0 10px rgba(243,215,145,.30);
+}
+.tile[data-s="2"] .glyph{text-shadow:0 1px 0 rgba(255,255,255,.5);}
+.tile[data-s="2"] .marks i{background:#6b5a2e;box-shadow:0 1px 0 rgba(255,255,255,.35);}
+.tile[data-s="2"]::before{
+  background-image:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.45) 50%, transparent 62%);
+}
+.tile[data-s="3"]{
+  background:linear-gradient(160deg,#4a2a28 0%,#331c1b 50%,#241413 100%);
+  color:#f0c9c2;border-color:#6d2a22;
+  box-shadow:inset 0 1px 0 rgba(255,120,100,.16), inset 0 -2px 5px rgba(0,0,0,.6);
+}
+.tile[data-s="3"]::before{
+  background-image:
+    linear-gradient(118deg, transparent 44%, rgba(0,0,0,.85) 45.6%, rgba(255,106,82,.55) 46.6%, transparent 48%),
+    linear-gradient(-64deg, transparent 56%, rgba(0,0,0,.8) 57.4%, rgba(255,106,82,.45) 58.4%, transparent 60%),
+    linear-gradient(28deg, transparent 66%, rgba(0,0,0,.6) 67%, transparent 68.4%);
+}
+
+/* current square + legal destinations: shape cues, not colour alone */
+.tile[data-current="1"]{
+  border-color:var(--brass);
+  box-shadow:0 0 0 3px var(--brass), 0 0 0 5px rgba(0,0,0,.65), 0 0 16px rgba(202,166,74,.45);
+  z-index:5;
+}
+.tile[data-current="1"]::after{
+  content:"\25C6";
+  position:absolute;top:1%;left:5%;z-index:4;
+  font-size:calc(20cqw / var(--n,4));line-height:1;color:var(--brass);
+  text-shadow:0 1px 2px #000;
+}
+.tile[data-legal="1"]{
+  border-color:rgba(255,138,61,.85);
+  box-shadow:0 0 0 2px rgba(255,138,61,.55), inset 0 0 10px rgba(255,138,61,.20);
+}
+.tile[data-legal="1"]::after{
+  content:"";position:absolute;z-index:4;
+  left:50%;top:50%;width:64%;height:64%;
+  transform:translate(-50%,-50%);
+  border:2px dashed rgba(255,214,170,.9);
+  border-radius:50%;
+  animation:target-pulse 1.9s ease-in-out infinite;
+}
+@keyframes target-pulse{0%,100%{opacity:.45;} 50%{opacity:1;}}
+.tile[data-legal="0"][data-current="0"]{opacity:.82;}
+.board[data-frozen="1"] .tile{cursor:default;}
+
+/* impact reaction */
+.tile.impact{animation:tile-squash .26s ease-out;}
+@keyframes tile-squash{
+  0%{transform:scale(1);}
+  22%{transform:scale(.90) translateY(2px);}
+  55%{transform:scale(1.035) translateY(-1px);}
+  100%{transform:scale(1);}
+}
+.tile.shake{animation:tile-shake .22s ease-out;}
+@keyframes tile-shake{
+  0%,100%{transform:translateX(0);}
+  25%{transform:translateX(-3px);}
+  50%{transform:translateX(3px);}
+  75%{transform:translateX(-2px);}
+}
+
+/* ---------- effects layer ---------- */
+.fx-layer{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:20;}
+.hammer{position:absolute;left:0;top:0;will-change:transform;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6));}
+.glow{
+  position:absolute;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle, rgba(255,222,170,.95) 0%, rgba(255,138,61,.65) 35%, rgba(255,80,20,0) 72%);
+}
+.spark{position:absolute;width:3px;height:3px;border-radius:50%;background:#ffd79a;box-shadow:0 0 6px #ff9a3c;}
+.spark.dull{background:#c98a7a;box-shadow:0 0 4px #7a3126;}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.stat{
+  background:var(--panel);border:1px solid var(--edge-soft);border-radius:9px;
+  padding:6px 3px;text-align:center;min-width:0;
+}
+.stat .k{display:block;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);}
+.stat .v{display:block;font-size:16px;font-variant-numeric:tabular-nums;margin-top:2px;}
+.stat.warn .v{color:var(--danger);}
+.stat.good .v{color:var(--gold);}
+
+/* ---------- actions / legend ---------- */
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.btn{
+  min-height:var(--tap);padding:8px 6px;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--edge);border-radius:10px;cursor:pointer;
+  font-size:13.5px;letter-spacing:.02em;
+}
+.btn:active{transform:translateY(1px);}
+.btn.primary{
+  background:linear-gradient(180deg,#a8541f,#7d3a13);
+  border-color:#e0864a;color:#fff6ea;
+}
+.btn.ghost{background:transparent;}
+details.panel{
+  background:var(--panel);border:1px solid var(--edge-soft);border-radius:10px;
+}
+details.panel>summary{
+  min-height:var(--tap);display:flex;align-items:center;
+  padding:0 12px;cursor:pointer;font-size:13.5px;color:var(--gold);letter-spacing:.03em;
+}
+details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#ded8cd;}
+.legend-row{display:flex;gap:9px;align-items:flex-start;padding:5px 0;border-top:1px solid var(--edge-soft);}
+.legend-row .g{font-size:21px;line-height:1.1;color:var(--gold);width:1.2em;text-align:center;flex:0 0 auto;}
+.legend-row .t b{color:#fff;font-weight:600;}
+.best-line,.sheet .best-line{margin:0;text-align:center;font-size:12.5px;color:var(--muted);letter-spacing:.03em;}
+
+/* ---------- overlays ---------- */
+.overlay{
+  position:fixed;inset:0;z-index:60;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  background:rgba(8,9,12,.82);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+}
+.overlay[hidden]{display:none;}
+.sheet{
+  width:100%;max-width:400px;max-height:88dvh;overflow:auto;
+  background:linear-gradient(180deg,#24262e,#191b21);
+  border:1px solid var(--edge);border-radius:14px;
+  box-shadow:0 18px 50px rgba(0,0,0,.6);
+  padding:16px;
+}
+.sheet h2{margin:0 0 4px;font-size:20px;letter-spacing:.04em;}
+.sheet p{font-size:13.5px;line-height:1.55;color:#ded8cd;}
+.sheet .quality{
+  text-align:center;font-size:52px;line-height:1;color:var(--gold);
+  font-variant-numeric:tabular-nums;margin:6px 0 0;
+  text-shadow:0 0 18px rgba(243,215,145,.35);
+}
+.sheet .quality small{display:block;font-size:13px;color:var(--muted);letter-spacing:.14em;margin-top:4px;}
+.sheet .result-label{text-align:center;font-size:23px;margin:8px 0 12px;letter-spacing:.06em;color:var(--ember);}
+.sheet .result-label.masterwork{color:var(--gold);text-shadow:0 0 14px rgba(243,215,145,.5);}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;}
+.result-grid div{background:#15161b;border:1px solid var(--edge-soft);border-radius:8px;padding:7px 9px;font-size:12.5px;}
+.result-grid span{display:block;color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;}
+.sheet-actions{display:grid;gap:7px;}
+.sheet-actions.row{grid-template-columns:1fr 1fr;}
+
+@media (max-width:359px){
+  :root{--gap:3px;}
+  .app{padding-left:7px;padding-right:7px;}
+  .diff-btn{font-size:12px;}
+  .btn{font-size:12.5px;}
+}
+@media (min-width:560px){
+  :root{--gap:6px;}
+  .app{padding-top:18px;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
+  .tile[data-legal="1"]::after{opacity:.9;}
+}
+.reduced .tile.impact,.reduced .tile.shake{animation:none;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">&#9874;</span>
+      <h1>Forge Pattern</h1>
+    </div>
+    <div class="audio-ctl">
+      <button id="muteBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="Mute sound">
+        <span id="muteIcon" aria-hidden="true">&#128266;</span>
+      </button>
+      <input id="volume" type="range" min="0" max="100" step="5" value="70" aria-label="Volume">
+    </div>
+  </header>
+
+  <nav class="difficulty" role="group" aria-label="Difficulty">
+    <button class="diff-btn" type="button" data-diff="novice"     aria-pressed="false">Novice<small>3&times;3</small></button>
+    <button class="diff-btn" type="button" data-diff="apprentice" aria-pressed="false">Appren.<small>4&times;4</small></button>
+    <button class="diff-btn" type="button" data-diff="journeyman" aria-pressed="false">Journey.<small>5&times;5</small></button>
+    <button class="diff-btn" type="button" data-diff="master"     aria-pressed="false">Master<small>6&times;6</small></button>
+  </nav>
+
+  <p class="prompt" id="prompt">
+    <span class="pc-glyph" id="promptGlyph" aria-hidden="true">&#9874;</span>
+    <span id="promptText">Choose any square to begin.</span>
+  </p>
+
+  <div class="board-wrap">
+    <div id="board" class="board" role="group" aria-label="Forge board"></div>
+    <div id="fx" class="fx-layer" aria-hidden="true"></div>
+  </div>
+
+  <div class="stats" id="stats">
+    <div class="stat"><span class="k">Strikes</span><span class="v" id="sStrikes">0</span></div>
+    <div class="stat" id="overChip"><span class="k">Over</span><span class="v" id="sOver">0</span></div>
+    <div class="stat"><span class="k">Forged</span><span class="v" id="sForged">0/9</span></div>
+    <div class="stat good"><span class="k">Perfect</span><span class="v" id="sPerfect">0</span></div>
+  </div>
+  <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+
+  <div class="actions">
+    <button class="btn" type="button" id="restartBtn">Restart Board</button>
+    <button class="btn" type="button" id="newBtn">New Puzzle</button>
+    <button class="btn ghost" type="button" id="helpBtn">How to Play</button>
+  </div>
+
+  <details class="panel" id="legendPanel">
+    <summary>Piece movement legend</summary>
+    <div class="body" id="legendBody"></div>
+  </details>
+
+  <p class="best-line" id="bestLine">Best quality on Novice: &mdash;</p>
+</div>
+
+<!-- results -->
+<div class="overlay" id="results" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+  <div class="sheet">
+    <h2 id="resultTitle">Work complete</h2>
+    <p class="quality" id="rQuality">100<small>QUALITY</small></p>
+    <p class="result-label" id="rLabel">Masterwork</p>
+    <div class="result-grid">
+      <div><span>Difficulty</span><b id="rDiff">Novice</b></div>
+      <div><span>Total strikes</span><b id="rStrikes">18</b></div>
+      <div><span>Overstrikes</span><b id="rOver">0</b></div>
+      <div><span>Perfect squares</span><b id="rPerfect">9 / 9</b></div>
+    </div>
+    <p id="rBest" class="best-line" style="margin-bottom:12px"></p>
+    <div class="sheet-actions">
+      <button class="btn primary" type="button" id="rRetry">Retry This Board</button>
+      <div class="sheet-actions row">
+        <button class="btn" type="button" id="rNew">Another Puzzle</button>
+        <button class="btn" type="button" id="rChange">Change Difficulty</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- how to play -->
+<div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet">
+    <h2 id="helpTitle">How to Play</h2>
+    <p>Strike every square twice. The piece on your current square determines your next move.
+       Extra strikes damage the metal and lower your quality.</p>
+    <p>
+      <b>1.</b> Tap any square to land the first blow.<br>
+      <b>2.</b> The chess symbol on the square you are standing on decides where the hammer may go next &mdash;
+      the symbol on the destination does not matter.<br>
+      <b>3.</b> Two strikes forge a square perfectly. A third strike cracks it and costs quality.<br>
+      <b>4.</b> The board finishes on its own once every square has at least two strikes.
+    </p>
+    <p><b>Marks:</b> a brass diamond shows where the hammer stands now; dashed rings show every legal destination.
+       Notches along the bottom of a square count its strikes, and a red number appears once a square is overworked.</p>
+    <p>Sliding pieces jump over anything in the way &mdash; only the destination is struck. There are no captures,
+       no blockers and no timer: this is a route-planning puzzle.</p>
+    <div class="sheet-actions"><button class="btn primary" type="button" id="helpClose">Back to the forge</button></div>
+  </div>
+</div>
+
+<!-- confirm -->
+<div class="overlay" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+  <div class="sheet" style="max-width:340px">
+    <h2 id="confirmTitle">Abandon this piece?</h2>
+    <p id="confirmText">You have already started striking. This will discard your progress.</p>
+    <div class="sheet-actions row">
+      <button class="btn primary" type="button" id="confirmYes">Discard</button>
+      <button class="btn" type="button" id="confirmNo">Keep forging</button>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* =================================================================
+   FORGE PATTERN
+   Part 1 - CORE: rules, board generation/validation, game state,
+   scoring. No DOM, no audio, no timers. Pure and testable.
+   ================================================================= */
+/* ==== CORE START ==== */
+
+/* ---------- Adjustable configuration -------------------------------
+   Board sizes, piece pools, animation timing and the scoring formula
+   all live here. Change a value and everything downstream follows. */
+const CONFIG = {
+  order: ['novice', 'apprentice', 'journeyman', 'master'],
+  difficulties: {
+    novice:     { label: 'Novice',     size: 3, pool: ['K', 'R'],                maxQueens: 0 },
+    apprentice: { label: 'Apprentice', size: 4, pool: ['K', 'R', 'B'],           maxQueens: 0 },
+    journeyman: { label: 'Journeyman', size: 5, pool: ['K', 'R', 'B', 'N'],      maxQueens: 0 },
+    master:     { label: 'Master',     size: 6, pool: ['K', 'R', 'B', 'N'],      maxQueens: 2 }
+  },
+  generation: {
+    nodeBudget: 150000,   // search nodes before giving up on one attempt
+    timeBudgetMs: 900,    // hard wall-clock cap for a whole board request
+    attempts: 16,         // route searches per board request
+    assignTries: 10       // piece assignments tried per route
+  },
+  animation: {
+    strikeMs: 300,        // full hammer action, 250-350ms feels right
+    impactAt: 0.52,       // fraction of strikeMs at which the head lands
+    reducedMs: 150,       // total duration when reduced motion is requested
+    liftDeg: -54,         // hammer rest/lift angle
+    sparks: 9
+  },
+  scoring: {
+    perfect: 2,           // strikes that make a square perfect
+    penaltyScale: 2       // quality = 100 * (1 - overstrikes / (penaltyScale * N))
+  }
+};
+
+const PIECES = {
+  K: { name: 'King',   glyph: '♔', move: 'move one square in any direction' },
+  R: { name: 'Rook',   glyph: '♖', move: 'move any distance horizontally or vertically' },
+  B: { name: 'Bishop', glyph: '♗', move: 'move any distance diagonally' },
+  N: { name: 'Knight', glyph: '♘', move: 'move two squares one way and one the other, jumping over anything' },
+  Q: { name: 'Queen',  glyph: '♕', move: 'move any distance horizontally, vertically or diagonally' }
+};
+
+const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const DIAG  = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+const KNIGHT = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
+
+/* Legal destinations for `piece` standing on square `idx` of an
+   size x size board. Index = row * size + col. Sliders pass over
+   everything; only the destination matters. */
+function movesFrom(piece, idx, size) {
+  const r = Math.floor(idx / size), c = idx % size, out = [];
+  const step = (dirs) => {
+    for (const d of dirs) {
+      const rr = r + d[0], cc = c + d[1];
+      if (rr >= 0 && rr < size && cc >= 0 && cc < size) out.push(rr * size + cc);
+    }
+  };
+  const slide = (dirs) => {
+    for (const d of dirs) {
+      let rr = r + d[0], cc = c + d[1];
+      while (rr >= 0 && rr < size && cc >= 0 && cc < size) {
+        out.push(rr * size + cc);
+        rr += d[0]; cc += d[1];
+      }
+    }
+  };
+  switch (piece) {
+    case 'K': step(ORTHO.concat(DIAG)); break;
+    case 'R': slide(ORTHO); break;
+    case 'B': slide(DIAG); break;
+    case 'Q': slide(ORTHO.concat(DIAG)); break;
+    case 'N': step(KNIGHT); break;
+    default: throw new Error('unknown piece ' + piece);
+  }
+  return out;
+}
+
+/* Cached lookup tables: table[piece].list[from] and table[piece].mask[from] */
+const _tables = new Map();
+function tableFor(size) {
+  let t = _tables.get(size);
+  if (t) return t;
+  const n = size * size;
+  t = {};
+  for (const p of Object.keys(PIECES)) {
+    const list = new Array(n), mask = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const m = movesFrom(p, i, size);
+      list[i] = m;
+      const bits = new Uint8Array(n);
+      for (const j of m) bits[j] = 1;
+      mask[i] = bits;
+    }
+    t[p] = { list, mask };
+  }
+  _tables.set(size, t);
+  return t;
+}
+
+function isLegalMove(piece, from, to, size) {
+  if (from === to) return false;                       // standing still is not a move
+  return tableFor(size)[piece].mask[from][to] === 1;
+}
+
+/* ---------- deterministic RNG (seeded, so boards are reproducible) */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- solution-first board generation ------------------------
+   We never scatter symbols and hope. We search for a route that
+   visits every square exactly twice, tracking which pieces could
+   still sit on each square given the departures made from it. A
+   square's piece must legalise EVERY departure from that square. */
+function buildRoute(size, pool, rnd, budget, deadline) {
+  const n = size * size, total = 2 * n, T = tableFor(size);
+  const counts = new Int32Array(n);
+  const opts = new Array(n);
+  // Each square gets a wished-for piece up front. The search leans
+  // towards moves that keep that wish alive, which is what spreads
+  // knights and bishops across the board instead of defaulting to
+  // whichever symbol is least demanding.
+  const want = new Array(n);
+  for (let i = 0; i < n; i++) { opts[i] = pool.slice(); want[i] = pool[Math.floor(rnd() * pool.length)]; }
+  const route = new Array(total);
+  let nodes = 0, bailed = false;
+
+  const start = Math.floor(rnd() * n);
+  route[0] = start;
+  counts[start] = 1;
+
+  function candidates(cur) {
+    const res = [], curOpts = opts[cur], wish = want[cur];
+    for (let t = 0; t < n; t++) {
+      if (t === cur || counts[t] >= 2) continue;
+      let ok = null, keepsWish = false;
+      for (let k = 0; k < curOpts.length; k++) {
+        const p = curOpts[k];
+        if (T[p].mask[cur][t]) {
+          if (ok === null) ok = [];
+          ok.push(p);
+          if (p === wish) keepsWish = true;
+        }
+      }
+      if (ok !== null) {
+        // unstruck squares first, then the wish, then flexibility, then noise
+        const key = counts[t] * 1000 + (keepsWish ? 0 : 5) - ok.length * 0.4 + rnd() * 3.2;
+        res.push({ t: t, opts: ok, key: key });
+      }
+    }
+    res.sort((a, b) => a.key - b.key);
+    return res;
+  }
+
+  function dfs(depth) {
+    if (depth === total) return true;
+    if (++nodes > budget) { bailed = true; return false; }
+    if ((nodes & 1023) === 0 && deadline && Date.now() > deadline) { bailed = true; return false; }
+    const cur = route[depth - 1];
+    const saved = opts[cur];
+    const cands = candidates(cur);
+    for (let i = 0; i < cands.length; i++) {
+      const c = cands[i];
+      opts[cur] = c.opts;
+      counts[c.t]++;
+      route[depth] = c.t;
+      if (dfs(depth + 1)) return true;
+      counts[c.t]--;
+      opts[cur] = saved;
+      if (bailed) break;
+    }
+    opts[cur] = saved;
+    return false;
+  }
+
+  return dfs(1) ? route : null;
+}
+
+/* Which pieces may sit on each square, given a route. */
+function pieceOptionsFor(size, route, pool) {
+  const n = size * size, T = tableFor(size);
+  const opts = new Array(n);
+  for (let i = 0; i < n; i++) opts[i] = pool.slice();
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = route[i], b = route[i + 1];
+    if (a === b) return null;
+    opts[a] = opts[a].filter((p) => T[p].mask[a][b] === 1);
+    if (opts[a].length === 0) return null;
+  }
+  return opts;
+}
+
+/* Pick one piece per square, spreading the pool as evenly as the
+   route allows, then promote a few squares to Queen where legal. */
+function assignPieces(size, opts, rnd, maxQueens) {
+  const n = size * size;
+  const pieces = new Array(n);
+  const usage = {};
+  const order = [];
+  for (let i = 0; i < n; i++) order.push(i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  }
+  for (const i of order) {
+    const all = opts[i];
+    if (!all || !all.length) return null;
+    // Queens are a promotion, never the default pick.
+    const choices = all.length > 1 ? all.filter((p) => p !== 'Q') : all;
+    if (!choices.length) { pieces[i] = 'Q'; usage.Q = (usage.Q || 0) + 1; continue; }
+    let best = null, bestUse = Infinity;
+    for (const p of choices) {
+      const u = (usage[p] || 0) + rnd() * 0.5;
+      if (u < bestUse) { bestUse = u; best = p; }
+    }
+    pieces[i] = best;
+    usage[best] = (usage[best] || 0) + 1;
+  }
+  if (maxQueens > 0) {
+    // A Queen covers every Rook, Bishop and King move, so promoting a
+    // square never invalidates the route.
+    const promotable = [];
+    for (let i = 0; i < n; i++) {
+      if (pieces[i] !== 'Q' && opts[i].indexOf('Q') !== -1) promotable.push(i);
+    }
+    const want = Math.min(maxQueens, promotable.length, 1 + Math.floor(rnd() * maxQueens));
+    for (let k = 0; k < want && promotable.length; k++) {
+      const pick = Math.floor(rnd() * promotable.length);
+      pieces[promotable[pick]] = 'Q';
+      promotable.splice(pick, 1);
+    }
+  }
+  return pieces;
+}
+
+/* Every square can eventually reach every other square, so any
+   opening choice can still finish (with extra strikes if needed). */
+function isStronglyConnected(size, pieces) {
+  const n = size * size, T = tableFor(size);
+  const fwd = new Array(n), rev = new Array(n);
+  for (let i = 0; i < n; i++) { fwd[i] = T[pieces[i]].list[i]; rev[i] = []; }
+  for (let i = 0; i < n; i++) for (const j of fwd[i]) rev[j].push(i);
+  const reach = (adj) => {
+    const seen = new Uint8Array(n);
+    const stack = [0];
+    seen[0] = 1;
+    let count = 1;
+    while (stack.length) {
+      const cur = stack.pop();
+      for (const nx of adj[cur]) if (!seen[nx]) { seen[nx] = 1; count++; stack.push(nx); }
+    }
+    return count === n;
+  };
+  return reach(fwd) && reach(rev);
+}
+
+/* Independent check of a finished board: the stored route really is a
+   perfect solution under the stored symbols. */
+function validateBoard(board) {
+  const size = board.size, n = size * size;
+  const route = board.route, pieces = board.pieces;
+  if (!route || route.length !== 2 * n) return false;
+  if (!pieces || pieces.length !== n) return false;
+  const counts = new Int32Array(n);
+  for (const i of route) {
+    if (!(i >= 0 && i < n)) return false;
+    counts[i]++;
+  }
+  for (let i = 0; i < n; i++) if (counts[i] !== 2) return false;
+  for (let i = 0; i < route.length - 1; i++) {
+    if (!isLegalMove(pieces[route[i]], route[i], route[i + 1], size)) return false;
+  }
+  return isStronglyConnected(size, pieces);
+}
+
+function generateBoard(difficultyKey, rnd, limits) {
+  const cfg = CONFIG.difficulties[difficultyKey];
+  const g = Object.assign({}, CONFIG.generation, limits || {});
+  const deadline = Date.now() + g.timeBudgetMs;
+  for (let attempt = 0; attempt < g.attempts; attempt++) {
+    if (Date.now() > deadline) break;
+    const route = buildRoute(cfg.size, cfg.pool, rnd, g.nodeBudget, deadline);
+    if (!route) continue;
+    // Queens are considered only when assigning symbols, so the route
+    // search never leans on their extra freedom.
+    const assignPool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
+    const opts = pieceOptionsFor(cfg.size, route, assignPool);
+    if (!opts) continue;
+    for (let k = 0; k < g.assignTries; k++) {
+      const pieces = assignPieces(cfg.size, opts, rnd, cfg.maxQueens);
+      if (!pieces) break;
+      const board = { size: cfg.size, difficulty: difficultyKey, pieces: pieces, route: route.slice() };
+      if (validateBoard(board)) return board;
+    }
+  }
+  return null;
+}
+
+/* The eight symmetries of a square all preserve king, rook, bishop,
+   knight and queen moves, so they give free variety. */
+function transformBoard(board, t) {
+  const n = board.size, map = new Array(n * n);
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      let rr = r, cc = c;
+      if (t & 4) { const tmp = rr; rr = cc; cc = tmp; }
+      if (t & 1) cc = n - 1 - cc;
+      if (t & 2) rr = n - 1 - rr;
+      map[r * n + c] = rr * n + cc;
+    }
+  }
+  const pieces = new Array(n * n);
+  for (let i = 0; i < n * n; i++) pieces[map[i]] = board.pieces[i];
+  return {
+    size: n,
+    difficulty: board.difficulty,
+    pieces: pieces,
+    route: board.route.map((i) => map[i])
+  };
+}
+
+/* Prevalidated layouts, used when procedural search is bounded out.
+   Each was produced by the generator above and passes validateBoard. */
+const FALLBACK_BOARDS = {
+  novice: [
+    { pieces: 'KRRKKRKRK',
+      route: [2,1,4,3,6,7,8,5,8,5,2,0,1,4,7,6,3,0] },
+    { pieces: 'KRRKKKRKR',
+      route: [0,1,2,5,7,6,3,4,8,6,3,7,4,5,8,2,0,1] },
+    { pieces: 'RKRKKKRKR',
+      route: [7,4,3,6,0,1,2,8,5,1,0,6,8,2,5,7,4,3] }
+  ],
+  apprentice: [
+    { pieces: 'KRRBBBKKKKBRRBRR',
+      route: [1,2,3,6,5,0,4,9,10,15,13,7,11,8,12,14,13,7,10,15,14,2,1,5,8,12,0,4,9,6,11,3] },
+    { pieces: 'RRBRBKRBRKKBRKKB',
+      route: [4,9,14,11,6,2,7,13,10,5,8,12,15,0,1,3,7,13,8,9,12,15,0,4,1,3,2,5,6,10,11,14] },
+    { pieces: 'BBKBRRKRBKKKRBKR',
+      route: [2,5,4,8,13,10,11,14,9,6,7,3,12,0,15,14,13,8,2,1,6,3,9,4,12,0,15,11,10,7,5,1] }
+  ],
+  journeyman: [
+    { pieces: 'KRRKBNBRRRRKRNNKKRKKRBKBB',
+      route: [19,24,18,13,22,21,17,12,2,1,11,7,8,9,6,0,5,16,15,10,14,3,4,20,23,5,16,17,15,20,22,18,19,13,6,0,1,21,9,24,12,7,8,23,11,10,14,3,2,4] },
+    { pieces: 'RRNRRBKNNKBBRNBRKKKBRNNKR',
+      route: [18,12,7,16,17,21,10,6,2,5,11,15,0,20,24,14,22,19,13,4,9,8,1,3,23,19,7,10,6,0,3,2,9,13,4,1,16,17,21,12,14,8,11,5,23,22,15,18,24,20] },
+    { pieces: 'NRBNRKKBNNKRKNRBKRKBBBRNN',
+      route: [20,8,19,23,12,16,21,13,24,17,15,3,6,0,7,11,14,9,18,22,2,10,5,1,4,1,21,15,11,12,18,23,16,10,6,5,0,7,3,14,19,13,24,17,22,20,4,9,2,8] }
+  ],
+  master: [
+    { pieces: 'RKRKNBKNRKNNRRRRBBRKBQRBKBKKNRRKKRKK',
+      route: [21,27,34,35,29,11,15,9,16,23,33,32,25,10,14,13,7,20,6,1,0,12,24,31,26,19,18,22,4,17,3,8,2,5,30,31,30,24,19,14,2,0,4,17,27,28,15,21,16,23,33,32,26,25,18,6,12,13,1,7,3,9,8,11,22,28,20,34,35,29,5,10] },
+    { pieces: 'NRNNBNKKRBBKBNBRQBKKRKNRQNKRRKRRRNBB',
+      route: [17,22,11,5,9,2,15,21,20,19,18,25,33,29,35,28,16,10,3,14,7,12,26,27,24,31,32,30,34,13,0,8,6,1,4,24,18,25,14,28,26,32,30,31,13,0,8,9,23,29,34,6,12,2,10,5,16,17,3,11,4,19,20,23,21,15,27,33,22,35,7,1] },
+    { pieces: 'NKBNRKKNBNQRKNBBKRNKBBNNQNNRKKRKBNBR',
+      route: [10,4,5,11,29,23,15,20,27,28,21,35,31,32,17,16,9,22,33,25,14,19,13,2,12,18,26,34,6,0,8,1,7,3,14,24,30,18,31,25,21,16,10,9,22,33,29,28,34,27,24,30,0,8,13,2,23,15,20,5,4,1,6,7,3,11,35,32,17,12,19,26] }
+  ]
+};
+
+function fallbackBoard(difficultyKey, rnd) {
+  const pool = FALLBACK_BOARDS[difficultyKey] || [];
+  if (!pool.length) return null;
+  const raw = pool[Math.floor(rnd() * pool.length)];
+  const board = {
+    size: Math.round(Math.sqrt(raw.pieces.length)),
+    difficulty: difficultyKey,
+    pieces: raw.pieces.split(''),
+    route: raw.route.slice()
+  };
+  return transformBoard(board, Math.floor(rnd() * 8));
+}
+
+/* Public entry point: always returns a verified board, never hangs. */
+function makeBoard(difficultyKey, rnd, limits) {
+  const generated = generateBoard(difficultyKey, rnd, limits);
+  if (generated) return generated;
+  const fb = fallbackBoard(difficultyKey, rnd);
+  if (fb && validateBoard(fb)) return fb;
+  return null;
+}
+
+/* ---------- game state --------------------------------------------- */
+function createGame(board) {
+  const n = board.size * board.size;
+  return {
+    board: board,
+    strikes: new Array(n).fill(0),
+    current: -1,
+    totalStrikes: 0,
+    status: 'ready'      // 'ready' | 'playing' | 'complete'
+  };
+}
+
+function legalTargets(game) {
+  const n = game.board.size * game.board.size;
+  if (game.status === 'complete') return [];
+  if (game.current < 0) {
+    const all = new Array(n);
+    for (let i = 0; i < n; i++) all[i] = i;
+    return all;                                   // opening strike: anywhere
+  }
+  const piece = game.board.pieces[game.current];
+  return tableFor(game.board.size)[piece].list[game.current];
+}
+
+function canStrike(game, idx) {
+  if (game.status === 'complete') return false;
+  const n = game.board.size * game.board.size;
+  if (!(idx >= 0 && idx < n)) return false;
+  if (game.current < 0) return true;
+  if (idx === game.current) return false;         // must move away first
+  return isLegalMove(game.board.pieces[game.current], game.current, idx, game.board.size);
+}
+
+function applyStrike(game, idx) {
+  if (!canStrike(game, idx)) return null;
+  game.strikes[idx] += 1;
+  game.totalStrikes += 1;
+  game.current = idx;
+  game.status = 'playing';
+  const count = game.strikes[idx];
+  const done = game.strikes.every((s) => s >= CONFIG.scoring.perfect);
+  if (done) game.status = 'complete';
+  return { index: idx, count: count, complete: done };
+}
+
+function gameStats(game) {
+  const n = game.board.size * game.board.size;
+  let over = 0, forged = 0, perfect = 0;
+  for (const s of game.strikes) {
+    if (s > CONFIG.scoring.perfect) over += s - CONFIG.scoring.perfect;
+    if (s >= CONFIG.scoring.perfect) forged++;
+    if (s === CONFIG.scoring.perfect) perfect++;
+  }
+  return { squares: n, total: game.totalStrikes, overstrikes: over, forged: forged, perfect: perfect };
+}
+
+const RESULT_LABELS = [
+  { min: 100, label: 'Masterwork' },
+  { min: 90,  label: 'Excellent' },
+  { min: 75,  label: 'Good' },
+  { min: 50,  label: 'Rough' },
+  { min: 0,   label: 'Poor' }
+];
+
+function scoreGame(game) {
+  const st = gameStats(game);
+  const quality = Math.max(0, Math.round(100 * (1 - st.overstrikes / (CONFIG.scoring.penaltyScale * st.squares))));
+  let label = 'Poor';
+  for (const row of RESULT_LABELS) { if (quality >= row.min) { label = row.label; break; } }
+  return { quality: quality, label: label, stats: st };
+}
+
+const FORGE_CORE = {
+  CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
+  mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
+  assignPieces: assignPieces, isStronglyConnected: isStronglyConnected, validateBoard: validateBoard,
+  generateBoard: generateBoard, transformBoard: transformBoard, fallbackBoard: fallbackBoard,
+  makeBoard: makeBoard, FALLBACK_BOARDS: FALLBACK_BOARDS,
+  createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
+  gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
+};
+/* ==== CORE END ==== */
+
+/* =================================================================
+   Part 2 - AUDIO. Everything is synthesised with the Web Audio API,
+   built lazily after the first user gesture. If audio is refused or
+   unavailable the game carries on in silence.
+   ================================================================= */
+const Sound = {
+  ctx: null, master: null, noise: null,
+  muted: false, volume: 0.7, dead: false,
+
+  init() {
+    if (this.ctx || this.dead) return;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { this.dead = true; return; }
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = this.muted ? 0 : this.volume;
+      this.master.connect(this.ctx.destination);
+      const len = Math.floor(this.ctx.sampleRate * 0.7);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      this.noise = buf;
+    } catch (err) { this.dead = true; }
+  },
+  unlock() {
+    this.init();
+    try { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); } catch (err) { /* ignore */ }
+  },
+  park() { try { if (this.ctx && this.ctx.state === 'running') this.ctx.suspend(); } catch (err) { /* ignore */ } },
+  ready() { return !!(this.ctx && !this.dead && !this.muted && this.ctx.state !== 'closed'); },
+  applyGain() {
+    if (!this.master) return;
+    try {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setTargetAtTime(this.muted ? 0 : this.volume, t, 0.015);
+    } catch (err) { /* ignore */ }
+  },
+  setMuted(m) { this.muted = !!m; if (!this.muted) this.unlock(); this.applyGain(); },
+  setVolume(v) { this.volume = Math.max(0, Math.min(1, v)); this.applyGain(); }
+};
+
+/* One metallic hit: a few inharmonic partials plus a filtered noise
+   transient, which is what makes struck steel sound like steel. */
+function metalHit(spec) {
+  if (!Sound.ready()) return;
+  try {
+    const ctx = Sound.ctx, t = ctx.currentTime + 0.001;
+    const out = ctx.createGain();
+    out.gain.value = spec.gain;
+    out.connect(Sound.master);
+    let sink = out;
+    if (spec.lowpass) {
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = spec.lowpass;
+      lp.connect(out);
+      sink = lp;
+    }
+    for (const p of spec.partials) {
+      const freq = p[0], amp = p[1], life = p[2] || spec.decay;
+      const osc = ctx.createOscillator();
+      osc.type = spec.wave || 'triangle';
+      osc.frequency.setValueAtTime(freq, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq * 0.97), t + life);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(Math.max(0.0002, amp), t + 0.004);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + life);
+      osc.connect(env); env.connect(sink);
+      osc.start(t); osc.stop(t + life + 0.05);
+    }
+    if (spec.noiseGain) {
+      const src = ctx.createBufferSource();
+      src.buffer = Sound.noise;
+      src.playbackRate.value = 0.75 + Math.random() * 0.5;
+      const bp = ctx.createBiquadFilter();
+      bp.type = spec.noiseType || 'bandpass';
+      bp.frequency.value = spec.noiseFreq;
+      bp.Q.value = spec.noiseQ || 1;
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(spec.noiseGain, t);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + (spec.noiseDecay || 0.12));
+      src.connect(bp); bp.connect(env); env.connect(sink);
+      src.start(t); src.stop(t + 0.3);
+    }
+  } catch (err) { /* audio must never break play */ }
+}
+
+const SOUNDS = {
+  // first blow: solid clang, plenty of grit
+  shape() {
+    metalHit({ partials: [[524, 0.50], [1183, 0.22], [1787, 0.12], [2630, 0.05]],
+      decay: 0.38, gain: 0.55, noiseGain: 0.55, noiseFreq: 2100, noiseQ: 0.8 });
+  },
+  // second blow: cleaner, brighter, longer ring - the metal is finished
+  finish() {
+    metalHit({ partials: [[698, 0.42], [1570, 0.30], [2480, 0.20], [3490, 0.11], [4700, 0.05]],
+      decay: 0.95, gain: 0.5, noiseGain: 0.25, noiseFreq: 3600, noiseQ: 1.4, noiseDecay: 0.07 });
+  },
+  // third and later: dull, cracked, no ring left
+  crack() {
+    metalHit({ partials: [[152, 0.60], [231, 0.32], [317, 0.18]], wave: 'square',
+      decay: 0.17, gain: 0.5, lowpass: 900, noiseGain: 0.6, noiseFreq: 520, noiseQ: 0.7, noiseDecay: 0.09 });
+  },
+  invalid() {
+    metalHit({ partials: [[196, 0.10, 0.045], [262, 0.06, 0.035]], wave: 'square',
+      decay: 0.045, gain: 0.35, lowpass: 1400, noiseGain: 0.05, noiseFreq: 1200, noiseDecay: 0.02 });
+  },
+  complete(masterwork) {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.02;
+      const notes = masterwork ? [392, 523.25, 659.25, 783.99, 1046.5] : [392, 466.16, 587.33];
+      notes.forEach((f, i) => {
+        const t = t0 + i * (masterwork ? 0.105 : 0.13);
+        const out = ctx.createGain();
+        out.gain.value = 0.34;
+        out.connect(Sound.master);
+        [[f, 0.5, 1.1], [f * 2.01, 0.16, 0.8], [f * 3.02, 0.07, 0.5]].forEach((p) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(p[0], t);
+          const env = ctx.createGain();
+          env.gain.setValueAtTime(0.0001, t);
+          env.gain.exponentialRampToValueAtTime(p[1], t + 0.012);
+          env.gain.exponentialRampToValueAtTime(0.0001, t + p[2]);
+          osc.connect(env); env.connect(out);
+          osc.start(t); osc.stop(t + p[2] + 0.05);
+        });
+      });
+      // bellows breath under the fanfare
+      const src = ctx.createBufferSource();
+      src.buffer = Sound.noise;
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(320, t0);
+      bp.frequency.exponentialRampToValueAtTime(masterwork ? 2600 : 1200, t0 + 0.6);
+      const env = ctx.createGain();
+      env.gain.setValueAtTime(0.0001, t0);
+      env.gain.exponentialRampToValueAtTime(masterwork ? 0.16 : 0.09, t0 + 0.1);
+      env.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.85);
+      src.connect(bp); bp.connect(env); env.connect(Sound.master);
+      src.start(t0); src.stop(t0 + 1.0);
+    } catch (err) { /* ignore */ }
+  }
+};
+
+/* =================================================================
+   Part 3 - HAMMER, SPARKS, GLOW. Visual only: the single state
+   change happens in the impact callback owned by the controller.
+   ================================================================= */
+const HAMMER_SVG =
+  '<svg viewBox="0 0 70 70" width="100%" height="100%" aria-hidden="true">' +
+  '<defs>' +
+  '<linearGradient id="fpHead" x1="0" y1="0" x2="0" y2="1">' +
+  '<stop offset="0" stop-color="#9aa3b0"/><stop offset="0.45" stop-color="#5d646f"/>' +
+  '<stop offset="1" stop-color="#2f343c"/></linearGradient>' +
+  '<linearGradient id="fpGrip" x1="0" y1="0" x2="1" y2="1">' +
+  '<stop offset="0" stop-color="#b7793c"/><stop offset="1" stop-color="#6b4420"/></linearGradient>' +
+  '</defs>' +
+  '<path d="M20 60 L58 14" stroke="url(#fpGrip)" stroke-width="7.5" stroke-linecap="round" fill="none"/>' +
+  '<path d="M23 56 L55 17" stroke="rgba(255,214,160,.35)" stroke-width="2" stroke-linecap="round" fill="none"/>' +
+  '<g transform="rotate(38 20 60)">' +
+  '<rect x="1.5" y="49.5" width="37" height="21" rx="3.5" fill="url(#fpHead)" stroke="#1b1f25" stroke-width="1.6"/>' +
+  '<rect x="1.5" y="49.5" width="9" height="21" rx="3.5" fill="rgba(255,255,255,.14)"/>' +
+  '<rect x="16" y="49.5" width="8" height="21" fill="rgba(0,0,0,.28)"/>' +
+  '</g></svg>';
+const HAMMER_ANCHOR = { x: 20 / 70, y: 60 / 70 };   // head centre, lands on the tile
+const HAMMER_PIVOT = (58 / 70 * 100).toFixed(2) + '% ' + (14 / 70 * 100).toFixed(2) + '%';
+
+const FX = {
+  layer: null,
+  running: [],
+  reduced: false,
+
+  bind(layer) { this.layer = layer; },
+  clear() {
+    for (const a of this.running) { try { a.cancel(); } catch (err) { /* ignore */ } }
+    this.running = [];
+    if (this.layer) this.layer.textContent = '';
+  },
+  track(anim, node) {
+    if (!anim) { if (node) node.remove(); return; }
+    this.running.push(anim);
+    anim.onfinish = anim.oncancel = () => {
+      const i = this.running.indexOf(anim);
+      if (i >= 0) this.running.splice(i, 1);
+      if (node) node.remove();
+    };
+  },
+  box(tile) {
+    const t = tile.getBoundingClientRect(), l = this.layer.getBoundingClientRect();
+    return { x: t.left - l.left, y: t.top - l.top, w: t.width, h: t.height,
+      cx: t.left - l.left + t.width / 2, cy: t.top - l.top + t.height / 2 };
+  },
+
+  /* Swing a hammer onto `tile`. Returns nothing; the controller times
+     the state change with its own cancellable timer. */
+  swing(tile, durationMs) {
+    if (!this.layer) return;
+    const b = this.box(tile);
+    const size = Math.max(46, b.w * 1.55);
+    const el = document.createElement('div');
+    el.className = 'hammer';
+    el.style.width = el.style.height = size + 'px';
+    el.style.left = (b.cx - HAMMER_ANCHOR.x * size) + 'px';
+    el.style.top = (b.cy - HAMMER_ANCHOR.y * size) + 'px';
+    el.style.transformOrigin = HAMMER_PIVOT;
+    el.innerHTML = HAMMER_SVG;
+    this.layer.appendChild(el);
+
+    const lift = CONFIG.animation.liftDeg;
+    const frames = this.reduced
+      ? [{ transform: 'rotate(-16deg)', opacity: 0 },
+         { transform: 'rotate(0deg)', opacity: 1, offset: 0.5 },
+         { transform: 'rotate(-10deg)', opacity: 0 }]
+      : [{ transform: 'rotate(' + lift + 'deg) scale(.94)', opacity: 0, easing: 'ease-out' },
+         { transform: 'rotate(' + (lift - 6) + 'deg) scale(1)', opacity: 1, offset: 0.2, easing: 'cubic-bezier(.5,0,.85,.35)' },
+         { transform: 'rotate(0deg)', opacity: 1, offset: CONFIG.animation.impactAt, easing: 'ease-out' },
+         { transform: 'rotate(5deg)', opacity: 1, offset: CONFIG.animation.impactAt + 0.08, easing: 'ease-in-out' },
+         { transform: 'rotate(' + (lift * 0.7) + 'deg) scale(.97)', opacity: 0 }];
+    let anim = null;
+    try {
+      anim = el.animate(frames, { duration: durationMs, fill: 'forwards' });
+    } catch (err) { el.remove(); return; }
+    this.track(anim, el);
+  },
+
+  impact(tile, level) {
+    if (!this.layer) return;
+    const b = this.box(tile);
+    const glow = document.createElement('div');
+    const gs = b.w * 2.1;
+    glow.className = 'glow';
+    glow.style.width = glow.style.height = gs + 'px';
+    glow.style.left = (b.cx - gs / 2) + 'px';
+    glow.style.top = (b.cy - gs / 2) + 'px';
+    if (level >= 3) glow.style.background =
+      'radial-gradient(circle, rgba(255,140,110,.7) 0%, rgba(170,40,20,.45) 40%, rgba(120,20,10,0) 72%)';
+    else if (level === 2) glow.style.background =
+      'radial-gradient(circle, rgba(255,250,235,.95) 0%, rgba(243,215,145,.6) 38%, rgba(243,215,145,0) 72%)';
+    this.layer.appendChild(glow);
+    let g = null;
+    try {
+      g = glow.animate(
+        [{ transform: 'scale(.35)', opacity: 0.95 }, { transform: 'scale(1)', opacity: 0 }],
+        { duration: this.reduced ? 180 : 300, easing: 'ease-out' });
+    } catch (err) { glow.remove(); }
+    this.track(g, glow);
+
+    if (this.reduced) return;
+    const count = CONFIG.animation.sparks;
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('div');
+      s.className = 'spark' + (level >= 3 ? ' dull' : '');
+      s.style.left = b.cx + 'px';
+      s.style.top = b.cy + 'px';
+      this.layer.appendChild(s);
+      const ang = (-Math.PI * 0.95) + Math.random() * Math.PI * 0.9;
+      const dist = b.w * (level >= 3 ? 0.35 : 0.55) * (0.45 + Math.random());
+      const dx = Math.cos(ang) * dist;
+      const dy = Math.sin(ang) * dist * 0.8 + b.w * 0.18;
+      let a = null;
+      try {
+        a = s.animate(
+          [{ transform: 'translate(0,0) scale(1)', opacity: 1 },
+           { transform: 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(.2)', opacity: 0 }],
+          { duration: 260 + Math.random() * 220, easing: 'cubic-bezier(.2,.7,.5,1)' });
+      } catch (err) { s.remove(); }
+      this.track(a, s);
+    }
+  }
+};
+
+/* =================================================================
+   Part 4 - CONTROLLER. Binds the pure core to the DOM, audio and
+   animation. Owns the "one state change per impact" rule.
+   ================================================================= */
+const $ = (id) => document.getElementById(id);
+const STORE_KEY = 'forge-pattern:v1';
+
+const Store = {
+  read() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? (JSON.parse(raw) || {}) : {};
+    } catch (err) { return {}; }
+  },
+  write(data) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (err) { /* private mode */ }
+  },
+  patch(fields) {
+    const data = this.read();
+    Object.assign(data, fields);
+    this.write(data);
+    return data;
+  }
+};
+
+const App = {
+  difficulty: 'novice',
+  game: null,
+  tiles: [],
+  rnd: mulberry32((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0),
+  busy: false,          // a hammer is mid-swing
+  token: 0,             // invalidates callbacks from cancelled swings
+  impactTimer: null,
+  resultTimer: null,
+  pendingImpact: null,  // () => void, run early if the page is hidden
+  focusIndex: 0,
+  best: {},
+  lastFocus: null,
+  confirmAction: null
+};
+
+/* ---------- cancellation ------------------------------------------
+   Any reset, new board or difficulty change must make every
+   in-flight callback inert so an old strike cannot touch a new game. */
+function cancelPending(runPending) {
+  const pending = App.pendingImpact;
+  App.pendingImpact = null;
+  if (App.impactTimer) { clearTimeout(App.impactTimer); App.impactTimer = null; }
+  // The pending blow belongs to the game that is still current, so it
+  // has to land before the token that authorises it is retired.
+  if (runPending && pending) pending();
+  App.token++;
+  if (App.resultTimer) { clearTimeout(App.resultTimer); App.resultTimer = null; }
+  FX.clear();
+  for (const t of App.tiles) t.classList.remove('impact', 'shake');
+  App.busy = false;
+}
+
+/* ---------- board construction ------------------------------------ */
+function buildTiles(size) {
+  const board = $('board');
+  board.textContent = '';
+  board.style.setProperty('--n', size);
+  App.tiles = [];
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < size * size; i++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tile';
+    b.dataset.i = String(i);
+    b.tabIndex = i === 0 ? 0 : -1;
+    b.innerHTML = '<span class="glyph"></span><span class="marks"></span>';
+    frag.appendChild(b);
+    App.tiles.push(b);
+  }
+  board.appendChild(frag);
+  App.focusIndex = 0;
+}
+
+function startGame(board) {
+  cancelPending(false);
+  const size = board.size;
+  if (App.tiles.length !== size * size) buildTiles(size);
+  App.game = createGame(board);
+  hide($('results'));
+  render();
+}
+
+function loadBoard(difficulty, done) {
+  App.difficulty = difficulty;
+  const cfg = CONFIG.difficulties[difficulty];
+  cancelPending(false);
+  App.game = null;
+  buildTiles(cfg.size);
+  $('promptGlyph').textContent = '⚒';
+  $('promptText').textContent = 'Casting a fresh mold…';
+  // paint the waiting state before the (bounded) search runs
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    let board = null;
+    try { board = makeBoard(difficulty, App.rnd); } catch (err) { board = null; }
+    if (!board) board = fallbackBoard(difficulty, App.rnd);
+    if (!board) {                       // cannot happen; refuse to show a broken board
+      $('promptText').textContent = 'Could not cast a mold. Try another difficulty.';
+      return;
+    }
+    startGame(board);
+    if (done) done();
+  }));
+}
+
+function restartBoard() {
+  if (!App.game) return;
+  startGame(App.game.board);
+  announce('Board reset. ' + CONFIG.difficulties[App.difficulty].label + ', all squares cold.');
+}
+
+/* ---------- rendering ---------------------------------------------- */
+function squareName(i, size) {
+  return 'row ' + (Math.floor(i / size) + 1) + ', column ' + (i % size + 1);
+}
+const STATE_WORD = ['untouched', 'shaped', 'perfect', 'overworked'];
+
+function render() {
+  const g = App.game;
+  if (!g) return;
+  const size = g.board.size, n = size * size;
+  const legal = new Set(legalTargets(g));
+  const opening = g.current < 0 && g.status !== 'complete';
+
+  for (let i = 0; i < n; i++) {
+    const el = App.tiles[i];
+    const strikes = g.strikes[i];
+    const piece = g.board.pieces[i];
+    const shown = Math.min(strikes, 3);
+    if (el.dataset.s !== String(shown)) el.dataset.s = String(shown);
+    const isCurrent = i === g.current;
+    const isLegal = !opening && legal.has(i) && !isCurrent;
+    el.dataset.current = isCurrent ? '1' : '0';
+    el.dataset.legal = isLegal ? '1' : '0';
+
+    const glyph = el.firstChild;
+    if (glyph.textContent !== PIECES[piece].glyph) glyph.textContent = PIECES[piece].glyph;
+
+    const marks = el.children[1];
+    const wanted = Math.min(strikes, 2);
+    if (marks.childElementCount !== wanted) {
+      marks.textContent = '';
+      for (let k = 0; k < wanted; k++) marks.appendChild(document.createElement('i'));
+    }
+    let badge = el.querySelector('.count');
+    if (strikes >= 3) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'count';
+        el.appendChild(badge);
+      }
+      badge.textContent = String(strikes);
+    } else if (badge) { badge.remove(); }
+
+    const state = STATE_WORD[Math.min(strikes, 3)];
+    el.setAttribute('aria-label',
+      squareName(i, size) + ', ' + PIECES[piece].name + ', ' +
+      strikes + (strikes === 1 ? ' strike, ' : ' strikes, ') + state +
+      (isCurrent ? ', hammer is here' : '') +
+      (opening ? ', legal opening square' : (isLegal ? ', legal destination' : (isCurrent ? '' : ', not reachable from here'))));
+    el.tabIndex = i === App.focusIndex ? 0 : -1;
+  }
+
+  const st = gameStats(g);
+  $('sStrikes').textContent = String(st.total);
+  $('sOver').textContent = String(st.overstrikes);
+  $('sForged').textContent = st.forged + '/' + st.squares;
+  $('sPerfect').textContent = String(st.perfect);
+  $('overChip').classList.toggle('warn', st.overstrikes > 0);
+  $('board').dataset.frozen = g.status === 'complete' ? '1' : '0';
+
+  if (g.status === 'complete') {
+    $('promptGlyph').textContent = '⚒';
+    $('promptText').textContent = 'Every square forged. The piece is off the anvil.';
+  } else if (g.current < 0) {
+    $('promptGlyph').textContent = '⚒';
+    $('promptText').textContent = 'Choose any square to begin.';
+  } else {
+    const p = PIECES[g.board.pieces[g.current]];
+    $('promptGlyph').textContent = p.glyph;
+    $('promptText').innerHTML = '<b>' + p.name + ':</b> ' + p.move + '.';
+  }
+  renderBest();
+}
+
+function renderBest() {
+  const label = CONFIG.difficulties[App.difficulty].label;
+  const best = App.best[App.difficulty];
+  $('bestLine').textContent = 'Best quality on ' + label + ': ' + (best == null ? '—' : best);
+}
+
+function announce(text) { $('live').textContent = text; }
+
+/* ---------- striking ------------------------------------------------ */
+function rejectTap(i) {
+  const el = App.tiles[i];
+  if (!el) return;
+  SOUNDS.invalid();
+  if (!FX.reduced) {
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+    setTimeout(() => el.classList.remove('shake'), 240);
+  } else {
+    el.style.opacity = '.55';
+    setTimeout(() => { el.style.opacity = ''; }, 140);
+  }
+}
+
+function tapSquare(i) {
+  const g = App.game;
+  if (!g || App.busy) return;                 // no queued or duplicate strikes
+  if (g.status === 'complete') { rejectTap(i); return; }
+  if (!canStrike(g, i)) { rejectTap(i); announce('Not a legal destination.'); return; }
+
+  Sound.unlock();
+  App.busy = true;
+  const myToken = App.token;
+  const total = FX.reduced ? CONFIG.animation.reducedMs : CONFIG.animation.strikeMs;
+  const delay = FX.reduced ? Math.round(total * 0.4) : Math.round(total * CONFIG.animation.impactAt);
+
+  const landBlow = () => {
+    if (myToken !== App.token) return;        // belongs to a discarded game
+    App.impactTimer = null;
+    App.pendingImpact = null;
+    App.busy = false;
+    impact(i);
+  };
+  App.pendingImpact = landBlow;
+  FX.swing(App.tiles[i], total);
+  App.impactTimer = setTimeout(landBlow, delay);
+}
+
+function impact(i) {
+  const g = App.game;
+  const res = applyStrike(g, i);
+  if (!res) return;                           // exactly one state change, or none
+
+  const el = App.tiles[i];
+  if (res.count === 1) SOUNDS.shape();
+  else if (res.count === 2) SOUNDS.finish();
+  else SOUNDS.crack();
+
+  FX.impact(el, res.count);
+  if (!FX.reduced) {
+    el.classList.remove('impact');
+    void el.offsetWidth;
+    el.classList.add('impact');
+    setTimeout(() => el.classList.remove('impact'), 300);
+  }
+  App.focusIndex = i;
+  render();
+
+  const st = gameStats(g);
+  announce(squareName(i, g.board.size) + ', ' + res.count +
+    (res.count === 1 ? ' strike' : ' strikes') + '. Forged ' + st.forged + ' of ' + st.squares + '.');
+
+  if (res.complete) finish();
+}
+
+function finish() {
+  const g = App.game;
+  const result = scoreGame(g);
+  const masterwork = result.quality === 100;
+  App.resultTimer = setTimeout(() => {
+    App.resultTimer = null;
+    SOUNDS.complete(masterwork);
+  }, 220);
+  const prev = App.best[App.difficulty];
+  const improved = prev == null || result.quality > prev;
+  if (improved) {
+    App.best[App.difficulty] = result.quality;
+    Store.patch({ best: App.best });
+  }
+  showResults(result, improved, prev);
+  announce('Complete. Quality ' + result.quality + ', ' + result.label + '.');
+}
+
+/* ---------- overlays ------------------------------------------------ */
+function show(el) {
+  App.lastFocus = document.activeElement;
+  el.hidden = false;
+  const first = el.querySelector('button');
+  if (first) first.focus();
+}
+function hide(el) {
+  if (el.hidden) return;
+  el.hidden = true;
+  if (App.lastFocus && document.contains(App.lastFocus)) {
+    try { App.lastFocus.focus(); } catch (err) { /* ignore */ }
+  }
+  App.lastFocus = null;
+}
+
+function showResults(result, improved, prev) {
+  const st = result.stats;
+  $('rQuality').firstChild.textContent = String(result.quality);
+  const label = $('rLabel');
+  label.textContent = result.label;
+  label.classList.toggle('masterwork', result.quality === 100);
+  $('rDiff').textContent = CONFIG.difficulties[App.difficulty].label;
+  $('rStrikes').textContent = String(st.total);
+  $('rOver').textContent = String(st.overstrikes);
+  $('rPerfect').textContent = st.perfect + ' / ' + st.squares;
+  $('resultTitle').textContent = result.quality === 100 ? 'A flawless piece' : 'Work complete';
+  $('rBest').textContent = improved
+    ? (prev == null ? 'First completed piece at this difficulty.' : 'New best — previous ' + prev + '.')
+    : 'Best on this difficulty: ' + App.best[App.difficulty] + '.';
+  show($('results'));
+}
+
+function askDiscard(text, action) {
+  const g = App.game;
+  if (!g || g.totalStrikes === 0 || g.status === 'complete') { action(); return; }
+  $('confirmText').textContent = text;
+  App.confirmAction = action;
+  show($('confirm'));
+}
+
+/* ---------- difficulty ---------------------------------------------- */
+function setDifficulty(key, force) {
+  if (!CONFIG.difficulties[key]) return;
+  const go = () => {
+    for (const b of document.querySelectorAll('.diff-btn')) {
+      b.setAttribute('aria-pressed', b.dataset.diff === key ? 'true' : 'false');
+    }
+    App.difficulty = key;
+    renderBest();
+    loadBoard(key, () => {
+      announce(CONFIG.difficulties[key].label + ', ' + CONFIG.difficulties[key].size + ' by ' +
+        CONFIG.difficulties[key].size + ' board. Choose any square to begin.');
+      buildLegend();
+    });
+  };
+  if (force || key === App.difficulty) { go(); return; }
+  askDiscard('Switching difficulty will discard the piece you are working on.', go);
+}
+
+/* ---------- legend --------------------------------------------------- */
+function buildLegend() {
+  const body = $('legendBody');
+  const used = [];
+  if (App.game) {
+    for (const p of App.game.board.pieces) if (used.indexOf(p) === -1) used.push(p);
+  }
+  const order = ['K', 'R', 'B', 'N', 'Q'].filter((p) => used.indexOf(p) !== -1);
+  body.innerHTML =
+    '<p style="margin:6px 0 2px">The symbol never changes and is never captured &mdash; it only says where the hammer may travel next.</p>' +
+    order.map((p) =>
+      '<div class="legend-row"><span class="g" aria-hidden="true">' + PIECES[p].glyph + '</span>' +
+      '<span class="t"><b>' + PIECES[p].name + '</b><br>' + PIECES[p].move + '.</span></div>').join('');
+}
+
+/* ---------- keyboard navigation --------------------------------------- */
+function moveFocus(dr, dc) {
+  const g = App.game;
+  if (!g) return;
+  const size = g.board.size;
+  let r = Math.floor(App.focusIndex / size) + dr;
+  let c = (App.focusIndex % size) + dc;
+  r = Math.max(0, Math.min(size - 1, r));
+  c = Math.max(0, Math.min(size - 1, c));
+  App.focusIndex = r * size + c;
+  for (let i = 0; i < App.tiles.length; i++) App.tiles[i].tabIndex = i === App.focusIndex ? 0 : -1;
+  App.tiles[App.focusIndex].focus();
+}
+
+/* ---------- audio preferences ----------------------------------------- */
+function applyAudioUI() {
+  const btn = $('muteBtn');
+  btn.setAttribute('aria-pressed', Sound.muted ? 'true' : 'false');
+  btn.setAttribute('aria-label', Sound.muted ? 'Unmute sound' : 'Mute sound');
+  $('muteIcon').textContent = Sound.muted ? '🔇' : '🔊';
+  $('volume').value = String(Math.round(Sound.volume * 100));
+  $('volume').disabled = Sound.muted;
+}
+
+/* ---------- boot -------------------------------------------------------- */
+function boot() {
+  FX.bind($('fx'));
+  let mq = null;
+  try { mq = window.matchMedia('(prefers-reduced-motion: reduce)'); } catch (err) { mq = null; }
+  const syncMotion = () => {
+    FX.reduced = !!(mq && mq.matches);
+    document.body.classList.toggle('reduced', FX.reduced);
+  };
+  syncMotion();
+  if (mq && mq.addEventListener) mq.addEventListener('change', syncMotion);
+
+  const saved = Store.read();
+  App.best = (saved.best && typeof saved.best === 'object') ? saved.best : {};
+  Sound.muted = saved.muted === true;
+  Sound.volume = typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 0.7;
+  applyAudioUI();
+
+  // audio contexts may only start from a gesture
+  const unlockOnce = () => { Sound.unlock(); };
+  document.addEventListener('pointerdown', unlockOnce, { once: true, passive: true });
+  document.addEventListener('keydown', unlockOnce, { once: true });
+
+  $('board').addEventListener('click', (e) => {
+    const tile = e.target.closest ? e.target.closest('.tile') : null;
+    if (!tile) return;
+    const i = Number(tile.dataset.i);
+    App.focusIndex = i;
+    tapSquare(i);
+  });
+  // keep roving tabindex in step with however focus actually arrived
+  $('board').addEventListener('focusin', (e) => {
+    const tile = e.target.closest ? e.target.closest('.tile') : null;
+    if (!tile) return;
+    const i = Number(tile.dataset.i);
+    if (i === App.focusIndex) return;
+    App.focusIndex = i;
+    for (let k = 0; k < App.tiles.length; k++) App.tiles[k].tabIndex = k === i ? 0 : -1;
+  });
+  $('board').addEventListener('keydown', (e) => {
+    const map = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (map[e.key]) { e.preventDefault(); moveFocus(map[e.key][0], map[e.key][1]); }
+  });
+
+  for (const b of document.querySelectorAll('.diff-btn')) {
+    b.addEventListener('click', () => setDifficulty(b.dataset.diff, false));
+  }
+  $('restartBtn').addEventListener('click', () => {
+    askDiscard('Restarting re-heats this same mold and discards your strikes.', restartBoard);
+  });
+  $('newBtn').addEventListener('click', () => {
+    askDiscard('Loading another puzzle will discard the piece you are working on.', () => {
+      loadBoard(App.difficulty, () => { buildLegend(); announce('New mold cast. Choose any square to begin.'); });
+    });
+  });
+  $('helpBtn').addEventListener('click', () => show($('help')));
+  $('helpClose').addEventListener('click', () => hide($('help')));
+
+  $('muteBtn').addEventListener('click', () => {
+    Sound.setMuted(!Sound.muted);
+    Store.patch({ muted: Sound.muted });
+    applyAudioUI();
+  });
+  $('volume').addEventListener('input', (e) => {
+    Sound.unlock();
+    Sound.setVolume(Number(e.target.value) / 100);
+    Store.patch({ volume: Sound.volume });
+  });
+  $('volume').addEventListener('change', () => { if (!Sound.muted) SOUNDS.shape(); });
+
+  $('rRetry').addEventListener('click', () => { hide($('results')); restartBoard(); });
+  $('rNew').addEventListener('click', () => {
+    hide($('results'));
+    loadBoard(App.difficulty, () => { buildLegend(); announce('New mold cast. Choose any square to begin.'); });
+  });
+  $('rChange').addEventListener('click', () => {
+    hide($('results'));
+    const first = document.querySelector('.diff-btn');
+    if (first) first.focus();
+  });
+
+  $('confirmYes').addEventListener('click', () => {
+    const action = App.confirmAction;
+    App.confirmAction = null;
+    hide($('confirm'));
+    if (action) action();
+  });
+  $('confirmNo').addEventListener('click', () => { App.confirmAction = null; hide($('confirm')); });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!$('confirm').hidden) { App.confirmAction = null; hide($('confirm')); }
+    else if (!$('help').hidden) { hide($('help')); }
+  });
+
+  // Leaving the page must not strand a half-applied strike.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelPending(true); Sound.park(); }
+  });
+  window.addEventListener('resize', () => { if (!App.busy) FX.clear(); });
+
+  setDifficulty('novice', true);
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+
+// exposed for the automated test harness
+window.FORGE = { core: FORGE_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare };
+</script>
+</body>
+</html>
