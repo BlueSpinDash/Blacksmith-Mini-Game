@@ -23,7 +23,7 @@ const section = (t) => console.log('\n' + t);
 const snap = (page) => page.evaluate(() => {
   const g = window.CHECKSMITH.app.game;
   return {
-    strikes: g.strikes.slice(), current: g.current, total: g.totalStrikes, status: g.status,
+    strikes: g.strikes.slice(), current: g.pos.player, total: g.totalStrikes, status: g.status,
     pieces: g.board.pieces.join(''), live: g.pieces.map((p) => p || '.').join(''),
     route: g.board.route.slice(), size: g.board.size,
     busy: window.CHECKSMITH.app.busy
@@ -108,7 +108,7 @@ async function run() {
     after.total === before.total && after.strikes.join() === before.strikes.join());
   const illegal = await page.evaluate(() => {
     const legal = new Set(window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game));
-    for (let i = 0; i < 25; i++) if (i !== window.CHECKSMITH.app.game.current && !legal.has(i)) return i;
+    for (let i = 0; i < 25; i++) if (i !== window.CHECKSMITH.app.game.pos.player && !legal.has(i)) return i;
     return -1;
   });
   await page.click(`.tile[data-i="${illegal}"]`);
@@ -211,15 +211,15 @@ async function run() {
       await click(home);
       target = home;
     }
-    return { target, strikes: g().strikes.slice(), status: g().status, current: g().current };
+    return { target, strikes: g().strikes.slice(), status: g().status, current: g().pos.player };
   });
   ok('a square can be driven to three strikes', spentInfo.strikes.some((x) => x === 3),
     JSON.stringify(spentInfo.strikes));
   ok('it renders as crumbling while the hammer is on it',
     await page.evaluate(() => {
       const g = window.CHECKSMITH.app.game;
-      const el = document.querySelector(`.tile[data-i="${g.current}"]`);
-      return g.strikes[g.current] < 3 || el.dataset.spent === '1';
+      const el = document.querySelector(`.tile[data-i="${g.pos.player}"]`);
+      return g.strikes[g.pos.player] < 3 || el.dataset.spent === '1';
     }));
   ok('a crumbling square still offers somewhere to go',
     await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game).length > 0)
@@ -232,7 +232,7 @@ async function run() {
     const wait = () => new Promise((r) => {
       const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
     });
-    const spent = F.app.game.current;
+    const spent = F.app.game.pos.player;
     if (F.app.game.strikes[spent] < 3) return { skipped: true };
     const away = F.core.legalTargets(F.app.game)[0];
     document.querySelector(`.tile[data-i="${away}"]`).click();
@@ -310,7 +310,7 @@ async function run() {
     g.strikes = g.strikes.map(() => 1);
     for (const j of [7, 11]) g.strikes[j] = 3;   // both knight jumps from 0, spent
     g.strikes[0] = 1;
-    g.current = 1;                                // a rook on the top row
+    g.pos.player = 1;                                // a rook on the top row
     g.status = 'playing';
     document.querySelector('.tile[data-i="0"]').click();
     await wait();
@@ -455,6 +455,107 @@ async function run() {
   }
   await page.waitForTimeout(150);
   ok('back leaves the board untouched', (await snap(page)).status !== 'complete');
+
+  /* ============ versus mode ============ */
+  section('Versus mode');
+  await page.click('[data-mode="versus"]');
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.mode === 'versus',
+    null, { timeout: 8000 });
+  ok('the mode menu switches to versus',
+    (await page.getAttribute('[data-mode="versus"]', 'aria-pressed')) === 'true' &&
+    (await page.getAttribute('[data-mode="solo"]', 'aria-pressed')) === 'false');
+  ok('the scoreboard appears', await page.isVisible('#versusBar'));
+  ok('it is the player\'s turn first', (await page.textContent('#vsTurn')).includes('Your turn'));
+  await page.evaluate(() => {
+    window.CHECKSMITH.core.CONFIG.animation.strikeMs = 30;
+    window.CHECKSMITH.core.CONFIG.ai.thinkMs = 40;
+  });
+
+  const vsOpen = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => setTimeout(r, 450));
+    const before = JSON.parse(JSON.stringify(F.app.game.pos));
+    document.querySelector('.tile[data-i="4"]').click();
+    await wait();
+    const g = F.app.game;
+    return { before, pos: JSON.parse(JSON.stringify(g.pos)), turn: g.turn,
+      total: g.totalStrikes, tally: g.strikes.reduce((a, b) => a + b, 0) };
+  });
+  ok('the Rival answers the opening blow on its own',
+    vsOpen.pos.ai >= 0 && vsOpen.total === 2, JSON.stringify(vsOpen));
+  ok('both blows land on one shared tally', vsOpen.tally === vsOpen.total);
+  ok('the turn returns to the player', vsOpen.turn === 'player');
+  ok('both hammers are drawn on the board', await page.evaluate(
+    () => document.querySelectorAll('.tile[data-current="1"]').length === 1 &&
+          document.querySelectorAll('.tile[data-ai="1"]').length === 1));
+
+  // taps during the Rival's turn must be ignored outright
+  const duringAi = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const g = F.app.game;
+    g.turn = 'ai';                                   // freeze it on the Rival
+    F.app.render ? 0 : 0;
+    const before = g.totalStrikes;
+    const t = F.core.legalTargets(g, 'player')[0];
+    if (t != null) document.querySelector(`.tile[data-i="${t}"]`).click();
+    await new Promise((r) => setTimeout(r, 200));
+    const after = g.totalStrikes;
+    g.turn = 'player';
+    return { before, after };
+  });
+  ok('a tap on the Rival\'s turn is refused', duringAi.after === duringAi.before);
+
+  // play the bout out and check the result screen
+  const bout = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    let guard = 0;
+    while (!F.core.isOver(F.app.game) && guard++ < 600) {
+      const g = F.app.game;
+      if (g.turn === 'player' && !F.app.busy) {
+        const t = F.core.legalTargets(g, 'player');
+        if (!t.length) break;
+        const pick = t.find((x) => g.strikes[x] === 1);
+        document.querySelector(`.tile[data-i="${pick == null ? t[0] : pick}"]`).click();
+      }
+      await wait(25);
+    }
+    await wait(500);
+    const g = F.app.game;
+    return { status: g.status, winner: g.winner, credits: JSON.parse(JSON.stringify(g.credits)),
+      dialog: !document.getElementById('results').hidden,
+      label: document.getElementById('rLabel').textContent,
+      caption: document.getElementById('rQualityCaption').textContent,
+      score: document.getElementById('rQuality').firstChild.textContent,
+      frozen: document.getElementById('board').dataset.frozen };
+  });
+  ok('the bout reaches a decided end', bout.status === 'complete' || bout.status === 'lost',
+    bout.status);
+  ok('a winner or a draw is declared', ['player', 'ai', 'draw'].includes(bout.winner), String(bout.winner));
+  ok('the result screen reports perfecting blows', bout.dialog && bout.caption === 'PERFECTING BLOWS');
+  ok('the score line matches the credits',
+    bout.score === bout.credits.player + '\u2013' + bout.credits.ai, bout.score);
+  ok('the outcome label matches the winner',
+    (bout.winner === 'player' && /You win/.test(bout.label)) ||
+    (bout.winner === 'ai' && /Rival wins/.test(bout.label)) ||
+    (bout.winner === 'draw' && /Dead heat/.test(bout.label)), bout.label);
+  ok('the board is frozen once the bout is decided', bout.frozen === '1');
+  ok('the versus record is remembered', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !!(d.record && Object.keys(d.record).length); } catch (e) { return false; } }));
+  await page.screenshot({ path: path.join(SHOTS, '06-versus.png'), fullPage: true });
+
+  // and back to solo without disturbing anything
+  await page.click('#rChange');                       // dismiss the result sheet first
+  await page.waitForTimeout(150);
+  await page.click('[data-mode="solo"]');
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.mode === 'solo',
+    null, { timeout: 8000 });
+  ok('switching back to solo hides the scoreboard', await page.isHidden('#versusBar'));
+  ok('solo has no Rival hammer', await page.evaluate(
+    () => document.querySelectorAll('.tile[data-ai="1"]').length === 0));
 
   ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));
   await ctx.close();

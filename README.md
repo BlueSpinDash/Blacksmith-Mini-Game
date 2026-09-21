@@ -65,6 +65,40 @@ forged, but each one costs quality.
 left, the run ends where it stands and nothing is scored. Spend squares
 carelessly and you will wall yourself in.
 
+## Versus the Rival
+
+The mode menu at the top switches between **Solo** and **Versus**. In versus you
+and the Rival take turns on *one* board. Every blow either of you lands counts
+for both of you, so the work fills twice as fast — but you each have your own
+hammer standing on your own square, so you rarely have the same moves available.
+
+The blow that takes a square from one strike to two is its **perfecting blow**,
+credited to whoever landed it. When the board finishes, whoever landed more
+perfecting blows wins. Run out of legal strikes on your turn and you lose on the
+spot, which makes blanking a square the Rival is standing on a real tactic.
+
+**One extra rule makes it fair: freshly shaped metal is too hot to finish.** A
+square that took its first strike on the previous swing cannot take its second on
+the very next one. Without it, strict alternation is a solved game — whoever
+moves second simply finishes whatever the other just started and takes every
+blow. Measured over 120 self-play bouts per difficulty, with both sides using the
+same evaluation:
+
+| First-mover win rate | Novice | Apprentice | Journeyman | Master |
+| --- | --- | --- | --- | --- |
+| Without cool-off | 3% | 18% | 34% | 23% |
+| **With cool-off** | **33%** | **38%** | **47%** | **51%** |
+
+Journeyman and Master are close to even. Novice stays second-mover-favoured: a
+3×3 board of kings and rooks is small enough that the harvest still dominates, so
+treat versus on Novice as a tutorial rather than a fair fight. Set
+`CONFIG.rules.coolOff` to `false` to play without the rule and see for yourself.
+
+The Rival is a one-ply search: it wants perfecting blows, avoids spending
+squares, keeps its own room to move, and mildly prefers leaving you with fewer
+options. `CONFIG.ai.thinkMs` sets its pause before swinging and `CONFIG.ai.jitter`
+how much randomness it adds, so it does not replay the same bout twice.
+
 Rooks, bishops and queens slide over anything in the way; only the destination is
 struck. There are no captures, no blockers, no timer. Tapping the square you are
 already on is not a move.
@@ -140,6 +174,9 @@ CONFIG.difficulties.master.maxQueens   // queens promoted in after the search
 CONFIG.difficulties.master.morphChance // odds a first strike reshapes a square
 CONFIG.rules.perfect                   // strikes that finish a square
 CONFIG.rules.spent                     // strikes that blank a square for good
+CONFIG.rules.coolOff                   // versus: a square shaped last swing cannot be finished yet
+CONFIG.ai.thinkMs                      // the Rival's pause before it swings
+CONFIG.ai.jitter                       // randomness in the Rival's move scores
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -169,8 +206,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 91 rule/generation checks
-node tools/verify-ui.mjs                                    # 94 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 117 rule/generation checks
+node tools/verify-ui.mjs                                    # 111 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
