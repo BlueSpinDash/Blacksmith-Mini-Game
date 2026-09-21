@@ -12,6 +12,7 @@ android/keystore.properties
 *.jks
 *.keystore
 
-# Built apps are distributed as releases, not committed
+# Built apps and generated previews are distributed as releases, not committed
+dist/
 *.apk
 *.aab
