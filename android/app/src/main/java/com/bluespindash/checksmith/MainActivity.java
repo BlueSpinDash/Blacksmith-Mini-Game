@@ -1,4 +1,4 @@
-package com.bluespindash.forgepattern;
+package com.bluespindash.checksmith;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -14,7 +14,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 /**
- * Forge Pattern is a single self-contained HTML file. This activity is only a
+ * Checksmith is a single self-contained HTML file. This activity is only a
  * shell: it hosts a WebView, loads the bundled page and hands the Android back
  * gesture to the page so it closes dialogs before it closes the app.
  *

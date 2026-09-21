@@ -1,4 +1,4 @@
-# Forge Pattern
+# Checksmith
 
 A smithing puzzle for the phone, and the standalone minigame for a future fantasy
 business game. The board is a metal mold; every square carries a permanent chess

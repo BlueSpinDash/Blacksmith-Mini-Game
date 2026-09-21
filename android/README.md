@@ -1,10 +1,10 @@
-# Forge Pattern for Android
+# Checksmith for Android
 
 A thin native shell around the game. `index.html` at the repository root is
 still the whole game; this module bundles that one file into an APK so it
 installs, gets a launcher icon, and runs offline.
 
-- **Package:** `com.bluespindash.forgepattern`
+- **Package:** `com.bluespindash.checksmith`
 - **Min SDK:** 24 (Android 7.0) · **Target SDK:** 35 (Android 15)
 - **Permissions:** none. The app never touches the network.
 - **Size:** ~1.2 MB
@@ -50,14 +50,14 @@ For anything real, create your own key and keep it safe forever (losing it means
 you can never update the app on Play):
 
 ```sh
-keytool -genkeypair -v -keystore forge-pattern.jks -alias forge \
+keytool -genkeypair -v -keystore checksmith.jks -alias forge \
         -keyalg RSA -keysize 4096 -validity 10000
 ```
 
 Then create `android/keystore.properties` — already gitignored:
 
 ```properties
-storeFile=/absolute/path/to/forge-pattern.jks
+storeFile=/absolute/path/to/checksmith.jks
 storePassword=...
 keyAlias=forge
 keyPassword=...

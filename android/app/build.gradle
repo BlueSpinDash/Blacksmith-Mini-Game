@@ -12,11 +12,11 @@ def copyGame = tasks.register('copyGame', Copy) {
 }
 
 android {
-    namespace 'com.bluespindash.forgepattern'
+    namespace 'com.bluespindash.checksmith'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.bluespindash.forgepattern"
+        applicationId "com.bluespindash.checksmith"
         minSdk 24
         targetSdk 35
         versionCode 1

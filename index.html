@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#14151a">
-<meta name="description" content="Forge Pattern - a chess-movement smithing puzzle. Strike every square twice.">
-<title>Forge Pattern</title>
+<meta name="description" content="Checksmith - a chess-movement smithing puzzle. Strike every square twice.">
+<title>Checksmith</title>
 <style>
 /* ---------------------------------------------------------------
-   Forge Pattern - styles
+   Checksmith - styles
    Palette: charcoal metal, ember accents, restrained brass.
    --------------------------------------------------------------- */
 :root{
@@ -377,7 +377,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   <header class="topbar">
     <div class="brand">
       <span class="logo" aria-hidden="true">&#9874;</span>
-      <h1>Forge Pattern</h1>
+      <h1>Checksmith</h1>
     </div>
     <div class="audio-ctl">
       <button id="muteBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="Mute sound">
@@ -484,7 +484,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 <script>
 "use strict";
 /* =================================================================
-   FORGE PATTERN
+   CHECKSMITH
    Part 1 - CORE: rules, board generation/validation, game state,
    scoring. No DOM, no audio, no timers. Pure and testable.
    ================================================================= */
@@ -944,7 +944,7 @@ function scoreGame(game) {
   return { quality: quality, label: label, stats: st };
 }
 
-const FORGE_CORE = {
+const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
   mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
   assignPieces: assignPieces, isStronglyConnected: isStronglyConnected, validateBoard: validateBoard,
@@ -1238,12 +1238,14 @@ const FX = {
    animation. Owns the "one state change per impact" rule.
    ================================================================= */
 const $ = (id) => document.getElementById(id);
-const STORE_KEY = 'forge-pattern:v1';
+const STORE_KEY = 'checksmith:v1';
+const LEGACY_STORE_KEY = 'forge-pattern:v1';   // the game's former name
 
 const Store = {
   read() {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
+      // fall back to the pre-rename key so best scores survive the move
+      const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_STORE_KEY);
       return raw ? (JSON.parse(raw) || {}) : {};
     } catch (err) { return {}; }
   },
@@ -1723,7 +1725,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 // exposed for the automated test harness
-window.FORGE = { core: FORGE_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare };
+window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare };
 </script>
 </body>
 </html>

@@ -20,5 +20,5 @@ export function loadCore(opts = {}) {
     code = code.replace('__FALLBACK__', opts.fallback ?? '{}');
   }
   // eslint-disable-next-line no-new-func
-  return new Function(`${code}\nreturn FORGE_CORE;`)();
+  return new Function(`${code}\nreturn CHECKSMITH_CORE;`)();
 }

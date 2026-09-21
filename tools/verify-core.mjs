@@ -1,4 +1,4 @@
-// Rule, generation and scoring checks for the Forge Pattern core.
+// Rule, generation and scoring checks for the Checksmith core.
 // Run: node tools/verify-core.mjs
 import { loadCore } from './load-core.mjs';
 

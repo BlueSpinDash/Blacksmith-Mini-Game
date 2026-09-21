@@ -21,15 +21,15 @@ function ok(name, cond, detail) {
 const section = (t) => console.log('\n' + t);
 
 const snap = (page) => page.evaluate(() => {
-  const g = window.FORGE.app.game;
+  const g = window.CHECKSMITH.app.game;
   return {
     strikes: g.strikes.slice(), current: g.current, total: g.totalStrikes, status: g.status,
     pieces: g.board.pieces.join(''), route: g.board.route.slice(), size: g.board.size,
-    busy: window.FORGE.app.busy
+    busy: window.CHECKSMITH.app.busy
   };
 });
-const settle = (page) => page.waitForFunction(() => !window.FORGE.app.busy, null, { timeout: 5000 });
-const fast = (page, ms) => page.evaluate((m) => { window.FORGE.core.CONFIG.animation.strikeMs = m; }, ms);
+const settle = (page) => page.waitForFunction(() => !window.CHECKSMITH.app.busy, null, { timeout: 5000 });
+const fast = (page, ms) => page.evaluate((m) => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = m; }, ms);
 
 async function run() {
   if (fs.existsSync(SHOTS)) fs.rmSync(SHOTS, { recursive: true, force: true });
@@ -43,7 +43,7 @@ async function run() {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.goto(FILE);
-  await page.waitForFunction(() => window.FORGE && window.FORGE.app.game);
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game);
 
   section('Boot and layout (320px wide)');
   ok('opening instruction is shown', (await page.textContent('#promptText')).trim() === 'Choose any square to begin.');
@@ -52,7 +52,7 @@ async function run() {
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
 
   await page.click('[data-diff="master"]');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 6);
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6);
   const tileBox = await page.locator('.tile').first().boundingBox();
   ok('master tiles are at least 44 CSS px (' + tileBox.width.toFixed(1) + 'px)', tileBox.width >= 44);
   ok('master board still fits without horizontal scroll',
@@ -63,7 +63,7 @@ async function run() {
   section('Difficulty levels');
   for (const [key, size] of [['novice', 3], ['apprentice', 4], ['journeyman', 5], ['master', 6]]) {
     await page.click(`[data-diff="${key}"]`);
-    await page.waitForFunction((s) => window.FORGE.app.game && window.FORGE.app.game.board.size === s, size);
+    await page.waitForFunction((s) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === s, size);
     const n = await page.locator('.tile').count();
     const pressed = await page.getAttribute(`[data-diff="${key}"]`, 'aria-pressed');
     ok(`${key} loads a ${size}x${size} board and marks its button`, n === size * size && pressed === 'true');
@@ -72,7 +72,7 @@ async function run() {
   /* ============ striking ============ */
   section('Striking');
   await page.click('[data-diff="journeyman"]');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 5);
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 5);
   await page.click('.tile[data-i="12"]');
   ok('a hammer appears during the swing', (await page.locator('.hammer').count()) > 0);
   await page.screenshot({ path: path.join(SHOTS, '02-hammer-midswing.png') });
@@ -97,8 +97,8 @@ async function run() {
   ok('tapping the current square changes nothing',
     after.total === before.total && after.strikes.join() === before.strikes.join());
   const illegal = await page.evaluate(() => {
-    const legal = new Set(window.FORGE.core.legalTargets(window.FORGE.app.game));
-    for (let i = 0; i < 25; i++) if (i !== window.FORGE.app.game.current && !legal.has(i)) return i;
+    const legal = new Set(window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game));
+    for (let i = 0; i < 25; i++) if (i !== window.CHECKSMITH.app.game.current && !legal.has(i)) return i;
     return -1;
   });
   await page.click(`.tile[data-i="${illegal}"]`);
@@ -110,7 +110,7 @@ async function run() {
 
   section('Rapid tapping');
   await fast(page, 260);
-  const target = await page.evaluate(() => window.FORGE.core.legalTargets(window.FORGE.app.game)[0]);
+  const target = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
   const t0 = await snap(page);
   await page.evaluate((t) => {
     const el = document.querySelector(`.tile[data-i="${t}"]`);
@@ -123,7 +123,7 @@ async function run() {
     `total went ${t0.total} -> ${t1.total}`);
 
   section('Reset during an animation');
-  const legalNow = await page.evaluate(() => window.FORGE.core.legalTargets(window.FORGE.app.game)[0]);
+  const legalNow = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
   await page.evaluate((t) => { document.querySelector(`.tile[data-i="${t}"]`).click(); }, legalNow);
   await page.evaluate(() => { document.getElementById('restartBtn').click(); });
   await page.evaluate(() => { const y = document.getElementById('confirmYes'); if (!document.getElementById('confirm').hidden) y.click(); });
@@ -136,7 +136,7 @@ async function run() {
   /* ============ full verified route through the UI ============ */
   section('Playing a verified route through the interface');
   await page.click('[data-diff="apprentice"]');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 4);
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 4);
   await fast(page, 40);
   let st = await snap(page);
   for (const step of st.route) {
@@ -162,13 +162,13 @@ async function run() {
 
   section('Best score memory');
   ok('best quality stored for apprentice', await page.evaluate(
-    () => (JSON.parse(localStorage.getItem('forge-pattern:v1')).best || {}).apprentice === 100));
+    () => (JSON.parse(localStorage.getItem('checksmith:v1')).best || {}).apprentice === 100));
   await page.click('#rRetry');
   await page.waitForTimeout(200);
   ok('retry restarts the same board cold', (await snap(page)).total === 0);
   ok('best line survives a reload', await (async () => {
     await page.reload();
-    await page.waitForFunction(() => window.FORGE && window.FORGE.app.game);
+    await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game);
     await page.click('[data-diff="apprentice"]');
     await page.waitForTimeout(250);
     return (await page.textContent('#bestLine')).includes('100');
@@ -177,11 +177,11 @@ async function run() {
   /* ============ overstrikes and damaged states ============ */
   section('Damage, overstrikes and scoring on screen');
   await page.click('[data-diff="novice"]');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 3);
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 3);
   await fast(page, 40);
   // drive an overstruck finish: walk the route but repeat one square first
   await page.evaluate(async () => {
-    const F = window.FORGE;
+    const F = window.CHECKSMITH;
     const wait = () => new Promise((r) => {
       const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 10);
     });
@@ -219,7 +219,7 @@ async function run() {
     q === Math.max(0, Math.round(100 * (1 - realOver / (2 * 9)))), 'shown ' + q);
   ok('damaged squares show their real strike count',
     await page.evaluate(() => {
-      const g = window.FORGE.app.game;
+      const g = window.CHECKSMITH.app.game;
       for (let i = 0; i < g.strikes.length; i++) {
         const el = document.querySelector(`.tile[data-i="${i}"]`);
         if (g.strikes[i] >= 3) {
@@ -236,21 +236,21 @@ async function run() {
   section('Audio');
   await page.click('#rNew');
   await page.waitForTimeout(300);
-  const audio = await page.evaluate(() => ({ dead: window.FORGE.sound.dead, has: !!window.FORGE.sound.ctx, state: window.FORGE.sound.ctx && window.FORGE.sound.ctx.state }));
+  const audio = await page.evaluate(() => ({ dead: window.CHECKSMITH.sound.dead, has: !!window.CHECKSMITH.sound.ctx, state: window.CHECKSMITH.sound.ctx && window.CHECKSMITH.sound.ctx.state }));
   ok('an audio context was created after a gesture', audio.has && !audio.dead, JSON.stringify(audio));
   ok('audio graph produces no errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   await page.click('#muteBtn');
   ok('mute toggles aria-pressed', (await page.getAttribute('#muteBtn', 'aria-pressed')) === 'true');
-  ok('mute is remembered', await page.evaluate(() => JSON.parse(localStorage.getItem('forge-pattern:v1')).muted === true));
+  ok('mute is remembered', await page.evaluate(() => JSON.parse(localStorage.getItem('checksmith:v1')).muted === true));
   const mutedPlay = await page.evaluate(() => {
-    try { window.FORGE.app.game && document.querySelector('.tile[data-i="0"]').click(); return true; } catch (e) { return String(e); }
+    try { window.CHECKSMITH.app.game && document.querySelector('.tile[data-i="0"]').click(); return true; } catch (e) { return String(e); }
   });
   ok('play continues while muted', mutedPlay === true);
   await settle(page);
   await page.click('#muteBtn');
   await page.evaluate(() => { const v = document.getElementById('volume'); v.value = '30'; v.dispatchEvent(new Event('input', { bubbles: true })); });
   ok('volume is remembered', await page.evaluate(
-    () => Math.abs(JSON.parse(localStorage.getItem('forge-pattern:v1')).volume - 0.3) < 0.001));
+    () => Math.abs(JSON.parse(localStorage.getItem('checksmith:v1')).volume - 0.3) < 0.001));
 
   section('Accessibility');
   const label = await page.getAttribute('.tile[data-i="0"]', 'aria-label');
@@ -269,7 +269,7 @@ async function run() {
   await page.keyboard.press('ArrowRight');
   ok('arrow keys move focus across the board',
     await page.evaluate(() => document.activeElement.dataset.i === '5'));
-  const kbTarget = await page.evaluate(() => window.FORGE.core.legalTargets(window.FORGE.app.game)[0]);
+  const kbTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
   await page.evaluate((i) => document.querySelector(`.tile[data-i="${i}"]`).focus(), kbTarget);
   const kbBefore = await snap(page);
   await page.keyboard.press('Enter');
@@ -287,7 +287,7 @@ async function run() {
   await page.evaluate(() => document.querySelector('[data-diff="master"]').click());
   ok('changing difficulty mid-run asks first', await page.isVisible('#confirm'));
   await page.click('#confirmYes');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 6, null, { timeout: 5000 });
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6, null, { timeout: 5000 });
   ok('accepting switches difficulty', (await snap(page)).size === 6);
   await page.click('#helpBtn');
   ok('how to play opens', await page.isVisible('#help'));
@@ -297,7 +297,7 @@ async function run() {
   section('Page hidden mid-swing');
   await fast(page, 900);
   const hidBefore = await snap(page);
-  const hidTarget = await page.evaluate(() => window.FORGE.core.legalTargets(window.FORGE.app.game)[0]);
+  const hidTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
   await page.evaluate((t) => { document.querySelector(`.tile[data-i="${t}"]`).click(); }, hidTarget);
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
@@ -354,12 +354,34 @@ async function run() {
     });
   });
   await page.goto(FILE);
-  await page.waitForFunction(() => window.FORGE && window.FORGE.app.game, null, { timeout: 5000 });
-  await page.evaluate(() => { window.FORGE.core.CONFIG.animation.strikeMs = 40; });
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game, null, { timeout: 5000 });
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 40; });
   await page.click('.tile[data-i="0"]');
   await settle(page);
   ok('the game boots and plays with localStorage blocked', (await snap(page)).total === 1);
   ok('no errors escape the storage wrapper', errs2.length === 0, errs2.slice(0, 2).join(' | '));
+  await ctx.close();
+
+  /* ============ best scores survive the rename ============ */
+  section('Pre-rename save data');
+  ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  page = await ctx.newPage();
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('forge-pattern:v1',
+        JSON.stringify({ best: { novice: 88 }, muted: true, volume: 0.45 }));
+    } catch (e) { /* ignore */ }
+  });
+  await page.goto(FILE);
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game);
+  await page.waitForTimeout(200);
+  ok('best score saved under the old name is still shown',
+    (await page.textContent('#bestLine')).includes('88'));
+  ok('audio preferences carry over too', await page.evaluate(
+    () => window.CHECKSMITH.sound.muted === true && Math.abs(window.CHECKSMITH.sound.volume - 0.45) < 0.001));
+  await page.click('#muteBtn');
+  ok('the next write lands under the new key', await page.evaluate(
+    () => !!localStorage.getItem('checksmith:v1')));
   await ctx.close();
 
   /* ============ reduced motion ============ */
@@ -369,8 +391,8 @@ async function run() {
   const errs3 = [];
   page.on('pageerror', (e) => errs3.push(String(e)));
   await page.goto(FILE);
-  await page.waitForFunction(() => window.FORGE && window.FORGE.app.game);
-  ok('reduced motion is detected', await page.evaluate(() => window.FORGE.fx.reduced === true));
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game);
+  ok('reduced motion is detected', await page.evaluate(() => window.CHECKSMITH.fx.reduced === true));
   await page.click('.tile[data-i="4"]');
   const shaking = await page.evaluate(() => document.querySelectorAll('.tile.impact, .tile.shake').length);
   await settle(page);
@@ -386,9 +408,9 @@ async function run() {
   ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
   page = await ctx.newPage();
   await page.goto(FILE);
-  await page.waitForFunction(() => window.FORGE && window.FORGE.app.game);
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game);
   await page.click('[data-diff="master"]');
-  await page.waitForFunction(() => window.FORGE.app.game && window.FORGE.app.game.board.size === 6);
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6);
   const wide = await page.locator('.board-wrap').boundingBox();
   ok('layout stays centred and capped on desktop (' + Math.round(wide.width) + 'px)', wide.width <= 520);
   await page.screenshot({ path: path.join(SHOTS, '06-desktop.png') });
