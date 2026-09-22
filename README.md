@@ -23,6 +23,22 @@ Portrait phones are the design target, down to 320 CSS pixels wide. Mouse,
 touch and keyboard all work; arrow keys move the focus ring across the board and
 Enter or Space swings the hammer.
 
+## Installing on iPhone
+
+`index.html` is a complete offline app, so the quickest route needs no Mac at
+all: open it in **Safari** and use **Share → Add to Home Screen**. It installs
+with the hammer icon and runs full screen with no browser chrome — the page
+carries the `apple-mobile-web-app-*` tags and an embedded 180px
+`apple-touch-icon`, and pads every edge for the notch and the home indicator
+through `env(safe-area-inset-*)`.
+
+For a real signed app there is a complete Xcode project in
+[`ios/`](ios/README.md): a `WKWebView` shell, matching the Android one, that
+copies `index.html` into its bundle on every build. It has been checked
+structurally by `python3 ios/tools/verify-project.py` but **never compiled** —
+that needs macOS, which is not available where this was built. See
+[`ios/README.md`](ios/README.md) for what is and is not verified.
+
 ## Installing on Android
 
 `android/` wraps the same `index.html` in a minimal WebView shell so the game

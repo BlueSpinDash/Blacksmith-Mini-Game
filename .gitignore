@@ -16,3 +16,9 @@ android/keystore.properties
 dist/
 *.apk
 *.aab
+
+# Xcode local state and build output
+ios/build/
+ios/DerivedData/
+**/xcuserdata/
+*.xcworkspace/xcuserdata/
