@@ -86,10 +86,47 @@ Endless replaces the two-strike rules with a score chase:
   to reach: *"No legal moves remaining."* The board freezes so you can see where
   the route died. Best score is saved per difficulty, separately from forge.
 
-Nothing crumbles and nothing reshapes in endless — every square is struck once,
-so the spent/blank rules never fire, and reshaping is off because a round's
-verified route only holds while the symbols hold still. `CONFIG.endless.morphChance`
-turns it on if you want the chaos.
+Nothing crumbles in endless — every square is struck once, so the spent/blank
+rules never fire. Everything else gets harder as you go:
+
+- **The metal reshapes, and the odds climb.** Every square can reshape under the
+  hammer. Because you are standing on the square you just struck, a reshape
+  redirects your *very next move*. Odds start at 5% and rise 3% every three
+  rounds, capped at 60%.
+- **The board steps up a tier every five rounds**, from wherever the run began up
+  to 6×6, where it stays.
+- **Every symbol can turn up on any endless board** — king, rook, bishop, knight
+  and queen — regardless of the tier's usual pool.
+
+| Round | 1 | 4 | 7 | 10 | 16 | 31 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Reshape chance | 5% | 8% | 11% | 14% | 20% | 35% |
+| Tier from Novice | 3×3 | 3×3 | 4×4 | 4×4 | 6×6 | 6×6 |
+
+Reshaping means a round's verified route is a promise about the board you are
+*handed*, not the board you will be standing on three blows later. The generator
+still proves a full tour exists at the start of every round; from there you are
+reading and re-planning, and you can dead-end. The test suite replays verified
+routes with reshaping pinned off, which is the only condition under which those
+routes mean anything.
+
+## Gold and the forge shop
+
+Clearing a board pays **1 gold**, banked the moment it is earned so walking away
+never costs you what you already won. Gold and everything bought with it persist
+between runs, stored alongside the rest of the local save.
+
+The **Forge Shop** on the title screen sells three permanent upgrades:
+
+| Upgrade | Levels | What it does | Costs |
+| --- | --- | --- | --- |
+| Gilded Hammer | 4 | Gold ×2 → ×5 per board cleared | 5, 12, 25, 45 |
+| Smith's Ledger | 4 | Score ×1.25 → ×2 | 4, 9, 18, 32 |
+| Tempering | 3 | −4% reshape chance per level | 6, 14, 28 |
+
+Gold stays a whole number at every Gilded Hammer level. Everything above is in
+`CONFIG.shop`, including the cost tables, so retuning the economy is a one-line
+change.
 
 Endless rounds need a different guarantee from forge: a **Hamiltonian path**,
 visiting every square exactly once. That is a lighter constraint than the forge
@@ -174,7 +211,12 @@ CONFIG.rules.spent                     // strikes that blank a square for good
 CONFIG.endless.pointsPerStrike         // endless: points for each strike
 CONFIG.endless.roundBonus              // endless: points for clearing a board
 CONFIG.endless.materials               // the named metals, in order
-CONFIG.endless.morphChance             // endless reshaping, off by default
+CONFIG.endless.pool                    // symbols that can appear in endless
+CONFIG.endless.morphBase/Step/Every    // the reshape ramp
+CONFIG.endless.morphMax                // reshape ceiling
+CONFIG.endless.difficultyEvery         // rounds between tier step-ups
+CONFIG.shop.goldPerBoard               // gold before the Gilded Hammer
+CONFIG.shop.upgrades                   // the upgrade table and its costs
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -204,8 +246,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 136 rule/generation checks
-node tools/verify-ui.mjs                                    # 128 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 165 rule/generation checks
+node tools/verify-ui.mjs                                    # 145 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

@@ -357,9 +357,12 @@ section('Endless: one visit per square');
   ok('a tour board visits every square exactly once', C.validateTour(board) &&
     board.route.length === 25 && new Set(board.route).size === 25);
 
-  const g = C.createGame(board, { mode: 'endless' });
+  const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
   ok('endless starts at round one with no score', g.mode === 'endless' && g.round === 1 && g.score === 0);
-  ok('reshaping is off in endless', g.morphChance === 0);
+  ok('every symbol can turn up in endless', C.CONFIG.endless.pool.length === 5 &&
+    ['K', 'R', 'B', 'N', 'Q'].every((x) => C.CONFIG.endless.pool.includes(x)));
+  ok('an endless game reshapes from the whole pool',
+    C.createGame(board, { mode: 'endless' }).morphPool.length === 5);
   ok('any square may open the round', C.legalTargets(g).length === 25);
 
   const first = C.applyStrike(g, board.route[0]);
@@ -380,7 +383,7 @@ section('Endless: hit squares never block a move');
   // rooks in a row: strike the middle one, then slide straight over it
   const board = { size: 3, difficulty: 'test', kind: 'tour',
     pieces: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [0, 1, 2, 5, 8, 7, 6, 3, 4] };
-  const g = C.createGame(board, { mode: 'endless' });
+  const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
   C.applyStrike(g, 1);                       // middle of the top row
   C.applyStrike(g, 0);
   ok('a struck square does not block the slide past it', C.canStrike(g, 2));
@@ -391,7 +394,7 @@ section('Endless: hit squares never block a move');
 section('Endless: rounds, scoring and failure order');
 {
   const board = C.generateTourBoard('novice', C.mulberry32(3));
-  const g = C.createGame(board, { mode: 'endless' });
+  const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
   let cleared = null;
   for (const step of board.route) {
     const r = C.applyStrike(g, step);
@@ -419,7 +422,7 @@ section('Endless: dead ends end the run');
   const board = { size: 3, difficulty: 'test', kind: 'tour',
     pieces: ['R', 'R', 'R', 'R', 'R', 'N', 'R', 'R', 'R'],
     route: [0, 1, 2, 5, 8, 7, 6, 3, 4] };
-  const g = C.createGame(board, { mode: 'endless' });
+  const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
   g.strikes = [1, 1, 1, 0, 1, 0, 1, 1, 1];
   g.current = 2; g.status = 'playing'; g.totalStrikes = 7;
   const r = C.applyStrike(g, 5);             // land on the knight at 5
@@ -450,15 +453,22 @@ section('Endless: generation and fallbacks');
       const b = C.makeEndlessBoard(key, C.mulberry32(seed * 313 + 7));
       worst = Math.max(worst, Date.now() - t0);
       if (!b || !C.validateTour(b) || b.route.length !== sizes[key]) { ok1 = false; break; }
-      const allowed = C.CONFIG.difficulties[key].pool.concat(
-        C.CONFIG.difficulties[key].maxQueens > 0 ? ['Q'] : []);
-      if (!b.pieces.every((p) => allowed.includes(p))) { ok1 = false; break; }
-      const g = C.createGame(b, { mode: 'endless' });
+      // endless draws from the whole pool at every tier, not the tier's own
+      if (!b.pieces.every((p) => C.CONFIG.endless.pool.includes(p))) { ok1 = false; break; }
+      const g = C.createGame(b, { mode: 'endless', morphChance: 0 });
       for (const step of b.route) if (!C.applyStrike(g, step)) { replay = false; break; }
       if (!g.strikes.every((x) => x === 1) || g.roundsCompleted !== 1) replay = false;
       if (!replay) break;
     }
     ok(key + ': 60 endless boards validate, worst build ' + worst + 'ms', ok1);
+    ok(key + ': every symbol turns up across a sample of boards', (() => {
+      const seen = new Set();
+      for (let seed = 0; seed < 40; seed++) {
+        const b = C.makeEndlessBoard(key, C.mulberry32(seed * 71 + 3));
+        if (b) for (const p of b.pieces) seen.add(p);
+      }
+      return C.CONFIG.endless.pool.every((p) => seen.has(p));
+    })());
     ok(key + ': every verified tour replays with no repeat hits', replay);
   }
   ok('bounded-out generation still returns a usable round', C.CONFIG.order.every((k) => {
@@ -480,6 +490,115 @@ section('Endless: generation and fallbacks');
     }
     return n === 96;
   })());
+}
+
+section('Endless: reshaping ramps with the round');
+{
+  const e = C.CONFIG.endless;
+  ok('round one starts at the base chance', C.endlessMorphChance(1, {}) === e.morphBase);
+  ok('it holds for ' + e.morphEvery + ' rounds then steps by ' + (e.morphStep * 100) + '%', (() => {
+    for (let r = 1; r <= e.morphEvery; r++) if (C.endlessMorphChance(r, {}) !== e.morphBase) return false;
+    return Math.abs(C.endlessMorphChance(e.morphEvery + 1, {}) - (e.morphBase + e.morphStep)) < 1e-9;
+  })());
+  ok('the step repeats every ' + e.morphEvery + ' rounds', (() => {
+    for (let k = 0; k < 8; k++) {
+      const round = 1 + k * e.morphEvery;
+      const want = Math.min(e.morphMax, e.morphBase + e.morphStep * k);
+      if (Math.abs(C.endlessMorphChance(round, {}) - want) > 1e-9) return false;
+    }
+    return true;
+  })());
+  ok('it never climbs past the ceiling', C.endlessMorphChance(500, {}) === e.morphMax);
+  ok('Tempering lowers it and it never goes below zero',
+    C.endlessMorphChance(1, { temper: 3 }) === 0 &&
+    C.endlessMorphChance(10, { temper: 1 }) < C.endlessMorphChance(10, {}));
+  ok('a new round recomputes the chance', (() => {
+    const b = C.generateTourBoard('novice', C.mulberry32(2));
+    const g = C.createGame(b, { mode: 'endless' });
+    const first = g.morphChance;
+    for (let r = 0; r < C.CONFIG.endless.morphEvery; r++) {
+      C.beginRound(g, C.generateTourBoard('novice', C.mulberry32(r + 40)));
+    }
+    return g.morphChance > first;
+  })());
+}
+
+section('Endless: a reshaped square redirects the next move');
+{
+  // every square a rook, and a certainty of reshaping
+  const board = { size: 3, difficulty: 'test', kind: 'tour',
+    pieces: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [0, 1, 2, 5, 8, 7, 6, 3, 4] };
+  const g = C.createGame(board, { mode: 'endless', morphChance: 1, rnd: C.mulberry32(6) });
+  const r = C.applyStrike(g, 4);                   // land on the centre
+  ok('the struck square reshapes', r.morphed !== null && g.pieces[4] !== 'R');
+  ok('the report names both symbols', r.morphed.from === 'R' && r.morphed.to === g.pieces[4]);
+  ok('the new symbol governs the next move', (() => {
+    const T = C.tableFor(3)[g.pieces[4]].list[4];
+    const want = T.filter((t) => g.strikes[t] === 0).sort().join(',');
+    return C.legalTargets(g).slice().sort().join(',') === want;
+  })());
+  ok('the stored layout is untouched, so a round can be replayed', board.pieces[4] === 'R');
+}
+
+section('Endless: the board steps up a tier');
+{
+  const every = C.CONFIG.endless.difficultyEvery;
+  ok('a run holds its tier for ' + every + ' rounds', (() => {
+    for (let r = 1; r <= every; r++) if (C.tierForRound('novice', r) !== 'novice') return false;
+    return true;
+  })());
+  ok('then it steps up one tier',
+    C.tierForRound('novice', every + 1) === 'apprentice' &&
+    C.tierForRound('novice', 2 * every + 1) === 'journeyman');
+  ok('it tops out at the largest board',
+    C.tierForRound('novice', 500) === 'master' && C.tierForRound('master', 500) === 'master');
+  ok('a run that starts higher steps from there',
+    C.tierForRound('journeyman', every + 1) === 'master');
+  ok('the game reports the tier of the round it is on', (() => {
+    const b = C.generateTourBoard('novice', C.mulberry32(9));
+    const g = C.createGame(b, { mode: 'endless', morphChance: 0 });
+    return C.roundTier(g) === 'novice';
+  })());
+}
+
+section('Endless: gold and the forge shop');
+{
+  const board = C.generateTourBoard('novice', C.mulberry32(3));
+  const play = (upgrades) => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0, upgrades: upgrades });
+    for (const step of board.route) C.applyStrike(g, step);
+    return g;
+  };
+  const plain = play({});
+  ok('clearing a board pays one gold', plain.gold === C.CONFIG.shop.goldPerBoard);
+  ok('the Gilded Hammer multiplies it', play({ gild: 1 }).gold === 2 && play({ gild: 4 }).gold === 5);
+  ok('gold stays a whole number at every level',
+    [0, 1, 2, 3, 4].every((l) => Number.isInteger(C.goldPerBoard({ gild: l }))));
+  ok("the Smith's Ledger multiplies the score",
+    play({ ledger: 4 }).score === plain.score * 2 &&
+    play({ ledger: 2 }).score > plain.score);
+  ok('an unfinished round still scores its strikes', (() => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
+    C.applyStrike(g, board.route[0]);
+    C.applyStrike(g, board.route[1]);
+    return g.score === 2 * C.CONFIG.endless.pointsPerStrike && g.gold === 0;
+  })());
+
+  ok('upgrade levels are clamped to their maximum', (() => {
+    return C.levelOf({ gild: 99 }, 'gild') === C.upgradeDef('gild').max &&
+      C.levelOf({}, 'gild') === 0 && C.levelOf({ gild: -3 }, 'gild') === 0;
+  })());
+  ok('costs rise with each level and stop at the cap', (() => {
+    for (const def of C.CONFIG.shop.upgrades) {
+      for (let l = 1; l < def.max; l++) if (!(C.upgradeCost(def.id, l) > C.upgradeCost(def.id, l - 1))) return false;
+      if (C.upgradeCost(def.id, def.max) !== null) return false;
+    }
+    return true;
+  })());
+  ok('every upgrade describes what the next level does', C.CONFIG.shop.upgrades.every(
+    (d) => typeof d.effect(0) === 'string' && d.effect(0) !== d.effect(1)));
+  ok('an unknown upgrade is refused rather than guessed',
+    C.upgradeDef('nonesuch') === null && C.upgradeCost('nonesuch', 0) === null);
 }
 
 section('Forge mode is untouched by endless');

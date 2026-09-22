@@ -508,7 +508,15 @@ async function run() {
     eStart.newBtn === true && eStart.menuBtn === false && eStart.restart === 'Restart Run');
   ok('the tutorial names the opening round',
     (await page.textContent('#promptText')).includes('Bronze'));
-  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 25; });
+  await page.evaluate(() => {
+    window.CHECKSMITH.core.CONFIG.animation.strikeMs = 25;
+    // A round's verified route only holds while the symbols hold still, so
+    // reshaping is pinned off for the replays below (it has its own tests).
+    const e = window.CHECKSMITH.core.CONFIG.endless;
+    window.__shipped = { morphBase: e.morphBase, morphStep: e.morphStep };
+    e.morphBase = 0; e.morphStep = 0;
+    window.CHECKSMITH.app.game.morphChance = 0;
+  });
 
   // one strike: scores, marks, and closes that square for the round
   const one = await page.evaluate(async () => {
@@ -593,8 +601,8 @@ async function run() {
   ok('the game over sheet reports the final score', dead.dialog && dead.caption === 'FINAL SCORE');
   ok('it reports rounds cleared and the highest material',
     dead.rounds === '1' && /Silver|Bronze/.test(dead.material), dead.rounds + ' / ' + dead.material);
-  ok('it offers Play Again and Main Menu',
-    dead.retry === 'Play Again' && dead.menu === 'Main Menu' && dead.newHidden === true);
+  ok('it offers Play Again, the Forge Shop and Main Menu',
+    dead.retry === 'Play Again' && dead.menu === 'Main Menu' && dead.newHidden === false);
   ok('the endless best score is saved per difficulty', await page.evaluate(
     () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
       return !!(d.endlessBest && d.endlessBest.journeyman > 0) && d.best !== undefined; }
@@ -656,6 +664,118 @@ async function run() {
   ok('restarting mid-recast cannot award the old round again',
     stale.score === 0 && stale.round === 1 && stale.cleared === 0, JSON.stringify(stale));
   ok('and the restarted run is back at Bronze', stale.material === 'Bronze');
+
+  /* ============ gold and the forge shop ============ */
+  section('Gold and the forge shop');
+  const purse = await page.evaluate(() => ({
+    app: window.CHECKSMITH.app.gold,
+    chip: document.getElementById('eGold').textContent,
+    stored: (() => { try { return JSON.parse(localStorage.getItem('checksmith:v1') || '{}').gold; }
+      catch (e) { return null; } })()
+  }));
+  ok('clearing a board banks gold into the purse', purse.app >= 1, JSON.stringify(purse));
+  ok('the gold chip shows it', Number(purse.chip) === purse.app);
+  ok('the purse survives in storage', purse.stored === purse.app);
+
+  await page.evaluate(() => document.getElementById('menuActionBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  ok('the title screen shows the purse', await page.isVisible('#titlePurse'));
+  await page.click('#shopBtn');
+  ok('the forge shop opens', await page.isVisible('#shop'));
+  const shop = await page.evaluate(() => ({
+    rows: document.querySelectorAll('.shop-row').length,
+    gold: document.getElementById('shopGold').textContent,
+    names: Array.from(document.querySelectorAll('.sr-name')).map((n) => n.textContent),
+    buys: Array.from(document.querySelectorAll('.sr-buy')).map((b) => ({ t: b.textContent, off: b.disabled }))
+  }));
+  ok('every upgrade is listed', shop.rows === 3 && shop.names.length === 3, JSON.stringify(shop.names));
+  ok('the purse is shown in the shop', Number(shop.gold) === purse.app);
+  ok('upgrades you cannot afford are disabled',
+    shop.buys.some((b) => b.off === true) || purse.app >= 5);
+
+  // grant enough gold to buy the multiplier the request names
+  await page.click('#shopClose');
+  await page.evaluate(() => { window.CHECKSMITH.app.gold = 50; });
+  await page.click('#shopBtn');
+  const preBuy = await page.evaluate(() => ({
+    gold: window.CHECKSMITH.app.gold,
+    level: window.CHECKSMITH.core.levelOf(window.CHECKSMITH.app.upgrades, 'gild'),
+    cost: window.CHECKSMITH.core.upgradeCost('gild', 0)
+  }));
+  await page.click('.sr-buy[data-buy="gild"]');
+  const postBuy = await page.evaluate(() => ({
+    gold: window.CHECKSMITH.app.gold,
+    level: window.CHECKSMITH.core.levelOf(window.CHECKSMITH.app.upgrades, 'gild'),
+    stored: (() => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return { gold: d.gold, lvl: d.upgrades && d.upgrades.gild }; } catch (e) { return null; } })(),
+    label: document.querySelector('.shop-row .sr-eff').textContent
+  }));
+  ok('buying an upgrade spends the gold', postBuy.gold === preBuy.gold - preBuy.cost,
+    preBuy.gold + ' -> ' + postBuy.gold);
+  ok('the upgrade level goes up', postBuy.level === preBuy.level + 1);
+  ok('both are written to storage',
+    postBuy.stored.gold === postBuy.gold && postBuy.stored.lvl === postBuy.level);
+  ok('the shop redraws with the new effect', /Gold/.test(postBuy.label), postBuy.label);
+  await page.screenshot({ path: path.join(SHOTS, '10-forge-shop.png'), fullPage: true });
+
+  // the bought multiplier must actually pay out
+  await page.click('#shopClose');
+  const payout = await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    const board = F.core.generateTourBoard('novice', F.core.mulberry32(3));
+    const g = F.core.createGame(board, { mode: 'endless', morphChance: 0, upgrades: F.app.upgrades });
+    for (const step of board.route) F.core.applyStrike(g, step);
+    return { gold: g.gold, level: F.core.levelOf(F.app.upgrades, 'gild') };
+  });
+  ok('the Gilded Hammer pays its multiplier on the next board',
+    payout.gold === 1 + payout.level, JSON.stringify(payout));
+
+  /* ============ the run gets harder ============ */
+  section('Endless ramps up');
+  const ramp = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const e = C.CONFIG.endless;
+    Object.assign(e, window.__shipped);          // put the shipped ramp back
+    return {
+      base: C.endlessMorphChance(1, {}),
+      step: C.endlessMorphChance(1 + e.morphEvery, {}),
+      every: e.morphEvery,
+      diffEvery: e.difficultyEvery,
+      tier1: C.tierForRound('novice', 1),
+      tierNext: C.tierForRound('novice', 1 + e.difficultyEvery)
+    };
+  });
+  ok('reshape odds climb every ' + ramp.every + ' rounds', ramp.step > ramp.base);
+  ok('the tier steps up every ' + ramp.diffEvery + ' rounds', ramp.tier1 !== ramp.tierNext);
+
+  // and the board really does grow mid-run
+  await startFromTitle(page, 'endless', 'novice');
+  const grew = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.core.CONFIG.animation.strikeMs = 12;
+    const e = F.core.CONFIG.endless;
+    e.morphBase = 0; e.morphStep = 0;            // replaying routes again
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 6); });
+    const sizes = [];
+    for (let round = 0; round < e.difficultyEvery + 1; round++) {
+      const g = F.app.game;
+      g.morphChance = 0;
+      sizes.push({ round: g.round, size: g.board.size, tiles: document.querySelectorAll('.tile').length });
+      for (const i of g.board.route.slice()) {
+        if (g.strikes[i] > 0) continue;
+        document.querySelector(`.tile[data-i="${i}"]`).click();
+        await wait();
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+      if (F.core.isOver(F.app.game)) break;
+    }
+    return { sizes, final: F.app.game.board.size, tiles: document.querySelectorAll('.tile').length };
+  });
+  ok('the board grows a tier after ' + ramp.diffEvery + ' cleared rounds',
+    grew.final > grew.sizes[0].size, JSON.stringify(grew.sizes));
+  ok('the tile grid is rebuilt to match', grew.tiles === grew.final * grew.final);
+  await page.screenshot({ path: path.join(SHOTS, '11-endless-tier-up.png'), fullPage: true });
 
   // back to the menu, then into forge, to prove the modes do not leak
   await page.evaluate(() => document.getElementById('menuActionBtn').click());

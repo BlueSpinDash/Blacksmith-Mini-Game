@@ -384,6 +384,24 @@ input[type=range]{
 .board[data-mode="endless"][data-tier="4"] .tile[data-hit="1"]{--hit-a:#bdf5e8;--hit-b:#5fbfab;--hit-c:#2f7c6d;--hit-edge:#8ee6d4;}
 .board[data-mode="endless"][data-tier="5"] .tile[data-hit="1"]{--hit-a:#ddc9ff;--hit-b:#9b78e0;--hit-c:#5a3fa0;--hit-edge:#c3a2ff;}
 
+/* ---------- the purse and the shop ---------- */
+.title-purse{margin:0 0 8px;font-size:13px;color:var(--brass);letter-spacing:.05em;}
+.title-purse[hidden]{display:none;}
+.shop-purse{margin:2px 0 12px;font-size:13.5px;color:var(--brass);letter-spacing:.04em;}
+.shop-list{display:grid;gap:7px;}
+.shop-row{
+  display:grid;grid-template-columns:1fr auto;gap:9px;align-items:center;
+  background:#15161b;border:1px solid var(--edge-soft);border-radius:10px;padding:9px 11px;
+}
+.shop-row[data-maxed="1"]{border-color:var(--brass);}
+.sr-main{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left;}
+.sr-name{font-size:14.5px;color:var(--text);}
+.sr-lvl{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.sr-blurb{font-size:12px;line-height:1.4;color:var(--muted);}
+.sr-eff{font-size:11.5px;color:var(--gold);}
+.sr-buy{min-width:76px;min-height:var(--tap);font-size:13px;white-space:nowrap;}
+.sr-buy:disabled{opacity:.45;cursor:not-allowed;}
+
 /* ---------- title screen ---------- */
 .title-screen{background:radial-gradient(120% 80% at 50% 0%, #2c1b11 0%, rgba(10,11,14,.96) 62%);}
 .title-sheet{max-width:420px;text-align:center;}
@@ -559,7 +577,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   </div>
   <div class="stats" id="statsEndless" hidden>
     <div class="stat"><span class="k">Score</span><span class="v" id="eScore">0</span></div>
-    <div class="stat good"><span class="k">Best</span><span class="v" id="eBest">0</span></div>
+    <div class="stat good"><span class="k">Gold</span><span class="v" id="eGold">0</span></div>
     <div class="stat"><span class="k">Round</span><span class="v" id="eRound">1</span></div>
     <div class="stat"><span class="k">Hit</span><span class="v" id="eHits">0/9</span></div>
   </div>
@@ -586,6 +604,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <div class="title-mark" aria-hidden="true">&#9874;</div>
     <h1 class="title-name" id="titleName">Checksmith</h1>
     <p class="title-tag">The piece you stand on decides your next blow.</p>
+    <p class="title-purse" id="titlePurse" hidden><span aria-hidden="true">&#9679;</span> <b id="titleGold">0</b> gold</p>
 
     <h2 class="title-label" id="modeLabel">Mode</h2>
     <div class="mode-cards" role="radiogroup" aria-labelledby="modeLabel">
@@ -611,7 +630,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 
     <div class="sheet-actions">
       <button class="btn primary" type="button" id="beginBtn">Begin</button>
-      <button class="btn ghost" type="button" id="titleHelpBtn">How to Play</button>
+      <div class="sheet-actions row">
+        <button class="btn" type="button" id="shopBtn">Forge Shop</button>
+        <button class="btn ghost" type="button" id="titleHelpBtn">How to Play</button>
+      </div>
     </div>
   </div>
 </div>
@@ -636,6 +658,17 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
         <button class="btn" type="button" id="rChange">Change Difficulty</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- forge shop -->
+<div class="overlay" id="shop" hidden role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+  <div class="sheet">
+    <h2 id="shopTitle">Forge Shop</h2>
+    <p class="shop-purse"><span aria-hidden="true">&#9679;</span> <b id="shopGold">0</b> gold in the purse</p>
+    <div class="shop-list" id="shopList"></div>
+    <p class="best-line" id="shopNote">Gold is earned by clearing boards in Endless, and upgrades are kept for good.</p>
+    <div class="sheet-actions"><button class="btn primary" type="button" id="shopClose">Back</button></div>
   </div>
 </div>
 
@@ -669,8 +702,18 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        Platinum, Mithril, Adamantine, and on into Adamantine II, III and beyond. Every round is a
        fresh layout with a verified route, the score carries forward, and there is no last round.</p>
     <p>Endless scores <b>10 points a strike</b> and <b>100 for each board cleared</b>. Squares are struck
-       once only, so nothing crumbles and nothing reshapes: the run ends when the square you are
-       standing on has no unstruck square left to reach.</p>
+       once only, so nothing crumbles: the run ends when the square you are standing on has no
+       unstruck square left to reach.</p>
+    <p><b>The metal fights back as you go.</b> Every square can reshape under the hammer, and because
+       you are standing on the square you just struck, a reshape redirects your very next move. The
+       odds start low and climb by 3% every three rounds. Every five rounds the board itself steps up
+       a tier, from 3&times;3 all the way to 6&times;6, and every symbol &mdash; king, rook, bishop,
+       knight and queen &mdash; can turn up on any endless board.</p>
+    <p><b>Gold and the forge shop.</b> Every board you clear pays <b>1 gold</b>, banked the moment you
+       earn it and kept between runs. Spend it in the Forge Shop on the title screen: the
+       <b>Gilded Hammer</b> multiplies the gold each board pays, the <b>Smith's Ledger</b> multiplies
+       your score, and <b>Tempering</b> cools the metal so squares reshape less often. Upgrades are
+       permanent.</p>
     <p><b>Marks:</b> a brass diamond shows where the hammer stands now; dashed rings show every legal destination.
        Notches along the bottom of a square count its strikes, a red dashed border means the square is
        crumbling and about to blank, and a dark hole means it is already spent.</p>
@@ -738,10 +781,33 @@ const CONFIG = {
     roundBonus: 100,      // awarded for clearing a whole board
     // Round 1..6 take these names; round 7 onward is Adamantine II, III, ...
     materials: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Mithril', 'Adamantine'],
-    // Reshaping is off here: a round's verified route only holds while the
-    // symbols hold still, and in endless every strike is a first strike.
-    morphChance: 0,
+    // Every symbol can turn up on an endless board, whatever the tier.
+    pool: ['K', 'R', 'B', 'N', 'Q'],
+    // Reshaping is live in endless and climbs as the run goes on. In endless
+    // every strike is a first strike, so a reshaped square immediately
+    // redirects the very next move.
+    morphBase: 0.05,      // chance in round 1
+    morphStep: 0.03,      // added every `morphEvery` rounds
+    morphEvery: 3,
+    morphMax: 0.60,       // ceiling, so late rounds stay playable
+    // The board steps up a tier this often, from whatever tier the run began
+    // on, until it tops out at the largest.
+    difficultyEvery: 5,
     generation: { nodeBudget: 200000, timeBudgetMs: 900, attempts: 24 }
+  },
+  shop: {
+    goldPerBoard: 1,      // before the Gilded Hammer multiplies it
+    upgrades: [
+      { id: 'gild', name: 'Gilded Hammer', max: 4, costs: [5, 12, 25, 45],
+        blurb: 'Every cleared board yields more gold.',
+        effect: (lvl) => 'Gold \u00d7' + (1 + lvl) },
+      { id: 'ledger', name: "Smith's Ledger", max: 4, costs: [4, 9, 18, 32],
+        blurb: 'Strikes and round bonuses are worth more points.',
+        effect: (lvl) => 'Score \u00d7' + (1 + 0.25 * lvl).toFixed(2).replace(/\.?0+$/, '') },
+      { id: 'temper', name: 'Tempering', max: 3, costs: [6, 14, 28],
+        blurb: 'Cools the metal, so squares reshape less often.',
+        effect: (lvl) => '\u2212' + (4 * lvl) + '% reshape' }
+    ]
   }
 };
 
@@ -1216,15 +1282,16 @@ function validateTour(board) {
   return true;
 }
 
-function generateTourBoard(difficultyKey, rnd, limits) {
+function generateTourBoard(difficultyKey, rnd, limits, poolOverride) {
   const cfg = CONFIG.difficulties[difficultyKey];
   const g = Object.assign({}, CONFIG.endless.generation, limits || {});
+  const pool = poolOverride || CONFIG.endless.pool;
   const deadline = Date.now() + g.timeBudgetMs;
   for (let attempt = 0; attempt < g.attempts; attempt++) {
     if (Date.now() > deadline) break;
-    const tour = buildTour(cfg.size, cfg.pool, rnd, g.nodeBudget, deadline);
+    const tour = buildTour(cfg.size, pool, rnd, g.nodeBudget, deadline);
     if (!tour) continue;
-    const pieces = piecesForTour(cfg.size, tour, cfg.pool, rnd, cfg.maxQueens);
+    const pieces = piecesForTour(cfg.size, tour, pool, rnd, 0);
     if (!pieces) continue;
     const board = { size: cfg.size, difficulty: difficultyKey, kind: 'tour',
       pieces: pieces, route: tour.slice() };
@@ -1298,6 +1365,50 @@ function makeEndlessBoard(difficultyKey, rnd, avoid, limits) {
   return null;
 }
 
+/* ---------- the forge shop -------------------------------------------
+   Gold is meta-progression: it is earned by clearing boards and kept
+   between runs, and the upgrades bought with it apply to every future run. */
+function upgradeDef(id) {
+  return CONFIG.shop.upgrades.find(function (u) { return u.id === id; }) || null;
+}
+function upgradeCost(id, level) {
+  const def = upgradeDef(id);
+  if (!def || level >= def.max) return null;       // maxed out
+  return def.costs[level];
+}
+function levelOf(upgrades, id) {
+  const n = upgrades && upgrades[id];
+  return typeof n === 'number' && n > 0 ? Math.min(n, (upgradeDef(id) || { max: 0 }).max) : 0;
+}
+/* Gold from clearing one board. Stays a whole number at every level. */
+function goldPerBoard(upgrades) {
+  return CONFIG.shop.goldPerBoard * (1 + levelOf(upgrades, 'gild'));
+}
+function scoreMultiplier(upgrades) {
+  return 1 + 0.25 * levelOf(upgrades, 'ledger');
+}
+function temperRelief(upgrades) {
+  return 0.04 * levelOf(upgrades, 'temper');
+}
+
+/* ---------- endless ramps --------------------------------------------- */
+/* Reshape odds climb by morphStep every morphEvery rounds, less whatever
+   Tempering has bought, and never past the ceiling or below zero. */
+function endlessMorphChance(round, upgrades) {
+  const e = CONFIG.endless;
+  const steps = Math.floor((round - 1) / e.morphEvery);
+  const raw = e.morphBase + e.morphStep * steps - temperRelief(upgrades);
+  return Math.max(0, Math.min(e.morphMax, raw));
+}
+/* The board grows every difficultyEvery rounds, starting from the tier the
+   run began on and stopping at the largest. */
+function tierForRound(startKey, round) {
+  const order = CONFIG.order;
+  const base = Math.max(0, order.indexOf(startKey));
+  const step = Math.floor((round - 1) / CONFIG.endless.difficultyEvery);
+  return order[Math.min(order.length - 1, base + step)];
+}
+
 /* ---------- materials ------------------------------------------------ */
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 function romanFor(n) {
@@ -1331,7 +1442,9 @@ function createGame(board, options) {
   const n = board.size * board.size;
   const cfg = CONFIG.difficulties[board.difficulty];
   const mode = opts.mode === 'endless' ? 'endless' : 'forge';
-  const defaultMorph = mode === 'endless' ? CONFIG.endless.morphChance : (cfg ? cfg.morphChance : 0);
+  const upgrades = opts.upgrades || {};
+  const defaultMorph = mode === 'endless'
+    ? endlessMorphChance(1, upgrades) : (cfg ? cfg.morphChance : 0);
   return {
     board: board,
     mode: mode,
@@ -1344,8 +1457,12 @@ function createGame(board, options) {
     round: 1,
     score: 0,
     roundsCompleted: 0,
+    gold: 0,                          // earned this run
+    startTier: board.difficulty,      // the tier the run began on
+    upgrades: upgrades,
     morphChance: typeof opts.morphChance === 'number' ? opts.morphChance : defaultMorph,
-    morphPool: opts.morphPool || (cfg ? cfg.pool : ['K', 'R', 'B', 'N']),
+    morphPool: opts.morphPool ||
+      (mode === 'endless' ? CONFIG.endless.pool.slice() : (cfg ? cfg.pool : ['K', 'R', 'B', 'N'])),
     rnd: opts.rnd || Math.random
   };
 }
@@ -1414,26 +1531,39 @@ function strikeEndless(game, idx) {
   game.totalStrikes += 1;
   game.current = idx;
   game.status = 'playing';
-  game.score += CONFIG.endless.pointsPerStrike;
+
+  const mult = scoreMultiplier(game.upgrades);
+  let points = Math.round(CONFIG.endless.pointsPerStrike * mult);
+
+  // Hot metal: the square just struck may reshape, and because it is the
+  // square being stood on, that immediately redirects the next move.
+  let morphed = null;
+  if (game.morphChance > 0 && game.rnd() < game.morphChance) {
+    morphed = reshape(game, idx);
+  }
 
   const n = game.board.size * game.board.size;
   let hits = 0;
   for (let i = 0; i < n; i++) if (game.strikes[i] > 0) hits++;
 
+  // A cleared board is settled before the dead-end check, always.
   const cleared = hits === n;
-  let dead = false;
+  let dead = false, gold = 0;
   if (cleared) {
-    game.score += CONFIG.endless.roundBonus;
+    points += Math.round(CONFIG.endless.roundBonus * mult);
+    gold = goldPerBoard(game.upgrades);
+    game.gold += gold;
     game.roundsCompleted += 1;
     game.status = 'roundOver';                     // the controller recasts the board
   } else if (legalTargets(game).length === 0) {
     dead = true;
     game.status = 'lost';
   }
+  game.score += points;
   return {
-    index: idx, count: 1, morphed: null, blanked: -1, spent: false,
+    index: idx, count: 1, morphed: morphed, blanked: -1, spent: false,
     hits: hits, squares: n, cleared: cleared, complete: false,
-    lost: dead, points: CONFIG.endless.pointsPerStrike + (cleared ? CONFIG.endless.roundBonus : 0)
+    lost: dead, points: points, gold: gold
   };
 }
 
@@ -1446,8 +1576,13 @@ function beginRound(game, board) {
   game.current = -1;
   game.round += 1;
   game.status = 'ready';
+  // the ramps are read fresh each round
+  game.morphChance = endlessMorphChance(game.round, game.upgrades);
   return game;
 }
+
+/* Which tier the given round of this run is played at. */
+function roundTier(game) { return tierForRound(game.startTier, game.round); }
 
 function strikeForge(game, idx) {
   // Leaving a spent square is the last thing it is good for: it blanks behind
@@ -1489,7 +1624,8 @@ function gameStats(game) {
     for (const st of game.strikes) if (st > 0) hits++;
     return { squares: n, hits: hits, total: game.totalStrikes, score: game.score,
       round: game.round, roundsCompleted: game.roundsCompleted,
-      material: materialFor(game.round),
+      material: materialFor(game.round), gold: game.gold,
+      tier: roundTier(game), morphChance: game.morphChance,
       overstrikes: 0, forged: hits, perfect: hits, spent: 0 };
   }
   let over = 0, forged = 0, perfect = 0, spent = 0;
@@ -1531,7 +1667,10 @@ const CHECKSMITH_CORE = {
   endlessFallbackBoard: endlessFallbackBoard, ENDLESS_FALLBACKS: ENDLESS_FALLBACKS,
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
   isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
-  materialFor: materialFor, romanFor: romanFor, beginRound: beginRound,
+  materialFor: materialFor, romanFor: romanFor, beginRound: beginRound, roundTier: roundTier,
+  endlessMorphChance: endlessMorphChance, tierForRound: tierForRound,
+  upgradeDef: upgradeDef, upgradeCost: upgradeCost, levelOf: levelOf,
+  goldPerBoard: goldPerBoard, scoreMultiplier: scoreMultiplier, temperRelief: temperRelief,
   gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
 };
 /* ==== CORE END ==== */
@@ -1958,6 +2097,8 @@ const App = {
   focusIndex: 0,
   best: {},
   endlessBest: {},      // best endless score per difficulty
+  gold: 0,              // the purse, kept between runs
+  upgrades: {},         // purchased upgrade levels, kept between runs
   lastFocus: null,
   confirmAction: null
 };
@@ -2005,7 +2146,7 @@ function startGame(board) {
   cancelPending(false);
   const size = board.size;
   if (App.tiles.length !== size * size) buildTiles(size);
-  App.game = createGame(board, { mode: App.mode });
+  App.game = createGame(board, { mode: App.mode, upgrades: App.upgrades });
   hide($('results'));
   render();
 }
@@ -2140,16 +2281,20 @@ function render() {
   $('statsForge').hidden = endless;
   $('statsEndless').hidden = !endless;
   $('materialBar').hidden = !endless;
+  // In endless the round decides the tier, so the picker would only mislead.
+  document.querySelector('.difficulty:not(#titleDiff)').hidden = endless;
 
   if (endless) {
     $('eScore').textContent = String(st.score);
-    $('eBest').textContent = String(App.endlessBest[App.difficulty] || 0);
+    $('eGold').textContent = String(App.gold + (g.gold - (g.goldBanked || 0)));
     $('eRound').textContent = String(st.round);
     $('eHits').textContent = st.hits + '/' + st.squares;
     const bar = $('materialBar');
     bar.dataset.tier = String(tier);
     $('matName').textContent = st.material.name;
-    $('matSub').textContent = 'Round ' + st.round + ' \u00b7 Squares hit ' + st.hits + ' / ' + st.squares;
+    $('matSub').textContent = 'Round ' + st.round + ' \u00b7 ' + size + '\u00d7' + size +
+      ' \u00b7 Hit ' + st.hits + ' / ' + st.squares +
+      ' \u00b7 reshape ' + Math.round(st.morphChance * 100) + '%';
   } else {
     $('sStrikes').textContent = String(st.total);
     $('sSpent').textContent = String(st.spent);
@@ -2302,18 +2447,25 @@ function advanceRound() {
   const g = App.game;
   App.busy = true;                            // input stays locked through the recast
   SOUNDS.complete(false);
+  bankGold();
   const next = materialFor(g.round + 1);
-  announce('Round complete. Advancing to ' + next.name + '.');
+  const nextTier = tierForRound(g.startTier, g.round + 1);
+  announce('Round complete. Advancing to ' + next.name +
+    (nextTier !== roundTier(g) ? ', and up to ' + CONFIG.difficulties[nextTier].label : '') + '.');
   const myToken = App.token;
   App.roundTimer = setTimeout(() => {
     App.roundTimer = null;
     if (myToken !== App.token) return;
+    // The next round may be a tier larger than this one.
+    const tier = tierForRound(g.startTier, g.round + 1);
     let board = null;
-    try { board = makeEndlessBoard(App.difficulty, App.rnd, App.lastLayout); } catch (err) { board = null; }
-    if (!board) board = endlessFallbackBoard(App.difficulty, App.rnd);
+    try { board = makeEndlessBoard(tier, App.rnd, App.lastLayout); } catch (err) { board = null; }
+    if (!board) board = endlessFallbackBoard(tier, App.rnd);
     if (!board) { App.busy = false; endRun(); return; }
     App.lastLayout = board.pieces.join('');
+    const grew = board.size * board.size !== App.tiles.length;
     beginRound(g, board);
+    if (grew) buildTiles(board.size);              // the board stepped up a tier
     App.busy = false;
     App.focusIndex = 0;
     render();
@@ -2329,6 +2481,7 @@ function advanceRound() {
 /* Endless: no legal move remains. */
 function endRun() {
   const g = App.game;
+  bankGold();
   const st = gameStats(g);
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
@@ -2374,6 +2527,83 @@ function stranded() {
   announce('Stranded. No legal strike remains. Forged ' + st.forged + ' of ' + st.squares + '.');
 }
 
+/* ---------- gold and the shop ---------------------------------------- */
+/* The run's earnings are banked into the purse as they are made, so a
+   crash or a walk-away never costs the player gold they already won. */
+function bankGold() {
+  const g = App.game;
+  if (!g || !isEndless(g)) return;
+  const owed = g.gold - (g.goldBanked || 0);
+  if (owed <= 0) return;
+  g.goldBanked = g.gold;
+  App.gold += owed;
+  Store.patch({ gold: App.gold });
+}
+
+function renderShop() {
+  $('shopGold').textContent = String(App.gold);
+  $('titleGold').textContent = String(App.gold);
+  $('titlePurse').hidden = App.gold <= 0 && !Object.keys(App.upgrades).length;
+  const list = $('shopList');
+  list.textContent = '';
+  for (const def of CONFIG.shop.upgrades) {
+    const level = levelOf(App.upgrades, def.id);
+    const cost = upgradeCost(def.id, level);
+    const row = document.createElement('div');
+    row.className = 'shop-row';
+    row.dataset.maxed = cost === null ? '1' : '0';
+
+    const main = document.createElement('div');
+    main.className = 'sr-main';
+    const name = document.createElement('span');
+    name.className = 'sr-name';
+    name.textContent = def.name;
+    const lvl = document.createElement('span');
+    lvl.className = 'sr-lvl';
+    lvl.textContent = 'Level ' + level + ' of ' + def.max;
+    const blurb = document.createElement('span');
+    blurb.className = 'sr-blurb';
+    blurb.textContent = def.blurb;
+    const eff = document.createElement('span');
+    eff.className = 'sr-eff';
+    eff.textContent = cost === null
+      ? def.effect(level) + ' \u2014 fully forged'
+      : def.effect(level) + ' \u2192 ' + def.effect(level + 1);
+    main.appendChild(name); main.appendChild(lvl);
+    main.appendChild(blurb); main.appendChild(eff);
+
+    const buy = document.createElement('button');
+    buy.type = 'button';
+    buy.className = 'btn sr-buy';
+    if (cost === null) {
+      buy.textContent = 'Maxed';
+      buy.disabled = true;
+    } else {
+      buy.textContent = cost + ' gold';
+      buy.disabled = App.gold < cost;
+      buy.dataset.buy = def.id;
+      buy.setAttribute('aria-label', 'Buy ' + def.name + ' level ' + (level + 1) + ' for ' + cost + ' gold');
+      buy.addEventListener('click', () => buyUpgrade(def.id));
+    }
+    row.appendChild(main); row.appendChild(buy);
+    list.appendChild(row);
+  }
+}
+
+function buyUpgrade(id) {
+  const level = levelOf(App.upgrades, id);
+  const cost = upgradeCost(id, level);
+  if (cost === null || App.gold < cost) return;
+  App.gold -= cost;
+  App.upgrades[id] = level + 1;
+  Store.patch({ gold: App.gold, upgrades: App.upgrades });
+  const def = upgradeDef(id);
+  SOUNDS.finish();
+  renderShop();
+  syncTitleUi();
+  announce(def.name + ' is now level ' + App.upgrades[id] + '. ' + App.gold + ' gold left.');
+}
+
 /* ---------- title screen --------------------------------------------- */
 function syncTitleUi() {
   for (const b of document.querySelectorAll('.mode-card')) {
@@ -2386,6 +2616,8 @@ function syncTitleUi() {
   $('forgeBest').textContent = q == null ? '\u00a0' : 'Best quality: ' + q;
   const e = App.endlessBest[App.difficulty];
   $('endlessBest').textContent = e ? 'Best score: ' + e : '\u00a0';
+  $('titleGold').textContent = String(App.gold);
+  $('titlePurse').hidden = App.gold <= 0 && !Object.keys(App.upgrades).length;
 }
 
 function showTitle() {
@@ -2508,14 +2740,16 @@ function showEndlessResult(st, record, prev) {
   $('rStrikes').textContent = String(st.roundsCompleted);
   $('rSpentLabel').textContent = 'Highest material';
   $('rSpent').textContent = st.material.name;
-  $('rPerfectLabel').textContent = 'Best score';
-  $('rPerfect').textContent = String(Math.max(st.score, prev));
+  $('rPerfectLabel').textContent = 'Gold earned';
+  $('rPerfect').textContent = String(st.gold);
   $('rRetry').textContent = 'Play Again';
-  $('rNew').hidden = true;
+  $('rNew').hidden = false;
+  $('rNew').textContent = 'Forge Shop';
   $('rChange').textContent = 'Main Menu';
-  $('rBest').textContent = record
-    ? (prev ? 'New record \u2014 previous best ' + prev + '.' : 'First run recorded at this difficulty.')
-    : 'Best on this difficulty: ' + prev + '.';
+  const best = Math.max(st.score, prev);
+  $('rBest').textContent = (record
+    ? (prev ? 'New record \u2014 previous best ' + prev + '. ' : 'First run recorded at this difficulty. ')
+    : 'Best on this difficulty: ' + prev + '. ') + 'Purse: ' + App.gold + ' gold.';
   show($('results'));
 }
 
@@ -2602,6 +2836,8 @@ function boot() {
   const saved = Store.read();
   App.best = (saved.best && typeof saved.best === 'object') ? saved.best : {};
   App.endlessBest = (saved.endlessBest && typeof saved.endlessBest === 'object') ? saved.endlessBest : {};
+  App.gold = typeof saved.gold === 'number' && saved.gold >= 0 ? Math.floor(saved.gold) : 0;
+  App.upgrades = (saved.upgrades && typeof saved.upgrades === 'object') ? saved.upgrades : {};
   Sound.muted = saved.muted === true;
   Sound.volume = typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 0.7;
   applyAudioUI();
@@ -2639,6 +2875,8 @@ function boot() {
     b.addEventListener('click', () => { App.difficulty = b.dataset.tdiff; syncTitleUi(); });
   }
   $('beginBtn').addEventListener('click', beginRun);
+  $('shopBtn').addEventListener('click', () => { renderShop(); show($('shop')); });
+  $('shopClose').addEventListener('click', () => hide($('shop')));
   $('titleHelpBtn').addEventListener('click', () => show($('help')));
   $('menuBtn').addEventListener('click', () => {
     askDiscard('Leaving for the main menu will discard this run.', showTitle);
@@ -2677,6 +2915,7 @@ function boot() {
     if (App.mode === 'endless') startRun(); else restartBoard();
   });
   $('rNew').addEventListener('click', () => {
+    if (App.mode === 'endless') { renderShop(); show($('shop')); return; }
     hide($('results'));
     loadBoard(App.difficulty, () => { buildLegend(); announce('Fresh die set. Choose any square to begin.'); });
   });
@@ -2698,6 +2937,7 @@ function boot() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!$('confirm').hidden) { App.confirmAction = null; hide($('confirm')); }
+    else if (!$('shop').hidden) { hide($('shop')); }
     else if (!$('help').hidden) { hide($('help')); }
   });
 
@@ -2710,6 +2950,7 @@ function boot() {
   App.mode = 'forge';
   App.difficulty = 'novice';
   syncModeChrome();
+  renderShop();
   showTitle();
 }
 
