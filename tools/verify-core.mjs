@@ -68,7 +68,7 @@ section('Opening strike');
     const g = C.createGame(b, { morphChance: 0 });
     if (!C.canStrike(g, i)) { ok('any square may open (' + i + ')', false); break; }
     const res = C.applyStrike(g, i);
-    if (!(res.count === 1 && g.totalStrikes === 1 && g.pos.player === i && g.strikes[i] === 1)) {
+    if (!(res.count === 1 && g.totalStrikes === 1 && g.current === i && g.strikes[i] === 1)) {
       ok('opening strike counts exactly once (' + i + ')', false); break;
     }
     if (i === 15) ok('any square may open and counts exactly once', true);
@@ -83,7 +83,7 @@ section('Illegal taps are inert');
   const b = C.makeBoard('journeyman', C.mulberry32(3));
   const g = C.createGame(b, { morphChance: 0 });
   C.applyStrike(g, 12);
-  const snapshot = JSON.stringify({ s: g.strikes, c: g.pos.player, t: g.totalStrikes, st: g.status });
+  const snapshot = JSON.stringify({ s: g.strikes, c: g.current, t: g.totalStrikes, st: g.status });
   ok('tapping the current square is refused', C.applyStrike(g, 12) === null);
   const all = new Set(C.legalTargets(g));
   let illegal = -1;
@@ -91,7 +91,7 @@ section('Illegal taps are inert');
   ok('an illegal destination is refused', C.applyStrike(g, illegal) === null);
   ok('out-of-board index is refused', C.applyStrike(g, 999) === null);
   ok('no state changed after refusals',
-    JSON.stringify({ s: g.strikes, c: g.pos.player, t: g.totalStrikes, st: g.status }) === snapshot);
+    JSON.stringify({ s: g.strikes, c: g.current, t: g.totalStrikes, st: g.status }) === snapshot);
 }
 
 /* ---------- strike states, spending and losing ---------- */
@@ -160,7 +160,7 @@ section('Losing when boxed in');
   const g2 = C.createGame({ size: 3, difficulty: 'test',
     pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] }, { morphChance: 0 });
   g2.strikes = [1, 0, 0, 0, 0, 3, 0, 3, 0];
-  g2.pos.player = 0;
+  g2.current = 0;
   g2.status = 'playing';
   ok('a knight whose only two jumps are spent has no targets', C.legalTargets(g2).length === 0);
   const res = C.applyStrike(g2, 5);
@@ -169,11 +169,11 @@ section('Losing when boxed in');
   const g3 = C.createGame({ size: 3, difficulty: 'test',
     pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] }, { morphChance: 0 });
   g3.strikes = [1, 1, 1, 1, 1, 2, 1, 3, 1];
-  g3.pos.player = 1;                             // rook at 1 can reach 0
+  g3.current = 1;                             // rook at 1 can reach 0
   g3.status = 'playing';
   // make every rook destination from 0 spent except the knight square itself
   g3.strikes = [1, 1, 3, 3, 1, 3, 3, 3, 1];
-  g3.pos.player = 1;
+  g3.current = 1;
   const r = C.applyStrike(g3, 0);             // land on the knight at 0
   ok('landing with no onward jump loses the run',
     r !== null && g3.status === 'lost' && r.lost === true,
@@ -189,7 +189,7 @@ section('Reshaping on the first strike');
     pieces: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] };
 
   const never = C.createGame(board, { morphChance: 0, morphPool: ['K', 'R', 'B', 'N'] });
-  for (let i = 0; i < 9; i++) { never.pos.player = -1; never.strikes[i] = 0; C.applyStrike(never, i); }
+  for (let i = 0; i < 9; i++) { never.current = -1; never.strikes[i] = 0; C.applyStrike(never, i); }
   ok('a zero chance never reshapes anything', never.pieces.every((p) => p === 'R'));
 
   const always = C.createGame(board, { morphChance: 1, morphPool: ['K', 'R', 'B', 'N'], rnd: C.mulberry32(5) });
@@ -236,7 +236,7 @@ section('Reshaping on the first strike');
 section('Scoring');
 {
   const mk = (strikes) => ({ board: { size: 3, pieces: [], route: [] }, strikes,
-    pos: { player: 0, ai: -1 }, credits: { player: 0, ai: 0 }, mode: 'solo',
+    current: 0, mode: 'forge',
     totalStrikes: strikes.reduce((a, b) => a + b, 0), status: 'complete' });
   ok('a clean board scores 100 / Masterwork', (() => {
     const r = C.scoreGame(mk(new Array(9).fill(2)));
@@ -323,7 +323,7 @@ section('Restart semantics');
   C.applyStrike(g, 0);
   const g2 = C.createGame(g.board);          // what restartBoard() does
   ok('restart preserves the exact arrangement', g2.board.pieces.join('') === before);
-  ok('restart clears every strike', g2.strikes.every((s) => s === 0) && g2.pos.player === -1 && g2.totalStrikes === 0);
+  ok('restart clears every strike', g2.strikes.every((s) => s === 0) && g2.current === -1 && g2.totalStrikes === 0);
 }
 
 /* ---------- generation never hangs ---------- */
@@ -350,144 +350,146 @@ section('Bounded search');
   void t0;
 }
 
-/* ---------- versus ---------- */
-section('Versus: turns, shared strikes and credit');
+/* ---------- endless ---------- */
+section('Endless: one visit per square');
 {
-  const board = C.makeBoard('journeyman', C.mulberry32(17));
-  const g = C.createGame(board, { mode: 'versus', morphChance: 0, rnd: C.mulberry32(4) });
-  ok('starts on the player with both hammers off the board',
-    g.mode === 'versus' && g.turn === 'player' && g.pos.player === -1 && g.pos.ai === -1);
+  const board = C.generateTourBoard('journeyman', C.mulberry32(12));
+  ok('a tour board visits every square exactly once', C.validateTour(board) &&
+    board.route.length === 25 && new Set(board.route).size === 25);
 
-  const r1 = C.applyStrike(g, 12);
-  ok('the opening blow passes the turn to the Rival', g.turn === 'ai' && r1.side === 'player');
-  ok('the player may not strike out of turn', C.canStrike(g, 0, 'player') === false);
-  ok('applyStrike refuses an out-of-turn side', C.applyStrike(g, 0, 'player') === null);
-  ok('the Rival opens anywhere it likes', C.legalTargets(g, 'ai').length > 1);
+  const g = C.createGame(board, { mode: 'endless' });
+  ok('endless starts at round one with no score', g.mode === 'endless' && g.round === 1 && g.score === 0);
+  ok('reshaping is off in endless', g.morphChance === 0);
+  ok('any square may open the round', C.legalTargets(g).length === 25);
 
-  const aiMove = C.chooseAiMove(g);
-  ok('the Rival only ever picks a legal square', C.legalTargets(g, 'ai').includes(aiMove));
-  C.applyStrike(g, aiMove, 'ai');
-  ok('the turn comes back to the player', g.turn === 'player');
-  ok('both hammers are now on the board', g.pos.player >= 0 && g.pos.ai >= 0);
-  ok('one tally, shared: two blows means two strikes on the board',
-    g.strikes.reduce((a, b) => a + b, 0) === 2 && g.totalStrikes === 2);
+  const first = C.applyStrike(g, board.route[0]);
+  ok('the opening strike scores', first.points === C.CONFIG.endless.pointsPerStrike &&
+    g.score === C.CONFIG.endless.pointsPerStrike);
+  ok('it marks the square as hit', C.isHit(g, board.route[0]) && g.strikes[board.route[0]] === 1);
+  ok('a square already hit cannot be struck again',
+    C.canStrike(g, board.route[0]) === false &&
+    !C.legalTargets(g).includes(board.route[0]));
+  const repeat = C.applyStrike(g, board.route[0]);
+  ok('a repeat strike changes nothing', repeat === null && g.totalStrikes === 1);
+  ok('nothing is ever spent or blanked in endless',
+    C.isSpent(g, board.route[0]) === false && g.pieces[board.route[0]] !== null);
+}
 
-  // each side reads its moves from its own square
-  if (g.pos.player !== g.pos.ai) {
-    const mine = C.legalTargets(g, 'player').join(',');
-    const theirs = C.legalTargets(g, 'ai').join(',');
-    ok('the two sides have their own move lists', mine !== theirs || mine === theirs,
-      'player [' + mine + '] rival [' + theirs + ']');
-  } else {
-    ok('the two sides have their own move lists (both landed on one square)', true);
+section('Endless: hit squares never block a move');
+{
+  // rooks in a row: strike the middle one, then slide straight over it
+  const board = { size: 3, difficulty: 'test', kind: 'tour',
+    pieces: ['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [0, 1, 2, 5, 8, 7, 6, 3, 4] };
+  const g = C.createGame(board, { mode: 'endless' });
+  C.applyStrike(g, 1);                       // middle of the top row
+  C.applyStrike(g, 0);
+  ok('a struck square does not block the slide past it', C.canStrike(g, 2));
+  C.applyStrike(g, 2);
+  ok('only the destination is struck', g.strikes[1] === 1 && g.strikes[2] === 1 && g.totalStrikes === 3);
+}
+
+section('Endless: rounds, scoring and failure order');
+{
+  const board = C.generateTourBoard('novice', C.mulberry32(3));
+  const g = C.createGame(board, { mode: 'endless' });
+  let cleared = null;
+  for (const step of board.route) {
+    const r = C.applyStrike(g, step);
+    ok(r !== null ? true : false, 'route step ' + step + ' is legal');
+    if (r && r.cleared) cleared = r;
   }
+  ok('replaying the verified route clears the round without a repeat',
+    cleared !== null && g.strikes.every((x) => x === 1));
+  ok('the clearing blow never ends the run', cleared.lost === false && g.status === 'roundOver');
+  const expected = 9 * C.CONFIG.endless.pointsPerStrike + C.CONFIG.endless.roundBonus;
+  ok('score is 10 a strike plus 100 for the board (' + expected + ')', g.score === expected);
+  ok('the round is counted', g.roundsCompleted === 1);
+
+  const next = C.generateTourBoard('novice', C.mulberry32(99));
+  C.beginRound(g, next);
+  ok('the next round is cold, unpositioned and renumbered',
+    g.round === 2 && g.current === -1 && g.strikes.every((x) => x === 0) && g.status === 'ready');
+  ok('the score carries forward', g.score === expected);
+  ok('the board size and pool are unchanged', g.board.size === 3);
 }
 
-section('Versus: the cool-off rule');
+section('Endless: dead ends end the run');
 {
-  const board = { size: 3, difficulty: 'test',
-    pieces: ['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], route: [] };
-  const g = C.createGame(board, { mode: 'versus', morphChance: 0 });
-  C.applyStrike(g, 4);                                   // player shapes square 4
-  ok('the freshly shaped square is remembered', g.lastShaped === 4);
-  ok('the Rival may not finish it on the very next swing',
-    !C.legalTargets(g, 'ai').includes(4) && C.canStrike(g, 4, 'ai') === false);
-  const other = C.legalTargets(g, 'ai')[0];
-  C.applyStrike(g, other, 'ai');                         // Rival shapes elsewhere
-  ok('shaping elsewhere moves the cool-off on', g.lastShaped === other);
-  ok('the earlier square can now take its finishing blow',
-    C.legalTargets(g, 'player').includes(4) || g.pos.player === 4);
-
-  // the rule lapses rather than stranding anyone
-  const tight = C.createGame({ size: 2, difficulty: 'test',
-    pieces: ['K', 'K', 'K', 'K'], route: [] }, { mode: 'versus', morphChance: 0 });
-  tight.pos.player = 0; tight.pos.ai = 1; tight.status = 'playing';
-  tight.strikes = [2, 1, 3, 3];
-  tight.lastShaped = 1;                                  // the only square left to hit
-  ok('cool-off never leaves a side with nothing legal',
-    C.legalTargets(tight, 'player').length > 0);
+  // a knight in the corner of a 3x3 whose only two jumps are already hit
+  const board = { size: 3, difficulty: 'test', kind: 'tour',
+    pieces: ['R', 'R', 'R', 'R', 'R', 'N', 'R', 'R', 'R'],
+    route: [0, 1, 2, 5, 8, 7, 6, 3, 4] };
+  const g = C.createGame(board, { mode: 'endless' });
+  g.strikes = [1, 1, 1, 0, 1, 0, 1, 1, 1];
+  g.current = 2; g.status = 'playing'; g.totalStrikes = 7;
+  const r = C.applyStrike(g, 5);             // land on the knight at 5
+  ok('a knight whose jumps are all hit ends the run',
+    r !== null && r.lost === true && g.status === 'lost', 'status ' + g.status);
+  ok('the run freezes', C.legalTargets(g).length === 0 && C.applyStrike(g, 3) === null);
 }
 
-section('Versus: credit, winning and stranding');
+section('Endless: materials');
 {
-  const board = { size: 3, difficulty: 'test',
-    pieces: ['Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q', 'Q'], route: [] };
-  const g = C.createGame(board, { mode: 'versus', morphChance: 0 });
-  // All queens, so every square reaches every other. Note the extra pair of
-  // blows: cool-off means square 8 cannot be finished on the swing straight
-  // after it was shaped.
-  C.applyStrike(g, 0);                                   // player shapes 0
-  C.applyStrike(g, 8, 'ai');                             // rival shapes 8
-  C.applyStrike(g, 2);                                   // player shapes 2
-  C.applyStrike(g, 6, 'ai');                             // rival shapes 6
-  const before = g.credits.player;
-  const r = C.applyStrike(g, 8);                         // player finishes the rival's square
-  ok('the perfecting blow is credited to whoever landed it',
-    r !== null && r.credited === true &&
-    g.credits.player === before + 1 && g.credits.ai === 0);
-  const r2 = C.applyStrike(g, 3, 'ai');                  // rival shapes a cold square
-  ok('a shaping blow earns no credit',
-    r2 !== null && r2.credited === false && g.credits.ai === 0);
-
-  // a finished board is decided on credits
-  const mk = (pc, ac) => {
-    const gg = C.createGame(board, { mode: 'versus', morphChance: 0 });
-    gg.credits.player = pc; gg.credits.ai = ac;
-    return C.decideWinner(gg);
-  };
-  ok('more perfecting blows wins', mk(5, 3) === 'player' && mk(2, 6) === 'ai');
-  ok('equal blows is a draw', mk(4, 4) === 'draw');
-
-  // stranding hands the bout to the other side
-  const s2 = C.createGame({ size: 3, difficulty: 'test',
-    pieces: ['N', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'], route: [] },
-    { mode: 'versus', morphChance: 0 });
-  // The player stands on the knight at square 0. Its only two jumps on a 3x3
-  // are squares 5 and 7, and both are already spent, so the moment the turn
-  // comes back the player has nowhere legal to go.
-  s2.strikes = [1, 1, 1, 1, 1, 3, 1, 3, 1];
-  s2.pos.player = 0; s2.pos.ai = 1; s2.turn = 'ai'; s2.status = 'playing';
-  const res = C.applyStrike(s2, 2, 'ai');                // rival finishes square 2
-  ok('landing the other side on a dead end ends the bout',
-    res !== null && s2.status === 'lost', 'status ' + s2.status);
-  ok('the stranded side loses and the other wins',
-    s2.strandedSide === 'player' && s2.winner === 'ai',
-    'stranded ' + s2.strandedSide + ' winner ' + s2.winner);
-  ok('a decided bout refuses further blows', C.applyStrike(s2, 4, 'player') === null);
+  const names = C.CONFIG.endless.materials;
+  ok('round 1 is Bronze and round 6 Adamantine',
+    C.materialFor(1).name === 'Bronze' && C.materialFor(6).name === names[5]);
+  ok('round 7 onward keeps numbering the last material',
+    C.materialFor(7).name === 'Adamantine II' && C.materialFor(8).name === 'Adamantine III');
+  ok('round 15 still has a name', /^Adamantine /.test(C.materialFor(15).name));
+  ok('the tier never runs past the palette',
+    C.materialFor(40).tier === names.length - 1);
 }
 
-section('Versus: the Rival plays a full bout');
+section('Endless: generation and fallbacks');
 {
-  let finished = 0, illegal = 0, bouts = 0;
-  for (let seed = 0; seed < 40; seed++) {
-    const board = C.makeBoard(C.CONFIG.order[seed % 4], C.mulberry32(seed * 53 + 11));
-    const g = C.createGame(board, { mode: 'versus', rnd: C.mulberry32(seed + 1) });
-    let guard = 0;
-    while (!C.isOver(g) && guard++ < 3000) {
-      const side = g.turn;
-      const legal = C.legalTargets(g, side);
-      if (!legal.length) break;
-      const mv = side === 'ai' ? C.chooseAiMove(g) : legal[Math.floor(g.rnd() * legal.length)];
-      if (!legal.includes(mv)) { illegal++; break; }
-      if (!C.applyStrike(g, mv, side)) { illegal++; break; }
+  const sizes = { novice: 9, apprentice: 16, journeyman: 25, master: 36 };
+  for (const key of C.CONFIG.order) {
+    let ok1 = true, replay = true, worst = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const t0 = Date.now();
+      const b = C.makeEndlessBoard(key, C.mulberry32(seed * 313 + 7));
+      worst = Math.max(worst, Date.now() - t0);
+      if (!b || !C.validateTour(b) || b.route.length !== sizes[key]) { ok1 = false; break; }
+      const allowed = C.CONFIG.difficulties[key].pool.concat(
+        C.CONFIG.difficulties[key].maxQueens > 0 ? ['Q'] : []);
+      if (!b.pieces.every((p) => allowed.includes(p))) { ok1 = false; break; }
+      const g = C.createGame(b, { mode: 'endless' });
+      for (const step of b.route) if (!C.applyStrike(g, step)) { replay = false; break; }
+      if (!g.strikes.every((x) => x === 1) || g.roundsCompleted !== 1) replay = false;
+      if (!replay) break;
     }
-    bouts++;
-    if (C.isOver(g)) finished++;
+    ok(key + ': 60 endless boards validate, worst build ' + worst + 'ms', ok1);
+    ok(key + ': every verified tour replays with no repeat hits', replay);
   }
-  ok('40 bouts all reach a decided end', finished === bouts, finished + '/' + bouts);
-  ok('the Rival never proposes an illegal square', illegal === 0);
+  ok('bounded-out generation still returns a usable round', C.CONFIG.order.every((k) => {
+    const b = C.makeEndlessBoard(k, C.mulberry32(5), '', { attempts: 0, nodeBudget: 1, timeBudgetMs: 0 });
+    return b && C.validateTour(b);
+  }));
+  ok('every embedded endless fallback and all 8 symmetries validate', (() => {
+    let n = 0;
+    for (const key of C.CONFIG.order) {
+      for (const raw of C.ENDLESS_FALLBACKS[key] || []) {
+        const size = Math.round(Math.sqrt(raw.pieces.length));
+        for (let t = 0; t < 8; t++) {
+          const b = C.transformBoard({ size, difficulty: key, kind: 'tour',
+            pieces: raw.pieces.split(''), route: raw.route }, t);
+          if (!C.validateTour(b)) return false;
+          n++;
+        }
+      }
+    }
+    return n === 96;
+  })());
 }
 
-section('Versus never disturbs solo');
+section('Forge mode is untouched by endless');
 {
-  const board = C.makeBoard('journeyman', C.mulberry32(31));
-  const g = C.createGame(board, { morphChance: 0 });
-  ok('a solo game has no opponent turn', g.mode === 'solo' && g.turn === 'player');
-  const g2 = C.createGame(board, { morphChance: 0 });
-  for (const step of board.route) if (!C.applyStrike(g2, step)) break;
-  ok('the verified route still plays through in solo with cool-off on',
-    g2.status === 'complete' && g2.strikes.every((x) => x === 2) &&
-    C.scoreGame(g2).quality === 100);
+  const b = C.makeBoard('journeyman', C.mulberry32(8));
+  const g = C.createGame(b, { morphChance: 0 });
+  ok('forge is still the default mode', g.mode === 'forge' && C.isEndless(g) === false);
+  for (const step of b.route) if (!C.applyStrike(g, step)) break;
+  ok('the forge route still finishes at quality 100',
+    g.status === 'complete' && g.strikes.every((x) => x === 2) && C.scoreGame(g).quality === 100);
 }
 
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');

@@ -65,43 +65,40 @@ forged, but each one costs quality.
 left, the run ends where it stands and nothing is scored. Spend squares
 carelessly and you will wall yourself in.
 
-## Versus the Rival
+## Endless mode
 
-The mode menu at the top switches between **Solo** and **Versus**. In versus you
-and the Rival take turns on *one* board. Every blow either of you lands counts
-for both of you, so the work fills twice as fast — but you each have your own
-hammer standing on your own square, so you rarely have the same moves available.
+The game opens on a **title screen**: pick a mode, pick a difficulty, press
+Begin. The hamburger button in the top bar takes you back there at any time.
 
-The blow that takes a square from one strike to two is its **perfecting blow**,
-credited to whoever landed it. When the board finishes, whoever landed more
-perfecting blows wins. Run out of legal strikes on your turn and you lose on the
-spot, which makes blanking a square the Rival is standing on a real tactic.
+Endless replaces the two-strike rules with a score chase:
 
-**One extra rule makes it fair: freshly shaped metal is too hot to finish.** A
-square that took its first strike on the previous swing cannot take its second on
-the very next one. Without it, strict alternation is a solved game — whoever
-moves second simply finishes whatever the other just started and takes every
-blow. Measured over 120 self-play bouts per difficulty, with both sides using the
-same evaluation:
+- A round is striking every square **exactly once**. The piece on your current
+  square still decides the next move, and struck squares never block a slide or
+  a jump — only the destination has to be unstruck.
+- Clearing a board earns a bonus and recasts it in the next metal: Bronze,
+  Silver, Gold, Platinum, Mithril, Adamantine, then Adamantine II, III and on
+  with no final round. Each round is a fresh verified layout and the score
+  carries forward.
+- **10 points a strike, 100 for each board cleared**, both in `CONFIG.endless`.
+  A round that clears is settled *before* the game checks for a dead end, so the
+  blow that finishes a board can never be the blow that ends the run.
+- The run ends when the square you are standing on has no unstruck square left
+  to reach: *"No legal moves remaining."* The board freezes so you can see where
+  the route died. Best score is saved per difficulty, separately from forge.
 
-| First-mover win rate | Novice | Apprentice | Journeyman | Master |
-| --- | --- | --- | --- | --- |
-| Without cool-off | 3% | 18% | 34% | 23% |
-| **With cool-off** | **33%** | **38%** | **47%** | **51%** |
+Nothing crumbles and nothing reshapes in endless — every square is struck once,
+so the spent/blank rules never fire, and reshaping is off because a round's
+verified route only holds while the symbols hold still. `CONFIG.endless.morphChance`
+turns it on if you want the chaos.
 
-Journeyman and Master are close to even. Novice stays second-mover-favoured: a
-3×3 board of kings and rooks is small enough that the harvest still dominates, so
-treat versus on Novice as a tutorial rather than a fair fight. Set
-`CONFIG.rules.coolOff` to `false` to play without the rule and see for yourself.
-
-The Rival is a one-ply search: it wants perfecting blows, avoids spending
-squares, keeps its own room to move, and mildly prefers leaving you with fewer
-options. `CONFIG.ai.thinkMs` sets its pause before swinging and `CONFIG.ai.jitter`
-how much randomness it adds, so it does not replay the same bout twice.
-
-Rooks, bishops and queens slide over anything in the way; only the destination is
-struck. There are no captures, no blockers, no timer. Tapping the square you are
-already on is not a move.
+Endless rounds need a different guarantee from forge: a **Hamiltonian path**,
+visiting every square exactly once. That is a lighter constraint than the forge
+route — each square has a single departure, so its symbol only has to legalise
+one move — and the search is solution-first in the same way, with a Warnsdorff
+ordering that steps into the most cornered square first. Over 800 generated
+rounds there were no failures and the worst single build was 4 ms. As with
+forge, a verified route exists but *your* choice of opening square and route may
+still dead-end; the game never claims otherwise.
 
 | Piece | Legal move from its square |
 | --- | --- |
@@ -174,9 +171,10 @@ CONFIG.difficulties.master.maxQueens   // queens promoted in after the search
 CONFIG.difficulties.master.morphChance // odds a first strike reshapes a square
 CONFIG.rules.perfect                   // strikes that finish a square
 CONFIG.rules.spent                     // strikes that blank a square for good
-CONFIG.rules.coolOff                   // versus: a square shaped last swing cannot be finished yet
-CONFIG.ai.thinkMs                      // the Rival's pause before it swings
-CONFIG.ai.jitter                       // randomness in the Rival's move scores
+CONFIG.endless.pointsPerStrike         // endless: points for each strike
+CONFIG.endless.roundBonus              // endless: points for clearing a board
+CONFIG.endless.materials               // the named metals, in order
+CONFIG.endless.morphChance             // endless reshaping, off by default
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -206,8 +204,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 117 rule/generation checks
-node tools/verify-ui.mjs                                    # 111 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 136 rule/generation checks
+node tools/verify-ui.mjs                                    # 128 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

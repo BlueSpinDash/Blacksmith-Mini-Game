@@ -16,6 +16,7 @@ export function coreSource(html) {
 
 export function loadCore(opts = {}) {
   let code = coreSource();
+  if (code.includes('__ENDLESS_FALLBACK__')) { code = code.replace('__ENDLESS_FALLBACK__', opts.endlessFallback ?? '{}'); }
   if (code.includes('__FALLBACK__')) {
     code = code.replace('__FALLBACK__', opts.fallback ?? '{}');
   }

@@ -88,46 +88,6 @@ input[type=range]{
   width:78px;accent-color:var(--ember);height:var(--tap);
 }
 
-/* ---------- game mode ---------- */
-.modes{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
-.mode-btn{
-  min-height:var(--tap);
-  padding:5px 4px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  background:var(--panel);border:1px solid var(--edge);border-radius:10px;
-  cursor:pointer;font-size:14px;letter-spacing:.03em;line-height:1.1;
-}
-.mode-btn small{font-size:10.5px;color:var(--muted);letter-spacing:.03em;}
-.mode-btn[aria-pressed="true"]{
-  background:linear-gradient(180deg,#2c2f3a,#1d2027);
-  border-color:var(--brass);color:var(--gold);
-  box-shadow:inset 0 0 0 1px rgba(202,166,74,.22);
-}
-.mode-btn[aria-pressed="true"] small{color:var(--brass);}
-
-/* ---------- versus scoreboard ---------- */
-.versus{
-  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;
-  background:linear-gradient(180deg,var(--panel),var(--panel-2));
-  border:1px solid var(--edge-soft);border-radius:10px;padding:6px 8px;
-}
-.versus[hidden]{display:none;}
-.vs-side{display:flex;align-items:baseline;gap:6px;min-width:0;}
-.vs-side:last-of-type{justify-content:flex-end;}
-.vs-side .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
-.vs-side .v{font-size:20px;font-variant-numeric:tabular-nums;line-height:1;}
-#vsPlayerSide .v{color:var(--gold);}
-#vsAiSide .v{color:var(--steel);}
-.vs-turn{
-  font-size:12px;letter-spacing:.05em;text-align:center;
-  padding:4px 9px;border-radius:999px;white-space:nowrap;
-  border:1px solid var(--edge);background:#15161b;color:var(--muted);
-}
-.versus[data-turn="player"] .vs-turn{border-color:var(--brass);color:var(--gold);}
-.versus[data-turn="ai"] .vs-turn{border-color:var(--steel);color:var(--steel);}
-.versus[data-turn="player"] #vsPlayerSide .k,
-.versus[data-turn="ai"] #vsAiSide .k{color:var(--text);}
-
 /* ---------- difficulty ---------- */
 .difficulty{
   display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
@@ -317,25 +277,7 @@ input[type=range]{
   font-size:calc(20cqw / var(--n,4));line-height:1;color:var(--brass);
   text-shadow:0 1px 2px #000;
 }
-/* the Rival's hammer: a steel triangle, opposite corner to the player's diamond */
-.tile[data-ai="1"]{
-  border-color:var(--steel);
-  box-shadow:0 0 0 3px var(--steel), 0 0 0 5px rgba(0,0,0,.65), 0 0 16px rgba(127,196,242,.45);
-  z-index:5;
-}
-.tile[data-ai="1"]::before{
-  content:"\25B2";
-  position:absolute;top:1%;right:5%;z-index:6;
-  font-size:calc(20cqw / var(--n,4));line-height:1;color:var(--steel);
-  text-shadow:0 1px 2px #000;
-  background-image:none;
-}
-/* both hammers on one square: keep each corner marker readable */
-.tile[data-current="1"][data-ai="1"]{
-  box-shadow:0 0 0 3px var(--brass), 0 0 0 6px var(--steel), 0 0 18px rgba(202,166,74,.4);
-}
-/* while the Rival is to move, its options read in steel rather than ember */
-.board[data-turn="ai"] .tile[data-legal="1"]{
+.tile[data-legal="1"]{
   border-color:rgba(127,196,242,.85);
   box-shadow:0 0 0 2px rgba(127,196,242,.5), inset 0 0 10px rgba(127,196,242,.18);
 }
@@ -389,8 +331,99 @@ input[type=range]{
 .spark{position:absolute;width:3px;height:3px;border-radius:50%;background:#ffd79a;box-shadow:0 0 6px #ff9a3c;}
 .spark.dull{background:#c98a7a;box-shadow:0 0 4px #7a3126;}
 
+/* ---------- material banner (endless) ---------- */
+.material-bar{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  padding:7px 11px;border-radius:10px;
+  border:1px solid var(--edge-soft);
+  background:linear-gradient(180deg,var(--panel),var(--panel-2));
+  position:relative;overflow:hidden;
+}
+.material-bar[hidden]{display:none;}
+.mat-name{font-size:17px;letter-spacing:.07em;color:var(--mat-ink,var(--gold));white-space:nowrap;}
+.mat-sub{font-size:11.5px;color:var(--muted);letter-spacing:.03em;text-align:right;}
+/* Each material gets its own metal. Tier is also spelled out in the name,
+   so nothing depends on colour alone. */
+.material-bar[data-tier="0"]{--mat-ink:#d08a4e;border-color:#7a4a25;}   /* Bronze */
+.material-bar[data-tier="1"]{--mat-ink:#cfd6de;border-color:#767f8b;}   /* Silver */
+.material-bar[data-tier="2"]{--mat-ink:#f0c552;border-color:#8a6a1c;}   /* Gold */
+.material-bar[data-tier="3"]{--mat-ink:#e6edf5;border-color:#9aa7b6;}   /* Platinum */
+.material-bar[data-tier="4"]{--mat-ink:#8ee6d4;border-color:#2f7c6d;}   /* Mithril */
+.material-bar[data-tier="5"]{--mat-ink:#c3a2ff;border-color:#5a3fa0;}   /* Adamantine */
+.material-bar.gleam::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);
+  animation:gleam-sweep .85s ease-out;
+}
+@keyframes gleam-sweep{from{transform:translateX(-120%);}to{transform:translateX(120%);}}
+
+/* the board takes the round's metal too */
+.board-wrap[data-tier="0"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(208,138,78,.35);}
+.board-wrap[data-tier="1"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(207,214,222,.35);}
+.board-wrap[data-tier="2"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(240,197,82,.38);}
+.board-wrap[data-tier="3"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(230,237,245,.4);}
+.board-wrap[data-tier="4"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(142,230,212,.4);}
+.board-wrap[data-tier="5"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(195,162,255,.42);}
+
+/* ---------- endless tiles: hit or unhit, in the round's metal ---------- */
+.board[data-mode="endless"] .tile[data-hit="1"]{
+  background:linear-gradient(160deg,var(--hit-a,#cfd3da) 0%,var(--hit-b,#9aa1ad) 42%,var(--hit-c,#6f7683) 100%);
+  color:#221c14;border-color:var(--hit-edge,#e4d3a4);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 5px rgba(0,0,0,.35);
+}
+.board[data-mode="endless"] .tile[data-hit="1"] .glyph{text-shadow:0 1px 0 rgba(255,255,255,.45);}
+.board[data-mode="endless"] .tile[data-hit="1"]::before{
+  background-image:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.4) 50%, transparent 62%);
+}
+/* a struck square also carries a notch, so the state is not colour alone */
+.board[data-mode="endless"] .tile[data-hit="1"] .marks i{background:#5d4c24;box-shadow:0 1px 0 rgba(255,255,255,.3);}
+.board[data-mode="endless"][data-tier="0"] .tile[data-hit="1"]{--hit-a:#e0a469;--hit-b:#a8703c;--hit-c:#70481f;--hit-edge:#d08a4e;}
+.board[data-mode="endless"][data-tier="1"] .tile[data-hit="1"]{--hit-a:#e8edf3;--hit-b:#aab3bf;--hit-c:#79818d;--hit-edge:#cfd6de;}
+.board[data-mode="endless"][data-tier="2"] .tile[data-hit="1"]{--hit-a:#f7de95;--hit-b:#cfa53b;--hit-c:#8d6c1d;--hit-edge:#f0c552;}
+.board[data-mode="endless"][data-tier="3"] .tile[data-hit="1"]{--hit-a:#fbfdff;--hit-b:#c3cdd9;--hit-c:#8e99a6;--hit-edge:#e6edf5;}
+.board[data-mode="endless"][data-tier="4"] .tile[data-hit="1"]{--hit-a:#bdf5e8;--hit-b:#5fbfab;--hit-c:#2f7c6d;--hit-edge:#8ee6d4;}
+.board[data-mode="endless"][data-tier="5"] .tile[data-hit="1"]{--hit-a:#ddc9ff;--hit-b:#9b78e0;--hit-c:#5a3fa0;--hit-edge:#c3a2ff;}
+
+/* ---------- title screen ---------- */
+.title-screen{background:radial-gradient(120% 80% at 50% 0%, #2c1b11 0%, rgba(10,11,14,.96) 62%);}
+.title-sheet{max-width:420px;text-align:center;}
+.title-mark{font-size:40px;line-height:1;color:var(--ember);text-shadow:0 0 22px rgba(255,138,61,.6);}
+.title-name{
+  margin:6px 0 2px;font-size:clamp(28px,9vw,38px);letter-spacing:.07em;font-weight:600;
+  color:var(--gold);text-shadow:0 0 20px rgba(243,215,145,.28);
+}
+.title-tag{margin:0 0 14px;font-size:13px;color:var(--muted);letter-spacing:.02em;}
+.title-label{
+  margin:14px 0 7px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;
+}
+.mode-cards{display:grid;gap:7px;}
+.mode-card{
+  display:flex;flex-direction:column;gap:3px;text-align:left;
+  padding:11px 13px;min-height:var(--tap);
+  background:var(--panel);border:1px solid var(--edge);border-radius:11px;cursor:pointer;
+}
+.mode-card[aria-checked="true"]{
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.25),0 0 14px rgba(255,138,61,.18);
+}
+.mc-name{font-size:17px;letter-spacing:.04em;color:var(--text);}
+.mode-card[aria-checked="true"] .mc-name{color:var(--gold);}
+.mc-desc{font-size:12px;line-height:1.45;color:var(--muted);}
+.mc-best{font-size:11px;letter-spacing:.06em;color:var(--brass);min-height:1em;}
+#titleDiff .diff-btn[aria-checked="true"]{
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);color:var(--gold);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.25),0 0 12px rgba(255,138,61,.18);
+}
+#titleDiff .diff-btn[aria-checked="true"] small{color:var(--brass);}
+.title-sheet .sheet-actions{margin-top:16px;}
+
 /* ---------- stats ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+/* a class that sets display beats the UA rule for [hidden], so say it again */
+.stats[hidden]{display:none;}
 .stat{
   background:var(--panel);border:1px solid var(--edge-soft);border-radius:9px;
   padding:6px 3px;text-align:center;min-width:0;
@@ -486,17 +519,15 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <h1>Checksmith</h1>
     </div>
     <div class="audio-ctl">
+      <button id="menuBtn" class="icon-btn" type="button" aria-label="Main menu">
+        <span aria-hidden="true">&#9776;</span>
+      </button>
       <button id="muteBtn" class="icon-btn" type="button" aria-pressed="false" aria-label="Mute sound">
         <span id="muteIcon" aria-hidden="true">&#128266;</span>
       </button>
       <input id="volume" type="range" min="0" max="100" step="5" value="70" aria-label="Volume">
     </div>
   </header>
-
-  <nav class="modes" role="group" aria-label="Game mode">
-    <button class="mode-btn" type="button" data-mode="solo" aria-pressed="true">Solo<small>forge it alone</small></button>
-    <button class="mode-btn" type="button" data-mode="versus" aria-pressed="false">Versus<small>against the Rival</small></button>
-  </nav>
 
   <nav class="difficulty" role="group" aria-label="Difficulty">
     <button class="diff-btn" type="button" data-diff="novice"     aria-pressed="false">Novice<small>3&times;3</small></button>
@@ -510,14 +541,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <span id="promptText">Choose any square to begin.</span>
   </p>
 
-  <div class="versus" id="versusBar" hidden>
-    <div class="vs-side" id="vsPlayerSide">
-      <span class="k">You</span><span class="v" id="vsPlayerScore">0</span>
-    </div>
-    <div class="vs-turn" id="vsTurn">Your turn</div>
-    <div class="vs-side" id="vsAiSide">
-      <span class="k">Rival</span><span class="v" id="vsAiScore">0</span>
-    </div>
+  <div class="material-bar" id="materialBar" hidden data-tier="0">
+    <span class="mat-name" id="matName">Bronze</span>
+    <span class="mat-sub" id="matSub">Round 1 &middot; Squares hit 0 / 9</span>
   </div>
 
   <div class="board-wrap">
@@ -525,17 +551,24 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <div id="fx" class="fx-layer" aria-hidden="true"></div>
   </div>
 
-  <div class="stats" id="stats">
+  <div class="stats" id="statsForge">
     <div class="stat"><span class="k">Strikes</span><span class="v" id="sStrikes">0</span></div>
     <div class="stat" id="spentChip"><span class="k">Spent</span><span class="v" id="sSpent">0</span></div>
     <div class="stat"><span class="k">Forged</span><span class="v" id="sForged">0/9</span></div>
     <div class="stat good"><span class="k">Perfect</span><span class="v" id="sPerfect">0</span></div>
+  </div>
+  <div class="stats" id="statsEndless" hidden>
+    <div class="stat"><span class="k">Score</span><span class="v" id="eScore">0</span></div>
+    <div class="stat good"><span class="k">Best</span><span class="v" id="eBest">0</span></div>
+    <div class="stat"><span class="k">Round</span><span class="v" id="eRound">1</span></div>
+    <div class="stat"><span class="k">Hit</span><span class="v" id="eHits">0/9</span></div>
   </div>
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
 
   <div class="actions">
     <button class="btn" type="button" id="restartBtn">Restart Board</button>
     <button class="btn" type="button" id="newBtn">New Puzzle</button>
+    <button class="btn" type="button" id="menuActionBtn" hidden>Main Menu</button>
     <button class="btn ghost" type="button" id="helpBtn">How to Play</button>
   </div>
 
@@ -547,6 +580,42 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   <p class="best-line" id="bestLine">Best quality on Novice: &mdash;</p>
 </div>
 
+<!-- title screen -->
+<div class="overlay title-screen" id="titleScreen" role="dialog" aria-modal="true" aria-labelledby="titleName">
+  <div class="sheet title-sheet">
+    <div class="title-mark" aria-hidden="true">&#9874;</div>
+    <h1 class="title-name" id="titleName">Checksmith</h1>
+    <p class="title-tag">The piece you stand on decides your next blow.</p>
+
+    <h2 class="title-label" id="modeLabel">Mode</h2>
+    <div class="mode-cards" role="radiogroup" aria-labelledby="modeLabel">
+      <button class="mode-card" type="button" data-mode="forge" role="radio" aria-checked="true">
+        <span class="mc-name">Forge</span>
+        <span class="mc-desc">Strike every square twice. The metal reshapes under the hammer, and a third strike ruins the square.</span>
+        <span class="mc-best" id="forgeBest">&nbsp;</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="endless" role="radio" aria-checked="false">
+        <span class="mc-name">Endless</span>
+        <span class="mc-desc">Hit every square once to advance a material. Keep forging until no legal move remains.</span>
+        <span class="mc-best" id="endlessBest">&nbsp;</span>
+      </button>
+    </div>
+
+    <h2 class="title-label" id="diffLabel">Difficulty</h2>
+    <div class="difficulty" id="titleDiff" role="radiogroup" aria-labelledby="diffLabel">
+      <button class="diff-btn" type="button" data-tdiff="novice"     role="radio" aria-checked="true">Novice<small>3&times;3</small></button>
+      <button class="diff-btn" type="button" data-tdiff="apprentice" role="radio" aria-checked="false">Appren.<small>4&times;4</small></button>
+      <button class="diff-btn" type="button" data-tdiff="journeyman" role="radio" aria-checked="false">Journey.<small>5&times;5</small></button>
+      <button class="diff-btn" type="button" data-tdiff="master"     role="radio" aria-checked="false">Master<small>6&times;6</small></button>
+    </div>
+
+    <div class="sheet-actions">
+      <button class="btn primary" type="button" id="beginBtn">Begin</button>
+      <button class="btn ghost" type="button" id="titleHelpBtn">How to Play</button>
+    </div>
+  </div>
+</div>
+
 <!-- results -->
 <div class="overlay" id="results" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
   <div class="sheet">
@@ -555,9 +624,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <p class="result-label" id="rLabel">Masterwork</p>
     <div class="result-grid">
       <div><span>Difficulty</span><b id="rDiff">Novice</b></div>
-      <div><span>Total strikes</span><b id="rStrikes">18</b></div>
+      <div><span id="rStrikesLabel">Total strikes</span><b id="rStrikes">18</b></div>
       <div><span id="rSpentLabel">Spent squares</span><b id="rSpent">0</b></div>
-      <div><span>Perfect squares</span><b id="rPerfect">9 / 9</b></div>
+      <div><span id="rPerfectLabel">Perfect squares</span><b id="rPerfect">9 / 9</b></div>
     </div>
     <p id="rBest" class="best-line" style="margin-bottom:12px"></p>
     <div class="sheet-actions">
@@ -592,19 +661,16 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        ever land on again. Blank squares still count as forged, but each one costs quality.</p>
     <p><b>You can be stranded.</b> If the square you are standing on has no legal destination left,
        the run is over. Spend squares carelessly and you will wall yourself in.</p>
-    <p><b>Versus the Rival.</b> In versus mode you and the Rival take turns on <em>one</em> board.
-       Every blow either of you lands counts for both of you, so the work fills up twice as fast &mdash;
-       but you each have your own hammer, standing on your own square, so you rarely have the same
-       moves available.</p>
-    <p>The blow that takes a square from one strike to two is its <b>perfecting blow</b>, and it belongs
-       to whoever landed it. When the board finishes, whoever landed more perfecting blows wins.
-       Run out of legal strikes on your turn and you lose on the spot &mdash; so blanking a square the
-       Rival is standing on is a perfectly good way to win.</p>
-    <p><b>Freshly shaped metal is too hot to finish.</b> A square that took its first strike on the
-       previous swing cannot take its second on the very next one. Without that, whoever struck second
-       would simply finish every square the other one had just started, and take every blow in the
-       bout. The rule lapses if a side has nowhere else legal to go, so it can never strand you by
-       itself.</p>
+    <h2 style="font-size:16px;margin:16px 0 4px">Endless Mode</h2>
+    <p>Hit every square once to advance to the next material. The piece on your current square
+       determines your next move. You cannot hit a square twice in the same round. Keep forging
+       until no legal moves remain.</p>
+    <p>Clearing a board earns a bonus and recasts it in the next metal &mdash; Bronze, Silver, Gold,
+       Platinum, Mithril, Adamantine, and on into Adamantine II, III and beyond. Every round is a
+       fresh layout with a verified route, the score carries forward, and there is no last round.</p>
+    <p>Endless scores <b>10 points a strike</b> and <b>100 for each board cleared</b>. Squares are struck
+       once only, so nothing crumbles and nothing reshapes: the run ends when the square you are
+       standing on has no unstruck square left to reach.</p>
     <p><b>Marks:</b> a brass diamond shows where the hammer stands now; dashed rings show every legal destination.
        Notches along the bottom of a square count its strikes, a red dashed border means the square is
        crumbling and about to blank, and a dark hole means it is already spent.</p>
@@ -661,16 +727,21 @@ const CONFIG = {
     sparks: 9
   },
   rules: {
-    perfect: 2,           // strikes that finish a square
-    spent: 3,             // strikes that spend a square: it blanks and can never be entered again
-    coolOff: true         // freshly shaped metal cannot take its finishing blow on the very next swing
+    perfect: 2,           // forge mode: strikes that finish a square
+    spent: 3              // forge mode: strikes that spend a square and blank it for good
   },
   scoring: {
     penaltyScale: 2       // quality = 100 * (1 - overstrikes / (penaltyScale * N))
   },
-  ai: {
-    thinkMs: 540,         // pause before the Rival swings, so its turn reads
-    jitter: 7             // randomness added to its move scores, for variety
+  endless: {
+    pointsPerStrike: 10,  // awarded for every successful strike
+    roundBonus: 100,      // awarded for clearing a whole board
+    // Round 1..6 take these names; round 7 onward is Adamantine II, III, ...
+    materials: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Mithril', 'Adamantine'],
+    // Reshaping is off here: a round's verified route only holds while the
+    // symbols hold still, and in endless every strike is a first strike.
+    morphChance: 0,
+    generation: { nodeBudget: 200000, timeBudgetMs: 900, attempts: 24 }
   }
 };
 
@@ -1026,97 +1097,299 @@ function makeBoard(difficultyKey, rnd, limits) {
   return null;
 }
 
-/* ---------- game state ---------------------------------------------
-   Solo and versus share one board and one tally of strikes. What differs
-   is how many hammers are on it: in versus each side keeps its own
-   position, so the two have different legal moves, but every blow either
-   of them lands counts for both. The board holds the generated layout;
-   the game holds the live symbols, because a first strike can reshape a
-   square and a spent square loses its symbol altogether. */
-const SIDES = ['player', 'ai'];
-function otherSide(side) { return side === 'player' ? 'ai' : 'player'; }
+/* ---------- endless: one visit per square -----------------------------
+   An endless round is a Hamiltonian path over the board, so every square
+   has exactly one departure and its symbol only has to legalise that single
+   move - a much lighter constraint than the forge route's two. Same
+   discipline as before: find the path first, fit the symbols to it after,
+   then verify the finished board independently. */
+function tourAdjacency(size, pool) {
+  const n = size * size, T = tableFor(size), adj = new Array(n);
+  for (let from = 0; from < n; from++) {
+    const seen = new Uint8Array(n);
+    for (const piece of pool) {
+      const list = T[piece].list[from];
+      for (let k = 0; k < list.length; k++) seen[list[k]] = 1;
+    }
+    const out = [];
+    for (let to = 0; to < n; to++) if (seen[to]) out.push(to);
+    adj[from] = out;
+  }
+  return adj;
+}
 
+function buildTour(size, pool, rnd, budget, deadline) {
+  const n = size * size;
+  const adj = tourAdjacency(size, pool);
+  const visited = new Uint8Array(n);
+  const tour = new Array(n);
+  let nodes = 0, bailed = false;
+
+  const start = Math.floor(rnd() * n);
+  tour[0] = start;
+  visited[start] = 1;
+
+  function onward(v) {                             // unvisited neighbours of v
+    let d = 0;
+    const list = adj[v];
+    for (let k = 0; k < list.length; k++) if (!visited[list[k]]) d++;
+    return d;
+  }
+
+  function dfs(depth) {
+    if (depth === n) return true;
+    if (++nodes > budget) { bailed = true; return false; }
+    if ((nodes & 511) === 0 && deadline && Date.now() > deadline) { bailed = true; return false; }
+    const cur = tour[depth - 1];
+    const cands = [];
+    const list = adj[cur];
+    for (let k = 0; k < list.length; k++) {
+      const t = list[k];
+      if (!visited[t]) cands.push({ t: t, key: onward(t) * 100 + rnd() * 90 });
+    }
+    // Warnsdorff: step into the most cornered square first, so the awkward
+    // squares are spent early rather than stranded at the end.
+    cands.sort((a, b) => a.key - b.key);
+    for (let i = 0; i < cands.length; i++) {
+      const t = cands[i].t;
+      visited[t] = 1;
+      tour[depth] = t;
+      if (dfs(depth + 1)) return true;
+      visited[t] = 0;
+      if (bailed) break;
+    }
+    return false;
+  }
+  return dfs(1) ? tour : null;
+}
+
+function piecesForTour(size, tour, pool, rnd, maxQueens) {
+  const n = size * size, T = tableFor(size);
+  const pieces = new Array(n);
+  const usage = {};
+  const choose = (options) => {
+    let best = null, bestUse = Infinity;
+    for (const piece of options) {
+      const u = (usage[piece] || 0) + rnd() * 0.5;
+      if (u < bestUse) { bestUse = u; best = piece; }
+    }
+    usage[best] = (usage[best] || 0) + 1;
+    return best;
+  };
+  for (let k = 0; k < n - 1; k++) {
+    const from = tour[k], to = tour[k + 1];
+    const ok = pool.filter((piece) => T[piece].mask[from][to] === 1);
+    if (!ok.length) return null;
+    pieces[from] = choose(ok);
+  }
+  pieces[tour[n - 1]] = choose(pool);              // the last square never departs
+  if (maxQueens > 0) {
+    // A Queen covers every King, Rook and Bishop move, so promoting a square
+    // cannot invalidate its one departure.
+    const promotable = [];
+    for (let i = 0; i < n; i++) if (pieces[i] !== 'N' && pieces[i] !== 'Q') promotable.push(i);
+    const want = Math.min(maxQueens, promotable.length, 1 + Math.floor(rnd() * maxQueens));
+    for (let k = 0; k < want && promotable.length; k++) {
+      const pick = Math.floor(rnd() * promotable.length);
+      pieces[promotable[pick]] = 'Q';
+      promotable.splice(pick, 1);
+    }
+  }
+  return pieces;
+}
+
+/* Independent check: the stored route really does visit every square once
+   and every step is legal for the piece it departs from. */
+function validateTour(board) {
+  const size = board.size, n = size * size;
+  const route = board.route, pieces = board.pieces;
+  if (!route || route.length !== n) return false;
+  if (!pieces || pieces.length !== n) return false;
+  const seen = new Uint8Array(n);
+  for (const i of route) {
+    if (!(i >= 0 && i < n) || seen[i]) return false;
+    seen[i] = 1;
+  }
+  for (let k = 0; k < n - 1; k++) {
+    if (!isLegalMove(pieces[route[k]], route[k], route[k + 1], size)) return false;
+  }
+  return true;
+}
+
+function generateTourBoard(difficultyKey, rnd, limits) {
+  const cfg = CONFIG.difficulties[difficultyKey];
+  const g = Object.assign({}, CONFIG.endless.generation, limits || {});
+  const deadline = Date.now() + g.timeBudgetMs;
+  for (let attempt = 0; attempt < g.attempts; attempt++) {
+    if (Date.now() > deadline) break;
+    const tour = buildTour(cfg.size, cfg.pool, rnd, g.nodeBudget, deadline);
+    if (!tour) continue;
+    const pieces = piecesForTour(cfg.size, tour, cfg.pool, rnd, cfg.maxQueens);
+    if (!pieces) continue;
+    const board = { size: cfg.size, difficulty: difficultyKey, kind: 'tour',
+      pieces: pieces, route: tour.slice() };
+    if (validateTour(board)) return board;
+  }
+  return null;
+}
+
+const ENDLESS_FALLBACKS = {
+  novice: [
+    { pieces: 'KRRRKKRKR',
+      route: [4,8,2,5,1,7,3,6,0] },
+    { pieces: 'RRRKRKRKK',
+      route: [3,6,0,2,8,7,5,1,4] },
+    { pieces: 'KKKRRRRKR',
+      route: [3,6,0,1,2,4,7,5,8] }
+  ],
+  apprentice: [
+    { pieces: 'RKRRKRBRKBBBKKKR',
+      route: [7,15,3,11,1,0,2,14,10,13,12,8,4,5,6,9] },
+    { pieces: 'KKRKRRBBKBKBRRRR',
+      route: [5,13,1,0,4,8,12,15,3,7,2,10,11,14,6,9] },
+    { pieces: 'BRRKBKBRBKBRRRKK',
+      route: [6,12,4,14,11,9,8,13,1,3,2,0,15,10,7,5] }
+  ],
+  journeyman: [
+    { pieces: 'RRNKBBBRRRKKBBNKKBKBRKBKR',
+      route: [12,24,4,20,0,3,9,5,23,19,1,21,15,16,22,10,6,2,11,17,13,7,8,18,14] },
+    { pieces: 'RRKNRNKNRRRBBRKRKKBBRKNRR',
+      route: [9,24,4,0,20,5,2,1,3,14,19,23,8,6,7,10,13,11,15,18,12,16,17,21,22] },
+    { pieces: 'KRNKRRNKNRRKBKNBRBRBRRKNR',
+      route: [10,20,0,5,15,21,24,22,23,16,19,1,4,14,3,2,9,7,6,13,18,8,17,11,12] }
+  ],
+  master: [
+    { pieces: 'RBNRKBRKBRKNNRKRBRRNKRKBRBBNKKRBNQNR',
+      route: [17,35,5,30,0,4,11,3,1,29,34,23,2,6,10,16,9,7,12,8,18,22,28,33,15,13,31,24,26,21,19,27,14,20,25,32] },
+    { pieces: 'RKQBBRRBKNRKRRKKBBKNKNNRRNRKBBRNKKRR',
+      route: [12,0,30,35,5,1,6,24,29,34,31,18,25,33,32,26,28,7,2,23,11,4,19,8,3,13,17,27,20,21,10,22,14,15,16,9] },
+    { pieces: 'RKRBRBKRRKKKNNQNBRNNNBBNRRKKRKKBRNKB',
+      route: [14,35,0,5,30,24,6,12,1,2,4,3,18,7,31,11,17,13,9,8,10,16,23,34,29,28,22,15,26,32,20,33,25,19,27,21] }
+  ]
+};
+
+function endlessFallbackBoard(difficultyKey, rnd) {
+  const pool = ENDLESS_FALLBACKS[difficultyKey] || [];
+  if (!pool.length) return null;
+  const raw = pool[Math.floor(rnd() * pool.length)];
+  const board = {
+    size: Math.round(Math.sqrt(raw.pieces.length)),
+    difficulty: difficultyKey,
+    kind: 'tour',
+    pieces: raw.pieces.split(''),
+    route: raw.route.slice()
+  };
+  return transformBoard(board, Math.floor(rnd() * 8));
+}
+
+/* Always returns a verified round, never hangs. `avoid` is the previous
+   round's layout, so the same board is not dealt twice in a row. */
+function makeEndlessBoard(difficultyKey, rnd, avoid, limits) {
+  for (let tries = 0; tries < 3; tries++) {
+    const board = generateTourBoard(difficultyKey, rnd, limits);
+    if (board && (!avoid || board.pieces.join('') !== avoid)) return board;
+    if (board && tries === 2) return board;        // out of alternatives; ship it
+  }
+  for (let tries = 0; tries < 4; tries++) {
+    const fb = endlessFallbackBoard(difficultyKey, rnd);
+    if (fb && validateTour(fb) && (!avoid || fb.pieces.join('') !== avoid)) return fb;
+    if (fb && validateTour(fb) && tries === 3) return fb;
+  }
+  return null;
+}
+
+/* ---------- materials ------------------------------------------------ */
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+function romanFor(n) {
+  if (n < ROMAN.length) return ROMAN[n];
+  let out = '', left = n;
+  while (left >= 10) { out += 'X'; left -= 10; }
+  return out + ROMAN[left];
+}
+/* Round 1..6 are named outright; after that the last material keeps going
+   with numerals, so a run never runs out of metal. */
+function materialFor(round) {
+  const list = CONFIG.endless.materials;
+  if (round <= list.length) return { name: list[round - 1], tier: round - 1, mark: '' };
+  const extra = round - list.length + 1;          // 2 => "II"
+  return { name: list[list.length - 1] + ' ' + romanFor(extra), tier: list.length - 1, mark: romanFor(extra) };
+}
+
+/* ---------- game state ---------------------------------------------
+   Two modes share one board and one hammer.
+
+   forge   - the original puzzle: every square twice, a third strike spends
+             it, a first strike may reshape it, quality is scored.
+   endless - every square exactly once per round, then the board is recast
+             in the next material. Running out of legal moves ends the run.
+
+   The board holds the layout a puzzle was generated with; the game holds
+   the live symbols, because in forge mode a first strike can reshape a
+   square and a spent square loses its symbol altogether. */
 function createGame(board, options) {
   const opts = options || {};
   const n = board.size * board.size;
   const cfg = CONFIG.difficulties[board.difficulty];
+  const mode = opts.mode === 'endless' ? 'endless' : 'forge';
+  const defaultMorph = mode === 'endless' ? CONFIG.endless.morphChance : (cfg ? cfg.morphChance : 0);
   return {
     board: board,
+    mode: mode,
     pieces: board.pieces.slice(),     // live symbols; reshaping writes here
-    strikes: new Array(n).fill(0),    // shared by both sides
-    mode: opts.mode === 'versus' ? 'versus' : 'solo',
-    turn: 'player',
-    pos: { player: -1, ai: -1 },      // each side's hammer
-    credits: { player: 0, ai: 0 },    // perfecting blows landed
-    winner: null,                     // versus only: 'player' | 'ai' | 'draw'
-    strandedSide: null,
-    lastShaped: -1,                   // square shaped by the previous blow; still too hot
+    strikes: new Array(n).fill(0),
+    current: -1,
     totalStrikes: 0,
     status: 'ready',                  // 'ready' | 'playing' | 'complete' | 'lost'
-    morphChance: typeof opts.morphChance === 'number' ? opts.morphChance
-      : (cfg ? cfg.morphChance : 0),
+    // endless only
+    round: 1,
+    score: 0,
+    roundsCompleted: 0,
+    morphChance: typeof opts.morphChance === 'number' ? opts.morphChance : defaultMorph,
     morphPool: opts.morphPool || (cfg ? cfg.pool : ['K', 'R', 'B', 'N']),
     rnd: opts.rnd || Math.random
   };
 }
 
 function isOver(game) { return game.status === 'complete' || game.status === 'lost'; }
-function activePos(game) { return game.pos[game.turn]; }
+function isEndless(game) { return game.mode === 'endless'; }
 
-/* A square that has taken its spending strike is finished with: it can never
-   be entered again. The square under a hammer is the exception only in that
-   its symbol still carries that hammer away from it, once. */
-function isSpent(game, idx) { return game.strikes[idx] >= CONFIG.rules.spent; }
+/* forge only: a square that has taken its spending strike is finished with. */
+function isSpent(game, idx) {
+  return !isEndless(game) && game.strikes[idx] >= CONFIG.rules.spent;
+}
+/* endless only: a square already struck this round is closed until the next. */
+function isHit(game, idx) { return game.strikes[idx] > 0; }
 
-function rawTargets(game, who) {
+function blocked(game, idx) {
+  return isEndless(game) ? isHit(game, idx) : isSpent(game, idx);
+}
+
+function legalTargets(game) {
   const n = game.board.size * game.board.size;
+  if (isOver(game)) return [];
   const out = [];
-  const cur = game.pos[who];
-  if (cur < 0) {                                   // opening strike: anywhere
-    for (let i = 0; i < n; i++) if (!isSpent(game, i)) out.push(i);
+  if (game.current < 0) {                          // opening strike: anywhere unstruck
+    for (let i = 0; i < n; i++) if (!blocked(game, i)) out.push(i);
     return out;
   }
-  const piece = game.pieces[cur];
+  const piece = game.pieces[game.current];
   if (!piece) return out;                          // standing on a blank square
-  const moves = tableFor(game.board.size)[piece].list[cur];
-  for (let k = 0; k < moves.length; k++) if (!isSpent(game, moves[k])) out.push(moves[k]);
+  // Struck squares never block a slide or a jump; only the destination counts.
+  const moves = tableFor(game.board.size)[piece].list[game.current];
+  for (let k = 0; k < moves.length; k++) if (!blocked(game, moves[k])) out.push(moves[k]);
   return out;
 }
 
-/* A square shaped by the previous blow is still glowing: nobody may land its
-   finishing blow on the very next swing. Without this, strict alternation
-   hands every perfecting blow to whoever moves second - they simply harvest
-   whatever the other side just shaped. The rule lapses when a side has
-   nowhere else to go, so it can never stall a run on its own.
-   In solo it is a no-op: the square just shaped is the one being stood on,
-   which is already an illegal destination. */
-function legalTargets(game, side) {
-  const who = side || game.turn;
-  if (isOver(game)) return [];
-  const raw = rawTargets(game, who);
-  if (!CONFIG.rules.coolOff || game.lastShaped < 0 || raw.length < 2) return raw;
-  const at = raw.indexOf(game.lastShaped);
-  if (at < 0) return raw;
-  const out = raw.slice();
-  out.splice(at, 1);
-  return out;
-}
-
-function canStrike(game, idx, side) {
-  const who = side || game.turn;
+function canStrike(game, idx) {
   if (isOver(game)) return false;
-  if (game.mode === 'versus' && who !== game.turn) return false;   // not your turn
   const n = game.board.size * game.board.size;
   if (!(idx >= 0 && idx < n)) return false;
-  if (isSpent(game, idx)) return false;            // blank squares are gone for good
-  const cur = game.pos[who];
-  if (cur >= 0) {
-    if (idx === cur) return false;                 // must move away first
-    const piece = game.pieces[cur];
-    if (!piece) return false;
-    if (!isLegalMove(piece, cur, idx, game.board.size)) return false;
-  }
-  return legalTargets(game, who).indexOf(idx) >= 0;
+  if (blocked(game, idx)) return false;
+  if (game.current < 0) return true;
+  if (idx === game.current) return false;          // must move away first
+  const piece = game.pieces[game.current];
+  if (!piece) return false;
+  return isLegalMove(piece, game.current, idx, game.board.size);
 }
 
 /* Pick a different symbol for a square that has just been shaped. */
@@ -1128,19 +1401,58 @@ function reshape(game, idx) {
   return { from: current, to: game.pieces[idx] };
 }
 
-function decideWinner(game) {
-  if (game.credits.player === game.credits.ai) return 'draw';
-  return game.credits.player > game.credits.ai ? 'player' : 'ai';
+function applyStrike(game, idx) {
+  if (!canStrike(game, idx)) return null;
+  return isEndless(game) ? strikeEndless(game, idx) : strikeForge(game, idx);
 }
 
-function applyStrike(game, idx, side) {
-  const who = side || game.turn;
-  if (!canStrike(game, idx, who)) return null;
+/* Endless: mark the square, score it, then settle the round BEFORE asking
+   whether the run is dead. The blow that clears a board must never be the
+   blow that ends the run. */
+function strikeEndless(game, idx) {
+  game.strikes[idx] = 1;
+  game.totalStrikes += 1;
+  game.current = idx;
+  game.status = 'playing';
+  game.score += CONFIG.endless.pointsPerStrike;
 
+  const n = game.board.size * game.board.size;
+  let hits = 0;
+  for (let i = 0; i < n; i++) if (game.strikes[i] > 0) hits++;
+
+  const cleared = hits === n;
+  let dead = false;
+  if (cleared) {
+    game.score += CONFIG.endless.roundBonus;
+    game.roundsCompleted += 1;
+    game.status = 'roundOver';                     // the controller recasts the board
+  } else if (legalTargets(game).length === 0) {
+    dead = true;
+    game.status = 'lost';
+  }
+  return {
+    index: idx, count: 1, morphed: null, blanked: -1, spent: false,
+    hits: hits, squares: n, cleared: cleared, complete: false,
+    lost: dead, points: CONFIG.endless.pointsPerStrike + (cleared ? CONFIG.endless.roundBonus : 0)
+  };
+}
+
+/* Recast the board for the next round: new layout, cold metal, no position,
+   score carried forward. */
+function beginRound(game, board) {
+  game.board = board;
+  game.pieces = board.pieces.slice();
+  game.strikes = new Array(board.size * board.size).fill(0);
+  game.current = -1;
+  game.round += 1;
+  game.status = 'ready';
+  return game;
+}
+
+function strikeForge(game, idx) {
   // Leaving a spent square is the last thing it is good for: it blanks behind
-  // the hammer and becomes a hole in the board. If the other side happens to
-  // be standing there, it has just been stranded - which is a legal tactic.
-  const from = game.pos[who];
+  // the hammer and becomes a hole in the board.
+  const from = game.current;
   let blanked = -1;
   if (from >= 0 && isSpent(game, from)) {
     game.pieces[from] = null;
@@ -1149,17 +1461,9 @@ function applyStrike(game, idx, side) {
 
   game.strikes[idx] += 1;
   game.totalStrikes += 1;
-  game.pos[who] = idx;
+  game.current = idx;
   game.status = 'playing';
   const count = game.strikes[idx];
-
-  // The blow that takes a square from one strike to two is its perfecting
-  // blow, and belongs to whoever landed it.
-  let credited = false;
-  if (count === CONFIG.rules.perfect) { game.credits[who] += 1; credited = true; }
-
-  // Remember freshly shaped metal so the next swing cannot finish it.
-  game.lastShaped = count === 1 ? idx : -1;
 
   // Only the first strike reshapes a square; after that the symbol is set.
   let morphed = null;
@@ -1168,35 +1472,26 @@ function applyStrike(game, idx, side) {
   }
 
   const complete = game.strikes.every(function (st) { return st >= CONFIG.rules.perfect; });
-  if (complete) {
-    game.status = 'complete';
-    if (game.mode === 'versus') game.winner = decideWinner(game);
-  } else {
-    if (game.mode === 'versus') game.turn = otherSide(who);
-    if (legalTargets(game).length === 0) {
-      game.status = 'lost';                        // nowhere legal left to strike
-      game.strandedSide = game.turn;
-      if (game.mode === 'versus') game.winner = otherSide(game.turn);
-    }
-  }
+  if (complete) game.status = 'complete';
+  else if (legalTargets(game).length === 0) game.status = 'lost';
 
   return {
-    index: idx,
-    side: who,
-    count: count,
-    credited: credited,
-    morphed: morphed,
-    blanked: blanked,
-    spent: count >= CONFIG.rules.spent,
-    complete: complete,
-    lost: game.status === 'lost',
-    winner: game.winner,
-    strandedSide: game.strandedSide
+    index: idx, count: count, morphed: morphed, blanked: blanked,
+    spent: count >= CONFIG.rules.spent, cleared: false,
+    complete: complete, lost: game.status === 'lost', points: 0
   };
 }
 
 function gameStats(game) {
   const n = game.board.size * game.board.size;
+  if (isEndless(game)) {
+    let hits = 0;
+    for (const st of game.strikes) if (st > 0) hits++;
+    return { squares: n, hits: hits, total: game.totalStrikes, score: game.score,
+      round: game.round, roundsCompleted: game.roundsCompleted,
+      material: materialFor(game.round),
+      overstrikes: 0, forged: hits, perfect: hits, spent: 0 };
+  }
   let over = 0, forged = 0, perfect = 0, spent = 0;
   for (const st of game.strikes) {
     if (st > CONFIG.rules.perfect) over += st - CONFIG.rules.perfect;
@@ -1204,9 +1499,9 @@ function gameStats(game) {
     if (st === CONFIG.rules.perfect) perfect++;
     if (st >= CONFIG.rules.spent) spent++;
   }
-  return { squares: n, total: game.totalStrikes, overstrikes: over,
-    forged: forged, perfect: perfect, spent: spent,
-    playerBlows: game.credits.player, aiBlows: game.credits.ai };
+  return { squares: n, hits: forged, total: game.totalStrikes, overstrikes: over,
+    forged: forged, perfect: perfect, spent: spent, score: 0,
+    round: 1, roundsCompleted: 0, material: materialFor(1) };
 }
 
 const RESULT_LABELS = [
@@ -1225,57 +1520,18 @@ function scoreGame(game) {
   return { quality: quality, label: label, stats: st };
 }
 
-/* ---------- the Rival ------------------------------------------------
-   A one-ply search. It wants perfecting blows, avoids spending squares,
-   keeps its own room to move, and mildly prefers leaving the player with
-   fewer options. Deterministic apart from a small jitter, so it can be
-   tested. */
-function aiScoreMove(game, t) {
-  const before = game.strikes[t];
-  let score = 0;
-  if (before === CONFIG.rules.perfect - 1) score += 100;      // takes a square to perfect
-  else if (before === 0) score += 42;                         // progress towards the goal
-  else score -= 130;                                          // would spend the square
-
-  game.strikes[t] = before + 1;                               // look one move ahead
-  const piece = game.pieces[t];
-  let room = 0;
-  if (piece) {
-    const moves = tableFor(game.board.size)[piece].list[t];
-    for (let k = 0; k < moves.length; k++) {
-      if (game.strikes[moves[k]] < CONFIG.rules.spent) room++;
-    }
-  }
-  const playerRoom = legalTargets(game, 'player').length;
-  game.strikes[t] = before;                                   // always put it back
-
-  if (room === 0) score -= 900;                               // never wall yourself in
-  else score += Math.min(room, 10) * 3;
-  score -= Math.min(playerRoom, 12) * 1.5;
-  return score + game.rnd() * CONFIG.ai.jitter;
-}
-
-function chooseAiMove(game) {
-  const targets = legalTargets(game, 'ai');
-  if (!targets.length) return -1;
-  let best = targets[0], bestScore = -Infinity;
-  for (let i = 0; i < targets.length; i++) {
-    const sc = aiScoreMove(game, targets[i]);
-    if (sc > bestScore) { bestScore = sc; best = targets[i]; }
-  }
-  return best;
-}
-
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
   mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
   assignPieces: assignPieces, isStronglyConnected: isStronglyConnected, validateBoard: validateBoard,
   generateBoard: generateBoard, transformBoard: transformBoard, fallbackBoard: fallbackBoard,
   makeBoard: makeBoard, FALLBACK_BOARDS: FALLBACK_BOARDS,
+  buildTour: buildTour, piecesForTour: piecesForTour, validateTour: validateTour,
+  generateTourBoard: generateTourBoard, makeEndlessBoard: makeEndlessBoard,
+  endlessFallbackBoard: endlessFallbackBoard, ENDLESS_FALLBACKS: ENDLESS_FALLBACKS,
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
-  isSpent: isSpent, isOver: isOver, reshape: reshape, activePos: activePos, rawTargets: rawTargets,
-  otherSide: otherSide, decideWinner: decideWinner,
-  chooseAiMove: chooseAiMove, aiScoreMove: aiScoreMove, SIDES: SIDES,
+  isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
+  materialFor: materialFor, romanFor: romanFor, beginRound: beginRound,
   gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
 };
 /* ==== CORE END ==== */
@@ -1688,10 +1944,10 @@ const Store = {
 
 const App = {
   difficulty: 'novice',
-  mode: 'solo',         // 'solo' | 'versus'
+  mode: 'forge',        // 'forge' | 'endless'
   game: null,
-  aiTimer: null,        // the Rival's pause before it swings
-  aiPending: false,     // its turn was deferred because the page went away
+  roundTimer: null,     // pause between endless rounds
+  lastLayout: '',       // previous round's symbols, so a board is not dealt twice running
   tiles: [],
   rnd: mulberry32((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0),
   busy: false,          // a hammer is mid-swing
@@ -1701,7 +1957,7 @@ const App = {
   pendingImpact: null,  // () => void, run early if the page is hidden
   focusIndex: 0,
   best: {},
-  record: {},           // versus wins/losses/draws per difficulty
+  endlessBest: {},      // best endless score per difficulty
   lastFocus: null,
   confirmAction: null
 };
@@ -1713,8 +1969,7 @@ function cancelPending(runPending) {
   const pending = App.pendingImpact;
   App.pendingImpact = null;
   if (App.impactTimer) { clearTimeout(App.impactTimer); App.impactTimer = null; }
-  if (App.aiTimer) { clearTimeout(App.aiTimer); App.aiTimer = null; }
-  App.aiPending = false;
+  if (App.roundTimer) { clearTimeout(App.roundTimer); App.roundTimer = null; }
   // The pending blow belongs to the game that is still current, so it
   // has to land before the token that authorises it is retired.
   if (runPending && pending) pending();
@@ -1766,12 +2021,18 @@ function loadBoard(difficulty, done) {
   // paint the waiting state before the (bounded) search runs
   requestAnimationFrame(() => requestAnimationFrame(() => {
     let board = null;
-    try { board = makeBoard(difficulty, App.rnd); } catch (err) { board = null; }
-    if (!board) board = fallbackBoard(difficulty, App.rnd);
+    if (App.mode === 'endless') {
+      try { board = makeEndlessBoard(difficulty, App.rnd, App.lastLayout); } catch (err) { board = null; }
+      if (!board) board = endlessFallbackBoard(difficulty, App.rnd);
+    } else {
+      try { board = makeBoard(difficulty, App.rnd); } catch (err) { board = null; }
+      if (!board) board = fallbackBoard(difficulty, App.rnd);
+    }
     if (!board) {                       // cannot happen; refuse to show a broken board
       $('promptText').textContent = 'Could not set a die. Try another difficulty.';
       return;
     }
+    App.lastLayout = board.pieces.join('');
     startGame(board);
     if (done) done();
   }));
@@ -1779,8 +2040,18 @@ function loadBoard(difficulty, done) {
 
 function restartBoard() {
   if (!App.game) return;
+  if (App.mode === 'endless') { startRun(); return; }   // a run restarts whole
   startGame(App.game.board);
   announce('Back on the anvil. ' + CONFIG.difficulties[App.difficulty].label + ', all squares cold.');
+}
+
+/* Endless: a brand new run at Bronze, round one, score zero. */
+function startRun() {
+  App.lastLayout = '';
+  loadBoard(App.difficulty, () => {
+    buildLegend();
+    announce('New run. Bronze round. Choose any square to begin.');
+  });
 }
 
 /* ---------- rendering ---------------------------------------------- */
@@ -1793,43 +2064,41 @@ function render() {
   const g = App.game;
   if (!g) return;
   const size = g.board.size, n = size * size;
-  const versus = g.mode === 'versus';
-  const turn = g.turn;
-  const legal = new Set(legalTargets(g));           // whoever is to move
-  const activeCur = g.pos[turn];
-  const opening = activeCur < 0 && !isOver(g);
+  const endless = isEndless(g);
+  const legal = new Set(legalTargets(g));
+  const opening = g.current < 0 && !isOver(g);
+  const tier = endless ? gameStats(g).material.tier : -1;
 
   for (let i = 0; i < n; i++) {
     const el = App.tiles[i];
     const strikes = g.strikes[i];
     const piece = g.pieces[i];               // live symbol: reshaping changes it
-    const isPlayer = i === g.pos.player;
-    const isAi = versus && i === g.pos.ai;
-    const isActive = i === activeCur;
-    const isLegal = !opening && legal.has(i) && !isActive;
-    const spent = strikes >= CONFIG.rules.spent;
+    const isCurrent = i === g.current;
+    const isLegal = !opening && legal.has(i) && !isCurrent;
+    const spent = !endless && strikes >= CONFIG.rules.spent;
     const blank = piece === null || piece === undefined;
+    const hit = endless && strikes > 0;
 
-    const shown = Math.min(strikes, 3);
+    const shown = endless ? Math.min(strikes, 1) : Math.min(strikes, 3);
     if (el.dataset.s !== String(shown)) el.dataset.s = String(shown);
-    el.dataset.current = isPlayer ? '1' : '0';
-    el.dataset.ai = isAi ? '1' : '0';
+    el.dataset.current = isCurrent ? '1' : '0';
     el.dataset.legal = isLegal ? '1' : '0';
     el.dataset.void = blank ? '1' : '0';
     el.dataset.spent = spent && !blank ? '1' : '0';
+    el.dataset.hit = hit ? '1' : '0';
 
     const glyph = el.firstChild;
     const wantGlyph = blank ? '' : PIECES[piece].glyph;
     if (glyph.textContent !== wantGlyph) glyph.textContent = wantGlyph;
 
     const marks = el.children[1];
-    const wanted = blank ? 0 : Math.min(strikes, 2);
+    const wanted = blank ? 0 : (endless ? (hit ? 1 : 0) : Math.min(strikes, 2));
     if (marks.childElementCount !== wanted) {
       marks.textContent = '';
       for (let k = 0; k < wanted; k++) marks.appendChild(document.createElement('i'));
     }
     let badge = el.querySelector('.count');
-    if (strikes >= 3 && !blank) {
+    if (!endless && strikes >= 3 && !blank) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'count';
@@ -1841,79 +2110,85 @@ function render() {
     let label = squareName(i, size) + ', ';
     if (blank) {
       label += 'blank, spent and cannot be struck again';
+    } else if (endless) {
+      label += PIECES[piece].name + ', ' + (hit ? 'already struck this round' : 'not yet struck');
+      if (isCurrent) label += ', hammer is here';
+      if (opening) label += ', legal opening square';
+      else if (isLegal) label += ', legal destination';
+      else if (!isCurrent) label += ', not reachable from here';
     } else {
       label += PIECES[piece].name + ', ' + strikes +
         (strikes === 1 ? ' strike, ' : ' strikes, ') + STATE_WORD[Math.min(strikes, 3)];
       if (spent) label += ', crumbling, one move left';
-      if (isPlayer) label += versus ? ', your hammer is here' : ', hammer is here';
-      if (isAi) label += ', the Rival is here';
+      if (isCurrent) label += ', hammer is here';
       if (opening) label += ', legal opening square';
-      else if (isLegal) label += versus && turn === 'ai' ? ', the Rival can reach this' : ', legal destination';
-      else if (!isActive) label += ', not reachable from here';
+      else if (isLegal) label += ', legal destination';
+      else if (!isCurrent) label += ', not reachable from here';
     }
     el.setAttribute('aria-label', label);
     el.tabIndex = i === App.focusIndex ? 0 : -1;
   }
 
   const st = gameStats(g);
-  $('sStrikes').textContent = String(st.total);
-  $('sSpent').textContent = String(st.spent);
-  $('sForged').textContent = st.forged + '/' + st.squares;
-  $('sPerfect').textContent = String(st.perfect);
-  $('spentChip').classList.toggle('warn', st.spent > 0);
-  $('board').dataset.frozen = isOver(g) ? '1' : '0';
-  $('board').dataset.turn = versus ? turn : 'player';
+  const board = $('board');
+  board.dataset.frozen = isOver(g) ? '1' : '0';
+  board.dataset.mode = g.mode;
+  if (endless) board.dataset.tier = String(tier); else board.removeAttribute('data-tier');
+  const wrap = document.querySelector('.board-wrap');
+  if (endless) wrap.dataset.tier = String(tier); else wrap.removeAttribute('data-tier');
 
-  const bar = $('versusBar');
-  bar.hidden = !versus;
-  if (versus) {
-    bar.dataset.turn = isOver(g) ? 'none' : turn;
-    $('vsPlayerScore').textContent = String(g.credits.player);
-    $('vsAiScore').textContent = String(g.credits.ai);
-    $('vsTurn').textContent = isOver(g)
-      ? (g.winner === 'player' ? 'You win' : (g.winner === 'ai' ? 'Rival wins' : 'Dead heat'))
-      : (turn === 'player' ? 'Your turn' : 'Rival thinking\u2026');
+  $('statsForge').hidden = endless;
+  $('statsEndless').hidden = !endless;
+  $('materialBar').hidden = !endless;
+
+  if (endless) {
+    $('eScore').textContent = String(st.score);
+    $('eBest').textContent = String(App.endlessBest[App.difficulty] || 0);
+    $('eRound').textContent = String(st.round);
+    $('eHits').textContent = st.hits + '/' + st.squares;
+    const bar = $('materialBar');
+    bar.dataset.tier = String(tier);
+    $('matName').textContent = st.material.name;
+    $('matSub').textContent = 'Round ' + st.round + ' \u00b7 Squares hit ' + st.hits + ' / ' + st.squares;
+  } else {
+    $('sStrikes').textContent = String(st.total);
+    $('sSpent').textContent = String(st.spent);
+    $('sForged').textContent = st.forged + '/' + st.squares;
+    $('sPerfect').textContent = String(st.perfect);
+    $('spentChip').classList.toggle('warn', st.spent > 0);
   }
 
   if (g.status === 'complete') {
     $('promptGlyph').textContent = '\u2692';
-    $('promptText').textContent = versus
-      ? 'Every square forged. ' + (g.winner === 'player' ? 'You landed more perfecting blows.'
-        : (g.winner === 'ai' ? 'The Rival landed more perfecting blows.' : 'Honours even.'))
-      : 'Every square forged. The work is off the anvil.';
+    $('promptText').textContent = 'Every square forged. The work is off the anvil.';
   } else if (g.status === 'lost') {
     $('promptGlyph').textContent = '\u2692';
-    $('promptText').textContent = versus
-      ? (g.strandedSide === 'player' ? 'You have no legal strike left. The Rival takes it.'
-        : 'The Rival has no legal strike left. The work is yours.')
-      : 'No legal strike remains. The work is stranded.';
-  } else if (activeCur < 0) {
+    $('promptText').textContent = 'No legal moves remaining.';
+  } else if (g.current < 0) {
     $('promptGlyph').textContent = '\u2692';
-    $('promptText').textContent = versus && turn === 'ai'
-      ? 'The Rival chooses where to begin\u2026'
+    $('promptText').textContent = endless
+      ? 'Choose any square to begin the ' + st.material.name + ' round.'
       : 'Choose any square to begin.';
   } else {
-    const piece = g.pieces[activeCur];
+    const piece = g.pieces[g.current];
     const info = PIECES[piece];
     $('promptGlyph').textContent = info.glyph;
-    const who = versus ? (turn === 'player' ? '<b>You \u2014 ' : '<b>Rival \u2014 ') : '<b>';
-    $('promptText').innerHTML = who + info.name +
-      (isSpent(g, activeCur) ? ' (crumbling):</b> ' : ':</b> ') + info.move + '.' +
-      (isSpent(g, activeCur) ? ' This square blanks the moment the hammer leaves it.' : '');
+    $('promptText').innerHTML = '<b>' + info.name +
+      (isSpent(g, g.current) ? ' (crumbling):</b> ' : ':</b> ') + info.move + '.' +
+      (isSpent(g, g.current) ? ' This square blanks the moment you leave it.' : '');
   }
   renderBest();
 }
 
 function renderBest() {
   const label = CONFIG.difficulties[App.difficulty].label;
-  if (App.mode === 'versus') {
-    const rec = App.record[App.difficulty];
-    $('bestLine').textContent = 'Versus record on ' + label + ': ' +
-      (rec ? recordText(rec) : 'no bouts yet');
+  if (App.mode === 'endless') {
+    const best = App.endlessBest[App.difficulty];
+    $('bestLine').textContent = 'Best endless score on ' + label + ': ' + (best ? best : '\u2014');
     return;
   }
   const best = App.best[App.difficulty];
-  $('bestLine').textContent = 'Best quality on ' + label + ': ' + (best == null ? '—' : best);
+  $('bestLine').textContent = 'Best quality on ' + label + ': ' + (best == null ? '\u2014' : best);
 }
 
 function announce(text) { $('live').textContent = text; }
@@ -1938,65 +2213,48 @@ function tapSquare(i) {
   const g = App.game;
   if (!g || App.busy) return;                 // no queued or duplicate strikes
   if (isOver(g)) { rejectTap(i); return; }
-  if (g.mode === 'versus' && g.turn !== 'player') {
+  if (!canStrike(g, i)) {
     rejectTap(i);
-    announce('Wait for the Rival to strike.');
+    announce(isEndless(g) && isHit(g, i)
+      ? 'Already struck this round.' : 'Not a legal destination.');
     return;
   }
-  if (!canStrike(g, i, 'player')) { rejectTap(i); announce('Not a legal destination.'); return; }
   Sound.unlock();
-  performStrike(i, 'player');
+  performStrike(i);
 }
 
-/* Swing a hammer for one side and land exactly one blow at impact. */
-function performStrike(i, side) {
+/* Swing the hammer and land exactly one blow at impact. */
+function performStrike(i) {
   App.busy = true;
   const myToken = App.token;
   const total = FX.reduced ? CONFIG.animation.reducedMs : CONFIG.animation.strikeMs;
   const delay = FX.reduced ? Math.round(total * 0.4) : Math.round(total * CONFIG.animation.impactAt);
 
   const landBlow = () => {
-    if (myToken !== App.token) return;        // belongs to a discarded game
+    if (myToken !== App.token) return;        // belongs to a discarded run
     App.impactTimer = null;
     App.pendingImpact = null;
     App.busy = false;
-    impact(i, side);
+    impact(i);
   };
   App.pendingImpact = landBlow;
-  FX.swing(App.tiles[i], total, side);
+  FX.swing(App.tiles[i], total);
   App.impactTimer = setTimeout(landBlow, delay);
 }
 
-/* The Rival thinks for a beat, then swings. Cancellable like any other
-   pending work: a reset or a new board must never let it strike. */
-function scheduleAiTurn() {
+function impact(i) {
   const g = App.game;
-  if (!g || g.mode !== 'versus' || g.turn !== 'ai' || isOver(g)) return;
-  const myToken = App.token;
-  App.aiTimer = setTimeout(() => {
-    App.aiTimer = null;
-    if (myToken !== App.token) return;
-    const g2 = App.game;
-    if (!g2 || g2.mode !== 'versus' || g2.turn !== 'ai' || isOver(g2)) return;
-    const move = chooseAiMove(g2);
-    if (move < 0) return;                     // applyStrike already detects stranding
-    performStrike(move, 'ai');
-  }, CONFIG.ai.thinkMs);
-}
-
-function impact(i, side) {
-  const g = App.game;
-  const who = side || g.turn;
+  const endless = isEndless(g);
   const before = g.pieces[i];
-  const res = applyStrike(g, i, who);
+  const res = applyStrike(g, i);
   if (!res) return;                           // exactly one state change, or none
 
   const el = App.tiles[i];
   if (res.spent) SOUNDS.crack();
-  else if (res.count === 2) SOUNDS.finish();
+  else if (endless || res.count === 2) SOUNDS.finish();
   else SOUNDS.shape();
 
-  FX.impact(el, res.count);
+  FX.impact(el, endless ? 2 : res.count);
   if (!FX.reduced) {
     el.classList.remove('impact');
     void el.offsetWidth;
@@ -2007,7 +2265,7 @@ function impact(i, side) {
     FX.collapse(App.tiles[res.blanked]);
     SOUNDS.crumble();
   }
-  if (who === 'player') App.focusIndex = i;
+  App.focusIndex = i;
   render();
 
   if (res.morphed) {
@@ -2016,29 +2274,79 @@ function impact(i, side) {
   }
 
   const st = gameStats(g);
-  const name = g.mode === 'versus' ? (who === 'player' ? 'You: ' : 'Rival: ') : '';
-  let said = name + squareName(i, g.board.size) + ', ' + res.count +
-    (res.count === 1 ? ' strike' : ' strikes') + '.';
-  if (res.morphed) {
-    said += ' Reshaped from ' + PIECES[res.morphed.from].name +
-      ' to ' + PIECES[res.morphed.to].name + '.';
-  } else if (before && res.count === 1) {
-    said += ' Still a ' + PIECES[before].name + '.';
+  let said = squareName(i, g.board.size) + '. ';
+  if (endless) {
+    said += '+' + res.points + '. Score ' + st.score + '. Hit ' + st.hits + ' of ' + st.squares + '.';
+  } else {
+    said += res.count + (res.count === 1 ? ' strike' : ' strikes') + '.';
+    if (res.morphed) {
+      said += ' Reshaped from ' + PIECES[res.morphed.from].name +
+        ' to ' + PIECES[res.morphed.to].name + '.';
+    } else if (before && res.count === 1) {
+      said += ' Still a ' + PIECES[before].name + '.';
+    }
+    if (res.spent) said += ' Crumbling: one move left from here.';
+    said += ' Forged ' + st.forged + ' of ' + st.squares + '.';
   }
-  if (res.credited && g.mode === 'versus') said += ' Perfecting blow.';
-  if (res.spent) said += ' Crumbling: one move left from there.';
-  said += ' Forged ' + st.forged + ' of ' + st.squares + '.';
   announce(said);
 
-  if (res.complete) finish();
-  else if (res.lost) stranded();
-  else if (g.mode === 'versus' && g.turn === 'ai') scheduleAiTurn();
+  // Order matters: a cleared board is never a dead end, even if the square
+  // it ended on has nowhere to go.
+  if (res.cleared) advanceRound();
+  else if (res.complete) finish();
+  else if (res.lost) { if (endless) endRun(); else stranded(); }
+}
+
+/* Endless: the board is cleared, so recast it in the next material. */
+function advanceRound() {
+  const g = App.game;
+  App.busy = true;                            // input stays locked through the recast
+  SOUNDS.complete(false);
+  const next = materialFor(g.round + 1);
+  announce('Round complete. Advancing to ' + next.name + '.');
+  const myToken = App.token;
+  App.roundTimer = setTimeout(() => {
+    App.roundTimer = null;
+    if (myToken !== App.token) return;
+    let board = null;
+    try { board = makeEndlessBoard(App.difficulty, App.rnd, App.lastLayout); } catch (err) { board = null; }
+    if (!board) board = endlessFallbackBoard(App.difficulty, App.rnd);
+    if (!board) { App.busy = false; endRun(); return; }
+    App.lastLayout = board.pieces.join('');
+    beginRound(g, board);
+    App.busy = false;
+    App.focusIndex = 0;
+    render();
+    const bar = $('materialBar');
+    bar.classList.remove('gleam');
+    void bar.offsetWidth;
+    if (!FX.reduced) bar.classList.add('gleam');
+    SOUNDS.morph();
+    announce(next.name + ' round. Choose any square to begin.');
+  }, FX.reduced ? 260 : 900);
+}
+
+/* Endless: no legal move remains. */
+function endRun() {
+  const g = App.game;
+  const st = gameStats(g);
+  App.resultTimer = setTimeout(() => {
+    App.resultTimer = null;
+    SOUNDS.stranded();
+  }, 240);
+  const prev = App.endlessBest[App.difficulty] || 0;
+  const record = st.score > prev;
+  if (record) {
+    App.endlessBest[App.difficulty] = st.score;
+    Store.patch({ endlessBest: App.endlessBest });
+  }
+  showEndlessResult(st, record, prev);
+  announce('No legal moves remaining. Final score ' + st.score + '.');
 }
 
 function finish() {
   const g = App.game;
   const result = scoreGame(g);
-  if (g.mode === 'versus') { finishVersus(g, result); return; }
   const masterwork = result.quality === 100;
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
@@ -2054,10 +2362,9 @@ function finish() {
   announce('Complete. Quality ' + result.quality + ', ' + result.label + '.');
 }
 
-/* No legal strike remains: the run ends where it stands. */
+/* Forge: no legal strike remains. */
 function stranded() {
   const g = App.game;
-  if (g.mode === 'versus') { finishVersus(g, scoreGame(g)); return; }
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
     SOUNDS.stranded();
@@ -2067,24 +2374,50 @@ function stranded() {
   announce('Stranded. No legal strike remains. Forged ' + st.forged + ' of ' + st.squares + '.');
 }
 
-/* A versus bout ends either because the board filled or because one side
-   ran out of legal strikes. Either way the perfecting blows decide it. */
-function finishVersus(g, result) {
-  const won = g.winner === 'player';
-  App.resultTimer = setTimeout(() => {
-    App.resultTimer = null;
-    if (won) SOUNDS.complete(g.credits.ai === 0);
-    else SOUNDS.stranded();
-  }, 230);
-  const rec = App.record[App.difficulty] || { w: 0, l: 0, d: 0 };
-  if (g.winner === 'player') rec.w += 1;
-  else if (g.winner === 'ai') rec.l += 1;
-  else rec.d += 1;
-  App.record[App.difficulty] = rec;
-  Store.patch({ record: App.record });
-  showVersusResult(g, result);
-  announce((won ? 'You win.' : (g.winner === 'ai' ? 'The Rival wins.' : 'A dead heat.')) +
-    ' Perfecting blows: you ' + g.credits.player + ', Rival ' + g.credits.ai + '.');
+/* ---------- title screen --------------------------------------------- */
+function syncTitleUi() {
+  for (const b of document.querySelectorAll('.mode-card')) {
+    b.setAttribute('aria-checked', b.dataset.mode === App.mode ? 'true' : 'false');
+  }
+  for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
+    b.setAttribute('aria-checked', b.dataset.tdiff === App.difficulty ? 'true' : 'false');
+  }
+  const q = App.best[App.difficulty];
+  $('forgeBest').textContent = q == null ? '\u00a0' : 'Best quality: ' + q;
+  const e = App.endlessBest[App.difficulty];
+  $('endlessBest').textContent = e ? 'Best score: ' + e : '\u00a0';
+}
+
+function showTitle() {
+  cancelPending(false);
+  App.game = null;
+  hide($('results'));
+  syncTitleUi();
+  $('titleScreen').hidden = false;
+  $('beginBtn').focus();
+}
+
+/* Chrome that differs between the two modes. */
+function syncModeChrome() {
+  const endless = App.mode === 'endless';
+  $('restartBtn').textContent = endless ? 'Restart Run' : 'Restart Board';
+  $('newBtn').hidden = endless;
+  $('menuActionBtn').hidden = !endless;
+  for (const b of document.querySelectorAll('.difficulty:not(#titleDiff) .diff-btn')) {
+    b.setAttribute('aria-pressed', b.dataset.diff === App.difficulty ? 'true' : 'false');
+  }
+}
+
+function beginRun() {
+  $('titleScreen').hidden = true;
+  App.lastLayout = '';
+  syncModeChrome();
+  loadBoard(App.difficulty, () => {
+    buildLegend();
+    announce(App.mode === 'endless'
+      ? 'Endless, Bronze round. Choose any square to begin.'
+      : CONFIG.difficulties[App.difficulty].label + '. Choose any square to begin.');
+  });
 }
 
 /* ---------- overlays ------------------------------------------------ */
@@ -2103,8 +2436,16 @@ function hide(el) {
   App.lastFocus = null;
 }
 
+function restoreForgeLabels() {
+  $('rStrikesLabel').textContent = 'Total strikes';
+  $('rPerfectLabel').textContent = 'Perfect squares';
+  $('rNew').hidden = false;
+  $('rChange').textContent = 'Change Difficulty';
+}
+
 function showResults(result, improved, prev) {
   const st = result.stats;
+  restoreForgeLabels();
   const sheet = $('results').querySelector('.sheet');
   sheet.dataset.outcome = 'complete';
   $('rQuality').firstChild.textContent = String(result.quality);
@@ -2131,6 +2472,7 @@ function showResults(result, improved, prev) {
    becomes how far the work actually got. */
 function showStranded(result) {
   const st = result.stats;
+  restoreForgeLabels();
   const sheet = $('results').querySelector('.sheet');
   sheet.dataset.outcome = 'lost';
   $('rQuality').firstChild.textContent = st.forged + '/' + st.squares;
@@ -2150,37 +2492,31 @@ function showStranded(result) {
   show($('results'));
 }
 
-function showVersusResult(g, result) {
-  const st = result.stats;
+/* Endless game over: score, how far the run got, and the best to beat. */
+function showEndlessResult(st, record, prev) {
   const sheet = $('results').querySelector('.sheet');
-  sheet.dataset.outcome = g.winner === 'player' ? 'complete' : 'lost';
-  $('rQuality').firstChild.textContent = g.credits.player + '–' + g.credits.ai;
-  $('rQualityCaption').textContent = 'PERFECTING BLOWS';
+  sheet.dataset.outcome = record ? 'complete' : 'lost';
+  $('rQuality').firstChild.textContent = String(st.score);
+  $('rQualityCaption').textContent = 'FINAL SCORE';
   const label = $('rLabel');
-  label.textContent = g.winner === 'player' ? 'You win'
-    : (g.winner === 'ai' ? 'The Rival wins' : 'Dead heat');
-  label.classList.toggle('masterwork', g.winner === 'player');
-  label.classList.toggle('stranded', g.winner === 'ai');
-  $('resultTitle').textContent = g.strandedSide
-    ? (g.strandedSide === 'player' ? 'Walled in' : 'The Rival is walled in')
-    : 'The work is finished';
+  label.textContent = 'No legal moves remaining';
+  label.classList.toggle('masterwork', record);
+  label.classList.toggle('stranded', !record);
+  $('resultTitle').textContent = record ? 'A new best run' : 'The run ends here';
   $('rDiff').textContent = CONFIG.difficulties[App.difficulty].label;
-  $('rStrikes').textContent = String(st.total);
-  $('rSpentLabel').textContent = 'Spent squares';
-  $('rSpent').textContent = String(st.spent);
-  $('rPerfect').textContent = st.perfect + ' / ' + st.squares;
-  $('rRetry').textContent = 'Rematch on This Board';
-  const rec = App.record[App.difficulty] || { w: 0, l: 0, d: 0 };
-  $('rBest').textContent = g.strandedSide
-    ? (g.strandedSide === 'player'
-        ? 'You ran out of legal strikes. Record: ' + recordText(rec)
-        : 'The Rival ran out of legal strikes. Record: ' + recordText(rec))
-    : 'Record on this difficulty: ' + recordText(rec);
+  $('rStrikesLabel').textContent = 'Rounds cleared';
+  $('rStrikes').textContent = String(st.roundsCompleted);
+  $('rSpentLabel').textContent = 'Highest material';
+  $('rSpent').textContent = st.material.name;
+  $('rPerfectLabel').textContent = 'Best score';
+  $('rPerfect').textContent = String(Math.max(st.score, prev));
+  $('rRetry').textContent = 'Play Again';
+  $('rNew').hidden = true;
+  $('rChange').textContent = 'Main Menu';
+  $('rBest').textContent = record
+    ? (prev ? 'New record \u2014 previous best ' + prev + '.' : 'First run recorded at this difficulty.')
+    : 'Best on this difficulty: ' + prev + '.';
   show($('results'));
-}
-
-function recordText(rec) {
-  return rec.w + 'W ' + rec.l + 'L' + (rec.d ? ' ' + rec.d + 'D' : '');
 }
 
 function askDiscard(text, action) {
@@ -2191,25 +2527,6 @@ function askDiscard(text, action) {
   show($('confirm'));
 }
 
-/* ---------- game mode ------------------------------------------------ */
-function setMode(key, force) {
-  if (key !== 'solo' && key !== 'versus') return;
-  const go = () => {
-    App.mode = key;
-    for (const b of document.querySelectorAll('.mode-btn')) {
-      b.setAttribute('aria-pressed', b.dataset.mode === key ? 'true' : 'false');
-    }
-    loadBoard(App.difficulty, () => {
-      buildLegend();
-      announce(key === 'versus'
-        ? 'Versus the Rival. You strike first: choose any square.'
-        : 'Solo. Choose any square to begin.');
-    });
-  };
-  if (force || key === App.mode) { go(); return; }
-  askDiscard('Changing mode will discard the piece you are working on.', go);
-}
-
 /* ---------- difficulty ---------------------------------------------- */
 function setDifficulty(key, force) {
   if (!CONFIG.difficulties[key]) return;
@@ -2218,6 +2535,7 @@ function setDifficulty(key, force) {
       b.setAttribute('aria-pressed', b.dataset.diff === key ? 'true' : 'false');
     }
     App.difficulty = key;
+    syncTitleUi();
     renderBest();
     loadBoard(key, () => {
       announce(CONFIG.difficulties[key].label + ', ' + CONFIG.difficulties[key].size + ' by ' +
@@ -2283,7 +2601,7 @@ function boot() {
 
   const saved = Store.read();
   App.best = (saved.best && typeof saved.best === 'object') ? saved.best : {};
-  App.record = (saved.record && typeof saved.record === 'object') ? saved.record : {};
+  App.endlessBest = (saved.endlessBest && typeof saved.endlessBest === 'object') ? saved.endlessBest : {};
   Sound.muted = saved.muted === true;
   Sound.volume = typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 0.7;
   applyAudioUI();
@@ -2314,9 +2632,20 @@ function boot() {
     if (map[e.key]) { e.preventDefault(); moveFocus(map[e.key][0], map[e.key][1]); }
   });
 
-  for (const b of document.querySelectorAll('.mode-btn')) {
-    b.addEventListener('click', () => setMode(b.dataset.mode, false));
+  for (const b of document.querySelectorAll('.mode-card')) {
+    b.addEventListener('click', () => { App.mode = b.dataset.mode; syncTitleUi(); });
   }
+  for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
+    b.addEventListener('click', () => { App.difficulty = b.dataset.tdiff; syncTitleUi(); });
+  }
+  $('beginBtn').addEventListener('click', beginRun);
+  $('titleHelpBtn').addEventListener('click', () => show($('help')));
+  $('menuBtn').addEventListener('click', () => {
+    askDiscard('Leaving for the main menu will discard this run.', showTitle);
+  });
+  $('menuActionBtn').addEventListener('click', () => {
+    askDiscard('Leaving for the main menu will discard this run.', showTitle);
+  });
   for (const b of document.querySelectorAll('.diff-btn')) {
     b.addEventListener('click', () => setDifficulty(b.dataset.diff, false));
   }
@@ -2343,14 +2672,18 @@ function boot() {
   });
   $('volume').addEventListener('change', () => { if (!Sound.muted) SOUNDS.shape(); });
 
-  $('rRetry').addEventListener('click', () => { hide($('results')); restartBoard(); });
+  $('rRetry').addEventListener('click', () => {
+    hide($('results'));
+    if (App.mode === 'endless') startRun(); else restartBoard();
+  });
   $('rNew').addEventListener('click', () => {
     hide($('results'));
     loadBoard(App.difficulty, () => { buildLegend(); announce('Fresh die set. Choose any square to begin.'); });
   });
   $('rChange').addEventListener('click', () => {
     hide($('results'));
-    const first = document.querySelector('.diff-btn');
+    if (App.mode === 'endless') { showTitle(); return; }
+    const first = document.querySelector('.difficulty:not(#titleDiff) .diff-btn');
     if (first) first.focus();
   });
 
@@ -2370,20 +2703,14 @@ function boot() {
 
   // Leaving the page must not strand a half-applied strike.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      const wasAiTurn = !!App.aiTimer ||
-        (App.game && App.game.mode === 'versus' && App.game.turn === 'ai' && !isOver(App.game));
-      cancelPending(true);            // land the pending blow, drop pending timers
-      App.aiPending = wasAiTurn;      // ... and remember the Rival still owes a move
-      Sound.park();
-    } else if (App.aiPending) {
-      App.aiPending = false;
-      scheduleAiTurn();
-    }
+    if (document.hidden) { cancelPending(true); Sound.park(); }
   });
   window.addEventListener('resize', () => { if (!App.busy) FX.clear(); });
 
-  setDifficulty('novice', true);
+  App.mode = 'forge';
+  App.difficulty = 'novice';
+  syncModeChrome();
+  showTitle();
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

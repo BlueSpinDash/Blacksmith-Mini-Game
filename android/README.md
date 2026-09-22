@@ -104,7 +104,7 @@ min SDK 24 / target SDK 35 and **zero permissions**; the adaptive icon XML
 resolves to background, foreground and monochrome layers with all 15 icon PNGs
 packaged; the bundled `assets/index.html` is byte-identical to the repository
 root copy; AGP's `lintVitalRelease` passes. The back-gesture snippet is
-exercised against the real page in `tools/verify-ui.mjs` (94 browser checks).
+exercised against the real page in `tools/verify-ui.mjs` (128 browser checks).
 
 **Not checked: the app has never been run.** This build environment has no KVM,
 so no emulator could be started and no physical device was attached. Launch,
