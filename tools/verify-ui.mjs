@@ -508,6 +508,31 @@ async function run() {
   ok('endless opens at Bronze, round one, score zero',
     eStart.mode === 'endless' && eStart.round === 1 && eStart.score === 0 &&
     eStart.material === 'Bronze', JSON.stringify(eStart));
+
+  // Endless and versus now share one palette, keyed per square. The round's
+  // metal must still reach every struck square, and the metal rule must no
+  // longer bury the brass ring on the square the hammer is standing on.
+  const eMetal = await page.evaluate(() => {
+    const F = window.CHECKSMITH, g = F.app.game;
+    g.strikes[0] = 1; g.strikes[1] = 1; g.current = 1;
+    F.render();
+    const t = (i) => document.querySelector(`#board .tile[data-i="${i}"]`);
+    const out = {
+      struck: t(0).dataset.metal, standing: t(1).dataset.metal,
+      untouched: t(2).dataset.metal ?? null,
+      ring: getComputedStyle(t(1)).boxShadow,
+      marker: getComputedStyle(t(1), '::after').content
+    };
+    g.strikes[0] = 0; g.strikes[1] = 0; g.current = -1;
+    F.render();
+    return out;
+  });
+  ok('a struck endless square wears the round\u2019s metal',
+    eMetal.struck === '0' && eMetal.standing === '0' && eMetal.untouched === null,
+    JSON.stringify(eMetal));
+  ok('and the square under the hammer keeps its brass ring',
+    eMetal.ring.includes('202, 166, 74') && eMetal.marker.includes('\u25c6'),
+    JSON.stringify([eMetal.ring, eMetal.marker]));
   ok('it always starts on the smallest board, whatever was picked before',
     eStart.size === 3, 'size ' + eStart.size);
   ok('the round is a one-visit tour', eStart.route === eStart.squares);
@@ -901,6 +926,31 @@ async function run() {
       versusView: shown('#versusView')
     };
   });
+  // Squares walk up the material ladder as they take strikes, the way endless
+  // works a whole board up a metal a round.
+  const ladder = await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) m.you.strikes[k] = k;
+    F.vsRender();
+    const read = (i) => {
+      const t = document.querySelector(`#youBoard .tile[data-i="${i}"]`);
+      return { metal: t.dataset.metal ?? null, bg: getComputedStyle(t).backgroundImage };
+    };
+    const rows = [];
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) rows.push(read(k));
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) m.you.strikes[k] = 0;
+    F.vsRender();
+    return rows;
+  });
+  ok('an unstruck square wears no metal', ladder[0].metal === null);
+  ok('each strike moves the square one metal up the ladder',
+    ladder.slice(1, 7).every((r, k) => r.metal === String(k)),
+    JSON.stringify(ladder.map((r) => r.metal)));
+  ok('the six metals are six different colours',
+    new Set(ladder.slice(1, 7).map((r) => r.bg)).size === 6);
+  ok('past the last metal the colour holds rather than wrapping',
+    ladder.length < 8 || ladder[7].metal === '5');
+
   // Damage wears the forge's third-strike art, and Repair — which only resets
   // the state — has to put the square back exactly as it was.
   const damage = await page.evaluate(() => {
@@ -920,6 +970,8 @@ async function run() {
     return { plain, reference, cracked, armed, repaired };
   });
   ok('a cracked square stops looking like sound metal', damage.cracked.bg !== damage.plain);
+  ok('the crack shows through whatever metal the square had worked up to',
+    damage.cracked.bg !== damage.reference);
   ok('cracked and armed squares wear the same split-metal art',
     damage.armed.bg === damage.cracked.bg);
   ok('a cracked square is ringed by an outline, not a pseudo-element',

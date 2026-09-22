@@ -1,8 +1,9 @@
 // Rule, generation and scoring checks for the Checksmith core.
 // Run: node tools/verify-core.mjs
-import { loadCore } from './load-core.mjs';
+import { loadCore, coreSource } from './load-core.mjs';
 
 const C = loadCore();
+const src = coreSource();
 let pass = 0;
 const failures = [];
 function ok(name, cond, detail) {
@@ -1103,6 +1104,84 @@ section('Versus: points, allowance and defeat');
     }
     return !C.matchOver(g) && g.you.strikes.every((x) => x >= 1);
   })());
+}
+
+section('Versus: the rival chases combos');
+{
+  // The combo score has to prefer a pattern actually landed over one that is
+  // merely one strike away, or the rival hovers a symbol short forever.
+  const mk = (pieces, chain, chainPieces) => {
+    const b = C.makeVersusBoards(4, 'journeyman', C.mulberry32(77));
+    const m = C.createMatch(b, { rnd: C.mulberry32(78) });
+    m.you.pieces = pieces.slice();
+    m.you.current = 0;
+    m.you.chain = chain.slice();
+    m.you.chainPieces = chainPieces.slice();
+    return m;
+  };
+  // a board of nothing but rooks: every destination continues any rook run
+  const rooks = new Array(16).fill('R');
+  const landedTrio = mk(rooks, [2, 1, 0], ['R', 'R', 'R']);
+  const oneShort = mk(rooks, [2, 1, 0], ['R', 'R', 'B']);
+  ok('a landed pattern scores above one that is only in prospect',
+    C.versusCombo(landedTrio, 'you') > C.versusCombo(oneShort, 'you'),
+    C.versusCombo(landedTrio, 'you') + ' vs ' + C.versusCombo(oneShort, 'you'));
+
+  const longRoute = mk(rooks, [5, 4, 3, 2, 1, 0], ['R', 'B', 'K', 'R', 'B', 'K']);
+  const shortRoute = mk(rooks, [1, 0], ['R', 'B']);
+  ok('a longer route is worth more than a short one',
+    C.versusCombo(longRoute, 'you') > C.versusCombo(shortRoute, 'you'));
+
+  const noRoute = mk(rooks, [], []);
+  ok('an empty route is worth nothing', C.versusCombo(noRoute, 'you') === 0);
+
+  // a pattern the board cannot deliver must not be counted
+  const unreachable = mk(new Array(16).fill('K'), [1, 0], ['R', 'R']);
+  const reachable = mk(rooks, [1, 0], ['R', 'R']);
+  ok('a pattern no legal destination could pay is not counted',
+    C.versusCombo(unreachable, 'you') < C.versusCombo(reachable, 'you'));
+
+  // and the whole point: it changes what the rival actually plays
+  const play = (weight, tier) => {
+    const was = C.CONFIG.versus.ai.comboWeight;
+    C.CONFIG.versus.ai.comboWeight = weight;
+    let patterns = 0, strikes = 0, decided = 0, games = 0;
+    for (const size of [4, 5]) {
+      for (let s = 0; s < 3; s++) {
+        const b = C.makeVersusBoards(size, tier, C.mulberry32(9000 + s * 37 + size * 11));
+        const m = C.createMatch(b, { rnd: C.mulberry32(9001 + s * 37 + size * 11) });
+        let guard = 0;
+        while (!C.matchOver(m) && guard++ < 700) {
+          const who = m.turn;
+          const buy = C.versusChooseUpgrade(m, who);
+          if (buy) C.versusBuy(m, who, buy.id, buy.target);
+          if (C.matchOver(m)) break;
+          const mv = C.versusChooseStrike(m, who);
+          if (mv < 0) break;
+          const res = C.versusStrike(m, who, mv);
+          if (!res) break;
+          strikes++;
+          if (res.pattern) patterns++;
+        }
+        if (C.matchOver(m)) decided++;
+        games++;
+      }
+    }
+    C.CONFIG.versus.ai.comboWeight = was;
+    return { rate: patterns / Math.max(1, strikes), decided, games };
+  };
+  for (const tier of ['apprentice', 'journeyman', 'master']) {
+    const blind = play(0, tier);
+    const keen = play(C.CONFIG.versus.ai.comboWeight, tier);
+    ok(tier + ' lands more patterns than a combo-blind rival',
+      keen.rate > blind.rate,
+      (100 * blind.rate).toFixed(1) + '% -> ' + (100 * keen.rate).toFixed(1) + '%');
+    ok(tier + ' still finishes every match while chasing them',
+      keen.decided === keen.games, keen.decided + '/' + keen.games);
+  }
+  // Novice searches nothing, so its instinct lives in the ranking instead.
+  ok('even the novice ranking weighs combos',
+    /versusCombo\(probe, who\)/.test(src), 'novice ranking ignores versusCombo');
 }
 
 section('Versus: the rival plays by the same rules');

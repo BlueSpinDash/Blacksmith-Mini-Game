@@ -242,6 +242,34 @@ each board and the damage standing on it, under a node and wall-clock budget
 (`CONFIG.versus.ai`). Self-play confirms stronger tiers beat weaker ones and that
 a turn resolves well inside its budget.
 
+**Every tier plays for combos.** `versusCombo` scores a side's route as the
+multiplier it has already built, plus the bonus its tail has just paid, plus —
+at a 0.4 discount — the best bonus a *legal destination* could pay next. Both
+halves matter. Without the discount the rival prefers hovering one symbol short
+of a pattern to landing one, because an unspent setup evaluates higher than a
+tail that has just paid and reset; an early version did exactly that and scored
+*fewer* patterns than a combo-blind rival. Without the reachability check it
+chases patterns the board cannot deliver.
+
+The term is weighted by `CONFIG.versus.ai.comboWeight` (1.5) and sits below
+mobility on purpose: it decides between moves that are already safe rather than
+talking the rival into a dead end. Novice searches nothing, so the same instinct
+is folded into its move ranking instead.
+
+Measured over 16 self-played matches per tier, at 4×4 and 5×5:
+
+| Tier | Strikes that land a pattern | Longest route |
+| --- | --- | --- |
+| Novice | 66% → 67% | 19.3 → 19.2 |
+| Apprentice | 38% → 58% | 9.8 → 14.8 |
+| Journeyman | 35% → 49% | 9.5 → 14.7 |
+| Master | 40% → 49% | 10.6 → 14.5 |
+
+Chasing combos costs nothing in strength: against a combo-blind twin of the same
+tier over 160 matches each, the chaser wins 58% (apprentice), 52% (journeyman)
+and 51% (master). Every match still reaches a decided end. `node
+tools/measure-combo.mjs` reproduces the table.
+
 ### Narrow screens
 
 Both boards stay side by side so the whole match is readable at a glance. When
@@ -249,6 +277,21 @@ that makes the tiles smaller than a comfortable 44 CSS-px target, **the first ta
 on a board enlarges it rather than striking a tiny cell**; strike from there, and
 "Back to both boards" returns to the overview. The zoom buttons in each panel
 header do the same deliberately.
+
+### Squares darken as they are worked
+
+Both modes share one per-square palette, keyed by `data-metal` on the tile.
+Endless gives every struck square the **round's** metal; versus walks a single
+square up the ladder on **its own strike count** — one strike Bronze, then
+Silver, Gold, Platinum, Mithril, Adamantine, holding there rather than wrapping.
+Versus squares take strikes without a cap, so the ladder is what tells you at a
+glance which squares each smith has been leaning on.
+
+The palette rule sits *above* the damage art and the ring rules in the
+stylesheet, so a cracked square still looks cracked over whatever metal it had
+reached, and the square under the hammer keeps its brass ring. It did not, in
+endless, before this was shared: the old `.board[data-mode="endless"]` rule
+outranked `.tile[data-current="1"]` and buried the ring on every struck square.
 
 | Piece | Legal move from its square |
 | --- | --- |
@@ -338,6 +381,7 @@ CONFIG.versus.sizes                    // board sizes offered in versus
 CONFIG.versus.difficulties             // versus: pool, queens and search depth per tier
 CONFIG.versus.scoring                  // strike, pair, trio, variety, route step
 CONFIG.versus.upgrades                 // versus upgrade ids, costs and targets
+CONFIG.versus.ai.comboWeight            // how hard the rival plays for combos
 CONFIG.versus.ai                       // rival node, time and think budgets
 CONFIG.versus.generation               // attempts and mobility tolerance for board pairs
 CONFIG.generation.nodeBudget           // search nodes before giving up
@@ -369,8 +413,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 253 rule/generation checks
-node tools/verify-ui.mjs                                    # 197 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 264 rule/generation checks
+node tools/verify-ui.mjs                                    # 204 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

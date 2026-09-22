@@ -273,6 +273,30 @@ input[type=range]{
   animation:none;
 }
 
+/* ---------- worked metal: the six materials, keyed per square ----------
+   Endless gives every struck square the round's metal; versus walks a single
+   square up the ladder as it takes strike after strike. One palette, one rule,
+   so the two modes cannot drift apart. It sits above the damage art and the
+   ring rules on purpose: a cracked square must still look cracked, and the
+   square you are standing on must keep its brass ring. */
+.tile[data-metal]{
+  background:linear-gradient(160deg,var(--hit-a,#cfd3da) 0%,var(--hit-b,#9aa1ad) 42%,var(--hit-c,#6f7683) 100%);
+  color:#221c14;border-color:var(--hit-edge,#e4d3a4);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 5px rgba(0,0,0,.35);
+}
+.tile[data-metal] .glyph{text-shadow:0 1px 0 rgba(255,255,255,.45);}
+.tile[data-metal]::before{
+  background-image:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.4) 50%, transparent 62%);
+}
+/* worked metal also carries a notch, so the state is never colour alone */
+.tile[data-metal] .marks i{background:#5d4c24;box-shadow:0 1px 0 rgba(255,255,255,.3);}
+.tile[data-metal="0"]{--hit-a:#e0a469;--hit-b:#a8703c;--hit-c:#70481f;--hit-edge:#d08a4e;} /* Bronze */
+.tile[data-metal="1"]{--hit-a:#e8edf3;--hit-b:#aab3bf;--hit-c:#79818d;--hit-edge:#cfd6de;} /* Silver */
+.tile[data-metal="2"]{--hit-a:#f7de95;--hit-b:#cfa53b;--hit-c:#8d6c1d;--hit-edge:#f0c552;} /* Gold */
+.tile[data-metal="3"]{--hit-a:#fbfdff;--hit-b:#c3cdd9;--hit-c:#8e99a6;--hit-edge:#e6edf5;} /* Platinum */
+.tile[data-metal="4"]{--hit-a:#bdf5e8;--hit-b:#5fbfab;--hit-c:#2f7c6d;--hit-edge:#8ee6d4;} /* Mithril */
+.tile[data-metal="5"]{--hit-a:#ddc9ff;--hit-b:#9b78e0;--hit-c:#5a3fa0;--hit-edge:#c3a2ff;} /* Adamantine */
+
 /* Square damage states, spelled out by shape as well as colour.
    Damaged metal wears the same split, glowing look the forge gives a square on
    its third strike, so a crack reads the same in both modes. The art hangs off
@@ -428,25 +452,6 @@ input[type=range]{
 .board-wrap[data-tier="3"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(230,237,245,.4);}
 .board-wrap[data-tier="4"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(142,230,212,.4);}
 .board-wrap[data-tier="5"]{box-shadow:0 6px 22px rgba(0,0,0,.45), inset 0 0 0 1px rgba(195,162,255,.42);}
-
-/* ---------- endless tiles: hit or unhit, in the round's metal ---------- */
-.board[data-mode="endless"] .tile[data-hit="1"]{
-  background:linear-gradient(160deg,var(--hit-a,#cfd3da) 0%,var(--hit-b,#9aa1ad) 42%,var(--hit-c,#6f7683) 100%);
-  color:#221c14;border-color:var(--hit-edge,#e4d3a4);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), inset 0 -2px 5px rgba(0,0,0,.35);
-}
-.board[data-mode="endless"] .tile[data-hit="1"] .glyph{text-shadow:0 1px 0 rgba(255,255,255,.45);}
-.board[data-mode="endless"] .tile[data-hit="1"]::before{
-  background-image:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.4) 50%, transparent 62%);
-}
-/* a struck square also carries a notch, so the state is not colour alone */
-.board[data-mode="endless"] .tile[data-hit="1"] .marks i{background:#5d4c24;box-shadow:0 1px 0 rgba(255,255,255,.3);}
-.board[data-mode="endless"][data-tier="0"] .tile[data-hit="1"]{--hit-a:#e0a469;--hit-b:#a8703c;--hit-c:#70481f;--hit-edge:#d08a4e;}
-.board[data-mode="endless"][data-tier="1"] .tile[data-hit="1"]{--hit-a:#e8edf3;--hit-b:#aab3bf;--hit-c:#79818d;--hit-edge:#cfd6de;}
-.board[data-mode="endless"][data-tier="2"] .tile[data-hit="1"]{--hit-a:#f7de95;--hit-b:#cfa53b;--hit-c:#8d6c1d;--hit-edge:#f0c552;}
-.board[data-mode="endless"][data-tier="3"] .tile[data-hit="1"]{--hit-a:#fbfdff;--hit-b:#c3cdd9;--hit-c:#8e99a6;--hit-edge:#e6edf5;}
-.board[data-mode="endless"][data-tier="4"] .tile[data-hit="1"]{--hit-a:#bdf5e8;--hit-b:#5fbfab;--hit-c:#2f7c6d;--hit-edge:#8ee6d4;}
-.board[data-mode="endless"][data-tier="5"] .tile[data-hit="1"]{--hit-a:#ddc9ff;--hit-b:#9b78e0;--hit-c:#5a3fa0;--hit-edge:#c3a2ff;}
 
 /* ---------- versus ---------- */
 #versusView[hidden]{display:none;}
@@ -927,6 +932,14 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        have already used this route and the route restarts from that square alone, with no bonus and
        the multiplier back to 1.0&times;. Bouncing between the same two squares pays its Pair once;
        it will not pay again until you strike elsewhere.</p>
+    <p><b>The rival chases combos too.</b> Every skill lands patterns deliberately rather than by
+       accident, weighing what its route has already built against what one more blow could pay.
+       It will not walk into a dead end for a combo, though &mdash; staying alive still comes first,
+       so the surest way to spoil its run is to take its room away.</p>
+    <p><b>Squares darken as they are worked.</b> A square climbs the same material ladder Endless
+       uses &mdash; one strike Bronze, then Silver, Gold, Platinum, Mithril and Adamantine &mdash;
+       so a glance across both boards tells you which squares each smith has been leaning on.
+       Damage shows through whatever metal a square had reached.</p>
     <p><b>Spend those points on the forge.</b> Below the boards: <b>Reforge (80)</b> changes one unbroken
        rival square to a different symbol, <b>Row Shuffle (60)</b> scrambles the symbols along one rival
        row, <b>Shatter (40)</b> cracks an intact rival square, and <b>Repair (50)</b> clears a crack from
@@ -1050,7 +1063,7 @@ const CONFIG = {
         blurb: "Clear a crack from one of your own squares." }
     ],
     generation: { attempts: 400, mobilityTolerance: 0.12, timeBudgetMs: 700 },
-    ai: { nodeBudget: 6000, timeBudgetMs: 220, thinkMs: 520 }
+    ai: { comboWeight: 1.5, nodeBudget: 6000, timeBudgetMs: 220, thinkMs: 520 }
   },
   shop: {
     goldPerBoard: 1,        // what a cleared board pays before any bonus
@@ -2362,6 +2375,50 @@ function versusReach(match, who) {
 
 const VS_WIN = 100000;
 
+/* What a side's route is worth to it right now: the multiplier it has built,
+   the bonus its tail has just paid, and — at a discount, so that cashing a
+   pattern in always beats hovering one short of one — the best bonus a legal
+   destination could pay next. The reachability check matters: without it the
+   rival chases patterns the board cannot actually deliver. */
+function versusCombo(match, who) {
+  const side = sideOf(match, who);
+  const p = side.chainPieces, n = p.length;
+  if (n === 0) return 0;
+  const S = CONFIG.versus.scoring;
+
+  // the multiplier so far, as the extra points it adds to a plain strike,
+  // so every part of this score is denominated the same way
+  let v = S.strike * S.chainStep * (n - 1);
+
+  // the pattern the tail is already paying
+  const landed = patternFor(side, false);
+  if (landed.name === 'Pair' && versusPairLocked(side)) v += 0;
+  else v += landed.bonus;
+
+  // and the best one more strike could pay, discounted so it never outbids
+  // actually landing a pattern
+  let ahead = 0;
+  for (const t of versusTargets(match, who)) {
+    const sym = side.pieces[t];
+    let bonus = 0;
+    if (n >= 2 && p[n - 1] === p[n - 2] && sym === p[n - 1]) bonus = S.trio;
+    else if (sym === p[n - 1]) bonus = S.pair;
+    else if (n >= 2 && p[n - 1] !== p[n - 2] && sym !== p[n - 1] && sym !== p[n - 2]) bonus = S.variety;
+    if (bonus > ahead) ahead = bonus;
+  }
+  return v + ahead * 0.4;
+}
+
+/* A pair that already paid is worth nothing until the route moves off it. */
+function versusPairLocked(side) {
+  if (!side.lockedPairs.length || side.current < 0) return false;
+  for (const key of side.lockedPairs) {
+    const parts = key.split('|');
+    if (Number(parts[0]) === side.current || Number(parts[1]) === side.current) return true;
+  }
+  return false;
+}
+
 function versusEvaluate(match, who) {
   const them = foeOf(who);
   const myExits = versusTargets(match, who).length;
@@ -2382,11 +2439,18 @@ function versusEvaluate(match, who) {
     }
     return n;
   };
+  // Combos are worth chasing, but the match is won by having somewhere to
+  // stand, so this sits below mobility on purpose: it decides between moves
+  // that are already safe rather than talking the rival into a dead end.
+  const combo = CONFIG.versus.ai.comboWeight *
+    (versusCombo(match, who) - versusCombo(match, them));
+
   return 6 * (myExits - theirExits)
     + 2 * (versusReach(match, who) - versusReach(match, them))
     + 4 * (foe.broken - me.broken)
     + 0.04 * (me.points - foe.points)
-    + 2.5 * (weigh(foe) - weigh(me));
+    + 2.5 * (weigh(foe) - weigh(me))
+    + combo;
 }
 
 /* Negamax over strikes only. Upgrades are chosen by the heuristic below
@@ -2425,13 +2489,15 @@ function versusChooseStrike(match, who) {
   const budget = CONFIG.versus.ai;
 
   if (cfg.depth === 0) {
-    // Novice: weighted random, nudged towards points, with just enough
-    // sense not to walk into its own grave.
+    // Novice searches nothing, so the instinct has to live in its ranking or
+    // it would be the one tier that ignores combos entirely.
     const scored = targets.map(function (t) {
       const probe = cloneMatch(match);
       const res = versusStrike(probe, who, t);
       const safe = versusTargets(probe, who).length > 0;
-      return { t: t, w: (safe ? 1 : 0.01) * (1 + (res ? res.points : 0) / 20) + match.rnd() * 0.6 };
+      const combo = versusCombo(probe, who) * CONFIG.versus.ai.comboWeight;
+      return { t: t,
+        w: (safe ? 1 : 0.01) * (1 + (res ? res.points : 0) / 20 + combo / 12) + match.rnd() * 0.6 };
     });
     scored.sort(function (a, b) { return b.w - a.w; });
     return scored[0].t;
@@ -2530,7 +2596,8 @@ const CHECKSMITH_CORE = {
   versusReforgeOptions: versusReforgeOptions, versusRowCells: versusRowCells,
   versusConcede: versusConcede, upgradeById: upgradeById,
   versusChooseStrike: versusChooseStrike, versusChooseUpgrade: versusChooseUpgrade,
-  versusEvaluate: versusEvaluate, versusReach: versusReach, cloneMatch: cloneMatch,
+  versusEvaluate: versusEvaluate, versusCombo: versusCombo,
+  versusReach: versusReach, cloneMatch: cloneMatch,
   endlessMorphChance: endlessMorphChance, tierForRound: tierForRound,
   upgradeDef: upgradeDef, upgradeCost: upgradeCost, levelOf: levelOf,
   goldRateFor: goldRateFor, payoutFor: payoutFor, scoreMultiplier: scoreMultiplier,
@@ -3096,6 +3163,10 @@ function render() {
     el.dataset.void = blank ? '1' : '0';
     el.dataset.spent = spent && !blank ? '1' : '0';
     el.dataset.hit = hit ? '1' : '0';
+    // endless works the whole board up in one metal a round; the forge has its
+    // own strike colours and takes none
+    if (hit) el.dataset.metal = String(Math.min(tier, 5));
+    else el.removeAttribute('data-metal');
 
     const glyph = el.firstChild;
     const wantGlyph = blank ? '' : PIECES[piece].glyph;
@@ -3533,6 +3604,11 @@ function vsRenderBoard(who) {
     const isLegal = mine && legal.has(i) && !isCurrent;
 
     el.dataset.s = broken ? '0' : String(Math.min(side.strikes[i], 2));
+    // Squares here take strike after strike with no cap, so each one walks up
+    // the material ladder on its own count: one strike Bronze, two Silver, and
+    // on to Adamantine. A worked square is worth spotting across two boards.
+    if (!broken && side.strikes[i] > 0) el.dataset.metal = String(Math.min(side.strikes[i] - 1, 5));
+    else el.removeAttribute('data-metal');
     el.dataset.vs = SQ_WORDS[state];
     el.dataset.void = broken ? '1' : '0';
     el.dataset.current = isCurrent ? '1' : '0';
