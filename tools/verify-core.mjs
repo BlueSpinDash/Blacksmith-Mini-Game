@@ -561,44 +561,74 @@ section('Endless: the board steps up a tier');
   })());
 }
 
-section('Endless: gold scales with score');
+section('Endless: the gold rate scales with score');
 {
   const c = C.CONFIG.shop;
-  ok('a board pays the base gold before any score', C.goldForBoard(0, {}) === c.goldPerBoard);
+  ok('a board rates the base gold before any score', C.goldRateFor(0, {}) === c.goldPerBoard);
   ok('nothing changes until the first ' + c.scoreStep + ' points',
-    C.goldForBoard(c.scoreStep - 1, {}) === c.goldPerBoard);
-  ok('every ' + c.scoreStep + ' points adds ' + c.goldPerScoreStep, (() => {
+    C.goldRateFor(c.scoreStep - 1, {}) === c.goldPerBoard);
+  ok('every ' + c.scoreStep + ' points adds ' + c.goldPerScoreStep + ' to the rate', (() => {
     for (let k = 0; k <= 12; k++) {
       const want = c.goldPerBoard + c.goldPerScoreStep * k;
-      if (Math.abs(C.goldForBoard(c.scoreStep * k, {}) - want) > 1e-9) return false;
-      // and it holds all the way to just before the next step
-      if (Math.abs(C.goldForBoard(c.scoreStep * k + c.scoreStep - 1, {}) - want) > 1e-9) return false;
+      if (Math.abs(C.goldRateFor(c.scoreStep * k, {}) - want) > 1e-9) return false;
+      if (Math.abs(C.goldRateFor(c.scoreStep * k + c.scoreStep - 1, {}) - want) > 1e-9) return false;
     }
     return true;
   })());
-  ok('the payout is kept to two decimals', (() => {
-    for (let sc = 0; sc < 5000; sc += 137) {
-      const g = C.goldForBoard(sc, { gild: 3 });
-      if (Math.abs(g * 100 - Math.round(g * 100)) > 1e-9) return false;
-    }
-    return true;
-  })());
-  ok('a negative or missing score cannot pay less than the base',
-    C.goldForBoard(-500, {}) === c.goldPerBoard && C.goldForBoard(undefined, {}) === c.goldPerBoard);
-}
-
-section('Endless: the forge shop');
-{
-  const c = C.CONFIG.shop;
-  ok('each Gilded Hammer level adds ' + c.goldPerGildLevel + ' gold a board', (() => {
+  ok('a negative or missing score cannot rate less than the base',
+    C.goldRateFor(-500, {}) === c.goldPerBoard && C.goldRateFor(undefined, {}) === c.goldPerBoard);
+  ok('each Gilded Hammer level adds ' + c.goldPerGildLevel + ' to the rate', (() => {
     for (let l = 0; l <= 10; l++) {
-      if (C.goldForBoard(0, { gild: l }) !== c.goldPerBoard + c.goldPerGildLevel * l) return false;
+      if (C.goldRateFor(0, { gild: l }) !== c.goldPerBoard + c.goldPerGildLevel * l) return false;
     }
     return true;
   })());
   ok('the score bonus and the upgrade stack',
-    C.goldForBoard(1500, { gild: 5 }) ===
+    C.goldRateFor(1500, { gild: 5 }) ===
       c.goldPerBoard + c.goldPerScoreStep * 5 + c.goldPerGildLevel * 5);
+}
+
+section('Endless: gold is only ever paid in whole coins');
+{
+  ok('a payout is always a whole number', (() => {
+    for (let sc = 0; sc < 6000; sc += 97) {
+      for (let carry = 0; carry < 1; carry += 0.25) {
+        const p = C.payoutFor(sc, { gild: 2 }, carry);
+        if (!Number.isInteger(p.coins) || p.coins < 0) return false;
+      }
+    }
+    return true;
+  })());
+  ok('the carried fraction always stays under one coin', (() => {
+    for (let sc = 0; sc < 6000; sc += 97) {
+      const p = C.payoutFor(sc, {}, 0.75);
+      if (!(p.carry >= 0 && p.carry < 1)) return false;
+    }
+    return true;
+  })());
+  ok('a fractional rate rounds down but is not lost', (() => {
+    const p = C.payoutFor(300, {}, 0);          // rate 1.25
+    return p.coins === 1 && Math.abs(p.carry - 0.25) < 1e-9;
+  })());
+  ok('carrying enough fraction pays an extra coin', (() => {
+    const p = C.payoutFor(300, {}, 0.75);       // 1.25 + 0.75 = 2
+    return p.coins === 2 && p.carry === 0;
+  })());
+  ok('over many boards the coins equal the summed rates', (() => {
+    let carry = 0, coins = 0, rates = 0;
+    for (let board = 1; board <= 40; board++) {
+      const score = board * 190;
+      rates += C.goldRateFor(score, {});
+      const p = C.payoutFor(score, {}, carry);
+      carry = p.carry; coins += p.coins;
+    }
+    // everything paid out, bar the fraction still in hand
+    return Math.abs(coins + carry - rates) < 1e-6 && Number.isInteger(coins);
+  })());
+}
+
+section('Endless: the forge shop');
+{
   ok('every upgrade has ten levels', C.CONFIG.shop.upgrades.every((d) => d.max === 10));
   ok('upgrade levels are clamped to their maximum',
     C.levelOf({ gild: 99 }, 'gild') === 10 && C.levelOf({}, 'gild') === 0 &&
@@ -627,6 +657,53 @@ section('Endless: the forge shop');
     C.upgradeDef('nonesuch') === null && C.upgradeCost('nonesuch', 0) === null);
 }
 
+section('Endless: gold is paid out in play');
+{
+  const board = C.generateTourBoard('novice', C.mulberry32(3));
+  const play = (upgrades) => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0, upgrades: upgrades });
+    for (const step of board.route) C.applyStrike(g, step);
+    return g;
+  };
+  const plain = play({});
+  ok('a run holds whole coins and a fraction, never fractional gold',
+    Number.isInteger(plain.gold) && plain.goldCarry >= 0 && plain.goldCarry < 1);
+  ok('clearing a board pays at least the base coin', plain.gold >= 1);
+  ok('the Gilded Hammer adds whole coins on top',
+    play({ gild: 3 }).gold === plain.gold + 3);
+  ok('an unfinished round scores its strikes and pays no gold', (() => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
+    C.applyStrike(g, board.route[0]);
+    C.applyStrike(g, board.route[1]);
+    return g.score === 2 * C.CONFIG.endless.pointsPerStrike && g.gold === 0;
+  })());
+  ok('a long run pays more per board as the score climbs, still in whole coins', (() => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
+    let earlier = 0, later = 0;
+    for (let round = 0; round < 14; round++) {
+      const b = C.generateTourBoard('novice', C.mulberry32(round * 17 + 2));
+      if (round > 0) C.beginRound(g, b);
+      const before = g.gold;
+      for (const step of g.board.route) C.applyStrike(g, step);
+      const paid = g.gold - before;
+      if (!Number.isInteger(paid)) return false;
+      if (round < 4) earlier += paid; else if (round >= 10) later += paid;
+    }
+    return later > earlier && Number.isInteger(g.gold);
+  })());
+}
+
+section('Endless: no difficulty to pick');
+{
+  ok('endless declares the tier every run starts on',
+    C.CONFIG.endless.startTier === 'novice');
+  ok('the smallest board is where it begins',
+    C.CONFIG.difficulties[C.CONFIG.endless.startTier].size ===
+      Math.min(...C.CONFIG.order.map((k) => C.CONFIG.difficulties[k].size)));
+  ok('it still climbs to the largest board',
+    C.tierForRound(C.CONFIG.endless.startTier, 500) === 'master');
+}
+
 section('Endless: a pinned reshape chance survives the round change');
 {
   const b = C.generateTourBoard('novice', C.mulberry32(4));
@@ -640,46 +717,6 @@ section('Endless: a pinned reshape chance survives the round change');
     C.beginRound(rolling, C.generateTourBoard('novice', C.mulberry32(k + 30)));
   }
   ok('an unpinned game still follows the ramp', rolling.morphChance > first);
-}
-
-section('Endless: gold is paid out in play');
-{
-  const board = C.generateTourBoard('novice', C.mulberry32(3));
-  const play = (upgrades) => {
-    const g = C.createGame(board, { mode: 'endless', morphChance: 0, upgrades: upgrades });
-    for (const step of board.route) C.applyStrike(g, step);
-    return g;
-  };
-  const plain = play({});
-  const boardScore = 9 * C.CONFIG.endless.pointsPerStrike + C.CONFIG.endless.roundBonus;
-  ok('clearing a board pays what the formula says',
-    plain.gold === C.goldForBoard(boardScore, {}), plain.gold + ' for ' + boardScore);
-  ok("the board's own points count towards its payout",
-    plain.gold > C.CONFIG.shop.goldPerBoard || boardScore < C.CONFIG.shop.scoreStep);
-  ok('the Gilded Hammer adds on top', play({ gild: 3 }).gold === plain.gold + 3);
-  ok("the Smith's Ledger raises the score and so the gold too", (() => {
-    const g = play({ ledger: 10 });
-    return g.score === plain.score * 2.5 && g.gold >= plain.gold;
-  })());
-  ok('an unfinished round still scores its strikes and pays no gold', (() => {
-    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
-    C.applyStrike(g, board.route[0]);
-    C.applyStrike(g, board.route[1]);
-    return g.score === 2 * C.CONFIG.endless.pointsPerStrike && g.gold === 0;
-  })());
-  ok('a long run pays more per board as the score climbs', (() => {
-    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
-    const payouts = [];
-    for (let round = 0; round < 6; round++) {
-      const b = C.generateTourBoard('novice', C.mulberry32(round * 17 + 2));
-      if (round > 0) C.beginRound(g, b);
-      const before = g.gold;
-      for (const step of g.board.route) C.applyStrike(g, step);
-      payouts.push(C.roundGold(g.gold - before));
-    }
-    for (let i = 1; i < payouts.length; i++) if (payouts[i] < payouts[i - 1]) return false;
-    return payouts[payouts.length - 1] > payouts[0];
-  })());
 }
 
 section('Forge mode is untouched by endless');

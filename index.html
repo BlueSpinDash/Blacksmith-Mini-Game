@@ -413,6 +413,9 @@ input[type=range]{
   color:var(--gold);text-shadow:0 0 20px rgba(243,215,145,.28);
 }
 .title-tag{margin:0 0 14px;font-size:13px;color:var(--muted);letter-spacing:.02em;}
+.title-note{margin:12px 0 0;font-size:12px;line-height:1.5;color:var(--muted);text-align:left;}
+.title-note[hidden]{display:none;}
+#titleDiffBlock[hidden]{display:none;}
 .title-label{
   margin:14px 0 7px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
   color:var(--muted);text-align:left;font-weight:600;
@@ -625,6 +628,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       </button>
     </div>
 
+    <div id="titleDiffBlock">
     <h2 class="title-label" id="diffLabel">Difficulty</h2>
     <div class="difficulty" id="titleDiff" role="radiogroup" aria-labelledby="diffLabel">
       <button class="diff-btn" type="button" data-tdiff="novice"     role="radio" aria-checked="true">Novice<small>3&times;3</small></button>
@@ -632,6 +636,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <button class="diff-btn" type="button" data-tdiff="journeyman" role="radio" aria-checked="false">Journey.<small>5&times;5</small></button>
       <button class="diff-btn" type="button" data-tdiff="master"     role="radio" aria-checked="false">Master<small>6&times;6</small></button>
     </div>
+    </div>
+    <p class="title-note" id="endlessNote" hidden>Endless always starts on the 3&times;3 board and
+      steps up a size every 5 rounds. Every symbol can appear, and the metal reshapes more often
+      the longer you last.</p>
 
     <div class="sheet-actions">
       <button class="btn primary" type="button" id="beginBtn">Begin</button>
@@ -650,7 +658,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <p class="quality" id="rQuality">100<small id="rQualityCaption">QUALITY</small></p>
     <p class="result-label" id="rLabel">Masterwork</p>
     <div class="result-grid">
-      <div><span>Difficulty</span><b id="rDiff">Novice</b></div>
+      <div><span id="rDiffLabel">Difficulty</span><b id="rDiff">Novice</b></div>
       <div><span id="rStrikesLabel">Total strikes</span><b id="rStrikes">18</b></div>
       <div><span id="rSpentLabel">Spent squares</span><b id="rSpent">0</b></div>
       <div><span id="rPerfectLabel">Perfect squares</span><b id="rPerfect">9 / 9</b></div>
@@ -672,8 +680,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <h2 id="shopTitle">Forge Shop</h2>
     <p class="shop-purse"><span aria-hidden="true">&#9679;</span> <b id="shopGold">0</b> gold in the purse</p>
     <div class="shop-list" id="shopList"></div>
-    <p class="best-line" id="shopNote">Clearing a board pays gold, and pays
-    <b>+0.25 more</b> for every <b>300 points</b> scored in the run. Gold and upgrades are kept for good.</p>
+    <p class="best-line" id="shopNote">Clearing a board earns gold, and <b>+0.25 more</b> for every
+    <b>300 points</b> scored in the run. You are paid in whole coins and the fraction carries to the
+    next board. Gold and upgrades are kept for good.</p>
     <div class="sheet-actions"><button class="btn primary" type="button" id="shopClose">Back</button></div>
   </div>
 </div>
@@ -704,6 +713,8 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <p>Hit every square once to advance to the next material. The piece on your current square
        determines your next move. You cannot hit a square twice in the same round. Keep forging
        until no legal moves remain.</p>
+    <p>Endless has no difficulty to choose: every run starts on the 3&times;3 board and steps up a
+       size every five rounds, up to 6&times;6.</p>
     <p>Clearing a board earns a bonus and recasts it in the next metal &mdash; Bronze, Silver, Gold,
        Platinum, Mithril, Adamantine, and on into Adamantine II, III and beyond. Every round is a
        fresh layout with a verified route, the score carries forward, and there is no last round.</p>
@@ -715,9 +726,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        odds start low and climb by 3% every three rounds. Every five rounds the board itself steps up
        a tier, from 3&times;3 all the way to 6&times;6, and every symbol &mdash; king, rook, bishop,
        knight and queen &mdash; can turn up on any endless board.</p>
-    <p><b>Gold and the forge shop.</b> Clearing a board pays gold &mdash; <b>1</b> to start, plus
+    <p><b>Gold and the forge shop.</b> Clearing a board earns gold &mdash; <b>1</b> to start, plus
        <b>0.25 more for every 300 points</b> scored in the run, so a long run pays better and better.
-       It is banked the moment you earn it and kept between runs.</p>
+       You are only ever paid <b>whole coins</b>; any leftover fraction carries over to the next
+       board rather than being lost. It is banked the moment you earn it and kept between runs.</p>
     <p>Spend it in the Forge Shop on the title screen. Each upgrade has <b>ten levels</b>: the
        <b>Gilded Hammer</b> adds a whole gold to every board, the <b>Smith's Ledger</b> raises your
        score (which in turn raises what boards pay), and <b>Tempering</b> cools the metal so squares
@@ -798,8 +810,9 @@ const CONFIG = {
     morphStep: 0.03,      // added every `morphEvery` rounds
     morphEvery: 3,
     morphMax: 0.60,       // ceiling, so late rounds stay playable
-    // The board steps up a tier this often, from whatever tier the run began
-    // on, until it tops out at the largest.
+    // Endless is not a difficulty you pick: every run starts on the smallest
+    // board and steps up a tier this often, until it tops out at the largest.
+    startTier: 'novice',
     difficultyEvery: 5,
     generation: { nodeBudget: 200000, timeBudgetMs: 900, attempts: 24 }
   },
@@ -1392,20 +1405,30 @@ function levelOf(upgrades, id) {
   const n = upgrades && upgrades[id];
   return typeof n === 'number' && n > 0 ? Math.min(n, (upgradeDef(id) || { max: 0 }).max) : 0;
 }
-/* Gold is kept to two decimals, since the score bonus arrives in quarters. */
+/* Rates arrive in quarters, so they are kept to two decimals. Gold itself is
+   never fractional - see payoutFor below. */
 function roundGold(n) { return Math.round(n * 100) / 100; }
 function trimNumber(n) { return String(Math.round(n * 100) / 100); }
-function formatGold(n) { return trimNumber(roundGold(n)); }
+function formatGold(n) { return String(Math.round(n)); }
 
-/* What clearing one board pays, given the score the run is on and what has
+/* The RATE a cleared board earns, given the score the run is on and what has
    been bought. The score bonus rewards a long run; the Gilded Hammer rewards
-   having spent gold on gold. */
-function goldForBoard(score, upgrades) {
+   having spent gold on gold. This may be fractional. */
+function goldRateFor(score, upgrades) {
   const c = CONFIG.shop;
   const steps = Math.max(0, Math.floor((score || 0) / c.scoreStep));
   return roundGold(c.goldPerBoard +
     c.goldPerScoreStep * steps +
     c.goldPerGildLevel * levelOf(upgrades, 'gild'));
+}
+
+/* Gold is only ever paid in whole coins. The rate's fraction is not thrown
+   away, it is carried to the next board, so a run earns exactly the sum of
+   its rates over time without ever showing a fractional purse. */
+function payoutFor(score, upgrades, carried) {
+  const total = roundGold(goldRateFor(score, upgrades) + (carried || 0));
+  const coins = Math.floor(total);
+  return { coins: coins, carry: roundGold(total - coins) };
 }
 function scoreMultiplier(upgrades) {
   return 1 + 0.15 * levelOf(upgrades, 'ledger');
@@ -1480,7 +1503,8 @@ function createGame(board, options) {
     round: 1,
     score: 0,
     roundsCompleted: 0,
-    gold: 0,                          // earned this run
+    gold: 0,                          // whole coins earned this run
+    goldCarry: 0,                     // the fraction of a coin carried forward
     startTier: board.difficulty,      // the tier the run began on
     upgrades: upgrades,
     morphChance: typeof opts.morphChance === 'number' ? opts.morphChance : defaultMorph,
@@ -1577,8 +1601,10 @@ function strikeEndless(game, idx) {
   if (cleared) {
     points += Math.round(CONFIG.endless.roundBonus * mult);
     // the board's own points count towards the score bonus it pays out on
-    gold = goldForBoard(game.score + points, game.upgrades);
-    game.gold = roundGold(game.gold + gold);
+    const paid = payoutFor(game.score + points, game.upgrades, game.goldCarry);
+    gold = paid.coins;
+    game.goldCarry = paid.carry;
+    game.gold += paid.coins;                       // always a whole number
     game.roundsCompleted += 1;
     game.status = 'roundOver';                     // the controller recasts the board
   } else if (legalTargets(game).length === 0) {
@@ -1696,7 +1722,8 @@ const CHECKSMITH_CORE = {
   materialFor: materialFor, romanFor: romanFor, beginRound: beginRound, roundTier: roundTier,
   endlessMorphChance: endlessMorphChance, tierForRound: tierForRound,
   upgradeDef: upgradeDef, upgradeCost: upgradeCost, levelOf: levelOf,
-  goldForBoard: goldForBoard, scoreMultiplier: scoreMultiplier, temperRelief: temperRelief,
+  goldRateFor: goldRateFor, payoutFor: payoutFor, scoreMultiplier: scoreMultiplier,
+  temperRelief: temperRelief,
   roundGold: roundGold, formatGold: formatGold, trimNumber: trimNumber,
   gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
 };
@@ -2123,7 +2150,7 @@ const App = {
   pendingImpact: null,  // () => void, run early if the page is hidden
   focusIndex: 0,
   best: {},
-  endlessBest: {},      // best endless score per difficulty
+  endlessBest: 0,       // best endless score; endless has no difficulty to pick
   gold: 0,              // the purse, kept between runs
   upgrades: {},         // purchased upgrade levels, kept between runs
   lastFocus: null,
@@ -2321,8 +2348,9 @@ function render() {
     $('matName').textContent = st.material.name;
     $('matSub').textContent = 'Round ' + st.round + ' \u00b7 ' + size + '\u00d7' + size +
       ' \u00b7 Hit ' + st.hits + ' / ' + st.squares;
-    $('matSub2').textContent = Math.round(st.morphChance * 100) + '% reshape \u00b7 ' +
-      formatGold(goldForBoard(st.score, g.upgrades)) + ' gold a board';
+    const nextPay = payoutFor(st.score, g.upgrades, g.goldCarry);
+    $('matSub2').textContent = Math.round(st.morphChance * 100) + '% reshape \u00b7 +' +
+      nextPay.coins + ' gold next board';
   } else {
     $('sStrikes').textContent = String(st.total);
     $('sSpent').textContent = String(st.spent);
@@ -2356,8 +2384,7 @@ function render() {
 function renderBest() {
   const label = CONFIG.difficulties[App.difficulty].label;
   if (App.mode === 'endless') {
-    const best = App.endlessBest[App.difficulty];
-    $('bestLine').textContent = 'Best endless score on ' + label + ': ' + (best ? best : '\u2014');
+    $('bestLine').textContent = 'Best endless score: ' + (App.endlessBest ? App.endlessBest : '\u2014');
     return;
   }
   const best = App.best[App.difficulty];
@@ -2515,10 +2542,10 @@ function endRun() {
     App.resultTimer = null;
     SOUNDS.stranded();
   }, 240);
-  const prev = App.endlessBest[App.difficulty] || 0;
+  const prev = App.endlessBest || 0;
   const record = st.score > prev;
   if (record) {
-    App.endlessBest[App.difficulty] = st.score;
+    App.endlessBest = st.score;
     Store.patch({ endlessBest: App.endlessBest });
   }
   showEndlessResult(st, record, prev);
@@ -2561,10 +2588,10 @@ function stranded() {
 function bankGold() {
   const g = App.game;
   if (!g || !isEndless(g)) return;
-  const owed = roundGold(g.gold - (g.goldBanked || 0));
+  const owed = g.gold - (g.goldBanked || 0);
   if (owed <= 0) return;
   g.goldBanked = g.gold;
-  App.gold = roundGold(App.gold + owed);
+  App.gold += owed;
   Store.patch({ gold: App.gold });
 }
 
@@ -2623,7 +2650,7 @@ function buyUpgrade(id) {
   const level = levelOf(App.upgrades, id);
   const cost = upgradeCost(id, level);
   if (cost === null || App.gold < cost) return;
-  App.gold = roundGold(App.gold - cost);
+  App.gold -= cost;
   App.upgrades[id] = level + 1;
   Store.patch({ gold: App.gold, upgrades: App.upgrades });
   const def = upgradeDef(id);
@@ -2635,16 +2662,19 @@ function buyUpgrade(id) {
 
 /* ---------- title screen --------------------------------------------- */
 function syncTitleUi() {
+  const endless = App.mode === 'endless';
   for (const b of document.querySelectorAll('.mode-card')) {
     b.setAttribute('aria-checked', b.dataset.mode === App.mode ? 'true' : 'false');
   }
+  // Endless is not a difficulty you pick: it always starts small and climbs.
+  $('titleDiffBlock').hidden = endless;
+  $('endlessNote').hidden = !endless;
   for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
     b.setAttribute('aria-checked', b.dataset.tdiff === App.difficulty ? 'true' : 'false');
   }
   const q = App.best[App.difficulty];
   $('forgeBest').textContent = q == null ? '\u00a0' : 'Best quality: ' + q;
-  const e = App.endlessBest[App.difficulty];
-  $('endlessBest').textContent = e ? 'Best score: ' + e : '\u00a0';
+  $('endlessBest').textContent = App.endlessBest ? 'Best score: ' + App.endlessBest : '\u00a0';
   $('titleGold').textContent = formatGold(App.gold);
   $('titlePurse').hidden = App.gold <= 0 && !Object.keys(App.upgrades).length;
 }
@@ -2672,6 +2702,8 @@ function syncModeChrome() {
 function beginRun() {
   $('titleScreen').hidden = true;
   App.lastLayout = '';
+  // endless ignores the picker and always opens on the smallest board
+  if (App.mode === 'endless') App.difficulty = CONFIG.endless.startTier;
   syncModeChrome();
   loadBoard(App.difficulty, () => {
     buildLegend();
@@ -2698,6 +2730,7 @@ function hide(el) {
 }
 
 function restoreForgeLabels() {
+  $('rDiffLabel').textContent = 'Difficulty';
   $('rStrikesLabel').textContent = 'Total strikes';
   $('rPerfectLabel').textContent = 'Perfect squares';
   $('rNew').hidden = false;
@@ -2764,7 +2797,9 @@ function showEndlessResult(st, record, prev) {
   label.classList.toggle('masterwork', record);
   label.classList.toggle('stranded', !record);
   $('resultTitle').textContent = record ? 'A new best run' : 'The run ends here';
-  $('rDiff').textContent = CONFIG.difficulties[App.difficulty].label;
+  const reached = CONFIG.difficulties[st.tier];
+  $('rDiffLabel').textContent = 'Board reached';
+  $('rDiff').textContent = reached.size + '\u00d7' + reached.size;
   $('rStrikesLabel').textContent = 'Rounds cleared';
   $('rStrikes').textContent = String(st.roundsCompleted);
   $('rSpentLabel').textContent = 'Highest material';
@@ -2864,8 +2899,13 @@ function boot() {
 
   const saved = Store.read();
   App.best = (saved.best && typeof saved.best === 'object') ? saved.best : {};
-  App.endlessBest = (saved.endlessBest && typeof saved.endlessBest === 'object') ? saved.endlessBest : {};
-  App.gold = typeof saved.gold === 'number' && saved.gold >= 0 ? roundGold(saved.gold) : 0;
+  // endless best used to be kept per difficulty; fold any old save into one
+  if (typeof saved.endlessBest === 'number') App.endlessBest = saved.endlessBest;
+  else if (saved.endlessBest && typeof saved.endlessBest === 'object') {
+    App.endlessBest = Object.values(saved.endlessBest)
+      .reduce((a, b) => (typeof b === 'number' && b > a ? b : a), 0);
+  } else App.endlessBest = 0;
+  App.gold = typeof saved.gold === 'number' && saved.gold >= 0 ? Math.floor(saved.gold) : 0;
   App.upgrades = (saved.upgrades && typeof saved.upgrades === 'object') ? saved.upgrades : {};
   Sound.muted = saved.muted === true;
   Sound.volume = typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 0.7;

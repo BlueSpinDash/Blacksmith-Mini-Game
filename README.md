@@ -93,15 +93,17 @@ rules never fire. Everything else gets harder as you go:
   hammer. Because you are standing on the square you just struck, a reshape
   redirects your *very next move*. Odds start at 5% and rise 3% every three
   rounds, capped at 60%.
-- **The board steps up a tier every five rounds**, from wherever the run began up
-  to 6×6, where it stays.
+- **Endless has no difficulty to pick.** Every run starts on the 3×3 board and
+  steps up a size every five rounds, to 6×6 where it stays. The title screen
+  hides the difficulty picker when Endless is selected, and there is one endless
+  best score rather than one per difficulty.
 - **Every symbol can turn up on any endless board** — king, rook, bishop, knight
   and queen — regardless of the tier's usual pool.
 
 | Round | 1 | 4 | 7 | 10 | 16 | 31 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Reshape chance | 5% | 8% | 11% | 14% | 20% | 35% |
-| Tier from Novice | 3×3 | 3×3 | 4×4 | 4×4 | 6×6 | 6×6 |
+| Board size | 3×3 | 3×3 | 4×4 | 4×4 | 6×6 | 6×6 |
 
 Reshaping means a round's verified route is a promise about the board you are
 *handed*, not the board you will be standing on three blows later. The generator
@@ -112,34 +114,36 @@ routes mean anything.
 
 ## Gold and the forge shop
 
-Clearing a board pays gold, banked the moment it is earned so walking away never
-costs you what you already won. Gold and everything bought with it persist
+Clearing a board earns gold, banked the moment it is earned so walking away
+never costs you what you already won. Gold and everything bought with it persist
 between runs.
 
-**What a board pays** = `1` base **+ 0.25 for every 300 points** scored in the
-run **+ 1 per Gilded Hammer level**. The board's own points count towards its own
-payout, so a long run compounds:
+**Gold is always a whole number.** The *rate* a board earns can be fractional —
+`1` base **+ 0.25 for every 300 points** scored in the run **+ 1 per Gilded
+Hammer level** — but you are only ever paid whole coins, and the leftover
+fraction is **carried to the next board** rather than rounded away. Over a run
+you receive exactly the sum of the rates; you just never see a fractional purse.
 
 | Score when the board clears | 0 | 300 | 900 | 1500 | 3000 |
 | --- | --- | --- | --- | --- | --- |
-| Gold paid (no upgrades) | 1 | 1.25 | 1.75 | 2.25 | 3.5 |
-| Gold paid (Gilded Hammer 5) | 6 | 6.25 | 6.75 | 7.25 | 8.5 |
+| Rate earned (no upgrades) | 1 | 1.25 | 1.75 | 2.25 | 3.5 |
 
-Gold is kept to two decimals and shown trimmed, so the purse reads `42.75`.
+So four boards at a 1.25 rate pay 1, 1, 1, 2 — five coins for five rates' worth.
+The banner above the board always shows the whole number the next cleared board
+will actually hand you.
 
 The **Forge Shop** on the title screen sells three permanent upgrades, **ten
 levels each**. Costs grow geometrically — `round(costBase × costGrowth^level)`:
 
 | Upgrade | Per level | At level 10 | Costs (L1 → L10) |
 | --- | --- | --- | --- |
-| Gilded Hammer | +1 gold a board | +10 gold a board | 5, 8, 12, 19, 29, 45, 69, 107, 167, 258 |
+| Gilded Hammer | +1 gold a board | +10 a board | 5, 8, 12, 19, 29, 45, 69, 107, 167, 258 |
 | Smith's Ledger | +0.15 score multiplier | Score ×2.5 | 4, 6, 9, 14, 20, 30, 46, 68, 103, 154 |
 | Tempering | −3% reshape chance | −30% reshape | 6, 9, 14, 20, 30, 46, 68, 103, 154, 231 |
 
-Because the Ledger raises your score and the score raises the board payout, the
-two gold upgrades compound with each other. Everything above lives in
-`CONFIG.shop` — base, step, per-level values and cost curves — so retuning the
-economy is a few numbers.
+Because the Ledger raises your score and the score raises the board rate, the two
+gold upgrades compound. Everything above lives in `CONFIG.shop` — base, step,
+per-level values and cost curves — so retuning the economy is a few numbers.
 
 | Piece | Legal move from its square |
 | --- | --- |
@@ -218,10 +222,11 @@ CONFIG.endless.materials               // the named metals, in order
 CONFIG.endless.pool                    // symbols that can appear in endless
 CONFIG.endless.morphBase/Step/Every    // the reshape ramp
 CONFIG.endless.morphMax                // reshape ceiling
+CONFIG.endless.startTier               // the board every endless run starts on
 CONFIG.endless.difficultyEvery         // rounds between tier step-ups
 CONFIG.shop.goldPerBoard               // base gold for clearing a board
 CONFIG.shop.scoreStep                  // points per gold step (300)
-CONFIG.shop.goldPerScoreStep           // gold added per step (0.25)
+CONFIG.shop.goldPerScoreStep           // rate added per step (0.25)
 CONFIG.shop.goldPerGildLevel           // gold added per Gilded Hammer level
 CONFIG.shop.upgrades                   // levels, cost base and growth per upgrade
 CONFIG.generation.nodeBudget           // search nodes before giving up
@@ -253,8 +258,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 179 rule/generation checks
-node tools/verify-ui.mjs                                    # 149 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 185 rule/generation checks
+node tools/verify-ui.mjs                                    # 155 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

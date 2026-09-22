@@ -36,7 +36,8 @@ const fast = (page, ms) => page.evaluate((m) => { window.CHECKSMITH.core.CONFIG.
 async function startFromTitle(page, mode, diff) {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   if (mode) await page.click(`.mode-card[data-mode="${mode}"]`);
-  if (diff) await page.click(`#titleDiff .diff-btn[data-tdiff="${diff}"]`);
+  // endless picks no difficulty: it always starts on the smallest board
+  if (diff && mode !== 'endless') await page.click(`#titleDiff .diff-btn[data-tdiff="${diff}"]`);
   await page.click('#beginBtn');
   await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game, null, { timeout: 10000 });
 }
@@ -473,13 +474,19 @@ async function run() {
   ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
   ok('both modes are offered', (await page.locator('.mode-card').count()) === 2);
   ok('all four difficulties are offered', (await page.locator('#titleDiff .diff-btn').count()) === 4);
+  await page.click('#titleDiff .diff-btn[data-tdiff="journeyman"]');
+  ok('picking a difficulty checks it',
+    (await page.getAttribute('#titleDiff .diff-btn[data-tdiff="journeyman"]', 'aria-checked')) === 'true');
   await page.click('.mode-card[data-mode="endless"]');
   ok('picking a mode checks it and unchecks the other',
     (await page.getAttribute('.mode-card[data-mode="endless"]', 'aria-checked')) === 'true' &&
     (await page.getAttribute('.mode-card[data-mode="forge"]', 'aria-checked')) === 'false');
-  await page.click('#titleDiff .diff-btn[data-tdiff="journeyman"]');
-  ok('picking a difficulty checks it',
-    (await page.getAttribute('#titleDiff .diff-btn[data-tdiff="journeyman"]', 'aria-checked')) === 'true');
+  ok('endless hides the difficulty picker', await page.isHidden('#titleDiffBlock'));
+  ok('and says where it starts instead', await page.isVisible('#endlessNote') &&
+    /3.3/.test(await page.textContent('#endlessNote')));
+  await page.click('.mode-card[data-mode="forge"]');
+  ok('forge brings the picker back', await page.isVisible('#titleDiffBlock'));
+  await page.click('.mode-card[data-mode="endless"]');
 
   /* ============ endless mode ============ */
   section('Endless mode');
@@ -501,7 +508,9 @@ async function run() {
   ok('endless opens at Bronze, round one, score zero',
     eStart.mode === 'endless' && eStart.round === 1 && eStart.score === 0 &&
     eStart.material === 'Bronze', JSON.stringify(eStart));
-  ok('the round is a one-visit tour', eStart.route === eStart.squares && eStart.size === 5);
+  ok('it always starts on the smallest board, whatever was picked before',
+    eStart.size === 3, 'size ' + eStart.size);
+  ok('the round is a one-visit tour', eStart.route === eStart.squares);
   ok('the material banner and endless stats replace the forge ones',
     eStart.bar && eStart.stats && !eStart.forgeStats);
   ok('the actions swap New Puzzle for Main Menu',
@@ -538,10 +547,11 @@ async function run() {
   ok('the struck square renders as hit', one.hit === '1');
   ok('screen readers are told it is already struck', /already struck/.test(one.label), one.label);
   ok('a repeat strike on the same square is refused', one.repeatBlocked === true);
-  ok('squares-hit is counted on screen', one.hits === '1/25');
-  ok('the banner reports the reshape odds and the board payout', await page.evaluate(
+  ok('squares-hit is counted on screen', one.hits === '1/9');
+  ok('the banner reports the reshape odds and the next whole payout', await page.evaluate(
     () => /% reshape/.test(document.getElementById('matSub2').textContent) &&
-          /gold a board/.test(document.getElementById('matSub2').textContent)));
+          /\+\d+ gold next board/.test(document.getElementById('matSub2').textContent)),
+    await page.textContent('#matSub2'));
   await page.screenshot({ path: path.join(SHOTS, '07-endless-bronze.png'), fullPage: true });
 
   // clear the board via its verified route and watch it recast
@@ -567,9 +577,9 @@ async function run() {
     cleared.round === 2 && cleared.cleared === 1 && cleared.status !== 'lost',
     JSON.stringify(cleared));
   ok('the board is recast cold with no hammer on it',
-    cleared.hits === 0 && cleared.current === -1 && cleared.routeLen === 25);
+    cleared.hits === 0 && cleared.current === -1 && cleared.routeLen === 9);
   ok('the material advances to Silver', cleared.material === 'Silver' && cleared.tier === '1');
-  ok('the score carries forward with the round bonus', cleared.score === 25 * 10 + 100);
+  ok('the score carries forward with the round bonus', cleared.score === 9 * 10 + 100);
   await page.screenshot({ path: path.join(SHOTS, '08-endless-silver.png'), fullPage: true });
 
   // a dead end ends the run
@@ -577,14 +587,14 @@ async function run() {
     const F = window.CHECKSMITH;
     const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
     const g = F.app.game;
-    // strand it: mark everything hit except one square no piece can reach
-    g.pieces = g.pieces.map(() => 'N');
-    g.strikes = g.strikes.map(() => 1);
-    g.strikes[0] = 0;                              // only square 0 is unstruck
-    g.strikes[12] = 0;
-    g.current = -1;
-    g.status = 'ready';
-    document.querySelector('.tile[data-i="12"]').click();   // knight at 12 cannot reach 0
+    // Strand it on a 3x3: a knight in the centre has no legal jump at all,
+    // and square 2 is left unstruck so the board is not cleared instead.
+    g.pieces = g.pieces.map(() => 'R');
+    g.pieces[4] = 'N';
+    g.strikes = [1, 1, 0, 1, 0, 1, 1, 1, 1];
+    g.current = 1;                                 // a rook on the top row
+    g.status = 'playing';
+    document.querySelector('.tile[data-i="4"]').click();    // down the column onto the knight
     await wait();
     await new Promise((r) => setTimeout(r, 700));
     return { status: g.status, frozen: document.getElementById('board').dataset.frozen,
@@ -606,9 +616,9 @@ async function run() {
     dead.rounds === '1' && /Silver|Bronze/.test(dead.material), dead.rounds + ' / ' + dead.material);
   ok('it offers Play Again, the Forge Shop and Main Menu',
     dead.retry === 'Play Again' && dead.menu === 'Main Menu' && dead.newHidden === false);
-  ok('the endless best score is saved per difficulty', await page.evaluate(
+  ok('the endless best score is saved as one number', await page.evaluate(
     () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
-      return !!(d.endlessBest && d.endlessBest.journeyman > 0) && d.best !== undefined; }
+      return typeof d.endlessBest === 'number' && d.endlessBest > 0; }
       catch (e) { return false; } }));
   ok('standard-mode results are preserved alongside', await page.evaluate(
     () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
@@ -678,6 +688,8 @@ async function run() {
   }));
   ok('clearing a board banks gold into the purse', purse.app >= 1, JSON.stringify(purse));
   ok('the gold chip shows it', Number(purse.chip) === purse.app);
+  ok('the purse is a whole number of coins',
+    Number.isInteger(purse.app) && /^\d+$/.test(purse.chip), purse.chip);
   ok('the purse survives in storage', purse.stored === purse.app);
 
   await page.evaluate(() => document.getElementById('menuActionBtn').click());
@@ -734,7 +746,7 @@ async function run() {
     const g = F.core.createGame(board, { mode: 'endless', morphChance: 0, upgrades: F.app.upgrades });
     for (const step of board.route) F.core.applyStrike(g, step);
     return { gold: g.gold, level: F.core.levelOf(F.app.upgrades, 'gild'),
-      expected: F.core.goldForBoard(g.score, F.app.upgrades) };
+      expected: F.core.payoutFor(g.score, F.app.upgrades, g.goldCarry).coins };
   });
   ok('the Gilded Hammer adds its gold to the next board',
     payout.gold === payout.expected, JSON.stringify(payout));
@@ -742,13 +754,17 @@ async function run() {
   const scaled = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, c = C.CONFIG.shop;
     return {
-      low: C.goldForBoard(0, {}),
-      high: C.goldForBoard(c.scoreStep * 4, {}),
-      step: c.goldPerScoreStep, every: c.scoreStep
+      low: C.goldRateFor(0, {}),
+      high: C.goldRateFor(c.scoreStep * 4, {}),
+      step: c.goldPerScoreStep, every: c.scoreStep,
+      coins: C.payoutFor(c.scoreStep * 4, {}, 0).coins,
+      carry: C.payoutFor(c.scoreStep * 4, {}, 0).carry
     };
   });
-  ok('a board pays +' + scaled.step + ' more for every ' + scaled.every + ' points',
+  ok('the rate climbs +' + scaled.step + ' for every ' + scaled.every + ' points',
     scaled.high === scaled.low + scaled.step * 4, JSON.stringify(scaled));
+  ok('but the coins paid are always whole, with the fraction carried',
+    Number.isInteger(scaled.coins) && scaled.carry >= 0 && scaled.carry < 1);
 
   /* ============ the run gets harder ============ */
   section('Endless ramps up');
