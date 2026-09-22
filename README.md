@@ -10,6 +10,34 @@ under the hammer, and a square struck once too often crumbles into a hole.
 embedded CSS and JavaScript, procedural Web Audio sound and inline SVG/CSS
 artwork. No build step, no backend, no external assets, no accounts.
 
+## The opening
+
+The game opens on black with the title track, fades the studio logo up and out,
+holds a beat of black so it is **entirely gone**, then brings the title card up
+and out, and lifts onto the menu. The track carries on behind the menu — it is
+the title screen's music — and stops once a board is in front of the player.
+A tap, Enter, Space or Escape skips the whole thing.
+
+Browsers will not start audio without a gesture. The sequence tries anyway,
+because a browser the player has already used the page in usually allows it;
+when it is refused the curtain **waits on black with one line of instruction**
+rather than playing the opening in silence, and that same tap starts it.
+
+Timings live in one object (`INTRO`): the black lead, the fade, the hold, the
+gap between plates and the curtain. `prefers-reduced-motion` gets a second set
+that keeps the beats but drops the fades.
+
+Loading the page with `#skipintro` (or `?skipintro`) goes straight to the menu,
+which is how the browser suite gets past it without every check learning about
+it; the opening has a section of its own that loads the page as a player would.
+
+**The three assets are embedded like everything else**, so the file is still the
+whole game. That is what takes `index.html` from about 370 KB to **5.2 MB**:
+the artwork is WebP at 1100px (270 KB together), and the supplied 256 kbps
+master is carried at 112 kbps (3.3 MB), which is the single number worth
+knowing about if the size matters more than the fidelity, or the reverse. All
+three are strings in `INTRO_ASSETS`.
+
 ## Opening it
 
 Double-click `index.html`, or drag it into any modern browser. To try it on a
@@ -658,7 +686,7 @@ timers. Rendering, animation, sound and input sit below it.
 
 ```sh
 node tools/verify-core.mjs                                  # 342 rule/generation checks
-node tools/verify-ui.mjs                                    # 271 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 284 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

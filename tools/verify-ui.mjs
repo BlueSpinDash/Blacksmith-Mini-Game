@@ -9,7 +9,11 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PW_PATH || 'playwright');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const FILE = pathToFileURL(path.join(here, '..', 'index.html')).href;
+// The opening plays over the menu on a normal load. Every check below wants
+// the menu itself, so they ask for the page without it; the opening has a
+// section of its own at the end that loads the page as a player would.
+const RAW_FILE = pathToFileURL(path.join(here, '..', 'index.html')).href;
+const FILE = RAW_FILE + '#skipintro';
 const SHOTS = path.join(here, '..', '.shots');
 
 let pass = 0;
@@ -1889,6 +1893,100 @@ async function run() {
     (await page.textContent('#beginBtn')) === 'Begin');
   ok('saving and restoring raises no errors', saveErrs.length === 0, saveErrs.slice(0, 3).join(' | '));
   await ctx.close();
+
+  /* ============ the opening ============ */
+  section('The opening');
+  // a browser that allows audio without a gesture, which is what a returning
+  // player's usually does; the refused case is checked separately below
+  const loud = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  const introErrs = [];
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+
+  const frame = () => page.evaluate(() => {
+    const op = (id) => Number(getComputedStyle(document.getElementById(id)).opacity);
+    const m = document.getElementById('introMusic');
+    return { t: Math.round(performance.now()), up: !document.getElementById('intro').hidden,
+      logo: op('introLogo'), card: op('introCard'), playing: !!(m && !m.paused && m.currentTime > 0) };
+  });
+  const film = [];
+  for (let i = 0; i < 52; i++) { film.push(await frame()); await page.waitForTimeout(220); }
+
+  const firstMusic = film.find((f) => f.playing);
+  ok('the track starts under a black screen', !!firstMusic && firstMusic.logo === 0 &&
+    firstMusic.card === 0, JSON.stringify(firstMusic));
+
+  const logoUp = film.find((f) => f.logo > 0.98);
+  const cardUp = film.find((f) => f.card > 0.98);
+  ok('the logo comes up first, a couple of seconds in',
+    !!logoUp && logoUp.t > 1500 && logoUp.t < 5000, logoUp && String(logoUp.t));
+  ok('it holds at full strength', film.filter((f) => f.logo > 0.98).length >= 4,
+    String(film.filter((f) => f.logo > 0.98).length));
+  ok('the title card comes up after it', !!cardUp && cardUp.t > logoUp.t, 
+    JSON.stringify([logoUp && logoUp.t, cardUp && cardUp.t]));
+
+  // the whole point of the gap: one is never on screen while the other arrives
+  const overlap = film.filter((f) => f.logo > 0.01 && f.card > 0.01);
+  ok('the logo is entirely gone before the card begins', overlap.length === 0,
+    JSON.stringify(overlap.slice(0, 3)));
+
+  const ended = film.find((f) => !f.up);
+  ok('the curtain lifts by itself', !!ended, JSON.stringify(film[film.length - 1]));
+  ok('and hands over to the menu', await page.evaluate(() =>
+    document.getElementById('intro').hidden && !document.getElementById('titleScreen').hidden));
+  ok('the title track carries on behind the menu', await page.evaluate(() => {
+    const m = document.getElementById('introMusic');
+    return !!m && !m.paused;
+  }));
+  ok('and stops once a board is in front of the player', await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    document.querySelector('.mode-card[data-mode="forge"]').click();
+    document.getElementById('beginBtn').click();
+    await new Promise((r) => setTimeout(r, 600));
+    return document.getElementById('introMusic').paused;
+  }));
+  await ctx.close();
+
+  // skipping, and the muted-by-refusal path
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+  await page.waitForTimeout(2600);
+  await page.mouse.click(195, 500);
+  await page.waitForTimeout(1400);
+  ok('a tap during the opening skips it', await page.evaluate(() =>
+    document.getElementById('intro').hidden && !document.getElementById('titleScreen').hidden));
+  await ctx.close();
+
+  // a browser that refuses audio holds on black and waits to be told to start
+  ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+  await page.waitForTimeout(1500);
+  const waiting = await page.evaluate(() => ({
+    up: !document.getElementById('intro').hidden,
+    prompt: document.getElementById('introSkip').textContent,
+    lit: document.getElementById('introSkip').classList.contains('lit'),
+    logo: Number(getComputedStyle(document.getElementById('introLogo')).opacity)
+  }));
+  ok('a browser that refuses audio waits on black rather than playing it silent',
+    waiting.up && waiting.logo === 0 && /begin/i.test(waiting.prompt) && waiting.lit,
+    JSON.stringify(waiting));
+  await page.mouse.click(195, 500);
+  // that tap begins the sequence proper, which opens on its own black lead,
+  // so the logo is still a couple of seconds away
+  await page.waitForTimeout(3200);
+  ok('and that same tap starts the opening', await page.evaluate(() =>
+    !document.getElementById('intro').hidden &&
+    Number(getComputedStyle(document.getElementById('introLogo')).opacity) > 0.5));
+  await ctx.close();
+
+  ok('the opening raises no errors', introErrs.length === 0, introErrs.slice(0, 3).join(' | '));
+  await loud.close();
 
   await browser.close();
   console.log('\n' + (failures.length ? 'FAILED: ' + failures.join('; ') : 'All browser checks passed') +
