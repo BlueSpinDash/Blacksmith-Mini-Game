@@ -508,6 +508,152 @@ input[type=range]{
 .vs-buy[aria-pressed="true"]{border-color:var(--focus);box-shadow:inset 0 0 0 1px rgba(111,211,255,.4);}
 @media (min-width:560px){ .vs-shop{grid-template-columns:repeat(4,1fr);} }
 
+
+/* ---------- Open Your Forge ---------- */
+#shopView[hidden]{display:none;}
+#shopView{display:flex;flex-direction:column;gap:9px;}
+.shop-bar{
+  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  padding:9px 11px;border-radius:var(--radius);
+  background:linear-gradient(180deg,#24262e,#17181d);border:1px solid var(--edge);
+}
+.shop-when{font-size:15px;letter-spacing:.04em;color:var(--text);}
+.shop-when b{color:var(--gold);}
+.shop-purse{font-size:15px;color:var(--brass);font-variant-numeric:tabular-nums;text-align:right;}
+.shop-rent{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.shop-rent.due{color:var(--ember);}
+.shop-rent.late{color:var(--danger);}
+.shop-stars{font-size:13px;letter-spacing:.14em;color:var(--gold);text-align:right;}
+.shop-stars .off{color:#4a4e58;}
+
+.shop-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+.act-btn{
+  min-height:var(--tap);padding:7px 9px;border-radius:10px;cursor:pointer;text-align:left;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--edge);color:var(--text);
+  display:flex;flex-direction:column;gap:1px;
+}
+.act-btn b{font-size:13.5px;letter-spacing:.02em;}
+.act-btn small{font-size:10.5px;color:var(--muted);line-height:1.3;}
+.act-btn:disabled{opacity:.45;cursor:not-allowed;}
+.act-btn.primary{border-color:var(--ember);background:linear-gradient(180deg,#3a2415,#241a12);}
+.act-btn.primary b{color:var(--gold);}
+
+.shop-crew{margin:0;font-size:11.5px;color:var(--muted);min-height:1.2em;}
+.shop-crew b{color:var(--brass);font-weight:600;}
+
+.shop-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.shop-tab{
+  min-height:36px;padding:5px 2px;border-radius:9px;cursor:pointer;
+  font-size:11px;letter-spacing:.03em;
+  background:var(--panel);border:1px solid var(--edge);color:var(--muted);
+}
+.shop-tab[aria-selected="true"]{
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);color:var(--gold);
+}
+.shop-panel{
+  min-height:120px;padding:9px;border-radius:var(--radius);
+  background:linear-gradient(180deg,#20222a,#15161b);border:1px solid var(--edge);
+}
+.shop-empty{margin:0;font-size:12.5px;color:var(--muted);text-align:center;padding:14px 4px;}
+
+.shop-list{display:grid;gap:6px;}
+.shop-row{
+  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  padding:7px 9px;border-radius:9px;background:var(--panel-2);border:1px solid var(--edge);
+}
+.shop-row .nm{font-size:13px;color:var(--text);}
+.shop-row .sub{font-size:10.5px;color:var(--muted);grid-column:1/-1;}
+.shop-row .amt{font-size:13px;color:var(--brass);font-variant-numeric:tabular-nums;text-align:right;}
+.shop-row .amt.warn{color:var(--ember);}
+.shop-row button{
+  min-height:30px;padding:3px 9px;border-radius:8px;cursor:pointer;font-size:11.5px;
+  background:var(--panel);border:1px solid var(--edge);color:var(--text);
+}
+.shop-row button:disabled{opacity:.4;cursor:not-allowed;}
+.shop-cap{margin:0 0 7px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+/* number steppers used by the buy and stock sheets */
+.step{display:flex;align-items:center;gap:5px;}
+.step button{
+  width:30px;min-height:30px;border-radius:8px;cursor:pointer;font-size:15px;line-height:1;
+  background:var(--panel);border:1px solid var(--edge);color:var(--text);
+}
+.step input{
+  width:52px;min-height:30px;text-align:center;border-radius:8px;font-size:13px;
+  background:#101216;border:1px solid var(--edge);color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+.step input::-webkit-outer-spin-button,.step input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.step input[type=number]{-moz-appearance:textfield;}
+
+.sheet-total{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin:10px 0 0;padding-top:9px;border-top:1px solid var(--edge);
+  font-size:14px;color:var(--text);
+}
+.sheet-total b{color:var(--gold);font-variant-numeric:tabular-nums;}
+.sheet-total.short b{color:var(--danger);}
+
+.pick-row{display:grid;gap:5px;margin:0 0 10px;}
+.pick-row label{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);}
+.pick-row select{
+  min-height:var(--tap);padding:6px 9px;border-radius:9px;font-size:13.5px;
+  background:#101216;border:1px solid var(--edge);color:var(--text);width:100%;
+}
+
+/* the counter: one customer at a time */
+.cust{
+  padding:11px;border-radius:var(--radius);text-align:left;
+  background:linear-gradient(180deg,#26282f,#181a1f);border:1px solid var(--edge);
+}
+.cust .who{font-size:15px;color:var(--gold);letter-spacing:.03em;}
+.cust .want{margin:5px 0 0;font-size:13px;color:var(--text);}
+.cust .offer{margin:7px 0 0;font-size:13px;color:var(--brass);font-variant-numeric:tabular-nums;}
+.cust .offer b{font-size:17px;color:var(--gold);}
+.cust-log{display:grid;gap:4px;margin:9px 0 0;max-height:190px;overflow:auto;}
+.cust-log p{
+  margin:0;padding:5px 8px;border-radius:7px;font-size:11.5px;
+  background:var(--panel);border-left:2px solid var(--edge);color:var(--muted);
+}
+.cust-log p.sale{border-left-color:var(--brass);color:var(--text);}
+.cust-log p.gone{border-left-color:#5a3a34;}
+
+.report dl{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:8px 0 0;}
+.report dt{font-size:12.5px;color:var(--muted);}
+.report dd{margin:0;font-size:13px;color:var(--text);text-align:right;font-variant-numeric:tabular-nums;}
+.report dd.good{color:var(--brass);}
+
+.applicant{
+  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  padding:8px 10px;border-radius:10px;background:var(--panel-2);border:1px solid var(--edge);
+}
+.applicant .nm{font-size:14px;color:var(--text);}
+.applicant .role{font-size:11px;color:var(--muted);grid-column:1/-1;}
+.rank{
+  display:inline-block;min-width:19px;padding:0 4px;border-radius:5px;margin-right:5px;
+  font-size:11px;font-weight:700;text-align:center;color:#12131a;background:var(--muted);
+}
+.rank[data-r="E"]{background:#6f7683;}
+.rank[data-r="D"]{background:#8fa0b4;}
+.rank[data-r="C"]{background:#cfa53b;}
+.rank[data-r="B"]{background:#e0e6ee;}
+.rank[data-r="A"]{background:#5fbfab;}
+.rank[data-r="S"]{background:#c3a2ff;}
+
+.forge-banner{
+  margin:0;padding:8px 11px;border-radius:10px;text-align:center;font-size:13px;
+  background:var(--panel);border:1px solid var(--brass);color:var(--text);
+}
+.forge-banner b{color:var(--gold);}
+.forge-banner small{display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+.forge-banner[hidden]{display:none;}
+
+@media (min-width:560px){
+  .shop-actions{grid-template-columns:repeat(3,1fr);}
+}
+
 /* ---------- the purse and the shop ---------- */
 .title-purse{margin:0 0 8px;font-size:13px;color:var(--brass);letter-spacing:.05em;}
 .title-purse[hidden]{display:none;}
@@ -720,6 +866,26 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     </div>
   </div>
 
+
+  <div id="shopView" hidden>
+    <div class="shop-bar">
+      <span class="shop-when">Day <b id="shDay">1</b> &middot; <span id="shPhase">Morning</span></span>
+      <span class="shop-purse"><b id="shGold">0</b>g</span>
+      <span class="shop-rent" id="shRent">Rent 220g due in 7 days</span>
+      <span class="shop-stars" id="shStars" aria-label="Shop rating"></span>
+    </div>
+    <p class="prompt" id="shPrompt"><span id="shPromptText">A new day at the anvil.</span></p>
+    <div class="shop-actions" id="shActions"></div>
+    <p class="shop-crew" id="shCrew"></p>
+    <div class="shop-tabs" id="shTabs" role="tablist"></div>
+    <div class="shop-panel" id="shPanel" role="tabpanel"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="shAdvanceBtn">End Morning</button>
+      <button class="btn ghost" type="button" id="shHelpBtn">How to Play</button>
+      <button class="btn" type="button" id="shMenuBtn">Main Menu</button>
+    </div>
+  </div>
+
   <div class="material-bar" id="materialBar" hidden data-tier="0">
     <span class="mat-name" id="matName">Bronze</span>
     <span class="mat-meta">
@@ -728,6 +894,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     </span>
   </div>
 
+  <p class="forge-banner" id="forgeBanner" hidden></p>
   <div class="board-wrap">
     <div id="board" class="board" role="group" aria-label="Forge board"></div>
     <div id="fx" class="fx-layer" aria-hidden="true"></div>
@@ -786,6 +953,11 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
         <span class="mc-name">Versus</span>
         <span class="mc-desc">Two boards, turn by turn against the rival smith. Trap them with no legal move left.</span>
         <span class="mc-best" id="versusBest">&nbsp;</span>
+      </button>
+      <button class="mode-card" type="button" data-mode="shop" role="radio" aria-checked="false">
+        <span class="mc-name">Open Your Forge</span>
+        <span class="mc-desc">Run the shop. Forge the stock, set the prices, serve the customers, make the rent.</span>
+        <span class="mc-best" id="shopBest">&nbsp;</span>
       </button>
     </div>
 
@@ -951,12 +1123,60 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        are still standing there, and the square goes straight back to the colour it was; nothing
        repairs a hole.</b> So a shattered square is not a trap you must avoid, it is a trap you must
        pay for or walk into.</p>
+    <h2 style="font-size:16px;margin:16px 0 4px">Open Your Forge</h2>
+    <p>You own the shop. Buy metal, forge the stock, put it out on the shelves, price it, serve
+       whoever walks in, and have the rent on the table at the end of every seventh day. Fall
+       short and the landlord takes the keys.</p>
+    <p><b>A day is three phases</b> &mdash; morning, afternoon, evening &mdash; and you personally
+       do <i>one</i> thing in each: forge, tend the store, buy materials, stock shelves, or go
+       looking for staff. The three phases never increase. What grows is how much gets done inside
+       them, because employees work alongside you.</p>
+    <p><b>The metal decides the puzzle.</b> Bronze needs <b>1</b> strike on every square, Silver
+       <b>2</b>, Gold <b>3</b>, Mythril <b>4</b>, Adamantine <b>5</b> &mdash; and one strike past
+       that ruins the square. You may leave a square half-finished and come back to it; what you
+       must not do is over-strike one that is already done. The forge difficulty you pick is a
+       separate thing entirely: it sets which chess symbols appear, not how many blows a square
+       needs.</p>
+    <p><b>One puzzle is one batch.</b> Five swords take one board, not five. Finish it and the
+       ingots are spent and the batch goes on the anvil overnight; ruin it and you lose the phase
+       but keep the metal. How well you worked the board is the quality of the goods, and quality
+       is what they are worth.</p>
+    <p><b>Nothing sells itself.</b> Finished work lands in <b>storage</b> the next morning and sits
+       there until you spend a phase carrying it out to the shelves. Every line starts at its
+       recommended price and you may ask whatever you like &mdash; tap the price to change it.
+       Ask too much and the piece gets hard to shift, never impossible.</p>
+    <p><b>Who walks in depends on what is out.</b> Stock swords, helms and shields and you will see
+       knights, soldiers and guards; stock daggers and boots and you will get rogues, scouts and
+       travellers. These are leanings, not rules &mdash; anyone may buy anything. You never declare
+       what kind of shop this is; it becomes one.</p>
+    <p><b>Haggling.</b> Some customers offer under your price. Take it, refuse it, or haggle for
+       something in between &mdash; the Haggler's Ledger and a good salesperson both improve your
+       odds.</p>
+    <p><b>Staff are hands, not percentages.</b> A <b>Salesperson</b> minds the counter for one
+       phase a day, so two of them plus you keeps the shop open all day. A <b>Runner</b> fetches
+       ingots, at a price that may beat the market or miss it. A <b>Smith</b> fills an order
+       without you touching a board &mdash; you keep the phase, they keep the hammer, and the
+       result is theirs. A <b>Store Hand</b> carries stock out for you. Only the <b>Apprentice</b>
+       works beside you, making every batch you forge yourself larger. Each of the others takes one
+       job a day, and every one of them draws a wage on rent day.</p>
+    <p><b>Growing costs.</b> Bigger premises mean more staff, more shelf, more storage and bigger
+       batches &mdash; and a much larger rent. Expanding too early is how a shop closes.</p>
     <p><b>Marks:</b> a brass diamond shows where the hammer stands now; dashed rings show every legal destination.
        Notches along the bottom of a square count its strikes, a red dashed border means the square is
        crumbling and about to blank, and a dark hole means it is already spent.</p>
     <p>Sliding pieces jump over anything in the way &mdash; only the destination is struck. There are no captures,
        no blockers and no timer: this is a route-planning puzzle with a temper.</p>
     <div class="sheet-actions"><button class="btn primary" type="button" id="helpClose">Back to the anvil</button></div>
+  </div>
+</div>
+
+
+<!-- Open Your Forge dialogs -->
+<div class="overlay" id="shopSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shopSheetTitle">
+  <div class="sheet">
+    <h2 id="shopSheetTitle">&nbsp;</h2>
+    <div id="shopSheetBody"></div>
+    <div class="sheet-actions" id="shopSheetActions"></div>
   </div>
 </div>
 
@@ -1171,8 +1391,9 @@ function mulberry32(seed) {
    visits every square exactly twice, tracking which pieces could
    still sit on each square given the departures made from it. A
    square's piece must legalise EVERY departure from that square. */
-function buildRoute(size, pool, rnd, budget, deadline) {
-  const n = size * size, total = 2 * n, T = tableFor(size);
+function buildRoute(size, pool, rnd, budget, deadline, visits) {
+  const per = visits || 2;
+  const n = size * size, total = per * n, T = tableFor(size);
   const counts = new Int32Array(n);
   const opts = new Array(n);
   // Each square gets a wished-for piece up front. The search leans
@@ -1191,7 +1412,7 @@ function buildRoute(size, pool, rnd, budget, deadline) {
   function candidates(cur) {
     const res = [], curOpts = opts[cur], wish = want[cur];
     for (let t = 0; t < n; t++) {
-      if (t === cur || counts[t] >= 2) continue;
+      if (t === cur || counts[t] >= per) continue;
       let ok = null, keepsWish = false;
       for (let k = 0; k < curOpts.length; k++) {
         const p = curOpts[k];
@@ -1315,44 +1536,59 @@ function isStronglyConnected(size, pieces) {
 
 /* Independent check of a finished board: the stored route really is a
    perfect solution under the stored symbols. */
-function validateBoard(board) {
+function validateBoard(board, visits) {
   const size = board.size, n = size * size;
   const route = board.route, pieces = board.pieces;
-  if (!route || route.length !== 2 * n) return false;
+  // A board carries its own visit count: two for the forge, one to five for a
+  // material in Open Your Forge. Read it from the board unless told otherwise.
+  const per = visits || board.visits || 2;
+  if (!route || route.length !== per * n) return false;
   if (!pieces || pieces.length !== n) return false;
   const counts = new Int32Array(n);
   for (const i of route) {
     if (!(i >= 0 && i < n)) return false;
     counts[i]++;
   }
-  for (let i = 0; i < n; i++) if (counts[i] !== 2) return false;
+  for (let i = 0; i < n; i++) if (counts[i] !== per) return false;
   for (let i = 0; i < route.length - 1; i++) {
     if (!isLegalMove(pieces[route[i]], route[i], route[i + 1], size)) return false;
   }
   return isStronglyConnected(size, pieces);
 }
 
-function generateBoard(difficultyKey, rnd, limits) {
-  const cfg = CONFIG.difficulties[difficultyKey];
+/* The generator proper. A spec says how big the board is, which symbols may
+   appear and how many times the route must visit each square; the difficulty
+   key is carried along for labelling. Open Your Forge needs board size and
+   visit count to vary independently of the difficulty tiers, which is exactly
+   what this separates. */
+function generateSpecBoard(spec, rnd, limits) {
   const g = Object.assign({}, CONFIG.generation, limits || {});
+  const visits = spec.visits || 2;
   const deadline = Date.now() + g.timeBudgetMs;
   for (let attempt = 0; attempt < g.attempts; attempt++) {
     if (Date.now() > deadline) break;
-    const route = buildRoute(cfg.size, cfg.pool, rnd, g.nodeBudget, deadline);
+    const route = buildRoute(spec.size, spec.pool, rnd, g.nodeBudget, deadline, visits);
     if (!route) continue;
     // Queens are considered only when assigning symbols, so the route
     // search never leans on their extra freedom.
-    const assignPool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
-    const opts = pieceOptionsFor(cfg.size, route, assignPool);
+    const assignPool = spec.maxQueens > 0 ? spec.pool.concat(['Q']) : spec.pool;
+    const opts = pieceOptionsFor(spec.size, route, assignPool);
     if (!opts) continue;
     for (let k = 0; k < g.assignTries; k++) {
-      const pieces = assignPieces(cfg.size, opts, rnd, cfg.maxQueens);
+      const pieces = assignPieces(spec.size, opts, rnd, spec.maxQueens);
       if (!pieces) break;
-      const board = { size: cfg.size, difficulty: difficultyKey, pieces: pieces, route: route.slice() };
+      const board = { size: spec.size, difficulty: spec.difficulty, pieces: pieces,
+        route: route.slice(), visits: visits };
       if (validateBoard(board)) return board;
     }
   }
   return null;
+}
+
+function generateBoard(difficultyKey, rnd, limits) {
+  const cfg = CONFIG.difficulties[difficultyKey];
+  return generateSpecBoard({ size: cfg.size, pool: cfg.pool, maxQueens: cfg.maxQueens,
+    difficulty: difficultyKey, visits: 2 }, rnd, limits);
 }
 
 /* The eight symmetries of a square all preserve king, rook, bishop,
@@ -1426,6 +1662,17 @@ function fallbackBoard(difficultyKey, rnd) {
     route: raw.route.slice()
   };
   return transformBoard(board, Math.floor(rnd() * 8));
+}
+
+/* Open Your Forge: the item picks the board size, the forge difficulty picks
+   the symbols, and the material picks how many times every square must be
+   struck. All three are independent, which is the point. */
+function makeShopBoard(size, difficultyKey, visits, rnd, limits) {
+  const cfg = CONFIG.difficulties[difficultyKey] || CONFIG.difficulties.novice;
+  const spec = { size: size, pool: cfg.pool, maxQueens: cfg.maxQueens,
+    difficulty: difficultyKey, visits: visits };
+  const budget = Object.assign({ attempts: 24, timeBudgetMs: 1400 }, limits || {});
+  return generateSpecBoard(spec, rnd, budget);
 }
 
 /* Public entry point: always returns a verified board, never hangs. */
@@ -1761,16 +2008,27 @@ function createGame(board, options) {
     morphFixed: typeof opts.morphChance === 'number',
     morphPool: opts.morphPool ||
       (mode === 'endless' ? CONFIG.endless.pool.slice() : (cfg ? cfg.pool : ['K', 'R', 'B', 'N'])),
+    // Strikes to finish a square, and the strike that ruins it. The forge and
+    // endless take the standing rules; Open Your Forge sets them from the
+    // material being worked, which is the whole of what a material means.
+    perfect: opts.perfect || CONFIG.rules.perfect,
+    spent: opts.spent || (opts.perfect ? opts.perfect + 1 : CONFIG.rules.spent),
     rnd: opts.rnd || Math.random
   };
 }
 
 function isOver(game) { return game.status === 'complete' || game.status === 'lost'; }
+
+/* Strikes to finish a square, and the strike that ruins it. createGame always
+   sets both; read them through these so a game object assembled by hand still
+   answers with the standing forge rules instead of NaN. */
+function perfectOf(game) { return game.perfect || CONFIG.rules.perfect; }
+function spentOf(game) { return game.spent || CONFIG.rules.spent; }
 function isEndless(game) { return game.mode === 'endless'; }
 
 /* forge only: a square that has taken its spending strike is finished with. */
 function isSpent(game, idx) {
-  return !isEndless(game) && game.strikes[idx] >= CONFIG.rules.spent;
+  return !isEndless(game) && game.strikes[idx] >= spentOf(game);
 }
 /* endless only: a square already struck this round is closed until the next. */
 function isHit(game, idx) { return game.strikes[idx] > 0; }
@@ -1907,13 +2165,13 @@ function strikeForge(game, idx) {
     morphed = reshape(game, idx);
   }
 
-  const complete = game.strikes.every(function (st) { return st >= CONFIG.rules.perfect; });
+  const complete = game.strikes.every(function (st) { return st >= perfectOf(game); });
   if (complete) game.status = 'complete';
   else if (legalTargets(game).length === 0) game.status = 'lost';
 
   return {
     index: idx, count: count, morphed: morphed, blanked: blanked,
-    spent: count >= CONFIG.rules.spent, cleared: false,
+    spent: count >= spentOf(game), cleared: false,
     complete: complete, lost: game.status === 'lost', points: 0
   };
 }
@@ -1930,11 +2188,12 @@ function gameStats(game) {
       overstrikes: 0, forged: hits, perfect: hits, spent: 0 };
   }
   let over = 0, forged = 0, perfect = 0, spent = 0;
+  const need = perfectOf(game), ruin = spentOf(game);
   for (const st of game.strikes) {
-    if (st > CONFIG.rules.perfect) over += st - CONFIG.rules.perfect;
-    if (st >= CONFIG.rules.perfect) forged++;
-    if (st === CONFIG.rules.perfect) perfect++;
-    if (st >= CONFIG.rules.spent) spent++;
+    if (st > need) over += st - need;
+    if (st >= need) forged++;
+    if (st === need) perfect++;
+    if (st >= ruin) spent++;
   }
   return { squares: n, hits: forged, total: game.totalStrikes, overstrikes: over,
     forged: forged, perfect: perfect, spent: spent, score: 0,
@@ -2576,17 +2835,866 @@ function versusChooseUpgrade(match, who) {
   return best;
 }
 
+
+/* ---------- Open Your Forge: shop data ---------------------------------
+   Everything the management mode knows about the world lives in this one
+   table: materials, goods, the people who walk through the door, the staff
+   you can hire, the premises you can move into and what you can bolt on to
+   them. Adding an item, a customer type, a role or a shop tier is a row
+   here and nothing else. The rules below read this table and never hardcode
+   a name, a price or a category. */
+const SHOP = {
+  phases: ['morning', 'afternoon', 'evening'],
+  phaseName: { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' },
+  weekLength: 7,               // rent falls due at the end of every 7th day
+  startGold: 260,
+  startStock: { bronze: 10 },
+  reputationStart: 12,         // 0-100, shown as 1-5 stars: a new shop is a one-star shop
+
+  /* Material sets how many times every square must be struck, and a square
+     struck once past that is ruined. That is the whole of what a material
+     means to the puzzle; board size and symbol pool are separate. */
+  materials: [
+    { id: 'bronze',     name: 'Bronze',     strikes: 1, cost: 14,  value: 1.0 },
+    { id: 'silver',     name: 'Silver',     strikes: 2, cost: 34,  value: 2.3 },
+    { id: 'gold',       name: 'Gold',       strikes: 3, cost: 76,  value: 4.6 },
+    { id: 'mythril',    name: 'Mythril',    strikes: 4, cost: 150, value: 8.6 },
+    { id: 'adamantine', name: 'Adamantine', strikes: 5, cost: 330, value: 15.0 }
+  ],
+
+  categories: [
+    { id: 'swords',    name: 'Swords' },
+    { id: 'daggers',   name: 'Daggers' },
+    { id: 'spears',    name: 'Spears' },
+    { id: 'maces',     name: 'Maces' },
+    { id: 'helmets',   name: 'Helmets' },
+    { id: 'armor',     name: 'Armor' },
+    { id: 'boots',     name: 'Boots' },
+    { id: 'gauntlets', name: 'Gauntlets' },
+    { id: 'shields',   name: 'Shields' }
+  ],
+
+  /* size is the forge board this item is worked on, price its bronze market
+     value. Bigger, dearer goods are worked on bigger boards. */
+  items: [
+    { id: 'shortsword', name: 'Shortsword', cat: 'swords',    size: 3, price: 30 },
+    { id: 'longsword',  name: 'Longsword',  cat: 'swords',    size: 4, price: 52 },
+    { id: 'greatsword', name: 'Greatsword', cat: 'swords',    size: 5, price: 88 },
+    { id: 'dagger',     name: 'Dagger',     cat: 'daggers',   size: 3, price: 22 },
+    { id: 'stiletto',   name: 'Stiletto',   cat: 'daggers',   size: 4, price: 38 },
+    { id: 'spear',      name: 'Spear',      cat: 'spears',    size: 4, price: 44 },
+    { id: 'halberd',    name: 'Halberd',    cat: 'spears',    size: 5, price: 80 },
+    { id: 'mace',       name: 'Mace',       cat: 'maces',     size: 3, price: 34 },
+    { id: 'warhammer',  name: 'Warhammer',  cat: 'maces',     size: 5, price: 84 },
+    { id: 'cap',        name: 'Iron Cap',   cat: 'helmets',   size: 3, price: 28 },
+    { id: 'helm',       name: 'Great Helm', cat: 'helmets',   size: 4, price: 56 },
+    { id: 'chainmail',  name: 'Chainmail',  cat: 'armor',     size: 5, price: 96 },
+    { id: 'plate',      name: 'Plate Mail', cat: 'armor',     size: 6, price: 150 },
+    { id: 'boots',      name: 'Boots',      cat: 'boots',     size: 3, price: 26 },
+    { id: 'greaves',    name: 'Greaves',    cat: 'boots',     size: 4, price: 46 },
+    { id: 'gauntlets',  name: 'Gauntlets',  cat: 'gauntlets', size: 4, price: 48 },
+    { id: 'buckler',    name: 'Buckler',    cat: 'shields',   size: 3, price: 32 },
+    { id: 'kite',       name: 'Kite Shield', cat: 'shields',  size: 5, price: 78 }
+  ],
+
+  /* What is on the shelves decides who comes in: the weights below are read
+     both ways round. A shop full of swords, helms and shields draws knights
+     and soldiers; one full of daggers and boots draws scouts and rogues.
+     They are weights, never restrictions - anyone may buy anything. */
+  customers: [
+    { id: 'adventurer', name: 'Adventurer', budget: 1.05, haggle: 0.30,
+      likes: { swords: 3, daggers: 3, spears: 1, maces: 2, helmets: 2, armor: 2, boots: 3, gauntlets: 2, shields: 2 } },
+    { id: 'soldier', name: 'Soldier', budget: 0.95, haggle: 0.40,
+      likes: { swords: 3, daggers: 1, spears: 3, maces: 2, helmets: 3, armor: 3, boots: 1, gauntlets: 2, shields: 3 } },
+    { id: 'knight', name: 'Knight', budget: 1.45, haggle: 0.15,
+      likes: { swords: 3, daggers: 0, spears: 1, maces: 2, helmets: 3, armor: 3, boots: 1, gauntlets: 3, shields: 3 } },
+    { id: 'mercenary', name: 'Mercenary', budget: 1.10, haggle: 0.50,
+      likes: { swords: 3, daggers: 2, spears: 1, maces: 1, helmets: 2, armor: 2, boots: 1, gauntlets: 2, shields: 2 } },
+    { id: 'rogue', name: 'Rogue', budget: 0.85, haggle: 0.60,
+      likes: { swords: 1, daggers: 3, spears: 0, maces: 0, helmets: 0, armor: 0, boots: 2, gauntlets: 1, shields: 0 } },
+    { id: 'traveler', name: 'Traveler', budget: 0.75, haggle: 0.45,
+      likes: { swords: 1, daggers: 3, spears: 0, maces: 1, helmets: 1, armor: 0, boots: 3, gauntlets: 0, shields: 1 } },
+    { id: 'hunter', name: 'Hunter', budget: 0.90, haggle: 0.40,
+      likes: { swords: 1, daggers: 3, spears: 3, maces: 0, helmets: 1, armor: 0, boots: 3, gauntlets: 1, shields: 0 } },
+    { id: 'guard', name: 'Guard', budget: 0.95, haggle: 0.35,
+      likes: { swords: 2, daggers: 1, spears: 3, maces: 3, helmets: 3, armor: 2, boots: 1, gauntlets: 2, shields: 3 } },
+    { id: 'militia', name: 'Militia', budget: 0.70, haggle: 0.55,
+      likes: { swords: 1, daggers: 2, spears: 3, maces: 2, helmets: 2, armor: 1, boots: 1, gauntlets: 1, shields: 2 } },
+    { id: 'cleric', name: 'Cleric', budget: 1.00, haggle: 0.20,
+      likes: { swords: 0, daggers: 0, spears: 0, maces: 3, helmets: 1, armor: 1, boots: 1, gauntlets: 1, shields: 1 } },
+    { id: 'scout', name: 'Scout', budget: 0.80, haggle: 0.45,
+      likes: { swords: 1, daggers: 2, spears: 1, maces: 0, helmets: 1, armor: 0, boots: 3, gauntlets: 1, shields: 0 } }
+  ],
+
+  roles: [
+    { id: 'salesperson', name: 'Salesperson', phase: true,
+      blurb: 'Tends the store for one phase a day while you work elsewhere.' },
+    { id: 'apprentice', name: 'Apprentice', phase: false,
+      blurb: 'Works the anvil beside you: every batch you forge yourself comes out larger.' },
+    { id: 'runner', name: 'Runner', phase: true,
+      blurb: 'Fetches an order of ingots. The price they come back with is their own.' },
+    { id: 'smith', name: 'Smith', phase: true,
+      blurb: 'Fills a production order alone. You keep the phase; they keep the hammer.' },
+    { id: 'storehand', name: 'Store Hand', phase: true,
+      blurb: 'Moves finished goods out of storage and onto the shelves.' }
+  ],
+
+  /* power drives every rank-sensitive roll; weight is how often that rank
+     turns up among applicants, so S-rank staff are rare as well as dear. */
+  ranks: [
+    { id: 'E', power: 1, wage: 9,   weight: 32 },
+    { id: 'D', power: 2, wage: 18,  weight: 26 },
+    { id: 'C', power: 3, wage: 34,  weight: 20 },
+    { id: 'B', power: 4, wage: 60,  weight: 13 },
+    { id: 'A', power: 5, wage: 104, weight: 6 },
+    { id: 'S', power: 6, wage: 180, weight: 3 }
+  ],
+
+  tiers: [
+    { id: 1, name: 'Corner Forge',   rent: 220,  staff: 2, shelf: 14, storage: 45,  batch: 3,  cost: 0 },
+    { id: 2, name: 'Village Smithy', rent: 620,  staff: 4, shelf: 26, storage: 90,  batch: 5,  cost: 1800 },
+    { id: 3, name: 'Town Forge',     rent: 1500, staff: 6, shelf: 44, storage: 170, batch: 7,  cost: 6500 },
+    { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 9, shelf: 70, storage: 300, batch: 10, cost: 22000 }
+  ],
+
+  upgrades: [
+    { id: 'bellows',  name: 'Greater Bellows', max: 3, cost: [300, 820, 2100],
+      blurb: 'Every batch you forge yourself comes out one larger.' },
+    { id: 'displays', name: 'Display Cases',   max: 3, cost: [240, 640, 1600],
+      blurb: 'Eight more slots of shelf space each time.' },
+    { id: 'racks',    name: 'Storage Racks',   max: 3, cost: [190, 520, 1300],
+      blurb: 'Forty more pieces of storage each time.' },
+    { id: 'ledger',   name: "Haggler's Ledger", max: 3, cost: [320, 880, 2200],
+      blurb: 'Better odds whenever anyone in the shop haggles.' },
+    { id: 'signage',  name: 'Painted Signboard', max: 3, cost: [280, 760, 1900],
+      blurb: 'More passers-by stop in during a selling phase.' }
+  ],
+
+  firstNames: ['Mara', 'Tovin', 'Hal', 'Bryn', 'Silla', 'Garrek', 'Ondra', 'Pell', 'Rusk',
+    'Ivy', 'Dorn', 'Kesta', 'Wynn', 'Tarl', 'Odile', 'Brannoc', 'Sefa', 'Rille', 'Hob', 'Nera'],
+  lastNames: ['Ashford', 'Blackwell', 'Coalhand', 'Dunmore', 'Emberly', 'Fenwick', 'Grieve',
+    'Hollis', 'Ironwood', 'Kettle', 'Larkin', 'Marrow', 'Netherby', 'Quarrel', 'Rookwood', 'Stonely']
+};
+
+/* ---------- Open Your Forge: lookups and capacities -------------------- */
+function shopMaterial(id) { return SHOP.materials.find(function (m) { return m.id === id; }) || null; }
+function shopItem(id) { return SHOP.items.find(function (i) { return i.id === id; }) || null; }
+function shopCategory(id) { return SHOP.categories.find(function (c) { return c.id === id; }) || null; }
+function shopRole(id) { return SHOP.roles.find(function (r) { return r.id === id; }) || null; }
+function shopRank(id) { return SHOP.ranks.find(function (r) { return r.id === id; }) || null; }
+function shopCustomerType(id) { return SHOP.customers.find(function (c) { return c.id === id; }) || null; }
+function shopUpgradeDef(id) { return SHOP.upgrades.find(function (u) { return u.id === id; }) || null; }
+function shopTier(shop) { return SHOP.tiers[Math.min(shop.tier, SHOP.tiers.length) - 1]; }
+function shopNextTier(shop) { return SHOP.tiers[shop.tier] || null; }
+function shopUpgradeLevel(shop, id) { return shop.upgrades[id] || 0; }
+
+/* A stock line is one item worked in one material, which is the finest grain
+   anything in the shop is ever counted at. */
+function lineKey(itemId, materialId) { return itemId + '|' + materialId; }
+function splitKey(key) {
+  const parts = key.split('|');
+  return { item: parts[0], material: parts[1] };
+}
+function lineName(key) {
+  const p = splitKey(key), it = shopItem(p.item), mt = shopMaterial(p.material);
+  if (!it || !mt) return key;
+  return mt.name + ' ' + it.name;
+}
+
+function shelfCapacity(shop) {
+  return shopTier(shop).shelf + 8 * shopUpgradeLevel(shop, 'displays');
+}
+function storageCapacity(shop) {
+  return shopTier(shop).storage + 40 * shopUpgradeLevel(shop, 'racks');
+}
+function staffCapacity(shop) { return shopTier(shop).staff; }
+
+/* The largest batch a single puzzle can produce: the premises, the bellows,
+   and whichever apprentice is standing at the anvil with you. */
+function batchCapacity(shop) {
+  return shopTier(shop).batch + shopUpgradeLevel(shop, 'bellows') + apprenticeBonus(shop);
+}
+function apprenticeBonus(shop) {
+  let best = 0;
+  for (const e of shop.staff) {
+    if (e.role !== 'apprentice') continue;
+    best = Math.max(best, Math.ceil(shopRank(e.rank).power / 2));
+  }
+  return best;
+}
+/* 0-1ish. Everyone in the shop haggles off the same skill, raised by the
+   ledger; an employee's own rank is added on top when they are the one at
+   the counter. */
+function haggleSkill(shop) { return 0.10 * shopUpgradeLevel(shop, 'ledger'); }
+
+function countShelf(shop) {
+  let n = 0;
+  for (const key in shop.shelf) n += shop.shelf[key].qty;
+  return n;
+}
+function countStorage(shop) {
+  let n = 0;
+  for (const key in shop.storage) n += shop.storage[key].qty;
+  return n;
+}
+
+/* ---------- reputation and stars --------------------------------------
+   Reputation is a 0-100 running figure so it can be nudged from many places
+   later - quality, satisfaction, filled orders - while the only thing the
+   shop reads today is how many customers a selling phase draws. */
+function shopStars(shop) {
+  return Math.max(1, Math.min(5, 1 + Math.floor(shop.reputation / 20)));
+}
+function shopStarFraction(shop) { return Math.max(0, Math.min(100, shop.reputation)) / 100; }
+function nudgeReputation(shop, delta) {
+  shop.reputation = Math.max(0, Math.min(100, shop.reputation + delta));
+}
+
+/* ---------- prices -----------------------------------------------------
+   An item's market value is its bronze price scaled by the material, then by
+   how well it was actually forged. Quality is the forge puzzle's own score,
+   so a careless batch is worth visibly less than a masterwork. */
+function qualityFactor(quality) {
+  const q = typeof quality === 'number' ? quality : 100;
+  return 0.55 + 0.45 * (Math.max(0, Math.min(100, q)) / 100);
+}
+function recommendedPrice(itemId, materialId, quality) {
+  const it = shopItem(itemId), mt = shopMaterial(materialId);
+  if (!it || !mt) return 0;
+  return Math.max(1, Math.round(it.price * mt.value * qualityFactor(quality)));
+}
+function ingotPrice(shop, materialId) {
+  const mt = shopMaterial(materialId);
+  return mt ? mt.cost : 0;
+}
+
+/* How willing a customer is to consider a price, as a multiplier on their
+   interest. At the recommended price this is 1; above it the appeal falls
+   away fast but never reaches zero, so an overpriced item is hard to shift
+   rather than permanently unsellable. */
+function priceAppeal(price, recommended) {
+  if (recommended <= 0) return 0;
+  const ratio = price / recommended;
+  if (ratio <= 1) return 1 + (1 - ratio) * 0.6;       // a bargain draws extra interest
+  return Math.pow(0.5, (ratio - 1) * 3.2);
+}
+
+/* ---------- the shop ---------------------------------------------------- */
+function createShop(opts) {
+  const o = opts || {};
+  const shop = {
+    day: 1,
+    phaseIndex: 0,
+    gold: typeof o.gold === 'number' ? o.gold : SHOP.startGold,
+    reputation: SHOP.reputationStart,
+    tier: 1,
+    upgrades: {},
+    materials: {},
+    storage: {},          // key -> { qty, quality }
+    shelf: {},            // key -> { qty, quality, price }
+    staff: [],
+    orders: [],           // batches in production, delivered next day
+    applicants: [],
+    log: [],              // reports, newest first
+    assignments: {},      // employeeId -> { phase, job }
+    difficulty: o.difficulty || 'novice',
+    rentPaid: 0,
+    closed: false,        // true once the shop has gone under
+    nextId: 1,
+    rnd: o.rnd || Math.random
+  };
+  for (const m of SHOP.materials) shop.materials[m.id] = 0;
+  const start = o.stock || SHOP.startStock;
+  for (const id in start) shop.materials[id] = start[id];
+  return shop;
+}
+
+function shopPhase(shop) { return SHOP.phases[shop.phaseIndex]; }
+function shopPhaseName(shop) { return SHOP.phaseName[shopPhase(shop)]; }
+function daysToRent(shop) {
+  const into = ((shop.day - 1) % SHOP.weekLength) + 1;
+  return SHOP.weekLength - into + 1;
+}
+function rentDue(shop) { return shopTier(shop).rent; }
+function wageBill(shop) {
+  let total = 0;
+  for (const e of shop.staff) total += e.wage;
+  return total;
+}
+function weeklyBill(shop) { return rentDue(shop) + wageBill(shop); }
+
+function shopLog(shop, report) {
+  report.day = shop.day;
+  report.phase = shopPhase(shop);
+  shop.log.unshift(report);
+  if (shop.log.length > 40) shop.log.length = 40;
+  return report;
+}
+
+/* ---------- inventory movement ------------------------------------------
+   Finished goods land in storage and stay there until somebody carries them
+   out to the shelves. Nothing ever skips that step. */
+function addStorage(shop, key, qty, quality) {
+  const room = storageCapacity(shop) - countStorage(shop);
+  const taken = Math.max(0, Math.min(qty, room));
+  if (taken > 0) {
+    const lot = shop.storage[key];
+    if (lot) {
+      // storage holds a blended lot, so quality averages by the piece
+      lot.quality = (lot.quality * lot.qty + quality * taken) / (lot.qty + taken);
+      lot.qty += taken;
+    } else {
+      shop.storage[key] = { qty: taken, quality: quality };
+    }
+  }
+  return { stored: taken, lost: qty - taken };
+}
+
+function shopMoveToShelf(shop, key, qty) {
+  const lot = shop.storage[key];
+  if (!lot || qty <= 0) return { moved: 0, why: 'nothing in storage' };
+  const room = shelfCapacity(shop) - countShelf(shop);
+  if (room <= 0) return { moved: 0, why: 'the shelves are full' };
+  const moved = Math.min(qty, lot.qty, room);
+  const line = shop.shelf[key];
+  if (line) {
+    line.quality = (line.quality * line.qty + lot.quality * moved) / (line.qty + moved);
+    line.qty += moved;
+  } else {
+    shop.shelf[key] = { qty: moved, quality: lot.quality,
+      price: recommendedPrice(splitKey(key).item, splitKey(key).material, lot.quality) };
+  }
+  lot.qty -= moved;
+  if (lot.qty <= 0) delete shop.storage[key];
+  return { moved: moved, why: null };
+}
+
+function shopPullFromShelf(shop, key, qty) {
+  const line = shop.shelf[key];
+  if (!line || qty <= 0) return { moved: 0 };
+  const moved = Math.min(qty, line.qty);
+  line.qty -= moved;
+  const price = line.price;
+  if (line.qty <= 0) delete shop.shelf[key];
+  addStorage(shop, key, moved, line.quality);
+  return { moved: moved, price: price };
+}
+
+function shopSetPrice(shop, key, price) {
+  const line = shop.shelf[key];
+  if (!line) return false;
+  line.price = Math.max(1, Math.round(price));
+  return true;
+}
+
+/* ---------- buying materials -------------------------------------------- */
+function purchaseCost(shop, order) {
+  let total = 0;
+  for (const id in order) total += ingotPrice(shop, id) * Math.max(0, order[id] | 0);
+  return total;
+}
+function shopBuyMaterials(shop, order, priceScale) {
+  const scale = typeof priceScale === 'number' ? priceScale : 1;
+  let total = 0, count = 0;
+  for (const id in order) {
+    const qty = Math.max(0, order[id] | 0);
+    if (!qty || !shopMaterial(id)) continue;
+    total += Math.round(ingotPrice(shop, id) * qty * scale);
+    count += qty;
+  }
+  if (count === 0) return { ok: false, why: 'nothing ordered' };
+  if (total > shop.gold) return { ok: false, why: 'not enough gold' };
+  shop.gold -= total;
+  for (const id in order) {
+    const qty = Math.max(0, order[id] | 0);
+    if (qty && shopMaterial(id)) shop.materials[id] += qty;
+  }
+  return { ok: true, spent: total, ingots: count };
+}
+
+/* ---------- forging ------------------------------------------------------
+   One puzzle is one batch, however many pieces the batch holds. The player
+   never repeats a board to make a second identical sword. */
+function forgeCheck(shop, itemId, materialId, qty) {
+  const it = shopItem(itemId), mt = shopMaterial(materialId);
+  if (!it || !mt) return { ok: false, why: 'unknown order' };
+  const max = batchCapacity(shop);
+  if (!(qty >= 1 && qty <= max)) return { ok: false, why: 'batch of 1 to ' + max };
+  if (shop.materials[materialId] < qty) {
+    return { ok: false, why: 'needs ' + qty + ' ' + mt.name + ' ingots' };
+  }
+  return { ok: true, item: it, material: mt, qty: qty, max: max };
+}
+
+/* The board an order is worked on: the item chooses its size, the shop's
+   forge difficulty chooses the symbols, and the material chooses how many
+   times each square must be struck. */
+function forgeBoardSpec(shop, itemId, materialId) {
+  const it = shopItem(itemId), mt = shopMaterial(materialId);
+  if (!it || !mt) return null;
+  return { size: it.size, difficulty: shop.difficulty, visits: mt.strikes,
+    perfect: mt.strikes, spent: mt.strikes + 1 };
+}
+
+/* Materials are spent only when the puzzle is actually won; a ruined board
+   costs the phase, not the metal. The batch is delivered the following day. */
+function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
+  const check = forgeCheck(shop, itemId, materialId, qty);
+  if (!check.ok) return { ok: false, why: check.why };
+  shop.materials[materialId] -= qty;
+  const order = {
+    id: shop.nextId++, key: lineKey(itemId, materialId), item: itemId, material: materialId,
+    qty: qty, quality: quality, maker: maker || 'you', dueDay: shop.day + 1
+  };
+  shop.orders.push(order);
+  return { ok: true, order: order };
+}
+
+/* ---------- the counter --------------------------------------------------
+   One model serves both sellers. The player steps through the queue and
+   answers each haggle; an employee runs the same queue with their own rank
+   standing in for the player's judgement. Nothing diverges between them but
+   who answers. */
+function trafficFor(shop) {
+  const stars = shopStars(shop);
+  const base = 2 + stars * 1.6 + 1.1 * shopUpgradeLevel(shop, 'signage');
+  const stocked = countShelf(shop);
+  if (stocked === 0) return 0;
+  // a bare shelf turns people away before they are even counted
+  const fill = Math.min(1, 0.35 + stocked / Math.max(1, shelfCapacity(shop)));
+  return Math.max(1, Math.round(base * fill));
+}
+
+/* Who walks in is decided by what is on the shelves: each stocked category
+   pulls on every customer type by that type's own weighting. A shop is never
+   asked to declare a specialism - it simply acquires one. */
+function customerWeights(shop) {
+  const weights = {};
+  for (const c of SHOP.customers) weights[c.id] = 0.4;      // the passing trade
+  for (const key in shop.shelf) {
+    const line = shop.shelf[key];
+    const it = shopItem(splitKey(key).item);
+    if (!it) continue;
+    for (const c of SHOP.customers) weights[c.id] += (c.likes[it.cat] || 0) * line.qty;
+  }
+  return weights;
+}
+
+function pickWeighted(entries, rnd) {
+  let total = 0;
+  for (const e of entries) total += e.weight;
+  if (total <= 0) return null;
+  let roll = rnd() * total;
+  for (const e of entries) { roll -= e.weight; if (roll <= 0) return e.value; }
+  return entries[entries.length - 1].value;
+}
+
+function openCounter(shop, seller) {
+  const count = trafficFor(shop);
+  const weights = customerWeights(shop);
+  const entries = SHOP.customers.map(function (c) { return { value: c.id, weight: weights[c.id] }; });
+  const queue = [];
+  for (let i = 0; i < count; i++) {
+    const typeId = pickWeighted(entries, shop.rnd);
+    if (typeId) queue.push(typeId);
+  }
+  return {
+    seller: seller || { kind: 'player', power: 0, name: 'You' },
+    queue: queue, at: 0, pending: null,
+    report: { customers: queue.length, sold: 0, revenue: 0, haggles: 0, won: 0, left: 0, lines: {} }
+  };
+}
+
+/* What this customer wants off the shelf, if anything appeals enough. */
+function chooseGoods(shop, typeId) {
+  const type = shopCustomerType(typeId);
+  if (!type) return null;
+  const entries = [];
+  for (const key in shop.shelf) {
+    const line = shop.shelf[key];
+    if (line.qty <= 0) continue;
+    const parts = splitKey(key), it = shopItem(parts.item);
+    if (!it) continue;
+    const taste = (type.likes[it.cat] || 0) + 0.35;        // never a hard refusal
+    const rec = recommendedPrice(parts.item, parts.material, line.quality);
+    const weight = taste * priceAppeal(line.price, rec);
+    if (weight > 0) entries.push({ value: key, weight: weight });
+  }
+  return pickWeighted(entries, shop.rnd);
+}
+
+/* Step to the next customer. Returns an event the caller either records or,
+   for an offer, has to answer. */
+function counterNext(session, shop) {
+  if (session.pending) return session.pending;
+  if (session.at >= session.queue.length) return null;
+  const typeId = session.queue[session.at++];
+  const type = shopCustomerType(typeId);
+  const key = chooseGoods(shop, typeId);
+  if (!key) {
+    session.report.left++;
+    nudgeReputation(shop, -0.06);
+    return { kind: 'leave', type: typeId, name: type.name, why: 'saw nothing they wanted' };
+  }
+  const line = shop.shelf[key];
+  const parts = splitKey(key);
+  const rec = recommendedPrice(parts.item, parts.material, line.quality);
+  const spread = 0.82 + shop.rnd() * 0.5;                  // what this one will bear
+  const budget = Math.round(rec * type.budget * spread);
+
+  if (line.price <= budget) {
+    return settleSale(session, shop, key, line.price, typeId, 'paid');
+  }
+  // Too dear for them. Close enough and they will try their luck.
+  const gap = line.price / Math.max(1, budget);
+  if (gap > 1.7 || shop.rnd() > type.haggle + 0.30) {
+    session.report.left++;
+    nudgeReputation(shop, -0.12);
+    return { kind: 'leave', type: typeId, name: type.name, why: 'baulked at the price',
+      key: key, price: line.price };
+  }
+  const offer = Math.max(1, Math.round(Math.min(budget, line.price * (0.72 + shop.rnd() * 0.16))));
+  session.report.haggles++;
+  session.pending = { kind: 'offer', type: typeId, name: type.name, key: key,
+    price: line.price, offer: offer, budget: budget, recommended: rec };
+  return session.pending;
+}
+
+function settleSale(session, shop, key, price, typeId, how) {
+  const line = shop.shelf[key];
+  line.qty -= 1;
+  const rec = recommendedPrice(splitKey(key).item, splitKey(key).material, line.quality);
+  if (line.qty <= 0) delete shop.shelf[key];
+  shop.gold += price;
+  session.report.sold++;
+  session.report.revenue += price;
+  session.report.lines[key] = (session.report.lines[key] || 0) + 1;
+  // a fair price on good work is what builds a name
+  nudgeReputation(shop, 0.18 + (price <= rec ? 0.09 : 0) + (line.quality >= 90 ? 0.07 : 0));
+  return { kind: 'sale', type: typeId, name: shopCustomerType(typeId).name,
+    key: key, price: price, how: how };
+}
+
+/* Answer a haggle. 'accept' takes the offer, 'reject' sends them away, and
+   'haggle' tries for a price between the two. */
+function counterRespond(session, shop, choice) {
+  const p = session.pending;
+  if (!p) return null;
+  session.pending = null;
+  const type = shopCustomerType(p.type);
+  if (choice === 'accept') {
+    session.report.won++;
+    return settleSale(session, shop, p.key, p.offer, p.type, 'haggled');
+  }
+  if (choice === 'reject') {
+    // some will pay up rather than walk, most will not
+    if (shop.rnd() < 0.18) return settleSale(session, shop, p.key, p.price, p.type, 'paid');
+    session.report.left++;
+    nudgeReputation(shop, -0.1);
+    return { kind: 'leave', type: p.type, name: p.name, why: 'turned down flat' };
+  }
+  const skill = 0.42 + haggleSkill(shop) + 0.06 * (session.seller.power || 0) - type.haggle * 0.25;
+  if (shop.rnd() < Math.max(0.08, Math.min(0.94, skill))) {
+    const met = Math.round((p.offer + p.price) / 2);
+    session.report.won++;
+    return settleSale(session, shop, p.key, met, p.type, 'met in the middle');
+  }
+  if (shop.rnd() < 0.42) {
+    session.report.won++;
+    return settleSale(session, shop, p.key, p.offer, p.type, 'held their price');
+  }
+  session.report.left++;
+  nudgeReputation(shop, -0.14);
+  return { kind: 'leave', type: p.type, name: p.name, why: 'walked out mid-haggle' };
+}
+
+/* An employee works the same queue, answering their own haggles. A better
+   salesperson knows when to take the offer and when to push. */
+function autoRespond(session, shop) {
+  const p = session.pending;
+  const power = session.seller.power || 0;
+  const margin = p.offer / Math.max(1, p.recommended);
+  if (margin >= 0.95) return 'accept';                 // a good offer is a good offer
+  if (margin < 0.62 && power >= 3) return 'reject';    // too cheap to bother with
+  return shop.rnd() < 0.3 + 0.1 * power ? 'haggle' : 'accept';
+}
+
+function runCounter(shop, seller) {
+  const session = openCounter(shop, seller);
+  let guard = 0;
+  while (guard++ < 400) {
+    const event = counterNext(session, shop);
+    if (!event) break;
+    if (event.kind === 'offer') counterRespond(session, shop, autoRespond(session, shop));
+  }
+  return session.report;
+}
+
+/* ---------- employees ----------------------------------------------------
+   Staff are not a shelf of percentages. Their point is that they take a job
+   off your hands so your three phases go further: the shop does more in a
+   day because more hands are working it, not because a number went up. */
+function rollRank(shop, floor) {
+  const entries = SHOP.ranks
+    .filter(function (r) { return r.power >= (floor || 1); })
+    .map(function (r) { return { value: r.id, weight: r.weight }; });
+  return pickWeighted(entries, shop.rnd) || 'E';
+}
+
+function makeApplicant(shop, roleId, rankId) {
+  const role = shopRole(roleId) || SHOP.roles[Math.floor(shop.rnd() * SHOP.roles.length)];
+  const rank = shopRank(rankId) || shopRank(rollRank(shop));
+  const first = SHOP.firstNames[Math.floor(shop.rnd() * SHOP.firstNames.length)];
+  const last = SHOP.lastNames[Math.floor(shop.rnd() * SHOP.lastNames.length)];
+  // a little scatter so two C-rank runners are not the same hire
+  const wage = Math.max(1, Math.round(rank.wage * (0.88 + shop.rnd() * 0.24)));
+  return { id: shop.nextId++, name: first + ' ' + last, role: role.id,
+    rank: rank.id, power: rank.power, wage: wage };
+}
+
+/* A better-known shop is worth applying to, so its pool starts higher up. */
+function shopSearchStaff(shop, count) {
+  const n = count || 3;
+  const floor = shopStars(shop) >= 4 ? 2 : 1;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const role = SHOP.roles[Math.floor(shop.rnd() * SHOP.roles.length)];
+    out.push(makeApplicant(shop, role.id, rollRank(shop, floor)));
+  }
+  shop.applicants = out;
+  return out;
+}
+
+function shopHire(shop, applicantId) {
+  const idx = shop.applicants.findIndex(function (a) { return a.id === applicantId; });
+  if (idx < 0) return { ok: false, why: 'no such applicant' };
+  if (shop.staff.length >= staffCapacity(shop)) {
+    return { ok: false, why: 'no room for more staff at this shop' };
+  }
+  const hired = shop.applicants.splice(idx, 1)[0];
+  shop.staff.push(hired);
+  return { ok: true, staff: hired };
+}
+
+function shopFire(shop, staffId) {
+  const idx = shop.staff.findIndex(function (e) { return e.id === staffId; });
+  if (idx < 0) return { ok: false, why: 'not on the books' };
+  const gone = shop.staff.splice(idx, 1)[0];
+  delete shop.assignments[gone.id];
+  return { ok: true, staff: gone };
+}
+
+function staffById(shop, id) { return shop.staff.find(function (e) { return e.id === id; }) || null; }
+function staffOfRole(shop, roleId) { return shop.staff.filter(function (e) { return e.role === roleId; }); }
+
+/* Assign a job to this phase. A salesperson may only work one phase a day,
+   which is why an all-day shop takes more than one of them. */
+function shopAssign(shop, staffId, job) {
+  const e = staffById(shop, staffId);
+  if (!e) return { ok: false, why: 'not on the books' };
+  const role = shopRole(e.role);
+  if (!role.phase) return { ok: false, why: role.name + ' works alongside you, not on their own' };
+  const already = shop.assignments[e.id];
+  if (already && already.day === shop.day) {
+    return { ok: false, why: e.name + ' has already worked today' };
+  }
+  shop.assignments[e.id] = { day: shop.day, phase: shopPhase(shop), job: job || {} };
+  return { ok: true };
+}
+function shopUnassign(shop, staffId) { delete shop.assignments[staffId]; return { ok: true }; }
+function assignmentFor(shop, staffId) {
+  const a = shop.assignments[staffId];
+  return a && a.day === shop.day && a.phase === shopPhase(shop) ? a : null;
+}
+function assignedThisDay(shop, staffId) {
+  const a = shop.assignments[staffId];
+  return a && a.day === shop.day ? a : null;
+}
+
+/* ---------- what each role actually does -------------------------------- */
+
+/* A runner's price is their own. Rank tilts the odds towards a bargain, but
+   nobody is guaranteed one - that uncertainty is the cost of the phase you
+   saved. */
+function runnerScale(shop, power) {
+  const swing = 0.22 - 0.025 * power;                 // worse runners, wilder prices
+  const bias = 0.035 * power - 0.06;                  // better runners, better deals
+  return Math.max(0.6, 1 - bias + (shop.rnd() * 2 - 1) * swing);
+}
+
+function runRunner(shop, employee, order) {
+  const expected = purchaseCost(shop, order);
+  if (expected <= 0) return { ok: false, why: 'no order given' };
+  const scale = runnerScale(shop, employee.power);
+  const result = shopBuyMaterials(shop, order, scale);
+  if (!result.ok) return { ok: false, why: result.why, expected: expected };
+  return { ok: true, kind: 'runner', who: employee.name, rank: employee.rank,
+    order: Object.assign({}, order), expected: expected, actual: result.spent,
+    diff: result.spent - expected, ingots: result.ingots };
+}
+
+/* A smith fills an order without the player touching the puzzle. They are
+   reliable in proportion to their rank and never quite match a good run at
+   the anvil, which is the trade: a phase saved for a result you did not choose. */
+function smithQuality(shop, power) {
+  const base = 34 + power * 9;                        // E lands near 43, S near 88
+  const roll = base + (shop.rnd() * 2 - 1) * (26 - power * 2.5);
+  return Math.max(0, Math.min(100, Math.round(roll)));
+}
+function runSmith(shop, employee, order) {
+  const check = forgeCheck(shop, order.item, order.material, order.qty);
+  if (!check.ok) return { ok: false, why: check.why };
+  // a weak smith sometimes spoils part of the batch outright
+  const spoilOdds = Math.max(0, 0.30 - 0.05 * employee.power);
+  let made = order.qty;
+  if (shop.rnd() < spoilOdds) made = Math.max(1, made - 1 - Math.floor(shop.rnd() * 2));
+  const quality = smithQuality(shop, employee.power);
+  shop.materials[order.material] -= order.qty;        // the metal is spent either way
+  const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
+    item: order.item, material: order.material, qty: made, quality: quality,
+    maker: employee.name, dueDay: shop.day + 1 };
+  shop.orders.push(batch);
+  return { ok: true, kind: 'smith', who: employee.name, rank: employee.rank,
+    item: order.item, material: order.material, ordered: order.qty, made: made,
+    quality: quality, spoiled: order.qty - made };
+}
+
+/* A store hand carries out whatever the player told them to prioritise, then
+   fills any space left with whatever else is waiting. */
+function runStoreHand(shop, employee, order) {
+  const want = (order && order.keys) || [];
+  const capacity = 4 + employee.power * 2;
+  let moved = 0;
+  const lines = {};
+  const carry = function (key) {
+    if (moved >= capacity) return;
+    const res = shopMoveToShelf(shop, key, capacity - moved);
+    if (res.moved > 0) { moved += res.moved; lines[key] = (lines[key] || 0) + res.moved; }
+  };
+  for (const key of want) carry(key);
+  for (const key in shop.storage) carry(key);
+  return { ok: true, kind: 'storehand', who: employee.name, rank: employee.rank,
+    moved: moved, lines: lines, capacity: capacity };
+}
+
+function runSalesperson(shop, employee) {
+  const report = runCounter(shop, { kind: 'staff', power: employee.power, name: employee.name });
+  report.kind = 'sales';
+  report.who = employee.name;
+  report.rank = employee.rank;
+  return Object.assign({ ok: true }, report);
+}
+
+/* Run everybody assigned to the phase that is closing. */
+function runAssignments(shop) {
+  const reports = [];
+  for (const e of shop.staff) {
+    const a = assignmentFor(shop, e.id);
+    if (!a || a.done) continue;
+    a.done = true;
+    let report = null;
+    if (e.role === 'salesperson') report = runSalesperson(shop, e);
+    else if (e.role === 'runner') report = runRunner(shop, e, a.job.order || {});
+    else if (e.role === 'smith') report = runSmith(shop, e, a.job.order || {});
+    else if (e.role === 'storehand') report = runStoreHand(shop, e, a.job.order || {});
+    if (report) reports.push(shopLog(shop, report));
+  }
+  return reports;
+}
+
+/* ---------- the day ------------------------------------------------------
+   Three phases, never more. Growth shows up as more work done inside them. */
+function shopAdvancePhase(shop) {
+  if (shop.closed) return { ok: false, why: 'the shop has closed' };
+  const reports = runAssignments(shop);
+  if (shop.phaseIndex < SHOP.phases.length - 1) {
+    shop.phaseIndex++;
+    return { ok: true, reports: reports, newDay: false };
+  }
+  return Object.assign({ ok: true, reports: reports }, shopEndDay(shop));
+}
+
+function shopEndDay(shop) {
+  const delivered = [];
+  shop.day += 1;
+  shop.phaseIndex = 0;
+
+  // yesterday's production comes off the anvil and into storage
+  const still = [];
+  for (const order of shop.orders) {
+    if (order.dueDay <= shop.day) {
+      const res = addStorage(shop, order.key, order.qty, order.quality);
+      delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
+        quality: order.quality, maker: order.maker });
+    } else still.push(order);
+  }
+  shop.orders = still;
+
+  let bill = null;
+  if ((shop.day - 1) % SHOP.weekLength === 0) bill = payWeek(shop);
+
+  const report = { kind: 'day', delivered: delivered, bill: bill, newDay: true, day: shop.day };
+  if (delivered.length || bill) shopLog(shop, report);
+  return report;
+}
+
+/* Rent and wages together. Falling short does not end the week quietly:
+   the shop closes, which is the pressure the whole mode turns on. */
+function payWeek(shop) {
+  const rent = rentDue(shop), wages = wageBill(shop);
+  const total = rent + wages;
+  const bill = { rent: rent, wages: wages, total: total, gold: shop.gold, paid: false };
+  if (shop.gold >= total) {
+    shop.gold -= total;
+    shop.rentPaid += 1;
+    bill.paid = true;
+    nudgeReputation(shop, 1.0);
+  } else {
+    shop.closed = true;
+    bill.short = total - shop.gold;
+  }
+  return bill;
+}
+
+/* ---------- growth -------------------------------------------------------- */
+function shopUpgradeCost(shop, id) {
+  const def = shopUpgradeDef(id);
+  if (!def) return null;
+  const level = shopUpgradeLevel(shop, id);
+  return level >= def.max ? null : def.cost[level];
+}
+function shopBuyUpgrade(shop, id) {
+  const cost = shopUpgradeCost(shop, id);
+  if (cost === null) return { ok: false, why: 'nothing left to buy there' };
+  if (shop.gold < cost) return { ok: false, why: 'not enough gold' };
+  shop.gold -= cost;
+  shop.upgrades[id] = shopUpgradeLevel(shop, id) + 1;
+  return { ok: true, level: shop.upgrades[id], spent: cost };
+}
+/* Bigger premises earn more and cost more every week. That is the trade. */
+function shopExpand(shop) {
+  const next = shopNextTier(shop);
+  if (!next) return { ok: false, why: 'this is the largest forge there is' };
+  if (shop.gold < next.cost) return { ok: false, why: 'not enough gold' };
+  shop.gold -= next.cost;
+  shop.tier += 1;
+  nudgeReputation(shop, 3);
+  return { ok: true, tier: next };
+}
+
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
   mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
   assignPieces: assignPieces, isStronglyConnected: isStronglyConnected, validateBoard: validateBoard,
   generateBoard: generateBoard, transformBoard: transformBoard, fallbackBoard: fallbackBoard,
   makeBoard: makeBoard, FALLBACK_BOARDS: FALLBACK_BOARDS,
+  generateSpecBoard: generateSpecBoard, makeShopBoard: makeShopBoard,
   buildTour: buildTour, piecesForTour: piecesForTour, validateTour: validateTour,
   generateTourBoard: generateTourBoard, makeEndlessBoard: makeEndlessBoard,
   endlessFallbackBoard: endlessFallbackBoard, ENDLESS_FALLBACKS: ENDLESS_FALLBACKS,
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
   isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
+  perfectOf: perfectOf, spentOf: spentOf,
   materialFor: materialFor, romanFor: romanFor, beginRound: beginRound, roundTier: roundTier,
   SQ_INTACT: SQ_INTACT, SQ_CRACKED: SQ_CRACKED, SQ_ARMED: SQ_ARMED, SQ_BROKEN: SQ_BROKEN, SQ_WORDS: SQ_WORDS,
   makeVersusBoards: makeVersusBoards, versusBag: versusBag, versusLayoutOk: versusLayoutOk,
@@ -2603,6 +3711,33 @@ const CHECKSMITH_CORE = {
   goldRateFor: goldRateFor, payoutFor: payoutFor, scoreMultiplier: scoreMultiplier,
   temperRelief: temperRelief,
   roundGold: roundGold, formatGold: formatGold, trimNumber: trimNumber,
+  // Open Your Forge
+  SHOP: SHOP, shopMaterial: shopMaterial, shopItem: shopItem, shopCategory: shopCategory,
+  shopRole: shopRole, shopRank: shopRank, shopCustomerType: shopCustomerType,
+  shopUpgradeDef: shopUpgradeDef, shopTier: shopTier, shopNextTier: shopNextTier,
+  shopUpgradeLevel: shopUpgradeLevel, lineKey: lineKey, splitKey: splitKey, lineName: lineName,
+  shelfCapacity: shelfCapacity, storageCapacity: storageCapacity, staffCapacity: staffCapacity,
+  batchCapacity: batchCapacity, apprenticeBonus: apprenticeBonus, haggleSkill: haggleSkill,
+  countShelf: countShelf, countStorage: countStorage,
+  shopStars: shopStars, shopStarFraction: shopStarFraction, nudgeReputation: nudgeReputation,
+  qualityFactor: qualityFactor, recommendedPrice: recommendedPrice, ingotPrice: ingotPrice,
+  priceAppeal: priceAppeal, createShop: createShop, shopPhase: shopPhase,
+  shopPhaseName: shopPhaseName, daysToRent: daysToRent, rentDue: rentDue, wageBill: wageBill,
+  weeklyBill: weeklyBill, shopLog: shopLog, addStorage: addStorage,
+  shopMoveToShelf: shopMoveToShelf, shopPullFromShelf: shopPullFromShelf, shopSetPrice: shopSetPrice,
+  purchaseCost: purchaseCost, shopBuyMaterials: shopBuyMaterials, forgeCheck: forgeCheck,
+  forgeBoardSpec: forgeBoardSpec, shopFinishForge: shopFinishForge, trafficFor: trafficFor,
+  customerWeights: customerWeights, pickWeighted: pickWeighted, openCounter: openCounter,
+  chooseGoods: chooseGoods, counterNext: counterNext, counterRespond: counterRespond,
+  autoRespond: autoRespond, runCounter: runCounter,
+  rollRank: rollRank, makeApplicant: makeApplicant, shopSearchStaff: shopSearchStaff,
+  shopHire: shopHire, shopFire: shopFire, staffById: staffById, staffOfRole: staffOfRole,
+  shopAssign: shopAssign, shopUnassign: shopUnassign, assignmentFor: assignmentFor,
+  assignedThisDay: assignedThisDay, runnerScale: runnerScale, runRunner: runRunner,
+  smithQuality: smithQuality, runSmith: runSmith, runStoreHand: runStoreHand,
+  runSalesperson: runSalesperson, runAssignments: runAssignments,
+  shopAdvancePhase: shopAdvancePhase, shopEndDay: shopEndDay, payWeek: payWeek,
+  shopUpgradeCost: shopUpgradeCost, shopBuyUpgrade: shopBuyUpgrade, shopExpand: shopExpand,
   gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
 };
 /* ==== CORE END ==== */
@@ -3015,7 +4150,7 @@ const Store = {
 
 const App = {
   difficulty: 'novice',
-  mode: 'forge',        // 'forge' | 'endless'
+  mode: 'forge',        // 'forge' | 'endless' | 'versus' | 'shop'
   game: null,
   roundTimer: null,     // pause between endless rounds
   lastLayout: '',       // previous round's symbols, so a board is not dealt twice running
@@ -3033,6 +4168,7 @@ const App = {
   vsSize: 4,            // versus board size, chosen apart from rival skill
   vsFoe: 'novice',      // versus rival skill
   versusRecord: {},     // versus wins/losses, kept per size and skill
+  shop: null,           // the live Open Your Forge business
   gold: 0,              // the purse, kept between runs
   upgrades: {},         // purchased upgrade levels, kept between runs
   lastFocus: null,
@@ -3078,11 +4214,14 @@ function buildTiles(size) {
   App.focusIndex = 0;
 }
 
-function startGame(board) {
+function startGame(board, extra) {
   cancelPending(false);
   const size = board.size;
   if (App.tiles.length !== size * size) buildTiles(size);
-  App.game = createGame(board, { mode: App.mode, upgrades: App.upgrades });
+  // Open Your Forge works the ordinary forge board; only the material's
+  // strike thresholds ride along with it.
+  const mode = App.mode === 'shop' ? 'forge' : App.mode;
+  App.game = createGame(board, Object.assign({ mode: mode, upgrades: App.upgrades }, extra || {}));
   hide($('results'));
   render();
 }
@@ -3118,6 +4257,11 @@ function loadBoard(difficulty, done) {
 function restartBoard() {
   if (!App.game) return;
   if (App.mode === 'endless') { startRun(); return; }   // a run restarts whole
+  if (App.mode === 'shop') {
+    startGame(App.game.board, { perfect: App.game.perfect, spent: App.game.spent });
+    announce('Back on the anvil, all squares cold.');
+    return;
+  }
   startGame(App.game.board);
   announce('Back on the anvil. ' + CONFIG.difficulties[App.difficulty].label + ', all squares cold.');
 }
@@ -3152,7 +4296,7 @@ function render() {
     const piece = g.pieces[i];               // live symbol: reshaping changes it
     const isCurrent = i === g.current;
     const isLegal = !opening && legal.has(i) && !isCurrent;
-    const spent = !endless && strikes >= CONFIG.rules.spent;
+    const spent = !endless && strikes >= spentOf(g);
     const blank = piece === null || piece === undefined;
     const hit = endless && strikes > 0;
 
@@ -3441,6 +4585,11 @@ function endRun() {
 function finish() {
   const g = App.game;
   const result = scoreGame(g);
+  if (App.mode === 'shop') {
+    SOUNDS.complete(result.quality === 100);
+    shopForgeComplete(result);
+    return;
+  }
   const masterwork = result.quality === 100;
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
@@ -3459,6 +4608,7 @@ function finish() {
 /* Forge: no legal strike remains. */
 function stranded() {
   const g = App.game;
+  if (App.mode === 'shop') { SOUNDS.stranded(); shopForgeFailed(); return; }
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
     SOUNDS.stranded();
@@ -4002,6 +5152,1092 @@ function vsShowResult(m, rec) {
   show($('results'));
 }
 
+
+/* =================================================================
+   Open Your Forge - the management screen.
+
+   The mode owns its own view and its own dialogs, and borrows the
+   forge board whenever the player works an order at the anvil. It
+   never changes how Forge, Endless or Versus behave.
+   ================================================================= */
+const SHOPUI = {
+  tab: 'shelf',
+  session: null,      // a selling phase in progress at the counter
+  order: null,        // the batch being worked at the anvil
+  draft: {}           // scratch numbers for whichever dialog is open
+};
+
+function shop() { return App.shop; }
+function esc(text) {
+  return String(text).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function coin(n) { return Math.round(n).toLocaleString(); }
+
+/* ---------- the status bar ---------- */
+function shopRenderBar() {
+  const sh = shop();
+  $('shDay').textContent = sh.day;
+  $('shPhase').textContent = shopPhaseName(sh);
+  $('shGold').textContent = coin(sh.gold);
+
+  const days = daysToRent(sh);
+  const bill = weeklyBill(sh);
+  const rent = $('shRent');
+  rent.textContent = 'Rent + wages ' + coin(bill) + 'g due ' +
+    (days === 1 ? 'tonight' : 'in ' + days + ' days');
+  rent.className = 'shop-rent' + (days === 1 ? ' late' : days <= 2 ? ' due' : '');
+
+  const stars = shopStars(sh);
+  let art = '';
+  for (let i = 1; i <= 5; i++) {
+    art += i <= stars ? '<span>★</span>' : '<span class="off">★</span>';
+  }
+  $('shStars').innerHTML = art;
+  $('shStars').setAttribute('aria-label', stars + ' of 5 stars');
+}
+
+/* ---------- what the player may do this phase ---------- */
+const SHOP_ACTIONS = [
+  { id: 'forge', name: 'Forge', hint: 'Work a batch at the anvil.' },
+  { id: 'tend', name: 'Tend the Store', hint: 'Open up and serve whoever comes in.' },
+  { id: 'buy', name: 'Purchase Materials', hint: 'Walk to the market for ingots.' },
+  { id: 'stock', name: 'Stock Shelves', hint: 'Carry finished goods out to the shop floor.' },
+  { id: 'hire', name: 'Search for Employees', hint: 'Ask around for someone to take work on.' }
+];
+
+function shopActionState(id) {
+  const sh = shop();
+  if (id === 'forge') {
+    let any = false;
+    for (const m of SHOP.materials) if (sh.materials[m.id] > 0) any = true;
+    return any ? null : 'no ingots to work';
+  }
+  if (id === 'tend') return countShelf(sh) > 0 ? null : 'nothing on the shelves';
+  if (id === 'stock') return countStorage(sh) > 0 ? null : 'storage is empty';
+  return null;
+}
+
+function shopRenderActions() {
+  const host = $('shActions');
+  host.textContent = '';
+  for (const act of SHOP_ACTIONS) {
+    const why = shopActionState(act.id);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'act-btn' + (act.id === 'forge' ? ' primary' : '');
+    b.dataset.act = act.id;
+    b.disabled = !!why;
+    b.innerHTML = '<b>' + esc(act.name) + '</b><small>' + esc(why || act.hint) + '</small>';
+    host.appendChild(b);
+  }
+}
+
+/* Who else is working this phase, so the player can see their day is wider
+   than their own three actions. */
+function shopRenderCrew() {
+  const sh = shop();
+  const busy = [];
+  for (const e of sh.staff) {
+    const a = assignmentFor(sh, e.id);
+    if (a) busy.push(esc(e.name) + ' (' + esc(shopRole(e.role).name) + ')');
+  }
+  const free = sh.staff.filter(function (e) {
+    return shopRole(e.role).phase && !assignedThisDay(sh, e.id);
+  }).length;
+  let text = busy.length
+    ? 'Working this phase: <b>' + busy.join('</b>, <b>') + '</b>'
+    : (sh.staff.length ? 'Nobody is assigned this phase.' : '');
+  if (free > 0) text += (text ? ' · ' : '') + free + ' free to take a job today';
+  $('shCrew').innerHTML = text;
+}
+
+/* ---------- the tabbed panels ---------- */
+const SHOP_TABS = [
+  { id: 'shelf', name: 'Shop' },
+  { id: 'storage', name: 'Storage' },
+  { id: 'metal', name: 'Metal' },
+  { id: 'staff', name: 'Staff' },
+  { id: 'grow', name: 'Growth' }
+];
+
+function shopRenderTabs() {
+  const host = $('shTabs');
+  host.textContent = '';
+  for (const t of SHOP_TABS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shop-tab';
+    b.dataset.tab = t.id;
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', t.id === SHOPUI.tab ? 'true' : 'false');
+    b.textContent = t.name;
+    host.appendChild(b);
+  }
+}
+
+function rowHtml(name, sub, amount, button) {
+  return '<div class="shop-row">' +
+    '<span class="nm">' + name + '</span>' +
+    '<span class="amt">' + (amount || '') + '</span>' +
+    (button || '') +
+    (sub ? '<span class="sub">' + sub + '</span>' : '') +
+    '</div>';
+}
+
+function shopRenderPanel() {
+  const sh = shop();
+  const host = $('shPanel');
+  let html = '';
+
+  if (SHOPUI.tab === 'shelf') {
+    const keys = Object.keys(sh.shelf);
+    html += '<p class="shop-cap">Shelves ' + countShelf(sh) + ' / ' + shelfCapacity(sh) +
+      ' · tap a price to change it</p>';
+    if (!keys.length) {
+      html += '<p class="shop-empty">The shop floor is bare. Stock it from storage and customers will come.</p>';
+    } else {
+      html += '<div class="shop-list">';
+      for (const key of keys) {
+        const line = sh.shelf[key], p = splitKey(key);
+        const rec = recommendedPrice(p.item, p.material, line.quality);
+        const over = line.price > rec;
+        html += '<div class="shop-row">' +
+          '<span class="nm">' + esc(lineName(key)) + ' &times;' + line.qty + '</span>' +
+          '<button data-price="' + esc(key) + '">' + coin(line.price) + 'g</button>' +
+          '<span class="sub">Recommended ' + coin(rec) + 'g' +
+          (over ? ' · <span style="color:var(--ember)">asking ' +
+            Math.round((line.price / rec - 1) * 100) + '% over</span>' : '') +
+          ' · quality ' + Math.round(line.quality) + '</span>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+  } else if (SHOPUI.tab === 'storage') {
+    const keys = Object.keys(sh.storage);
+    html += '<p class="shop-cap">Storage ' + countStorage(sh) + ' / ' + storageCapacity(sh) + '</p>';
+    if (sh.orders.length) {
+      html += '<div class="shop-list">';
+      for (const o of sh.orders) {
+        html += rowHtml(esc(lineName(o.key)) + ' &times;' + o.qty,
+          'On the anvil · ready tomorrow · by ' + esc(o.maker),
+          'quality ' + Math.round(o.quality));
+      }
+      html += '</div>';
+    }
+    if (!keys.length) {
+      html += '<p class="shop-empty">Nothing finished is waiting. Forged batches land here the next day.</p>';
+    } else {
+      html += '<div class="shop-list">';
+      for (const key of keys) {
+        const lot = sh.storage[key];
+        html += rowHtml(esc(lineName(key)) + ' &times;' + lot.qty,
+          'quality ' + Math.round(lot.quality), '');
+      }
+      html += '</div>';
+    }
+  } else if (SHOPUI.tab === 'metal') {
+    html += '<div class="shop-list">';
+    for (const m of SHOP.materials) {
+      html += rowHtml(esc(m.name) + ' Ingots',
+        m.strikes + (m.strikes === 1 ? ' strike' : ' strikes') + ' a square · ' +
+        coin(m.cost) + 'g each at market',
+        String(sh.materials[m.id]));
+    }
+    html += '</div>';
+  } else if (SHOPUI.tab === 'staff') {
+    html += '<p class="shop-cap">Staff ' + sh.staff.length + ' / ' + staffCapacity(sh) +
+      ' · wages ' + coin(wageBill(sh)) + 'g a week</p>';
+    if (sh.staff.length) {
+      // Handing out work costs no phase of your own: that is the whole point
+      // of having staff.
+      html += '<div class="shop-row" style="margin-bottom:6px">' +
+        '<span class="nm">Hand out this phase’s work</span>' +
+        '<button data-delegate="1">Assign</button>' +
+        '<span class="sub">Each employee can take one job a day, worked alongside you.</span>' +
+        '</div>';
+    }
+    if (!sh.staff.length) {
+      html += '<p class="shop-empty">You work alone. Search for employees to get more done in a day.</p>';
+    } else {
+      html += '<div class="shop-list">';
+      for (const e of sh.staff) {
+        const role = shopRole(e.role);
+        const a = assignedThisDay(sh, e.id);
+        const status = !role.phase ? 'At the anvil with you'
+          : a ? 'Working ' + SHOP.phaseName[a.phase] : 'Free today';
+        html += '<div class="shop-row">' +
+          '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
+          ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
+          '<button data-fire="' + e.id + '">Let go</button>' +
+          '<span class="sub">' + esc(role.name) + ' · ' + coin(e.wage) + 'g a week · ' +
+          esc(status) + '</span>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+  } else {
+    const tier = shopTier(sh), next = shopNextTier(sh);
+    html += '<div class="shop-list">';
+    html += rowHtml('<b>' + esc(tier.name) + '</b>',
+      'Rent ' + coin(tier.rent) + 'g · ' + tier.staff + ' staff · ' +
+      shelfCapacity(sh) + ' shelf · ' + storageCapacity(sh) + ' storage · batch of ' +
+      batchCapacity(sh), '');
+    if (next) {
+      html += '<div class="shop-row">' +
+        '<span class="nm">Move to ' + esc(next.name) + '</span>' +
+        '<button data-expand="1"' + (sh.gold < next.cost ? ' disabled' : '') + '>' +
+        coin(next.cost) + 'g</button>' +
+        '<span class="sub">' + next.staff + ' staff · ' + next.shelf + ' shelf · ' +
+        next.storage + ' storage · batch of ' + next.batch +
+        ' · rent rises to ' + coin(next.rent) + 'g</span>' +
+        '</div>';
+    }
+    for (const u of SHOP.upgrades) {
+      const level = shopUpgradeLevel(sh, u.id);
+      const cost = shopUpgradeCost(sh, u.id);
+      html += '<div class="shop-row">' +
+        '<span class="nm">' + esc(u.name) + ' <small style="color:var(--muted)">' +
+        level + '/' + u.max + '</small></span>' +
+        (cost === null
+          ? '<span class="amt">maxed</span>'
+          : '<button data-upgrade="' + u.id + '"' + (sh.gold < cost ? ' disabled' : '') + '>' +
+            coin(cost) + 'g</button>') +
+        '<span class="sub">' + esc(u.blurb) + '</span>' +
+        '</div>';
+    }
+    html += '</div>';
+  }
+  host.innerHTML = html;
+}
+
+function shopRender() {
+  if (!App.shop) return;
+  shopRenderBar();
+  shopRenderActions();
+  shopRenderCrew();
+  shopRenderTabs();
+  shopRenderPanel();
+  $('shAdvanceBtn').textContent = 'End ' + shopPhaseName(shop());
+}
+
+/* ---------- the shared dialog ----------------------------------------
+   Every shop dialog renders into the same sheet. `shopSheet` takes a
+   title, a body and a row of buttons; the body's own controls are wired
+   by one delegated listener so no dialog has to remember to unbind. */
+function shopSheet(title, bodyHtml, buttons) {
+  const sheet = $('shopSheet');
+  const reopening = sheet.hidden;
+  // A dialog redraws on every stepper tap and every select. Remember what had
+  // focus so redrawing does not yank the player back to the first button after
+  // each press, which on a phone means losing your place in the list.
+  const active = document.activeElement;
+  const keep = !reopening && active && active.closest && active.closest('#shopSheetBody')
+    ? (active.dataset.step ? '[data-step="' + active.dataset.step + '"][data-by="' + active.dataset.by + '"]'
+      : active.dataset.num ? '[data-num="' + active.dataset.num + '"]'
+        : active.dataset.sel ? '[data-sel="' + active.dataset.sel + '"]' : null)
+    : null;
+
+  $('shopSheetTitle').textContent = title;
+  $('shopSheetBody').innerHTML = bodyHtml;
+  const host = $('shopSheetActions');
+  host.textContent = '';
+  for (const b of buttons || []) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'btn' + (b.primary ? ' primary' : b.ghost ? ' ghost' : '');
+    el.textContent = b.label;
+    el.disabled = !!b.disabled;
+    el.addEventListener('click', b.onClick);
+    host.appendChild(el);
+  }
+
+  if (reopening) { show(sheet); return; }
+  if (keep) {
+    const back = $('shopSheetBody').querySelector(keep);
+    if (back) back.focus();
+  }
+}
+function shopSheetClose() { hide($('shopSheet')); }
+
+function stepper(id, value, min, max) {
+  return '<div class="step">' +
+    '<button type="button" data-step="' + id + '" data-by="-1" aria-label="less">&minus;</button>' +
+    '<input type="number" inputmode="numeric" data-num="' + id + '" value="' + value +
+    '" min="' + min + '" max="' + max + '" aria-label="quantity">' +
+    '<button type="button" data-step="' + id + '" data-by="1" aria-label="more">+</button>' +
+    '</div>';
+}
+
+/* ---------- purchase materials ---------- */
+function shopBuyBody(scale) {
+  const sh = shop();
+  let html = '<div class="shop-list">';
+  for (const m of SHOP.materials) {
+    const qty = SHOPUI.draft[m.id] || 0;
+    html += '<div class="shop-row">' +
+      '<span class="nm">' + esc(m.name) + '</span>' + stepper(m.id, qty, 0, 99) +
+      '<span class="sub">' + coin(m.cost) + 'g each · you hold ' + sh.materials[m.id] +
+      ' · ' + m.strikes + ' strikes a square</span>' +
+      '</div>';
+  }
+  html += '</div>';
+  const total = Math.round(purchaseCost(sh, SHOPUI.draft) * (scale || 1));
+  const short = total > sh.gold;
+  html += '<div class="sheet-total' + (short ? ' short' : '') + '"><span>Total</span><b>' +
+    coin(total) + 'g</b></div>' +
+    '<p style="margin:4px 0 0;font-size:11.5px;color:var(--muted)">You have ' +
+    coin(sh.gold) + 'g.</p>';
+  return html;
+}
+
+function shopOpenBuy(runner) {
+  SHOPUI.draft = {};
+  const redraw = function () {
+    const sh = shop();
+    const total = purchaseCost(sh, SHOPUI.draft);
+    const short = !runner && total > sh.gold;
+    shopSheet(runner ? 'Send ' + runner.name + ' to market' : 'Purchase Materials',
+      shopBuyBody(1),
+      [
+        { label: runner ? 'Send them off' : 'Buy', primary: true,
+          disabled: total <= 0 || short,
+          onClick: function () { shopConfirmBuy(runner); } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+    if (runner) {
+      $('shopSheetBody').insertAdjacentHTML('beforeend',
+        '<p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">' +
+        esc(runner.name) + ' is ' + runner.rank + '-rank. What they actually pay is their own ' +
+        'business — it may come in under this, or over.</p>');
+    }
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+function shopConfirmBuy(runner) {
+  const sh = shop();
+  if (runner) {
+    const res = shopAssign(sh, runner.id, { order: Object.assign({}, SHOPUI.draft) });
+    if (!res.ok) { shopToast(res.why); return; }
+    shopSheetClose();
+    shopRender();
+    announce(runner.name + ' has gone to market.');
+    return;
+  }
+  const res = shopBuyMaterials(sh, SHOPUI.draft);
+  if (!res.ok) { shopToast(res.why); return; }
+  shopSheetClose();
+  shopSpendPhase('Bought ' + res.ingots + ' ingots for ' + coin(res.spent) + 'g.');
+}
+
+/* ---------- forge an order ---------- */
+function shopForgeBody(smith) {
+  const sh = shop();
+  const d = SHOPUI.draft;
+  const cap = smith ? Math.min(batchCapacity(sh), 2 + smith.power) : batchCapacity(sh);
+  let html = '<div class="pick-row"><label for="shItem">Item</label><select id="shItem" data-sel="item">';
+  for (const c of SHOP.categories) {
+    html += '<optgroup label="' + esc(c.name) + '">';
+    for (const it of SHOP.items) {
+      if (it.cat !== c.id) continue;
+      html += '<option value="' + it.id + '"' + (d.item === it.id ? ' selected' : '') + '>' +
+        esc(it.name) + ' — ' + it.size + '×' + it.size + ' board</option>';
+    }
+    html += '</optgroup>';
+  }
+  html += '</select></div>';
+
+  html += '<div class="pick-row"><label for="shMat">Material</label><select id="shMat" data-sel="material">';
+  for (const m of SHOP.materials) {
+    html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
+      esc(m.name) + ' — ' + m.strikes + (m.strikes === 1 ? ' strike' : ' strikes') +
+      ' a square · ' + sh.materials[m.id] + ' held</option>';
+  }
+  html += '</select></div>';
+
+  html += '<div class="pick-row"><label>Batch</label>' + stepper('qty', d.qty || 1, 1, cap) +
+    '<span style="font-size:11.5px;color:var(--muted)">Up to ' + cap +
+    ' from one board. You work the puzzle once, however many you make.</span></div>';
+
+  const check = forgeCheck(sh, d.item, d.material, d.qty || 1);
+  const it = shopItem(d.item), mt = shopMaterial(d.material);
+  if (it && mt) {
+    const rec = recommendedPrice(d.item, d.material, 100);
+    html += '<div class="sheet-total' + (check.ok ? '' : ' short') + '"><span>' +
+      (d.qty || 1) + ' × ' + esc(mt.name) + ' ' + esc(it.name) + '</span><b>' +
+      coin(rec * (d.qty || 1)) + 'g</b></div>' +
+      '<p style="margin:4px 0 0;font-size:11.5px;color:var(--muted)">' +
+      'Costs ' + (d.qty || 1) + ' ' + esc(mt.name) + ' ingot' + ((d.qty || 1) === 1 ? '' : 's') +
+      ', spent only if the board is finished. Value shown at perfect quality; a rougher ' +
+      'batch is worth less. Ready tomorrow morning.</p>';
+    if (!check.ok) {
+      html += '<p style="margin:6px 0 0;font-size:12px;color:var(--danger)">' +
+        esc(check.why) + '</p>';
+    }
+  }
+  return html;
+}
+
+function shopOpenForge(smith) {
+  const sh = shop();
+  const d = SHOPUI.draft;
+  if (!d.item) d.item = 'shortsword';
+  if (!d.material) d.material = 'bronze';
+  if (!d.qty) d.qty = 1;
+  const redraw = function () {
+    const check = forgeCheck(shop(), d.item, d.material, d.qty);
+    shopSheet(smith ? 'Order from ' + smith.name : 'Work the anvil', shopForgeBody(smith),
+      [
+        { label: smith ? 'Give the order' : 'To the anvil', primary: true, disabled: !check.ok,
+          onClick: function () { smith ? shopGiveSmithOrder(smith) : shopStartForge(); } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+function shopGiveSmithOrder(smith) {
+  const d = SHOPUI.draft;
+  const res = shopAssign(shop(), smith.id, { order: { item: d.item, material: d.material, qty: d.qty } });
+  if (!res.ok) { shopToast(res.why); return; }
+  shopSheetClose();
+  shopRender();
+  announce(smith.name + ' has taken the order.');
+}
+
+/* ---------- stock the shelves ---------- */
+function shopStockBody(hand) {
+  const sh = shop();
+  const keys = Object.keys(sh.storage);
+  if (!keys.length) return '<p class="shop-empty">Storage is empty.</p>';
+  const room = shelfCapacity(sh) - countShelf(sh);
+  let html = '<p class="shop-cap">Shelf room left: ' + room + '</p><div class="shop-list">';
+  for (const key of keys) {
+    const lot = sh.storage[key];
+    const qty = SHOPUI.draft[key] || 0;
+    html += '<div class="shop-row">' +
+      '<span class="nm">' + esc(lineName(key)) + '</span>' +
+      stepper(key, qty, 0, lot.qty) +
+      '<span class="sub">' + lot.qty + ' in storage · quality ' + Math.round(lot.quality) +
+      ' · sells around ' +
+      coin(recommendedPrice(splitKey(key).item, splitKey(key).material, lot.quality)) + 'g</span>' +
+      '</div>';
+  }
+  html += '</div>';
+  let picked = 0;
+  for (const k in SHOPUI.draft) picked += SHOPUI.draft[k] || 0;
+  html += '<div class="sheet-total' + (picked > room ? ' short' : '') +
+    '"><span>To the shop floor</span><b>' + picked + '</b></div>';
+  if (hand) {
+    html += '<p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">' + esc(hand.name) +
+      ' can carry ' + (4 + hand.power * 2) + ' pieces this phase, starting with what you pick ' +
+      'here and filling any space left with whatever else is waiting.</p>';
+  }
+  return html;
+}
+
+function shopOpenStock(hand) {
+  SHOPUI.draft = {};
+  const redraw = function () {
+    const sh = shop();
+    const room = shelfCapacity(sh) - countShelf(sh);
+    let picked = 0;
+    for (const k in SHOPUI.draft) picked += SHOPUI.draft[k] || 0;
+    shopSheet(hand ? 'Send ' + hand.name + ' to the floor' : 'Stock Shelves', shopStockBody(hand),
+      [
+        { label: hand ? 'Set them to it' : 'Carry them out', primary: true,
+          disabled: picked <= 0 || (!hand && picked > room),
+          onClick: function () { shopConfirmStock(hand); } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+function shopConfirmStock(hand) {
+  const sh = shop();
+  if (hand) {
+    const keys = Object.keys(SHOPUI.draft).filter(function (k) { return SHOPUI.draft[k] > 0; });
+    const res = shopAssign(sh, hand.id, { order: { keys: keys } });
+    if (!res.ok) { shopToast(res.why); return; }
+    shopSheetClose();
+    shopRender();
+    announce(hand.name + ' will stock the shelves.');
+    return;
+  }
+  let moved = 0;
+  for (const key in SHOPUI.draft) {
+    const want = SHOPUI.draft[key] || 0;
+    if (want > 0) moved += shopMoveToShelf(sh, key, want).moved;
+  }
+  shopSheetClose();
+  shopSpendPhase(moved > 0
+    ? 'Carried ' + moved + ' piece' + (moved === 1 ? '' : 's') + ' out to the shelves.'
+    : 'Nothing made it to the shelves.');
+}
+
+/* ---------- set a price ---------- */
+function shopOpenPrice(key) {
+  const sh = shop();
+  const line = sh.shelf[key];
+  if (!line) return;
+  const p = splitKey(key);
+  const rec = recommendedPrice(p.item, p.material, line.quality);
+  SHOPUI.draft = { price: line.price };
+  const redraw = function () {
+    const price = SHOPUI.draft.price;
+    const pct = Math.round((price / rec - 1) * 100);
+    const appeal = Math.round(priceAppeal(price, rec) * 100);
+    shopSheet('Price: ' + lineName(key),
+      '<div class="pick-row"><label>Your price</label>' + stepper('price', price, 1, rec * 4) +
+      '</div>' +
+      '<div class="sheet-total"><span>Recommended</span><b>' + coin(rec) + 'g</b></div>' +
+      '<div class="sheet-total"><span>Your price</span><b>' + coin(price) + 'g' +
+      (pct === 0 ? '' : ' (' + (pct > 0 ? '+' : '') + pct + '%)') + '</b></div>' +
+      '<p style="margin:8px 0 0;font-size:12px;color:var(--muted)">Customers are about <b>' +
+      appeal + '%</b> as interested as they would be at the recommended price. Ask more and the ' +
+      'piece gets harder to shift — never impossible, but it will sit there.</p>',
+      [
+        { label: 'Set price', primary: true,
+          onClick: function () { shopSetPrice(sh, key, price); shopSheetClose(); shopRender(); } },
+        { label: 'Use recommended', onClick: function () { SHOPUI.draft.price = rec; redraw(); } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+/* ---------- hiring ---------- */
+function shopOpenHire(applicants) {
+  const sh = shop();
+  let html = '';
+  if (sh.staff.length >= staffCapacity(sh)) {
+    html += '<p style="margin:0 0 9px;font-size:12.5px;color:var(--ember)">' +
+      'Your ' + esc(shopTier(sh).name) + ' has no room for more staff. Move to bigger premises first.</p>';
+  }
+  html += '<div class="shop-list">';
+  for (const a of applicants) {
+    const role = shopRole(a.role);
+    const full = sh.staff.length >= staffCapacity(sh);
+    html += '<div class="applicant">' +
+      '<span class="nm"><span class="rank" data-r="' + a.rank + '" aria-label="' + a.rank +
+      ' rank">' + a.rank + '</span> ' + esc(a.name) + '</span>' +
+      '<button data-hire="' + a.id + '"' + (full ? ' disabled' : '') + '>' +
+      coin(a.wage) + 'g/wk</button>' +
+      '<span class="role">' + a.rank + '-rank ' + esc(role.name) + ' · ' +
+      esc(role.blurb) + '</span>' +
+      '</div>';
+  }
+  html += '</div>';
+  // The search cost the phase whether or not anyone is taken on.
+  shopSheet('Applicants', html, [{ label: 'Take none of them', ghost: true,
+    onClick: function () {
+      shopSheetClose();
+      shopSpendPhase('You asked around and liked nobody well enough.');
+    } }]);
+}
+
+/* ---------- the counter ------------------------------------------------
+   The player works the same queue an employee would, one customer at a
+   time, and answers the haggles themselves. */
+function shopOpenCounter() {
+  const sh = shop();
+  SHOPUI.session = openCounter(sh, { kind: 'player', power: 2, name: 'You' });
+  SHOPUI.session.events = [];
+  shopCounterStep();
+}
+
+function counterLogHtml() {
+  const events = SHOPUI.session.events;
+  if (!events.length) return '';
+  let html = '<div class="cust-log">';
+  for (let i = events.length - 1; i >= 0 && i >= events.length - 12; i--) {
+    const e = events[i];
+    html += '<p class="' + (e.kind === 'sale' ? 'sale' : 'gone') + '">' + esc(e.text) + '</p>';
+  }
+  return html + '</div>';
+}
+
+function shopCounterStep() {
+  const sh = shop();
+  const session = SHOPUI.session;
+  const event = counterNext(session, sh);
+
+  if (!event) { shopCloseCounter(); return; }
+
+  if (event.kind !== 'offer') {
+    session.events.push({ kind: event.kind, text: shopEventLine(event) });
+    shopCounterStep();
+    return;
+  }
+
+  const rec = event.recommended;
+  const cut = Math.round((1 - event.offer / event.price) * 100);
+  shopSheet('Customer ' + (session.at) + ' of ' + session.queue.length,
+    '<div class="cust">' +
+    '<div class="who">' + esc(event.name) + '</div>' +
+    '<p class="want">Wants your <b>' + esc(lineName(event.key)) + '</b>, marked at ' +
+    coin(event.price) + 'g.</p>' +
+    '<p class="offer">They offer <b>' + coin(event.offer) + 'g</b> &mdash; ' + cut +
+    '% under your price' + (event.offer < rec ? ', and under the ' + coin(rec) +
+      'g it is worth' : '') + '.</p>' +
+    '</div>' + counterLogHtml(),
+    [
+      { label: 'Accept ' + coin(event.offer) + 'g', primary: true,
+        onClick: function () { shopCounterAnswer('accept'); } },
+      { label: 'Haggle', onClick: function () { shopCounterAnswer('haggle'); } },
+      { label: 'Refuse', ghost: true, onClick: function () { shopCounterAnswer('reject'); } }
+    ]);
+}
+
+function shopEventLine(event) {
+  if (event.kind === 'sale') {
+    return event.name + ' bought ' + lineName(event.key) + ' for ' + coin(event.price) +
+      'g (' + event.how + ').';
+  }
+  return event.name + ' left — ' + event.why + '.';
+}
+
+function shopCounterAnswer(choice) {
+  const result = counterRespond(SHOPUI.session, shop(), choice);
+  if (result) SHOPUI.session.events.push({ kind: result.kind, text: shopEventLine(result) });
+  shopCounterStep();
+}
+
+function shopCloseCounter() {
+  const report = SHOPUI.session.report;
+  report.kind = 'sales';
+  report.who = 'You';
+  shopLog(shop(), report);
+  SHOPUI.session = null;
+  shopShowReport(report, function () { shopSpendPhase(null); });
+}
+
+/* ---------- reports ----------------------------------------------------
+   Anything that happened without the player watching gets said plainly. */
+function reportBody(r) {
+  if (r.kind === 'sales') {
+    let html = '<div class="report"><dl>' +
+      '<dt>Customers</dt><dd>' + r.customers + '</dd>' +
+      '<dt>Items sold</dt><dd>' + r.sold + '</dd>' +
+      '<dt>Revenue</dt><dd class="good">' + coin(r.revenue) + 'g</dd>' +
+      '<dt>Haggles attempted</dt><dd>' + r.haggles + '</dd>' +
+      '<dt>Haggles won</dt><dd>' + r.won + '</dd>' +
+      '<dt>Left without buying</dt><dd>' + r.left + '</dd>' +
+      '</dl>';
+    const keys = Object.keys(r.lines || {});
+    if (keys.length) {
+      html += '<p style="margin:9px 0 0;font-size:12px;color:var(--muted)">Sold: ' +
+        keys.map(function (k) { return esc(lineName(k)) + ' ×' + r.lines[k]; }).join(', ') +
+        '</p>';
+    }
+    return html + '</div>';
+  }
+  if (r.kind === 'runner') {
+    const better = r.diff <= 0;
+    return '<div class="report"><dl>' +
+      '<dt>Ingots fetched</dt><dd>' + r.ingots + '</dd>' +
+      '<dt>Expected cost</dt><dd>' + coin(r.expected) + 'g</dd>' +
+      '<dt>Actual cost</dt><dd class="' + (better ? 'good' : '') + '">' + coin(r.actual) + 'g</dd>' +
+      '<dt>' + (better ? 'Saved' : 'Over') + '</dt><dd class="' + (better ? 'good' : '') + '">' +
+      coin(Math.abs(r.diff)) + 'g</dd>' +
+      '</dl></div>';
+  }
+  if (r.kind === 'smith') {
+    return '<div class="report"><dl>' +
+      '<dt>Ordered</dt><dd>' + r.ordered + ' × ' + esc(lineName(lineKey(r.item, r.material))) + '</dd>' +
+      '<dt>Made</dt><dd class="' + (r.spoiled ? '' : 'good') + '">' + r.made + '</dd>' +
+      (r.spoiled ? '<dt>Spoiled</dt><dd>' + r.spoiled + '</dd>' : '') +
+      '<dt>Quality</dt><dd>' + r.quality + '</dd>' +
+      '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">In storage tomorrow ' +
+      'morning.</p></div>';
+  }
+  if (r.kind === 'storehand') {
+    const keys = Object.keys(r.lines || {});
+    return '<div class="report"><dl>' +
+      '<dt>Carried out</dt><dd class="good">' + r.moved + '</dd>' +
+      '<dt>They can manage</dt><dd>' + r.capacity + '</dd>' +
+      '</dl>' + (keys.length
+        ? '<p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
+          keys.map(function (k) { return esc(lineName(k)) + ' ×' + r.lines[k]; }).join(', ') +
+          '</p>'
+        : '') + '</div>';
+  }
+  return '';
+}
+
+function reportTitle(r) {
+  if (r.kind === 'sales') return (r.who === 'You' ? '' : r.who + '’s ') + 'Sales Report';
+  if (r.kind === 'runner') return r.who + '’s Purchase Report';
+  if (r.kind === 'smith') return r.who + '’s Production Report';
+  if (r.kind === 'storehand') return r.who + '’s Stocking Report';
+  return 'Report';
+}
+
+/* Reports queue up: a phase can end with three of them. */
+function shopShowReport(report, done) {
+  shopSheet(reportTitle(report), reportBody(report),
+    [{ label: 'Right then', primary: true,
+      onClick: function () { shopSheetClose(); if (done) done(); } }]);
+}
+
+function shopShowReports(list, done) {
+  if (!list.length) { if (done) done(); return; }
+  const next = list.slice(1);
+  shopShowReport(list[0], function () { shopShowReports(next, done); });
+}
+
+/* ---------- the day ---------------------------------------------------- */
+function shopToast(text) {
+  $('shPromptText').textContent = text;
+  announce(text);
+}
+
+/* Taking an action ends the phase: employees finish their jobs, their
+   reports are read, and the shop moves on. */
+function shopSpendPhase(note) {
+  const sh = shop();
+  if (note) shopToast(note);
+  const result = shopAdvancePhase(sh);
+  shopRender();
+  const reports = result.reports || [];
+  shopShowReports(reports, function () {
+    if (result.newDay) shopDayBreak(result);
+    else {
+      shopRender();
+      if (!note) shopToast('The ' + shopPhaseName(sh).toLowerCase() + ' is yours.');
+    }
+  });
+}
+
+function shopDayBreak(result) {
+  const sh = shop();
+  shopRender();
+  let html = '';
+  if (result.delivered && result.delivered.length) {
+    html += '<p style="margin:0 0 8px;font-size:13px">Off the anvil and into storage:</p>' +
+      '<div class="shop-list">';
+    for (const d of result.delivered) {
+      html += rowHtml(esc(lineName(d.key)) + ' &times;' + d.qty,
+        'quality ' + Math.round(d.quality) + ' · by ' + esc(d.maker) +
+        (d.lost ? ' · ' + d.lost + ' lost, storage full' : ''), '');
+    }
+    html += '</div>';
+  }
+  const bill = result.bill;
+  if (bill) {
+    html += '<div class="report"><dl>' +
+      '<dt>Rent</dt><dd>' + coin(bill.rent) + 'g</dd>' +
+      '<dt>Wages</dt><dd>' + coin(bill.wages) + 'g</dd>' +
+      '<dt>Total due</dt><dd>' + coin(bill.total) + 'g</dd>' +
+      '<dt>In the strongbox</dt><dd class="' + (bill.paid ? 'good' : '') + '">' +
+      coin(bill.gold) + 'g</dd>' +
+      '</dl></div>';
+    html += bill.paid
+      ? '<p style="margin:9px 0 0;font-size:13px;color:var(--brass)">Paid in full. The week is ' +
+        'yours.</p>'
+      : '<p style="margin:9px 0 0;font-size:13px;color:var(--danger)">You are ' +
+        coin(bill.short) + 'g short. The landlord takes the keys.</p>';
+  }
+  if (!html) html = '<p class="shop-empty">A quiet night. Nothing came off the anvil.</p>';
+
+  if (sh.closed) {
+    shopSheet('The forge closes', html + '<p style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">' +
+      'You lasted ' + (sh.day - 1) + ' days and paid ' + sh.rentPaid +
+      (sh.rentPaid === 1 ? ' week' : ' weeks') + ' of rent.</p>',
+      [
+        { label: 'Open a new forge', primary: true, onClick: function () { shopSheetClose(); startShop(); } },
+        { label: 'Main Menu', ghost: true, onClick: function () { shopSheetClose(); showTitle(); } }
+      ]);
+    return;
+  }
+  shopSheet('Day ' + sh.day, html,
+    [{ label: 'Open up', primary: true,
+      onClick: function () { shopSheetClose(); shopRender(); shopToast('A new day. The morning is yours.'); } }]);
+}
+
+/* ---------- working an order at the anvil ------------------------------
+   The board is the existing forge puzzle, and nothing about it changes
+   here. The item picks its size, the shop's difficulty picks the symbols,
+   and the material sets how many strikes each square needs and which
+   strike ruins it. */
+function shopStartForge() {
+  const sh = shop();
+  const d = SHOPUI.draft;
+  const check = forgeCheck(sh, d.item, d.material, d.qty);
+  if (!check.ok) { shopToast(check.why); return; }
+  const spec = forgeBoardSpec(sh, d.item, d.material);
+  SHOPUI.order = { item: d.item, material: d.material, qty: d.qty };
+  shopSheetClose();
+
+  cancelPending(false);
+  App.game = null;
+  $('shopView').hidden = true;
+  syncModeChrome();
+  buildTiles(spec.size);
+  $('promptGlyph').textContent = '⚒';
+  $('promptText').textContent = 'Casting a fresh mold…';
+  $('forgeBanner').hidden = false;
+  $('forgeBanner').innerHTML = '<b>' + d.qty + ' × ' +
+    esc(shopMaterial(d.material).name) + ' ' + esc(shopItem(d.item).name) + '</b>' +
+    '<small>Every square needs ' + spec.perfect +
+    (spec.perfect === 1 ? ' strike' : ' strikes') + ' · a ' + (spec.perfect + 1) +
+    getOrdinalSuffix(spec.perfect + 1) + ' strike ruins it</small>';
+
+  requestAnimationFrame(function () { requestAnimationFrame(function () {
+    let board = null;
+    try { board = makeShopBoard(spec.size, sh.difficulty, spec.visits, App.rnd); } catch (err) { board = null; }
+    if (!board) {
+      $('promptText').textContent = 'That die would not set. Try another item or material.';
+      $('forgeBanner').hidden = true;
+      SHOPUI.order = null;
+      setTimeout(function () { shopReturn(); }, 1600);
+      return;
+    }
+    App.lastLayout = board.pieces.join('');
+    startGame(board, { perfect: spec.perfect, spent: spec.spent });
+    buildLegend();
+    announce(d.qty + ' ' + shopMaterial(d.material).name + ' ' + shopItem(d.item).name +
+      '. Every square needs ' + spec.perfect + ' strikes. Choose any square to begin.');
+  }); });
+}
+
+function getOrdinalSuffix(n) {
+  const rem10 = n % 10, rem100 = n % 100;
+  if (rem10 === 1 && rem100 !== 11) return 'st';
+  if (rem10 === 2 && rem100 !== 12) return 'nd';
+  if (rem10 === 3 && rem100 !== 13) return 'rd';
+  return 'th';
+}
+
+/* Back to the shop floor, with the anvil cleared away. */
+function shopReturn() {
+  cancelPending(false);
+  App.game = null;
+  $('forgeBanner').hidden = true;
+  $('shopView').hidden = false;
+  syncModeChrome();
+  shopRender();
+}
+
+/* The board was finished: the metal is spent and the batch goes on the
+   anvil overnight. Quality is the puzzle's own score, so how well it was
+   worked is what the goods are worth. */
+function shopForgeComplete(result) {
+  const sh = shop();
+  const order = SHOPUI.order;
+  SHOPUI.order = null;
+  const res = shopFinishForge(sh, order.item, order.material, order.qty, result.quality, 'you');
+  shopReturn();
+  const body = '<div class="report"><dl>' +
+    '<dt>Batch</dt><dd>' + order.qty + ' × ' +
+    esc(lineName(lineKey(order.item, order.material))) + '</dd>' +
+    '<dt>Quality</dt><dd class="good">' + result.quality + ' · ' + esc(result.label) + '</dd>' +
+    '<dt>Ingots spent</dt><dd>' + order.qty + '</dd>' +
+    '<dt>Worth about</dt><dd class="good">' +
+    coin(recommendedPrice(order.item, order.material, result.quality) * order.qty) + 'g</dd>' +
+    '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
+    (res.ok ? 'In storage tomorrow morning.' : esc(res.why)) + '</p></div>';
+  shopSheet('Off the anvil', body,
+    [{ label: 'Back to the shop', primary: true,
+      onClick: function () { shopSheetClose(); shopSpendPhase(null); } }]);
+}
+
+/* The board was ruined: the phase is gone, the metal is not. */
+function shopForgeFailed() {
+  SHOPUI.order = null;
+  shopReturn();
+  shopSheet('The piece is ruined',
+    '<p style="margin:0;font-size:13px">No legal strike is left, and the work on the anvil is ' +
+    'scrap. The phase is gone — but the metal was never spent, so the ingots are still ' +
+    'yours to try again with.</p>',
+    [{ label: 'Back to the shop', primary: true,
+      onClick: function () { shopSheetClose(); shopSpendPhase(null); } }]);
+}
+
+/* ---------- handing work to staff -------------------------------------- */
+function shopOpenDelegate() {
+  const sh = shop();
+  const free = sh.staff.filter(function (e) {
+    return shopRole(e.role).phase && !assignedThisDay(sh, e.id);
+  });
+  if (!free.length) {
+    shopSheet('Nobody free', '<p class="shop-empty">' +
+      (sh.staff.length ? 'Everyone who can work a phase has already worked today.'
+        : 'You have no staff yet. Search for employees to get more done in a day.') + '</p>',
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  let html = '<p style="margin:0 0 9px;font-size:12.5px;color:var(--muted)">' +
+    'They work this phase alongside whatever you do. Each can take one job a day.</p>' +
+    '<div class="shop-list">';
+  for (const e of free) {
+    const role = shopRole(e.role);
+    html += '<div class="applicant">' +
+      '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
+      ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
+      '<button data-send="' + e.id + '">Set to work</button>' +
+      '<span class="role">' + esc(role.name) + ' · ' + esc(role.blurb) + '</span>' +
+      '</div>';
+  }
+  html += '</div>';
+  shopSheet('Hand out the work', html, [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+}
+
+function shopSendStaff(id) {
+  const sh = shop();
+  const e = staffById(sh, id);
+  if (!e) return;
+  if (e.role === 'salesperson') {
+    const res = shopAssign(sh, e.id, {});
+    if (!res.ok) { shopToast(res.why); return; }
+    shopSheetClose();
+    shopRender();
+    announce(e.name + ' will mind the counter this phase.');
+    return;
+  }
+  if (e.role === 'runner') { SHOPUI.draft = {}; shopOpenBuy(e); return; }
+  if (e.role === 'smith') { shopOpenForge(e); return; }
+  if (e.role === 'storehand') { shopOpenStock(e); return; }
+}
+
+/* ---------- starting and leaving --------------------------------------- */
+function startShop() {
+  App.mode = 'shop';
+  cancelPending(false);
+  App.game = null;
+  App.match = null;
+  App.shop = createShop({ rnd: App.rnd, difficulty: App.difficulty });
+  SHOPUI.tab = 'shelf';
+  SHOPUI.session = null;
+  SHOPUI.order = null;
+  $('titleScreen').hidden = true;
+  $('shopView').hidden = false;
+  syncModeChrome();
+  shopRender();
+  shopToast('Your forge, day one. Ten bronze ingots and the rent already ticking.');
+}
+
+function shopAct(id) {
+  const sh = shop();
+  if (shopActionState(id)) return;
+  if (id === 'forge') { SHOPUI.draft = { item: 'shortsword', material: 'bronze', qty: 1 }; shopOpenForge(null); }
+  else if (id === 'buy') shopOpenBuy(null);
+  else if (id === 'stock') shopOpenStock(null);
+  else if (id === 'tend') shopOpenCounter();
+  else if (id === 'hire') {
+    const applicants = shopSearchStaff(sh, 3);
+    shopOpenHire(applicants);
+  }
+}
+
+/* ---------- input ------------------------------------------------------
+   Two delegated listeners cover the whole mode: one for the management
+   screen, one for whichever dialog is open. Nothing has to be unbound. */
+function wireShop() {
+  $('shActions').addEventListener('click', function (e) {
+    const b = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (b && !b.disabled) shopAct(b.dataset.act);
+  });
+  $('shTabs').addEventListener('click', function (e) {
+    const b = e.target.closest ? e.target.closest('[data-tab]') : null;
+    if (!b) return;
+    SHOPUI.tab = b.dataset.tab;
+    shopRender();
+  });
+  $('shPanel').addEventListener('click', function (e) {
+    const t = e.target.closest ? e.target : null;
+    if (!t) return;
+    const price = t.closest('[data-price]');
+    if (price) { shopOpenPrice(price.dataset.price); return; }
+    const fire = t.closest('[data-fire]');
+    if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
+    const up = t.closest('[data-upgrade]');
+    if (up && !up.disabled) {
+      const res = shopBuyUpgrade(shop(), up.dataset.upgrade);
+      shopToast(res.ok ? shopUpgradeDef(up.dataset.upgrade).name + ' installed.' : res.why);
+      shopRender();
+      return;
+    }
+    const del = t.closest('[data-delegate]');
+    if (del) { shopOpenDelegate(); return; }
+    const ex = t.closest('[data-expand]');
+    if (ex && !ex.disabled) {
+      const res = shopExpand(shop());
+      shopToast(res.ok ? 'You move into the ' + res.tier.name + '. Rent rises to ' +
+        coin(res.tier.rent) + 'g.' : res.why);
+      shopRender();
+    }
+  });
+  $('shAdvanceBtn').addEventListener('click', function () {
+    shopSpendPhase('You let the ' + shopPhaseName(shop()).toLowerCase() + ' go by.');
+  });
+  $('shHelpBtn').addEventListener('click', function () { show($('help')); });
+  $('shMenuBtn').addEventListener('click', function () {
+    askDiscard('Leaving for the main menu will close this forge for good.', showTitle);
+  });
+
+  // dialog controls: steppers, selects, hire and delegate buttons
+  $('shopSheetBody').addEventListener('click', function (e) {
+    const step = e.target.closest ? e.target.closest('[data-step]') : null;
+    if (step) {
+      const id = step.dataset.step, by = Number(step.dataset.by);
+      const input = $('shopSheetBody').querySelector('[data-num="' + CSS.escape(id) + '"]');
+      const min = Number(input.min), max = Number(input.max);
+      const next = Math.max(min, Math.min(max, (Number(input.value) || 0) + by));
+      SHOPUI.draft[id] = next;
+      if (id === 'qty' || id === 'price') SHOPUI.draft[id] = next;
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const hire = e.target.closest ? e.target.closest('[data-hire]') : null;
+    if (hire && !hire.disabled) {
+      const res = shopHire(shop(), Number(hire.dataset.hire));
+      if (!res.ok) { shopToast(res.why); return; }
+      shopSheetClose();
+      shopSpendPhase('Hired ' + res.staff.name + ', ' + res.staff.rank + '-rank ' +
+        shopRole(res.staff.role).name + ', at ' + coin(res.staff.wage) + 'g a week.');
+      return;
+    }
+    const send = e.target.closest ? e.target.closest('[data-send]') : null;
+    if (send) shopSendStaff(Number(send.dataset.send));
+  });
+  $('shopSheetBody').addEventListener('change', function (e) {
+    const sel = e.target.closest ? e.target.closest('[data-sel]') : null;
+    if (sel) {
+      SHOPUI.draft[sel.dataset.sel] = sel.value;
+      if (sel.dataset.sel === 'material' || sel.dataset.sel === 'item') {
+        const cap = batchCapacity(shop());
+        SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1, cap));
+      }
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const num = e.target.closest ? e.target.closest('[data-num]') : null;
+    if (num) {
+      const min = Number(num.min), max = Number(num.max);
+      SHOPUI.draft[num.dataset.num] = Math.max(min, Math.min(max, Number(num.value) || min));
+      if (SHOPUI.redraw) SHOPUI.redraw();
+    }
+  });
+}
+
+function shopConfirmFire(id) {
+  const e = staffById(shop(), id);
+  if (!e) return;
+  askDiscard('Letting ' + e.name + ' go takes them off the books at once.', function () {
+    shopFire(shop(), id);
+    shopToast(e.name + ' has left your service.');
+    shopRender();
+  });
+}
+
 /* ---------- title screen --------------------------------------------- */
 function syncTitleUi() {
   const endless = App.mode === 'endless';
@@ -4048,6 +6284,32 @@ function showTitle() {
 function syncModeChrome() {
   const endless = App.mode === 'endless';
   const versus = App.mode === 'versus';
+  // Open Your Forge owns the screen except while an order is on the anvil,
+  // when it borrows the board and nothing else.
+  const shop = App.mode === 'shop';
+  const atAnvil = shop && !!SHOPUI.order;
+  if (shop) {
+    $('versusView').hidden = true;
+    $('shopView').hidden = atAnvil;
+    document.querySelector('.board-wrap').hidden = !atAnvil;
+    $('forgeActions').hidden = !atAnvil;
+    $('prompt').hidden = !atAnvil;
+    $('legendPanel').hidden = !atAnvil;
+    $('bestLine').hidden = true;
+    $('statsForge').hidden = !atAnvil;
+    $('statsEndless').hidden = true;
+    $('materialBar').hidden = true;
+    $('forgeBanner').hidden = !atAnvil;
+    document.querySelector('.difficulty:not(#titleDiff)').hidden = true;
+    $('restartBtn').textContent = 'Restart Board';
+    $('newBtn').hidden = true;
+    $('menuActionBtn').hidden = false;
+    $('menuActionBtn').textContent = 'Abandon Order';
+    return;
+  }
+  $('shopView').hidden = true;
+  $('forgeBanner').hidden = true;
+  $('menuActionBtn').textContent = 'Main Menu';
   // The versus match has its own view and its own controls.
   $('versusView').hidden = !versus;
   document.querySelector('.board-wrap').hidden = versus;
@@ -4076,6 +6338,7 @@ function beginRun() {
   App.lastLayout = '';
   // endless ignores the picker and always opens on the smallest board
   if (App.mode === 'endless') App.difficulty = CONFIG.endless.startTier;
+  if (App.mode === 'shop') { startShop(); return; }
   syncModeChrome();
   if (App.mode === 'versus') { vsStartMatch(); return; }
   loadBoard(App.difficulty, () => {
@@ -4353,6 +6616,14 @@ function boot() {
     askDiscard('Leaving for the main menu will discard this run.', showTitle);
   });
   $('menuActionBtn').addEventListener('click', () => {
+    if (App.mode === 'shop') {
+      askDiscard('Walking away from the anvil loses the phase. The metal is not spent.', () => {
+        SHOPUI.order = null;
+        shopReturn();
+        shopSpendPhase('You left the order half-worked.');
+      });
+      return;
+    }
     askDiscard('Leaving for the main menu will discard this run.', showTitle);
   });
   for (const b of document.querySelectorAll('.difficulty:not(#titleDiff) .diff-btn')) {
@@ -4361,6 +6632,7 @@ function boot() {
   $('restartBtn').addEventListener('click', () => {
     askDiscard('Restarting re-heats this same die and discards your strikes.', restartBoard);
   });
+  wireShop();
   $('newBtn').addEventListener('click', () => {
     askDiscard('Loading another puzzle will discard the piece you are working on.', () => {
       loadBoard(App.difficulty, () => { buildLegend(); announce('Fresh die set. Choose any square to begin.'); });
@@ -4433,7 +6705,8 @@ else boot();
 
 // exposed for the automated test harness
 window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare,
-  vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch };
+  vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
+  shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase };
 </script>
 </body>
 </html>

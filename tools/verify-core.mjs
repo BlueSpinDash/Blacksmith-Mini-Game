@@ -1250,5 +1250,441 @@ section('Versus leaves the other modes alone');
     eg.roundsCompleted === 1 && eg.gold >= 1 && Number.isInteger(eg.gold));
 }
 
+/* ---------- Open Your Forge ---------- */
+section('Open Your Forge: material sets the strikes, not the difficulty');
+{
+  ok('every material asks for a different number of strikes', (() => {
+    const want = C.SHOP.materials.map((m) => m.strikes).join(',');
+    return want === '1,2,3,4,5';
+  })());
+
+  ok('a board is built to the material, not to the tier', (() => {
+    for (const m of C.SHOP.materials) {
+      const b = C.makeShopBoard(4, 'journeyman', m.strikes, C.mulberry32(m.strikes * 31 + 5));
+      if (!b || b.visits !== m.strikes) return false;
+      if (b.route.length !== m.strikes * 16) return false;
+      if (!C.validateBoard(b)) return false;
+    }
+    return true;
+  })());
+
+  ok('the same material can be worked on any board size', (() => {
+    for (const size of [3, 4, 5, 6]) {
+      const b = C.makeShopBoard(size, 'novice', 3, C.mulberry32(size * 77));
+      if (!b || b.size !== size || !C.validateBoard(b)) return false;
+    }
+    return true;
+  })());
+
+  ok('board size and symbols come from the item and the tier', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(3), difficulty: 'master' });
+    const spec = C.forgeBoardSpec(shop, 'plate', 'adamantine');
+    return spec.size === 6 && spec.difficulty === 'master' &&
+      spec.visits === 5 && spec.perfect === 5 && spec.spent === 6;
+  })());
+
+  ok('a square is perfect at the material’s count and ruined one past it', (() => {
+    const board = C.makeShopBoard(3, 'novice', 3, C.mulberry32(11));
+    const g = C.createGame(board, { perfect: 3, spent: 4, morphChance: 0 });
+    const idx = board.route[0];
+    C.applyStrike(g, idx);
+    let stats = C.gameStats(g);
+    if (stats.forged !== 0) return false;              // one of three
+    // drive that one square to three without moving: only legal if it can
+    // reach itself, so walk the verified route instead
+    const walked = C.createGame(board, { perfect: 3, spent: 4, morphChance: 0 });
+    for (const step of board.route) C.applyStrike(walked, step);
+    return walked.status === 'complete' && C.gameStats(walked).overstrikes === 0;
+  })());
+
+  ok('the standing forge rules are untouched by any of it', (() => {
+    const b = C.makeBoard('novice', C.mulberry32(9));
+    const g = C.createGame(b, { morphChance: 0 });
+    return g.perfect === C.CONFIG.rules.perfect && g.spent === C.CONFIG.rules.spent;
+  })());
+}
+
+section('Open Your Forge: the day and the week');
+{
+  const shop = C.createShop({ rnd: C.mulberry32(5) });
+  ok('a day is three phases, morning first',
+    C.SHOP.phases.length === 3 && C.shopPhase(shop) === 'morning');
+  C.shopAdvancePhase(shop);
+  ok('the phase moves on', C.shopPhase(shop) === 'afternoon' && shop.day === 1);
+  C.shopAdvancePhase(shop);
+  C.shopAdvancePhase(shop);
+  ok('evening rolls into the next day', shop.day === 2 && C.shopPhase(shop) === 'morning');
+
+  ok('rent falls due at the end of every seventh day', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(6), gold: 100000 });
+    const dueOn = [];
+    for (let i = 0; i < 21 * 3; i++) {
+      const r = C.shopAdvancePhase(s);
+      if (r.bill) dueOn.push(s.day - 1);
+    }
+    return dueOn.join(',') === '7,14,21';
+  })());
+
+  ok('the bill is rent plus every wage', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(7), gold: 100000 });
+    s.staff.push({ id: 1, name: 'A', role: 'runner', rank: 'C', power: 3, wage: 40 });
+    s.staff.push({ id: 2, name: 'B', role: 'smith', rank: 'D', power: 2, wage: 25 });
+    return C.weeklyBill(s) === C.rentDue(s) + 65;
+  })());
+
+  ok('falling short of the bill closes the shop', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(8), gold: 10 });
+    for (let i = 0; i < 7 * 3; i++) C.shopAdvancePhase(s);
+    return s.closed === true && s.rentPaid === 0;
+  })());
+
+  ok('paying it keeps the doors open', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(9), gold: 5000 });
+    for (let i = 0; i < 7 * 3; i++) C.shopAdvancePhase(s);
+    return !s.closed && s.rentPaid === 1 && s.gold === 5000 - C.rentDue(s);
+  })());
+}
+
+section('Open Your Forge: production and stock');
+{
+  ok('one puzzle makes the whole batch', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(10) });
+    s.materials.bronze = 10;
+    const res = C.shopFinishForge(s, 'longsword', 'bronze', 3, 90, 'you');
+    return res.ok && s.orders.length === 1 && s.orders[0].qty === 3;
+  })());
+
+  ok('an item costs one ingot of its material', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(11) });
+    s.materials.silver = 5;
+    const qty = Math.min(3, C.batchCapacity(s));
+    C.shopFinishForge(s, 'dagger', 'silver', qty, 80, 'you');
+    return s.materials.silver === 5 - qty;
+  })());
+
+  ok('a batch you cannot pay for in metal is refused', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(12) });
+    s.materials.gold = 1;
+    return C.forgeCheck(s, 'mace', 'gold', 3).ok === false;
+  })());
+
+  ok('a batch bigger than the forge allows is refused', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(13) });
+    s.materials.bronze = 99;
+    return C.forgeCheck(s, 'mace', 'bronze', C.batchCapacity(s) + 1).ok === false;
+  })());
+
+  ok('finished work lands in storage the next day, never on the shelf', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(14) });
+    s.materials.bronze = 9;
+    C.shopFinishForge(s, 'boots', 'bronze', 2, 100, 'you');
+    if (C.countStorage(s) !== 0) return false;
+    for (let i = 0; i < 3; i++) C.shopAdvancePhase(s);       // to the next day
+    return C.countStorage(s) === 2 && C.countShelf(s) === 0;
+  })());
+
+  ok('stock has to be carried out before anyone can buy it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(15) });
+    C.addStorage(s, C.lineKey('boots', 'bronze'), 3, 100);
+    const before = C.countShelf(s);
+    const moved = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 2);
+    return before === 0 && moved.moved === 2 && C.countShelf(s) === 2 && C.countStorage(s) === 1;
+  })());
+
+  ok('the shelves hold only what the shop has room for', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(16) });
+    const cap = C.shelfCapacity(s);
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), cap + 20, 100);
+    C.shopMoveToShelf(s, C.lineKey('dagger', 'bronze'), cap + 20);
+    return C.countShelf(s) === cap;
+  })());
+
+  ok('a bigger shop holds more of everything', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(17), gold: 100000 });
+    const before = [C.shelfCapacity(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
+    C.shopExpand(s);
+    const after = [C.shelfCapacity(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
+    return after.every((v, i) => v > before[i]) && C.rentDue(s) > C.SHOP.tiers[0].rent;
+  })());
+}
+
+section('Open Your Forge: pricing and customers');
+{
+  ok('every finished item has a recommended price', (() => {
+    for (const it of C.SHOP.items) {
+      for (const m of C.SHOP.materials) {
+        if (!(C.recommendedPrice(it.id, m.id, 100) > 0)) return false;
+      }
+    }
+    return true;
+  })());
+
+  ok('a dearer material is worth more', (() => {
+    let last = 0;
+    for (const m of C.SHOP.materials) {
+      const p = C.recommendedPrice('longsword', m.id, 100);
+      if (p <= last) return false;
+      last = p;
+    }
+    return true;
+  })());
+
+  ok('rougher work is worth less than a masterwork',
+    C.recommendedPrice('longsword', 'bronze', 40) < C.recommendedPrice('longsword', 'bronze', 100));
+
+  ok('overpricing makes an item harder to shift, never unsellable', (() => {
+    const at = C.priceAppeal(100, 100);
+    const over = C.priceAppeal(200, 100);
+    const wild = C.priceAppeal(1000, 100);
+    return at === 1 && over < at && wild > 0;
+  })());
+
+  ok('undercutting draws more interest', C.priceAppeal(70, 100) > 1);
+
+  ok('a bare shop draws nobody', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(18) });
+    return C.trafficFor(s) === 0;
+  })());
+
+  ok('more stars means more customers', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(19) });
+    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 10, quality: 100, price: 52 };
+    s.reputation = 5;
+    const low = C.trafficFor(s);
+    s.reputation = 95;
+    return C.trafficFor(s) > low && C.shopStars(s) === 5;
+  })());
+
+  ok('what is on the shelves decides who walks in', (() => {
+    const blades = C.createShop({ rnd: C.mulberry32(20) });
+    blades.shelf[C.lineKey('plate', 'bronze')] = { qty: 10, quality: 100, price: 150 };
+    blades.shelf[C.lineKey('kite', 'bronze')] = { qty: 10, quality: 100, price: 78 };
+    const heavy = C.customerWeights(blades);
+
+    const light = C.createShop({ rnd: C.mulberry32(21) });
+    light.shelf[C.lineKey('dagger', 'bronze')] = { qty: 10, quality: 100, price: 22 };
+    light.shelf[C.lineKey('boots', 'bronze')] = { qty: 10, quality: 100, price: 26 };
+    const nimble = C.customerWeights(light);
+
+    // armour and shields pull knights; daggers and boots pull rogues
+    return heavy.knight > nimble.knight && nimble.rogue > heavy.rogue &&
+      heavy.knight > heavy.rogue && nimble.rogue > nimble.knight;
+  })());
+
+  ok('preferences are weights, not rules: anyone may still buy anything', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(22) });
+    s.shelf[C.lineKey('mace', 'bronze')] = { qty: 50, quality: 100, price: 34 };
+    // a rogue rates maces at zero, yet the only thing in the shop is a mace
+    let bought = 0;
+    for (let i = 0; i < 40; i++) if (C.chooseGoods(s, 'rogue')) bought++;
+    return bought === 40;
+  })());
+}
+
+section('Open Your Forge: the counter');
+{
+  ok('a sale takes the item off the shelf and pays for it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(23) });
+    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 4, quality: 100, price: 20 };
+    const gold = s.gold;
+    const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
+    return r.sold > 0 && s.gold === gold + r.revenue &&
+      C.countShelf(s) === 4 - r.sold;
+  })());
+
+  ok('nothing is ever sold that was not stocked', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(24) });
+    const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
+    return r.customers === 0 && r.sold === 0 && r.revenue === 0;
+  })());
+
+  ok('a wild price drives customers off without breaking the shop', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(25) });
+    const rec = C.recommendedPrice('longsword', 'bronze', 100);
+    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 20, quality: 100, price: rec * 8 };
+    let sold = 0, seen = 0;
+    for (let i = 0; i < 30; i++) {
+      const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
+      sold += r.sold; seen += r.customers;
+    }
+    return seen > 0 && sold < seen * 0.25;
+  })());
+
+  ok('the report accounts for everyone who came in', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(26) });
+    s.shelf[C.lineKey('mace', 'bronze')] = { qty: 30, quality: 90, price: 34 };
+    const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
+    return r.customers === r.sold + r.left && r.won <= r.haggles;
+  })());
+
+  ok('accepting an offer sells at the offer, not the asking price', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(27) });
+    for (let round = 0; round < 60; round++) {
+      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 60, quality: 100, price: 400 };
+      const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
+      let guard = 0;
+      while (guard++ < 200) {
+        const e = C.counterNext(session, s);
+        if (!e) break;
+        if (e.kind === 'offer') {
+          const gold = s.gold, stock = C.countShelf(s);
+          const res = C.counterRespond(session, s, 'accept');
+          return res.kind === 'sale' && res.price === e.offer &&
+            e.offer < e.price && s.gold === gold + e.offer && C.countShelf(s) === stock - 1;
+        }
+      }
+    }
+    return false;
+  })());
+
+  ok('a better haggler wins more of them', (() => {
+    const run = (power) => {
+      const s = C.createShop({ rnd: C.mulberry32(500) });
+      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 320 };
+      let won = 0, tried = 0;
+      for (let i = 0; i < 60; i++) {
+        const session = C.openCounter(s, { kind: 'staff', power: power, name: 'X' });
+        let guard = 0;
+        while (guard++ < 200) {
+          const e = C.counterNext(session, s);
+          if (!e) break;
+          if (e.kind === 'offer') C.counterRespond(session, s, 'haggle');
+        }
+        won += session.report.won; tried += session.report.haggles;
+      }
+      return tried ? won / tried : 0;
+    };
+    return run(6) > run(1);
+  })());
+}
+
+section('Open Your Forge: employees do the work, not the maths');
+{
+  ok('all five roles exist', (() => {
+    const ids = C.SHOP.roles.map((r) => r.id).sort().join(',');
+    return ids === 'apprentice,runner,salesperson,smith,storehand';
+  })());
+  ok('all six ranks exist, dearer as they climb', (() => {
+    const ids = C.SHOP.ranks.map((r) => r.id).join(',');
+    let last = 0;
+    for (const r of C.SHOP.ranks) { if (r.wage <= last) return false; last = r.wage; }
+    return ids === 'E,D,C,B,A,S';
+  })());
+  ok('better ranks are rarer', (() => {
+    let last = Infinity;
+    for (const r of C.SHOP.ranks) { if (r.weight > last) return false; last = r.weight; }
+    return true;
+  })());
+  ok('an applicant carries a name, role, rank and wage', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(28) });
+    const list = C.shopSearchStaff(s, 3);
+    return list.length === 3 && list.every((a) => a.name && a.role && a.rank && a.wage > 0);
+  })());
+  ok('the shop can only hold so many', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(29) });
+    let hired = 0;
+    for (let i = 0; i < 10; i++) {
+      const list = C.shopSearchStaff(s, 1);
+      if (C.shopHire(s, list[0].id).ok) hired++;
+    }
+    return hired === C.staffCapacity(s);
+  })());
+
+  ok('an apprentice makes your own batches bigger', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(30) });
+    const before = C.batchCapacity(s);
+    s.staff.push({ id: 99, name: 'App', role: 'apprentice', rank: 'A', power: 5, wage: 100 });
+    return C.batchCapacity(s) > before;
+  })());
+
+  ok('a salesperson works one phase a day and no more', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(31) });
+    s.staff.push({ id: 1, name: 'Sal', role: 'salesperson', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(s, 1, {});
+    C.shopAdvancePhase(s);
+    const second = C.shopAssign(s, 1, {});
+    return first.ok === true && second.ok === false;
+  })());
+
+  ok('two salespeople can cover two phases', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(32) });
+    s.staff.push({ id: 1, name: 'A', role: 'salesperson', rank: 'C', power: 3, wage: 30 });
+    s.staff.push({ id: 2, name: 'B', role: 'salesperson', rank: 'C', power: 3, wage: 30 });
+    const a = C.shopAssign(s, 1, {});
+    C.shopAdvancePhase(s);
+    const b = C.shopAssign(s, 2, {});
+    return a.ok && b.ok;
+  })());
+
+  ok('an apprentice cannot be sent off on a job of their own', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(33) });
+    s.staff.push({ id: 1, name: 'App', role: 'apprentice', rank: 'C', power: 3, wage: 30 });
+    return C.shopAssign(s, 1, {}).ok === false;
+  })());
+
+  ok('a runner buys the order and the price is their own', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(34), gold: 100000 });
+    const e = { id: 1, name: 'Run', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const r = C.runRunner(s, e, { bronze: 10 });
+    return r.ok && r.ingots === 10 && s.materials.bronze === 10 + C.SHOP.startStock.bronze &&
+      r.expected === C.SHOP.materials[0].cost * 10;
+  })());
+
+  ok('a better runner gets the better price on average', (() => {
+    const avg = (power) => {
+      const s = C.createShop({ rnd: C.mulberry32(700), gold: 10000000 });
+      let total = 0;
+      for (let i = 0; i < 400; i++) total += C.runnerScale(s, power);
+      return total / 400;
+    };
+    return avg(6) < avg(1);
+  })());
+
+  ok('a smith fills an order without the player touching a board', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(35) });
+    s.materials.bronze = 20;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
+    const r = C.runSmith(s, e, { item: 'longsword', material: 'bronze', qty: 3 });
+    return r.ok && s.orders.length === 1 && s.materials.bronze === 17 && r.quality > 0;
+  })());
+
+  ok('a better smith turns out better work', (() => {
+    const avg = (power) => {
+      const s = C.createShop({ rnd: C.mulberry32(800) });
+      let total = 0;
+      for (let i = 0; i < 300; i++) total += C.smithQuality(s, power);
+      return total / 300;
+    };
+    return avg(6) > avg(3) && avg(3) > avg(1);
+  })());
+
+  ok('even the best smith leaves room for your own hands', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(36) });
+    let best = 0;
+    for (let i = 0; i < 400; i++) best = Math.max(best, C.smithQuality(s, 6));
+    return best < 100;                       // a masterwork stays yours to earn
+  })());
+
+  ok('a store hand carries stock out for you', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(37) });
+    C.addStorage(s, C.lineKey('boots', 'bronze'), 8, 100);
+    const e = { id: 1, name: 'Hand', role: 'storehand', rank: 'C', power: 3, wage: 30 };
+    const r = C.runStoreHand(s, e, { keys: [C.lineKey('boots', 'bronze')] });
+    return r.ok && r.moved > 0 && C.countShelf(s) === r.moved;
+  })());
+
+  ok('assigned staff all work when the phase closes', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(38), gold: 5000 });
+    s.materials.bronze = 20;
+    C.addStorage(s, C.lineKey('boots', 'bronze'), 6, 100);
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    s.staff.push({ id: 2, name: 'H', role: 'storehand', rank: 'C', power: 3, wage: 30 });
+    C.shopAssign(s, 1, { order: { silver: 2 } });
+    C.shopAssign(s, 2, { order: { keys: [] } });
+    const res = C.shopAdvancePhase(s);
+    return res.reports.length === 2 && s.materials.silver === 2 && C.countShelf(s) > 0;
+  })());
+}
+
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
 process.exit(failures.length ? 1 : 0);

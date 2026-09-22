@@ -67,10 +67,11 @@ carelessly and you will wall yourself in.
 
 ## Endless mode
 
-The game opens on a **title screen** offering three modes — Forge, Endless and
-Versus — then whatever settings that mode takes, then Begin. Forge picks a
-difficulty; Endless picks nothing and always starts on 3×3; Versus picks a board
-size and the rival's skill independently. The hamburger button in the top bar
+The game opens on a **title screen** offering four modes — Forge, Endless,
+Versus and Open Your Forge — then whatever settings that mode takes, then Begin.
+Forge picks a difficulty; Endless picks nothing and always starts on 3×3; Versus
+picks a board size and the rival's skill independently; Open Your Forge picks
+the difficulty its orders will be worked at. The hamburger button in the top bar
 takes you back there at any time.
 
 Endless replaces the two-strike rules with a score chase:
@@ -293,6 +294,141 @@ reached, and the square under the hammer keeps its brass ring. It did not, in
 endless, before this was shared: the old `.board[data-mode="endless"]` rule
 outranked `.tile[data-current="1"]` and buried the ring on every struck square.
 
+## Open Your Forge
+
+A shop-management mode built on the Forge puzzle. You own a smithy: buy metal,
+forge the stock yourself, put it on the shelves, price it, serve the customers,
+and have the rent on the table at the end of every seventh day. Fall short and
+the shop closes. Forge, Endless and Versus are untouched — this mode *uses* the
+Forge puzzle, it does not change it.
+
+### The day
+
+Three phases — morning, afternoon, evening — and the player personally takes
+**one** action in each: Forge, Tend the Store, Purchase Materials, Stock
+Shelves, or Search for Employees. **The three phases never increase.** What
+grows is how much happens inside them, because employees work alongside you.
+
+Early on a day might be *buy metal → forge → stock shelves*, with no phase left
+to open the shop. Later the same day is *forge while the Runner buys and the
+Store Hand stocks*, then *forge again while a Salesperson serves*, then *serve
+the counter yourself*. That shift is the whole progression.
+
+### Material is not difficulty
+
+These are two independent variables, deliberately:
+
+| | Sets | Chosen by |
+| --- | --- | --- |
+| **Material** | how many strikes each square needs, and which strike ruins it | the order you place |
+| **Forge difficulty** | which chess symbols appear on the board | the title screen, once |
+| **Item** | how big the board is | the order you place |
+
+| Material | Strikes per square | Ruined on | Ingot | Value |
+| --- | --- | --- | --- | --- |
+| Bronze | 1 | 2nd | 14g | ×1.0 |
+| Silver | 2 | 3rd | 34g | ×2.3 |
+| Gold | 3 | 4th | 76g | ×4.6 |
+| Mythril | 4 | 5th | 150g | ×8.6 |
+| Adamantine | 5 | 6th | 330g | ×15.0 |
+
+A square may be left part-worked and returned to; what ruins it is one strike
+past its count. So Adamantine is not a different puzzle, it is the same board
+crossed five times without ever over-striking a finished square.
+
+This needed the core generator to build a route visiting every square *n* times
+rather than exactly twice (`buildRoute(..., visits)`), and the game to carry its
+own `perfect`/`spent` thresholds rather than reading the global rules. Forge and
+Endless pass nothing and get the standing values, so their behaviour is
+unchanged — there is a check for exactly that.
+
+Generation holds up across the whole matrix: 240/240 boards over every size 3–6
+× every material, worst case 396 ms.
+
+### One puzzle is one batch
+
+Five swords take **one** board, not five. Batch size comes from the premises,
+the Greater Bellows upgrade and whichever Apprentice is at the anvil. Finish the
+board and the ingots are spent and the batch goes on the anvil overnight; ruin
+it and the phase is gone but **the metal is not**. The puzzle's quality score
+becomes the goods' quality, which sets what they are worth.
+
+Finished work lands in **storage** the next morning. It never goes straight to
+the shelves — moving it there costs a phase (or a Store Hand).
+
+### Pricing and customers
+
+Every line has a recommended price and starts there; the player may ask
+anything. Overpricing makes a piece hard to shift, never unsellable —
+`priceAppeal` decays smoothly and never reaches zero.
+
+Who comes through the door is decided by **what is on the shelves**. Each
+customer type weights each category, and the same table is read backwards to
+pick the queue: a shop full of plate and shields draws knights and soldiers; one
+full of daggers and boots draws rogues, scouts and travellers. Weights, not
+rules — a rogue will still buy the only mace in an otherwise empty shop. The
+player never declares a specialism; the shop acquires one.
+
+Customers who cannot afford the asking price may **haggle**. Accept, refuse, or
+push for the middle; the Haggler's Ledger and a salesperson's rank both improve
+the odds. An employee at the counter runs the identical queue with their own
+rank standing in for the player's judgement — one code path, so the two cannot
+drift apart.
+
+### Staff take work, not stat lines
+
+| Role | What they take off your hands |
+| --- | --- |
+| Salesperson | Minds the counter for one phase a day |
+| Apprentice | Works beside you; every batch *you* forge comes out larger |
+| Runner | Fetches ingots at a price that may beat the market or miss it |
+| Smith | Fills a production order alone — you keep the phase, they keep the hammer |
+| Store Hand | Carries finished goods out to the shelves |
+
+Ranks E→S set `power`, which drives every rank-sensitive roll, and wage. Better
+ranks are rarer among applicants as well as dearer. Only the Apprentice works
+alongside you; everyone else takes **one job a day**, which is why keeping the
+shop open all day takes two salespeople plus you.
+
+A Smith never quite matches a good run at the anvil — even an S-rank tops out
+short of 100 quality, verified by a check — so delegating production is a real
+trade rather than an upgrade.
+
+### The week
+
+Rent and every wage fall due together at the end of every 7th day. Miss it and
+the shop closes. Premises scale both sides of that:
+
+| Tier | Rent | Staff | Shelf | Storage | Batch | To move in |
+| --- | --- | --- | --- | --- | --- | --- |
+| Corner Forge | 220g | 2 | 14 | 45 | 3 | — |
+| Village Smithy | 620g | 4 | 26 | 90 | 5 | 1,800g |
+| Town Forge | 1,500g | 6 | 44 | 170 | 7 | 6,500g |
+| Guild Foundry | 3,400g | 9 | 70 | 300 | 10 | 22,000g |
+
+Five upgrades (bellows, display cases, storage racks, haggler's ledger, painted
+signboard), three levels each, on a framework that takes a new row without
+touching the rules.
+
+Star rating is a 0–100 reputation shown as 1–5 stars. Today it drives one thing
+— how many customers a selling phase draws — but it moves on sales, fair
+pricing, quality, walkouts and rent paid, so the other levers are already wired.
+It is a slow climb on purpose: a new shop opens at one star and reaching five
+takes months of good trading, not a fortnight.
+
+`node tools/measure-shop.mjs` plays a plain, competent shopkeeper for four weeks
+and prints the result. At the time of writing that is 8/8 survival with roughly
+500g a week of profit at tier 1 — comfortable for tidy play, and thin enough
+that a wasted phase or a ruined board is felt.
+
+### Everything is a table
+
+`SHOP` holds materials, items, categories, customer types, roles, ranks, tiers
+and upgrades. Adding an item, a customer type, a role, a shop tier or an upgrade
+is a row in that table and nothing else; the rules below it never name a price,
+a category or a customer. Items already carry their own board size and base
+price, so per-item layouts and demand profiles are a field away.
+
 | Piece | Legal move from its square |
 | --- | --- |
 | King | One square in any horizontal, vertical or diagonal direction |
@@ -384,6 +520,13 @@ CONFIG.versus.upgrades                 // versus upgrade ids, costs and targets
 CONFIG.versus.ai.comboWeight            // how hard the rival plays for combos
 CONFIG.versus.ai                       // rival node, time and think budgets
 CONFIG.versus.generation               // attempts and mobility tolerance for board pairs
+SHOP.materials                         // strikes per square, ingot cost and value
+SHOP.items                             // board size and base price per product
+SHOP.customers                         // who shops here, and what pulls them in
+SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
+SHOP.tiers                             // premises: rent, staff, shelf, storage, batch
+SHOP.upgrades                          // the upgrade framework
+SHOP.weekLength / SHOP.startGold       // how long a week is, and what you start with
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -413,8 +556,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 264 rule/generation checks
-node tools/verify-ui.mjs                                    # 204 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 316 rule/generation checks
+node tools/verify-ui.mjs                                    # 241 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

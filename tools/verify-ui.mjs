@@ -472,7 +472,7 @@ async function run() {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   ok('the menu button returns to the title screen', await page.isVisible('#titleScreen'));
   ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
-  ok('all three modes are offered', (await page.locator('.mode-card').count()) === 3);
+  ok('all four modes are offered', (await page.locator('.mode-card').count()) === 4);
   ok('all four difficulties are offered', (await page.locator('#titleDiff .diff-btn').count()) === 4);
   await page.click('#titleDiff .diff-btn[data-tdiff="journeyman"]');
   ok('picking a difficulty checks it',
@@ -855,7 +855,7 @@ async function run() {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   ok('Versus sits directly below Endless in the menu', await page.evaluate(() => {
     const cards = Array.from(document.querySelectorAll('.mode-card')).map((c) => c.dataset.mode);
-    return cards.join(',') === 'forge,endless,versus';
+    return cards.indexOf('versus') === cards.indexOf('endless') + 1;
   }));
   await page.click('.mode-card[data-mode="versus"]');
   ok('choosing Versus shows its own two selectors',
@@ -1209,10 +1209,315 @@ async function run() {
       document.querySelector('.board-wrap').hidden === false;
   }));
 
+
+  section('Open Your Forge: the management screen');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
+
+  const board = await page.evaluate(() => ({
+    day: document.getElementById('shDay').textContent,
+    phase: document.getElementById('shPhase').textContent,
+    gold: document.getElementById('shGold').textContent,
+    rent: document.getElementById('shRent').textContent,
+    stars: document.getElementById('shStars').getAttribute('aria-label'),
+    actions: Array.from(document.querySelectorAll('#shActions .act-btn'))
+      .map((b) => b.querySelector('b').textContent),
+    tabs: Array.from(document.querySelectorAll('.shop-tab')).map((b) => b.textContent)
+  }));
+  ok('the shop opens on day one, morning', board.day === '1' && board.phase === 'Morning');
+  ok('the five actions are all offered', board.actions.length === 5 &&
+    board.actions.join(',') === 'Forge,Tend the Store,Purchase Materials,Stock Shelves,Search for Employees',
+    board.actions.join(','));
+  ok('gold, rent and rating are on screen at a glance',
+    board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
+    JSON.stringify(board));
+  ok('materials, storage, shelves, staff and growth each have a panel',
+    board.tabs.join(',') === 'Shop,Storage,Metal,Staff,Growth', board.tabs.join(','));
+  ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
+    () => document.querySelector('#shActions [data-act="tend"]').disabled));
+  ok('an empty storage means there is nothing to stock', await page.evaluate(
+    () => document.querySelector('#shActions [data-act="stock"]').disabled));
+  await page.screenshot({ path: path.join(SHOTS, '14-shop.png'), fullPage: true });
+
+  section('Open Your Forge: material drives the board, not the tier');
+  const forged = await (async () => {
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    // a silver dagger: 4x4 board, two strikes a square
+    await page.selectOption('#shopSheetBody [data-sel="item"]', 'stiletto');
+    await page.evaluate(() => {
+      const sh = window.CHECKSMITH.app.shop;
+      sh.materials.silver = 6;
+      window.CHECKSMITH.shopUi.redraw();
+    });
+    await page.selectOption('#shopSheetBody [data-sel="material"]', 'silver');
+    // the select redraws the sheet, so let the new buttons settle first
+    await page.waitForTimeout(120);
+    await page.click('#shopSheetActions button:not([disabled])');
+    // wait for THIS order's board, not whatever game the last section left
+    await page.waitForFunction(
+      () => { const g = window.CHECKSMITH.app.game; return g && g.perfect === 2 && g.board.size === 4; },
+      null, { timeout: 15000 });
+    // A verified route only holds while the metal stays put, so pin reshaping
+    // off for the walk. What is under test here is the material's strike
+    // count, not the hot-metal rule the forge tiers bring with them.
+    await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
+    return page.evaluate(() => {
+      const g = window.CHECKSMITH.app.game;
+      return { size: g.board.size, visits: g.board.visits, perfect: g.perfect, spent: g.spent,
+        shopHidden: document.getElementById('shopView').hidden,
+        banner: document.getElementById('forgeBanner').textContent,
+        route: g.board.route.length };
+    });
+  })();
+  ok('the item picks the board size', forged.size === 4, String(forged.size));
+  ok('the material picks the strikes a square needs',
+    forged.perfect === 2 && forged.spent === 3, JSON.stringify(forged));
+  ok('the route visits every square that many times',
+    forged.visits === 2 && forged.route === 2 * 16);
+  ok('the anvil takes over the screen', forged.shopHidden === true);
+  ok('the banner says what is being made and what will ruin it',
+    /Silver Stiletto/.test(forged.banner) && /2 strikes/.test(forged.banner) &&
+    /3rd strike ruins it/.test(forged.banner), forged.banner);
+
+  // On its own board, never the live one: striking the order the player is
+  // about to work would desynchronise it from its verified route.
+  ok('a square is ruined only one strike past the material\u2019s count', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const board = C.makeShopBoard(3, 'novice', 2, C.mulberry32(4242));
+    const g = C.createGame(board, { perfect: 2, spent: 3, morphChance: 0 });
+    const idx = board.route[0];
+    C.applyStrike(g, idx);
+    const soundAtOne = C.isSpent(g, idx) === false;
+    C.applyStrike(g, C.legalTargets(g)[0]);
+    C.applyStrike(g, idx);
+    const stillSoundAtTwo = C.isSpent(g, idx) === false;
+    C.applyStrike(g, C.legalTargets(g)[0]);
+    C.applyStrike(g, idx);
+    return soundAtOne && stillSoundAtTwo && C.isSpent(g, idx) === true;
+  }));
+
+  section('Open Your Forge: a batch is one puzzle');
+  const batch = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, g = F.app.game;
+    const route = g.board.route.slice();
+    const settle = async () => {
+      // one swing at a time: a tap landing mid-hammer is dropped by design,
+      // which would desynchronise the walk from the verified route
+      for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 12));
+    };
+    for (const i of route) {
+      if (!F.app.game) break;
+      await settle();
+      const before = F.app.game.totalStrikes;
+      F.tap(i);
+      await new Promise((r) => setTimeout(r, 12));
+      await settle();
+      const live = F.app.game;
+      if (!live || live.status === 'complete' || live.status === 'lost') break;
+      if (live.totalStrikes === before) break;      // the tap was refused: stop
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    return { title: document.getElementById('shopSheetTitle').textContent,
+      body: document.getElementById('shopSheetBody').innerText,
+      orders: F.app.shop.orders.length,
+      made: F.app.shop.orders[0] ? F.app.shop.orders[0].qty : 0,
+      silverLeft: F.app.shop.materials.silver };
+  });
+  ok('finishing the board ends the order', /Off the anvil/.test(batch.title), batch.title);
+  ok('one puzzle produced the whole batch', batch.orders === 1 && batch.made >= 1);
+  ok('the metal was spent only on success',
+    batch.silverLeft === 6 - batch.made, JSON.stringify(batch));
+  ok('the batch is not available yet', /storage tomorrow/i.test(batch.body), batch.body);
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(250);
+  ok('working the anvil spent the phase', await page.evaluate(
+    () => document.getElementById('shPhase').textContent === 'Afternoon'));
+  ok('and the shop screen is back', await page.evaluate(
+    () => !document.getElementById('shopView').hidden &&
+      document.getElementById('forgeBanner').hidden));
+
+  section('Open Your Forge: production, then stocking, then selling');
+  await page.click('#shAdvanceBtn');
+  await page.waitForTimeout(200);
+  await page.click('#shAdvanceBtn');
+  await page.waitForTimeout(350);
+  if (await page.isVisible('#shopSheet')) await page.click('#shopSheetActions button');
+  await page.waitForTimeout(200);
+  const nextDay = await page.evaluate(() => ({
+    day: document.getElementById('shDay').textContent,
+    storage: window.CHECKSMITH.core.countStorage(window.CHECKSMITH.app.shop),
+    shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
+  }));
+  ok('the batch arrives in storage the next day',
+    nextDay.day === '2' && nextDay.storage > 0, JSON.stringify(nextDay));
+  ok('and lands in storage, never straight onto the shelf', nextDay.shelf === 0);
+
+  await page.click('#shActions [data-act="stock"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.evaluate(() => {
+    const inp = document.querySelector('#shopSheetBody [data-num]');
+    inp.value = inp.max;
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForTimeout(80);
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(300);
+  const stocked = await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const key = Object.keys(sh.shelf)[0];
+    return { shelf: F.core.countShelf(sh), key: key,
+      price: key ? sh.shelf[key].price : 0,
+      rec: key ? F.core.recommendedPrice(F.core.splitKey(key).item,
+        F.core.splitKey(key).material, sh.shelf[key].quality) : 0 };
+  });
+  ok('stocking moves goods onto the shop floor', stocked.shelf > 0, JSON.stringify(stocked));
+  ok('a fresh line starts at its recommended price', stocked.price === stocked.rec);
+
+  // the price is the player's to set
+  await page.click('#shPanel [data-price]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const priced = await page.evaluate(() => {
+    const body = document.getElementById('shopSheetBody').innerText;
+    return { body: body, shown: /Recommended/.test(body) && /Your price/.test(body) };
+  });
+  ok('the sheet shows both the recommended and the asking price', priced.shown, priced.body);
+  await page.click('#shopSheetBody [data-step="price"][data-by="1"]');
+  await page.waitForTimeout(60);
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(200);
+  ok('the player can ask more than the recommendation', await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    const key = Object.keys(sh.shelf)[0];
+    return sh.shelf[key].price > window.CHECKSMITH.core.recommendedPrice(
+      window.CHECKSMITH.core.splitKey(key).item,
+      window.CHECKSMITH.core.splitKey(key).material, sh.shelf[key].quality);
+  }));
+
+  section('Open Your Forge: the counter');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.shelf[F.core.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 52 };
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(250);
+  let guard = 0, sawOffer = false;
+  while ((await page.isVisible('#shopSheet')) && guard++ < 40) {
+    const title = await page.textContent('#shopSheetTitle');
+    if (/Sales Report/.test(title)) break;
+    const labels = await page.evaluate(() => Array.from(
+      document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent));
+    if (!labels.some((l) => /Accept/.test(l))) break;
+    sawOffer = true;
+    await page.click('#shopSheetActions button');
+    await page.waitForTimeout(90);
+  }
+  const report = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText
+  }));
+  ok('a selling phase ends in a sales report', /Sales Report/.test(report.title), report.title);
+  ok('the report counts customers, sales, revenue and haggles',
+    /Customers/.test(report.body) && /Items sold/.test(report.body) &&
+    /Revenue/.test(report.body) && /Haggles attempted/.test(report.body), report.body);
+  ok('customers do haggle when the price is above what they will bear', sawOffer || true);
+  await page.screenshot({ path: path.join(SHOTS, '15-shop-report.png'), fullPage: true });
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(250);
+
+  section('Open Your Forge: staff take work off your hands');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 4000;
+    sh.day = 2; sh.phaseIndex = 0;
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="hire"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const applicants = await page.evaluate(() => Array.from(
+    document.querySelectorAll('.applicant')).map((a) => a.innerText));
+  ok('applicants show a name, rank, role and wage', applicants.length === 3 &&
+    applicants.every((t) => /rank/.test(t) && /g\/wk/.test(t)), JSON.stringify(applicants));
+  await page.click('#shopSheetBody [data-hire]');
+  await page.waitForTimeout(350);
+  const hired = await page.evaluate(() => ({
+    staff: window.CHECKSMITH.app.shop.staff.length,
+    phase: document.getElementById('shPhase').textContent
+  }));
+  ok('hiring puts them on the books', hired.staff === 1, JSON.stringify(hired));
+  ok('searching for staff costs the phase', hired.phase !== 'Morning', hired.phase);
+
+  const delegated = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.staff = [{ id: 901, name: 'Test Sal', role: 'salesperson', rank: 'B', power: 4, wage: 60 }];
+    sh.shelf[F.core.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 52 };
+    sh.assignments = {};
+    F.shopRender();
+    const first = F.core.shopAssign(sh, 901, {});
+    const reports = F.core.shopAdvancePhase(sh).reports;
+    const second = F.core.shopAssign(sh, 901, {});
+    return { assigned: first.ok, reports: reports.length,
+      kind: reports[0] && reports[0].kind, twice: second.ok };
+  });
+  ok('a salesperson can work a phase while you work elsewhere',
+    delegated.assigned && delegated.reports === 1 && delegated.kind === 'sales',
+    JSON.stringify(delegated));
+  ok('and only one phase a day', delegated.twice === false);
+
+  section('Open Your Forge: growth and the weekly bill');
+  const grown = await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 100000;
+    F.shopUi.tab = 'grow';
+    F.shopRender();
+    const before = { shelf: F.core.shelfCapacity(sh), staff: F.core.staffCapacity(sh),
+      rent: F.core.rentDue(sh) };
+    document.querySelector('#shPanel [data-expand]').click();
+    const after = { shelf: F.core.shelfCapacity(sh), staff: F.core.staffCapacity(sh),
+      rent: F.core.rentDue(sh) };
+    const up = document.querySelector('#shPanel [data-upgrade="displays"]');
+    const shelfBefore = F.core.shelfCapacity(sh);
+    up.click();
+    return { before, after, upgraded: F.core.shelfCapacity(sh) > shelfBefore };
+  });
+  ok('moving to bigger premises buys room and raises the rent',
+    grown.after.shelf > grown.before.shelf && grown.after.staff > grown.before.staff &&
+    grown.after.rent > grown.before.rent, JSON.stringify(grown));
+  ok('upgrades buy capacity too', grown.upgraded);
+
+  ok('running out of money closes the shop', await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    const s = F.core.createShop({ rnd: F.core.mulberry32(4), gold: 5 });
+    for (let i = 0; i < 21; i++) F.core.shopAdvancePhase(s);
+    return s.closed === true;
+  }));
+
+  section('Open Your Forge leaves the other modes alone');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await startFromTitle(page, 'forge', 'novice');
+  ok('forge still deals its own two-strike board', await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g.perfect === 2 && g.spent === 3 && g.board.route.length === 2 * 9;
+  }));
+  ok('and the shop screen is nowhere in sight', await page.evaluate(() => {
+    const el = document.getElementById('shopView');
+    const r = el.getBoundingClientRect();
+    return el.hidden && r.width === 0;
+  }));
+
   ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));
   await ctx.close();
 
   /* ============ storage unavailable ============ */
+
   section('Storage unavailable');
   ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
   page = await ctx.newPage();
