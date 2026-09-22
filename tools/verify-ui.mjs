@@ -841,6 +841,18 @@ async function run() {
   await page.click('#titleFoe .diff-btn[data-tfoe="master"]');
   ok('board size and rival skill are chosen independently', await page.evaluate(
     () => window.CHECKSMITH.app.vsSize === 3 && window.CHECKSMITH.app.vsFoe === 'master'));
+  // The highlight used to be scoped to #titleDiff, so these two radios tracked
+  // the choice in aria-checked and showed nothing for it.
+  const litUp = await page.evaluate(() => {
+    const read = (sel) => Array.from(document.querySelectorAll(sel)).map((b) => ({
+      on: b.getAttribute('aria-checked') === 'true',
+      lit: getComputedStyle(b).backgroundImage !== 'none'
+    }));
+    const rows = read('#titleSize .diff-btn').concat(read('#titleFoe .diff-btn'));
+    return { agree: rows.every((r) => r.on === r.lit), lit: rows.filter((r) => r.lit).length };
+  });
+  ok('the chosen size and skill are visibly highlighted', litUp.agree && litUp.lit === 2,
+    JSON.stringify(litUp));
   await page.click('#titleSize .diff-btn[data-tsize="4"]');
   await page.click('#titleFoe .diff-btn[data-tfoe="apprentice"]');
 
@@ -889,6 +901,89 @@ async function run() {
       versusView: shown('#versusView')
     };
   });
+  // Damage wears the forge's third-strike art, and Repair — which only resets
+  // the state — has to put the square back exactly as it was.
+  const damage = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const bg = (i) => getComputedStyle(document.querySelector(`#youBoard .tile[data-i="${i}"]`)).backgroundImage;
+    const cs = (i) => getComputedStyle(document.querySelector(`#youBoard .tile[data-i="${i}"]`));
+    m.you.strikes[6] = 2; m.you.strikes[9] = 2;
+    F.vsRender();
+    const plain = bg(6);                       // two strikes, never cracked
+    const reference = bg(9);                   // its untouched twin
+    m.you.states[6] = C.SQ_CRACKED; F.vsRender();
+    const cracked = { bg: bg(6), outline: cs(6).outlineStyle };
+    m.you.states[6] = C.SQ_ARMED; F.vsRender();
+    const armed = { bg: bg(6), outline: cs(6).outlineStyle };
+    m.you.states[6] = C.SQ_INTACT; F.vsRender();
+    const repaired = { bg: bg(6), outline: cs(6).outlineStyle };
+    return { plain, reference, cracked, armed, repaired };
+  });
+  ok('a cracked square stops looking like sound metal', damage.cracked.bg !== damage.plain);
+  ok('cracked and armed squares wear the same split-metal art',
+    damage.armed.bg === damage.cracked.bg);
+  ok('a cracked square is ringed by an outline, not a pseudo-element',
+    damage.cracked.outline === 'dashed' && damage.armed.outline === 'solid',
+    JSON.stringify([damage.cracked.outline, damage.armed.outline]));
+  ok('repairing returns the square to the colour it had before',
+    damage.repaired.bg === damage.plain && damage.repaired.bg === damage.reference,
+    JSON.stringify(damage.repaired));
+  ok('repairing clears the crack ring too', damage.repaired.outline === 'none');
+
+  // The current-square marker and the damage ring both wanted ::after, and the
+  // rings used to reach further than the grid gap and collide with a neighbour.
+  const rings = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.current = 0; m.you.states[0] = C.SQ_CRACKED;
+    F.vsRender();
+    const tile = document.querySelector('#youBoard .tile[data-i="0"]');
+    const marker = getComputedStyle(tile, '::after').content;
+    // widest non-inset shadow ring, compared against the gap between squares
+    const shadow = getComputedStyle(tile).boxShadow;
+    const gap = parseFloat(getComputedStyle(document.getElementById('youBoard')).gap);
+    const outer = shadow.split(',').filter((part) => !part.includes('inset'))
+      .map((part) => {
+        const nums = part.match(/(-?\d+(?:\.\d+)?)px/g) || [];
+        return nums.length >= 4 ? parseFloat(nums[3]) : 0;   // the spread value
+      });
+    return { marker, gap, worstSpread: Math.max(0, ...outer) };
+  });
+  ok('the current square keeps its marker even when cracked',
+    rings.marker && rings.marker !== 'none', rings.marker);
+  ok('no ring reaches further than the gap between squares',
+    rings.worstSpread <= rings.gap, JSON.stringify(rings));
+
+  // The damage outline outranks the bare :focus-visible rule, so a keyboard
+  // user could have lost the focus ring on exactly the squares that matter.
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[2] = C.SQ_CRACKED;
+    F.vsRender();
+    document.body.focus();
+  });
+  let onCracked = false;
+  for (let n = 0; n < 120 && !onCracked; n++) {
+    await page.keyboard.press('Tab');
+    onCracked = await page.evaluate(() => {
+      const a = document.activeElement;
+      return !!(a && a.classList.contains('tile') && a.dataset.side === 'you' && a.dataset.i === '2');
+    });
+  }
+  const focusRing = await page.evaluate(() => {
+    const a = document.activeElement;
+    const cs = getComputedStyle(a);
+    return { vs: a.dataset.vs, visible: a.matches(':focus-visible'),
+      width: cs.outlineWidth, style: cs.outlineStyle, offset: cs.outlineOffset };
+  });
+  ok('a cracked square still shows the keyboard focus ring',
+    onCracked && focusRing.visible && focusRing.style === 'solid' &&
+    focusRing.width === '3px' && focusRing.offset === '2px',
+    JSON.stringify(focusRing));
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[2] = C.SQ_INTACT; F.vsRender();
+  });
+
   ok('no forge or endless chrome leaks into the match',
     Object.entries(leftovers).every(([k, v]) => (k === 'versusView' ? v === true : v === false)),
     JSON.stringify(leftovers));

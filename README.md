@@ -209,6 +209,17 @@ Armed square to Intact — including the one you are standing on. Nothing repair
 Broken square.** So a shattered square is not a square you must avoid; it is one
 you must pay for or walk into.
 
+Damaged metal wears the same split, glowing art the forge gives a square on its
+third strike, with a dashed amber ring for Cracked and a solid red one for Armed.
+That art hangs off the square's state alone, so Repair — which only resets the
+state — returns the square to whatever colour its strike count had given it.
+
+The state rings are drawn as `outline` with a negative `outline-offset`, not as
+`::after`. A tile has only one `::after` and the current-square diamond and the
+legal-move ring need it, and an inset outline cannot spill across the grid gap
+onto the neighbouring square. Every ring around a square is kept within the gap
+width for the same reason; a browser check asserts it.
+
 Each strike runs in a fixed order: validate → land the blow and move the marker →
 arm a cracked destination → break the vacated square if it was armed → award
 points → **recalculate legal destinations, after the departure square has
@@ -359,7 +370,7 @@ timers. Rendering, animation, sound and input sit below it.
 
 ```sh
 node tools/verify-core.mjs                                  # 253 rule/generation checks
-node tools/verify-ui.mjs                                    # 188 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 197 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
