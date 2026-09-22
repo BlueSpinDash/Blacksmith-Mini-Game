@@ -1246,6 +1246,45 @@ async function run() {
     () => document.querySelector('#shActions [data-act="stock"]').disabled));
   await page.screenshot({ path: path.join(SHOTS, '14-shop.png'), fullPage: true });
 
+  section('Open Your Forge: sprites and portraits');
+  const art = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const missingItems = C.SHOP.items
+      .filter((it) => !document.getElementById('it-' + it.id)).map((it) => it.id);
+    const missingFaces = C.SHOP.customers
+      .filter((c) => !document.getElementById('cu-' + c.id)).map((c) => c.id);
+    const tinted = C.SHOP.materials.filter((m) => !m.tint).map((m) => m.id);
+    return { missingItems, missingFaces, tinted,
+      ingot: !!document.getElementById('it-ingot'),
+      symbols: document.querySelectorAll('.sprite-defs symbol').length };
+  });
+  ok('every item has a sprite', art.missingItems.length === 0, art.missingItems.join(','));
+  ok('every customer type has a portrait', art.missingFaces.length === 0, art.missingFaces.join(','));
+  ok('there is an ingot sprite for the raw metal', art.ingot);
+  ok('every material carries a tint', art.tinted.length === 0, art.tinted.join(','));
+  ok('the sheet holds one symbol per thing drawn, not one per use',
+    art.symbols === 19 + 11, String(art.symbols));
+
+  // the same sword in two metals must actually differ on screen
+  const tint = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.innerHTML = window.CHECKSMITH.itemSprite('longsword', 'bronze') +
+      window.CHECKSMITH.itemSprite('longsword', 'gold');
+    document.body.appendChild(host);
+    const [a, b] = host.querySelectorAll('svg');
+    const out = { a: getComputedStyle(a).color, b: getComputedStyle(b).color,
+      usesA: a.querySelector('use').getAttribute('href'),
+      label: a.getAttribute('aria-label') };
+    host.remove();
+    return out;
+  });
+  ok('a sprite is tinted by the material it is worked in', tint.a !== tint.b,
+    JSON.stringify(tint));
+  ok('and both point at the one symbol for that item',
+    tint.usesA === '#it-longsword', tint.usesA);
+  ok('a sprite names itself for a screen reader',
+    tint.label === 'Bronze Longsword', tint.label);
+
   section('Open Your Forge: material drives the board, not the tier');
   const forged = await (async () => {
     await page.click('#shActions [data-act="forge"]');
@@ -1443,6 +1482,9 @@ async function run() {
       lost: !!document.querySelector('.stamp.lost'),
       band: document.querySelector('.haggle-box .band')
         ? document.querySelector('.haggle-box .band').textContent : null,
+      portrait: !!document.querySelector('.cust-head .portrait'),
+      wantSprite: !!document.querySelector('.cust-want .sprite'),
+      stampArt: !!document.querySelector('.stamp .sprite, .stamp .portrait'),
       odds: document.querySelector('.odds') ? document.querySelector('.odds').dataset.read : null,
       labels: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
     }));
@@ -1451,6 +1493,7 @@ async function run() {
 
     if (view.bid) {
       seen.offers++;
+      if (!view.portrait || !view.wantSprite) seen.artMissing = true;
       if (/HAPPY TO PAY/i.test(view.bid)) seen.full++;
       const canHaggle = view.labels.some((l) => /^Haggle$/.test(l));
       if (canHaggle && seen.haggleScreens < 2) {
@@ -1468,6 +1511,7 @@ async function run() {
       await page.click('#shopSheetActions button:nth-child(1)');
     } else if (view.stamp) {
       if (view.lost) seen.left++; else seen.sold++;
+      if (!view.stampArt) seen.stampArtMissing = true;
       if (!seen.shotSold && !view.lost) {
         seen.shotSold = true;
         await page.screenshot({ path: path.join(SHOTS, '16-shop-sold.png'), fullPage: true });
@@ -1479,6 +1523,9 @@ async function run() {
 
   ok('every customer is shown, not resolved off-screen', seen.offers >= 3,
     JSON.stringify(seen));
+  ok('every customer arrives with a face and the goods they came for',
+    !seen.artMissing, JSON.stringify(seen));
+  ok('every outcome is stamped with art', !seen.stampArtMissing, JSON.stringify(seen));
   ok('a customer who will pay the asking price is still shown to the player',
     seen.full >= 1, JSON.stringify(seen));
   ok('haggling opens a counter-offer of the player’s own', seen.haggleScreens >= 1,

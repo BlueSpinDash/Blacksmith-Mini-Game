@@ -472,6 +472,27 @@ and prints the result. At the time of writing that is 8/8 survival with roughly
 500g a week of profit at tier 1 — comfortable for tidy play, and thin enough
 that a wasted phase or a ruined board is felt.
 
+### Sprites and portraits
+
+Every item is drawn as an inline SVG `<symbol>`, and so is every customer type.
+They are defined once at the top of the document and drawn with `<use>`, so a
+sword shown on six rows costs six short elements rather than six copies of the
+artwork — 29 symbols for 18 items, an ingot and 11 faces, in about 24 KB.
+
+**Metal parts inherit `currentColor`; cloth, skin and leather do not.** That is
+the whole tinting mechanism: one sword symbol serves all five materials, tinted
+from `SHOP.materials[].tint`, while a knight in a gold helm stays a knight
+rather than becoming a gold man. Shading is flat white and black washes over
+the inherited colour, because a `<use>` shadow tree can only inherit properties
+from its host — it cannot reach a gradient defined outside it, and `var()` is
+not valid in a presentation attribute. Both of those were tried first and both
+render black.
+
+Adding art for a new item is a `<symbol id="it-<itemid>">`; the id matches the
+item's id in `SHOP.items` and nothing else needs to know. A browser check
+asserts every item, customer type and material is covered, so a new row in the
+table without a sprite fails the suite rather than rendering an empty box.
+
 ### Everything is a table
 
 `SHOP` holds materials, items, categories, customer types, roles, ranks, tiers
@@ -609,7 +630,7 @@ timers. Rendering, animation, sound and input sit below it.
 
 ```sh
 node tools/verify-core.mjs                                  # 329 rule/generation checks
-node tools/verify-ui.mjs                                    # 250 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 260 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
