@@ -1526,8 +1526,6 @@ async function run() {
   ok('every customer arrives with a face and the goods they came for',
     !seen.artMissing, JSON.stringify(seen));
   ok('every outcome is stamped with art', !seen.stampArtMissing, JSON.stringify(seen));
-  ok('a customer who will pay the asking price is still shown to the player',
-    seen.full >= 1, JSON.stringify(seen));
   ok('haggling opens a counter-offer of the player’s own', seen.haggleScreens >= 1,
     JSON.stringify(seen));
   ok('each outcome is stamped, sold or walked out', seen.sold + seen.left >= 3,
@@ -1551,6 +1549,37 @@ async function run() {
   await page.screenshot({ path: path.join(SHOTS, '15-shop-report.png'), fullPage: true });
   await page.click('#shopSheetActions button');
   await page.waitForTimeout(250);
+
+  // Whether a full-price buyer turns up in a random queue is chance, so force
+  // one: at a price nobody could baulk at, the very first offer must be the
+  // full asking price, and it must be put to the player like any other.
+  const willPay = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.shelf = {};
+    sh.shelf[C.lineKey('dagger', 'bronze')] = { qty: 40, quality: 100, price: 1 };
+    F.shopUi.session = null;
+    F.shopAct('tend');
+    await new Promise((r) => setTimeout(r, 250));
+    const bid = document.querySelector('.cust-bid');
+    const out = { full: !!document.querySelector('.cust-bid.fair'),
+      text: bid ? bid.innerText.replace(/\n/g, ' ') : null,
+      buttons: Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .map((b) => b.textContent) };
+    return out;
+  });
+  ok('a customer who will pay the asking price is still shown to the player',
+    willPay.full && /HAPPY TO PAY/i.test(willPay.text), JSON.stringify(willPay));
+  ok('and they are answered, not settled behind the scenes',
+    willPay.buttons.some((l) => /^Accept/.test(l)) &&
+    !willPay.buttons.some((l) => /^Haggle$/.test(l)), JSON.stringify(willPay.buttons));
+  // Drain whatever that forced phase raises - the queue, its report, and any
+  // day-break sheet behind it - so the shop floor is reachable again.
+  for (let i = 0; i < 80 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(90);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+  await page.waitForTimeout(150);
 
   section('Open Your Forge: staff take work off your hands');
   await page.evaluate(() => {
@@ -1711,6 +1740,154 @@ async function run() {
   const wide = await page.locator('.board-wrap').boundingBox();
   ok('layout stays centred and capped on desktop (' + Math.round(wide.width) + 'px)', wide.width <= 520);
   await page.screenshot({ path: path.join(SHOTS, '06-desktop.png') });
+  await ctx.close();
+
+  /* ============ the forge is carried between sittings ============ */
+  section('Open Your Forge: the shop is saved');
+  ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
+  page = await ctx.newPage();
+  const saveErrs = [];
+  page.on('pageerror', (e) => saveErrs.push(String(e)));
+  await page.goto(FILE);
+
+  const openShop = async () => {
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.waitForTimeout(140);
+    const line = await page.textContent('#shopSaveLine');
+    const begin = await page.textContent('#beginBtn');
+    await page.click('#beginBtn');
+    // carrying on can land either on the shop floor or straight back at the
+    // anvil, so wait for whichever the save asked for
+    await page.waitForFunction(
+      () => !document.getElementById('shopView').hidden || !!window.CHECKSMITH.app.game,
+      null, { timeout: 15000 });
+    await page.waitForTimeout(250);
+    return { line, begin };
+  };
+  const shopState = () => page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    return { day: sh.day, gold: sh.gold, silver: sh.materials.silver,
+      storage: C.countStorage(sh), shelf: C.countShelf(sh), staff: sh.staff.length,
+      stars: C.shopStars(sh), phase: document.getElementById('shPhase').textContent };
+  });
+
+  const first = await openShop();
+  ok('a first visit offers a new forge, not a saved one',
+    /No forge yet/.test(first.line) && first.begin === 'Begin', JSON.stringify(first));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 1777; sh.day = 4; sh.reputation = 48; sh.materials.silver = 6;
+    C.addStorage(sh, C.lineKey('mace', 'gold'), 3, 88);
+    sh.shelf[C.lineKey('longsword', 'bronze')] = { qty: 5, quality: 93, price: 58 };
+    sh.staff.push({ id: 1, name: 'Mara Ashford', role: 'salesperson', rank: 'C', power: 3, wage: 32 });
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const kept = await shopState();
+  await page.reload();
+  const second = await openShop();
+  ok('the title screen offers to carry the saved forge on',
+    second.begin === 'Carry on' && /Day 4/.test(second.line) && /1,777g/.test(second.line),
+    JSON.stringify(second));
+  const back = await shopState();
+  ok('gold, day, metal, stock, staff and standing all come back',
+    JSON.stringify(back) === JSON.stringify(kept), JSON.stringify([kept, back]));
+
+  // a batch on the anvil resumes as the same board, not a fresh one
+  await page.click('#shActions [data-act="forge"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions button:not([disabled])');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game, null, { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
+  const struck = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.tap(F.app.game.board.route[0]);
+    await new Promise((r) => setTimeout(r, 200));
+    const g = F.app.game;
+    return { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),
+      current: g.current, perfect: g.perfect };
+  });
+  await page.reload();
+  const third = await openShop();
+  ok('a batch left on the anvil is announced on the title screen',
+    /on the anvil/.test(third.line), third.line);
+  const resumed = await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g ? { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),
+      current: g.current, perfect: g.perfect,
+      atAnvil: document.getElementById('shopView').hidden,
+      picker: !document.querySelector('.difficulty:not(#titleDiff)').hidden } : null;
+  });
+  ok('it resumes on the very same board, blows and all',
+    resumed && JSON.stringify(resumed).includes(struck.pieces) &&
+    resumed.strikes === struck.strikes && resumed.current === struck.current,
+    JSON.stringify([struck, resumed]));
+  ok('and the board-size picker is not offered at the anvil',
+    resumed && resumed.atAnvil === true && resumed.picker === false, JSON.stringify(resumed));
+
+  // a selling phase left half-served is not banked
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopUi.order = null;
+    F.app.game = null;
+    document.getElementById('shopView').hidden = false;
+    F.core.addStorage(F.app.shop, F.core.lineKey('longsword', 'bronze'), 0, 100);
+    F.app.shop.shelf[F.core.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 60 };
+    F.app.shop.reputation = 70;
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const beforeSelling = await shopState();
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(350);
+  for (let i = 0; i < 3 && (await page.isVisible('#shopSheet')); i++) {
+    if (/Sales Report/.test(await page.textContent('#shopSheetTitle'))) break;
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(150);
+  }
+  const midSale = await page.evaluate(() => ({ gold: window.CHECKSMITH.app.shop.gold,
+    open: !!window.CHECKSMITH.shopUi.session }));
+  await page.reload();
+  await openShop();
+  const afterSale = await shopState();
+  ok('a selling phase abandoned half way is simply unplayed',
+    midSale.gold > beforeSelling.gold && afterSale.gold === beforeSelling.gold &&
+    afterSale.phase === beforeSelling.phase,
+    JSON.stringify([beforeSelling, midSale, afterSale]));
+
+  // but a phase played out is kept
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(350);
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    const done = /Sales Report/.test(await page.textContent('#shopSheetTitle'));
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(140);
+    if (done) break;
+  }
+  await page.waitForTimeout(300);
+  const played = await shopState();
+  await page.reload();
+  await openShop();
+  const stillThere = await shopState();
+  ok('a phase played to its end is kept',
+    stillThere.gold === played.gold && stillThere.phase === played.phase,
+    JSON.stringify([played, stillThere]));
+
+  // and the player can throw the whole thing away
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.waitForTimeout(140);
+  await page.click('#shopFreshBtn');
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(250);
+  ok('starting a new forge discards the saved one',
+    /No forge yet/.test(await page.textContent('#shopSaveLine')) &&
+    (await page.textContent('#beginBtn')) === 'Begin');
+  ok('saving and restoring raises no errors', saveErrs.length === 0, saveErrs.slice(0, 3).join(' | '));
   await ctx.close();
 
   await browser.close();

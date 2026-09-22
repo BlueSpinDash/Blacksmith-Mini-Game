@@ -341,6 +341,10 @@ difficulty selector. Every property of the puzzle falls out of the order:
 | **Material** | how many strikes each square needs, and which strike ruins it | the material ordered |
 | **Batch size** | which chess symbols appear on the board | how many pieces the batch holds |
 
+The board-size picker is Forge's alone. It is not offered in Open Your Forge at
+all — changing it at the anvil would deal a different board out from under the
+batch being worked.
+
 Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
 
 | Batch | Tier | Symbols |
@@ -493,6 +497,30 @@ item's id in `SHOP.items` and nothing else needs to know. A browser check
 asserts every item, customer type and material is covered, so a new row in the
 table without a sprite fails the suite rather than rendering an empty box.
 
+### The forge keeps
+
+The shop is saved to `localStorage` as you play — after anything that changes
+the business, and **never in the middle of a selling phase**. The counter
+mutates gold and stock as it goes, so a save taken half way through would let
+the player quit, reload and serve the same queue again; leaving it alone until
+the phase closes means an interrupted phase is simply unplayed. A batch left on
+the anvil is saved **with its board**, so quitting mid-puzzle resumes the same
+one rather than dealing a fresh board for a second try at the same order.
+
+The title screen reads the save before you commit to it — which day, how much
+gold, how many stars, which premises, and whether something is on the anvil —
+and Begin becomes **Carry on**. *Start a new forge* discards it.
+
+Everything read back is treated as hostile. A save can be stale, hand-edited or
+written by an older build, so `restoreShop` checks every field and drops what
+does not survive rather than trusting it or throwing: a version that is not the
+current one is refused outright, numbers are clamped to their ranges, goods and
+orders naming an item or material that no longer exists are dropped, staff with
+an unknown role or rank are left behind, a save cannot smuggle in more staff
+than the premises hold, assignments for people no longer employed are forgotten,
+and restored ids are bumped clear of anything still in use. Thirteen core checks
+cover exactly those cases.
+
 ### Everything is a table
 
 `SHOP` holds materials, items, categories, customer types, roles, ranks, tiers
@@ -629,8 +657,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 329 rule/generation checks
-node tools/verify-ui.mjs                                    # 260 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 342 rule/generation checks
+node tools/verify-ui.mjs                                    # 271 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

@@ -13,8 +13,8 @@ PROJ = os.path.join(IOS, 'Checksmith.xcodeproj')
 
 APP = 'Checksmith'
 BUNDLE_ID = 'com.bluespindash.checksmith'
-MARKETING_VERSION = '1.13.0'
-PROJECT_VERSION = '16'
+MARKETING_VERSION = '1.14.0'
+PROJECT_VERSION = '17'
 DEPLOYMENT_TARGET = '15.0'
 
 SOURCES = ['AppDelegate.swift', 'GameViewController.swift']

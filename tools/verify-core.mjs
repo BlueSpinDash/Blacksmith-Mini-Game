@@ -1436,6 +1436,111 @@ section('Open Your Forge: production and stock');
   })());
 }
 
+section('Open Your Forge: the shop survives being put down');
+{
+  const build = () => {
+    const sh = C.createShop({ rnd: C.mulberry32(41) });
+    sh.day = 12; sh.phaseIndex = 2; sh.gold = 4321; sh.reputation = 57;
+    sh.tier = 2; sh.rentPaid = 1; sh.upgrades.displays = 2;
+    sh.materials.silver = 9; sh.materials.mithril = 2;
+    C.addStorage(sh, C.lineKey('plate', 'gold'), 3, 91);
+    sh.shelf[C.lineKey('longsword', 'bronze')] = { qty: 4, quality: 88, price: 61 };
+    sh.staff.push({ id: 7, name: 'Mara', role: 'salesperson', rank: 'C', power: 3, wage: 32 });
+    sh.orders.push({ id: 8, key: C.lineKey('mace', 'silver'), item: 'mace', material: 'silver',
+      qty: 2, quality: 79, maker: 'you', dueDay: 13 });
+    C.shopAssign(sh, 7, {});
+    return sh;
+  };
+  const trip = (sh) => C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(sh))), C.mulberry32(2));
+
+  ok('a shop put down comes back as it was', (() => {
+    const a = build(), b = trip(a);
+    const same = (x) => [x.day, x.phaseIndex, x.gold, x.reputation, x.tier, x.rentPaid,
+      x.upgrades.displays, x.materials.silver, x.materials.mithril,
+      C.countStorage(x), C.countShelf(x), x.staff.length, x.orders.length].join('|');
+    return same(a) === same(b);
+  })());
+
+  ok('prices the player set are not reset by the round trip', (() => {
+    const b = trip(build());
+    return b.shelf[C.lineKey('longsword', 'bronze')].price === 61;
+  })());
+
+  ok('an order still on the anvil comes back with it', (() => {
+    const b = trip(build());
+    return b.orders.length === 1 && b.orders[0].qty === 2 && b.orders[0].dueDay === 13;
+  })());
+
+  ok('a save from another version is refused rather than half-read',
+    C.restoreShop({ v: 999, gold: 9e9 }, C.mulberry32(1)) === null);
+  ok('rubbish is refused too',
+    C.restoreShop(null, C.mulberry32(1)) === null &&
+    C.restoreShop('nonsense', C.mulberry32(1)) === null &&
+    C.restoreShop({}, C.mulberry32(1)) === null);
+
+  ok('a doctored save cannot conjure gold or standing out of range', (() => {
+    const blob = C.serializeShop(build());
+    blob.gold = 1e30; blob.reputation = 5000; blob.tier = 99; blob.day = -4;
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.gold <= 1e12 && b.reputation === 100 && b.tier === C.SHOP.tiers.length && b.day === 1;
+  })());
+
+  ok('goods that no longer exist are dropped, not carried', (() => {
+    const blob = C.serializeShop(build());
+    blob.shelf['trebuchet|bronze'] = { qty: 5, quality: 100, price: 10 };
+    blob.shelf['longsword|unobtainium'] = { qty: 5, quality: 100, price: 10 };
+    blob.storage['nonsense'] = { qty: 3, quality: 100 };
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return C.countShelf(b) === 4 && C.countStorage(b) === 3;
+  })());
+
+  ok('staff with an unknown role or rank are left behind', (() => {
+    const blob = C.serializeShop(build());
+    blob.staff.push({ id: 90, name: 'Ghost', role: 'alchemist', rank: 'C', wage: 10 });
+    blob.staff.push({ id: 91, name: 'Ghost', role: 'runner', rank: 'Z', wage: 10 });
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.staff.length === 1;
+  })());
+
+  ok('a save cannot smuggle in more staff than the shop can hold', (() => {
+    const blob = C.serializeShop(build());
+    for (let i = 0; i < 30; i++) {
+      blob.staff.push({ id: 200 + i, name: 'Extra', role: 'runner', rank: 'S', wage: 1 });
+    }
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.staff.length === C.staffCapacity(b);
+  })());
+
+  ok('an order for goods that no longer exist is dropped', (() => {
+    const blob = C.serializeShop(build());
+    blob.orders.push({ id: 60, item: 'trebuchet', material: 'bronze', qty: 2, quality: 90, dueDay: 14 });
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.orders.length === 1;
+  })());
+
+  ok('a job assigned to somebody no longer employed is forgotten', (() => {
+    const blob = C.serializeShop(build());
+    blob.assignments['404'] = { day: 12, phase: 'morning', job: {} };
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return Object.keys(b.assignments).length === 1 && !!b.assignments['7'];
+  })());
+
+  ok('restored ids never collide with ones still in use', (() => {
+    const blob = C.serializeShop(build());
+    blob.nextId = 1;
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.nextId > 8;
+  })());
+
+  ok('a restored shop plays on exactly like any other', (() => {
+    const b = trip(build());
+    b.gold = 100000;
+    const before = b.day;
+    for (let i = 0; i < 3; i++) C.shopAdvancePhase(b);
+    return b.day === before + 1 && C.countStorage(b) >= 3;
+  })());
+}
+
 section('Open Your Forge: pricing and customers');
 {
   ok('every finished item has a recommended price', (() => {

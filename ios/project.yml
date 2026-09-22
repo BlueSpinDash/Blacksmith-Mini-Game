@@ -9,8 +9,8 @@ options:
   createIntermediateGroups: true
 settings:
   base:
-    MARKETING_VERSION: "1.13.0"
-    CURRENT_PROJECT_VERSION: "16"
+    MARKETING_VERSION: "1.14.0"
+    CURRENT_PROJECT_VERSION: "17"
     SWIFT_VERSION: "5.0"
 targets:
   Checksmith:
