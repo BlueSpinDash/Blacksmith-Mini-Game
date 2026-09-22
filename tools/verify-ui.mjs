@@ -539,6 +539,9 @@ async function run() {
   ok('screen readers are told it is already struck', /already struck/.test(one.label), one.label);
   ok('a repeat strike on the same square is refused', one.repeatBlocked === true);
   ok('squares-hit is counted on screen', one.hits === '1/25');
+  ok('the banner reports the reshape odds and the board payout', await page.evaluate(
+    () => /% reshape/.test(document.getElementById('matSub2').textContent) &&
+          /gold a board/.test(document.getElementById('matSub2').textContent)));
   await page.screenshot({ path: path.join(SHOTS, '07-endless-bronze.png'), fullPage: true });
 
   // clear the board via its verified route and watch it recast
@@ -716,7 +719,11 @@ async function run() {
   ok('the upgrade level goes up', postBuy.level === preBuy.level + 1);
   ok('both are written to storage',
     postBuy.stored.gold === postBuy.gold && postBuy.stored.lvl === postBuy.level);
-  ok('the shop redraws with the new effect', /Gold/.test(postBuy.label), postBuy.label);
+  ok('the shop redraws with the new effect', /gold a board/i.test(postBuy.label), postBuy.label);
+  ok('every upgrade offers ten levels', await page.evaluate(
+    () => Array.from(document.querySelectorAll('.sr-lvl')).every((n) => /of 10$/.test(n.textContent))));
+  ok('the shop explains the score bonus', await page.evaluate(
+    () => /300/.test(document.getElementById('shopNote').textContent)));
   await page.screenshot({ path: path.join(SHOTS, '10-forge-shop.png'), fullPage: true });
 
   // the bought multiplier must actually pay out
@@ -726,10 +733,22 @@ async function run() {
     const board = F.core.generateTourBoard('novice', F.core.mulberry32(3));
     const g = F.core.createGame(board, { mode: 'endless', morphChance: 0, upgrades: F.app.upgrades });
     for (const step of board.route) F.core.applyStrike(g, step);
-    return { gold: g.gold, level: F.core.levelOf(F.app.upgrades, 'gild') };
+    return { gold: g.gold, level: F.core.levelOf(F.app.upgrades, 'gild'),
+      expected: F.core.goldForBoard(g.score, F.app.upgrades) };
   });
-  ok('the Gilded Hammer pays its multiplier on the next board',
-    payout.gold === 1 + payout.level, JSON.stringify(payout));
+  ok('the Gilded Hammer adds its gold to the next board',
+    payout.gold === payout.expected, JSON.stringify(payout));
+  // the score bonus must show up in play too
+  const scaled = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, c = C.CONFIG.shop;
+    return {
+      low: C.goldForBoard(0, {}),
+      high: C.goldForBoard(c.scoreStep * 4, {}),
+      step: c.goldPerScoreStep, every: c.scoreStep
+    };
+  });
+  ok('a board pays +' + scaled.step + ' more for every ' + scaled.every + ' points',
+    scaled.high === scaled.low + scaled.step * 4, JSON.stringify(scaled));
 
   /* ============ the run gets harder ============ */
   section('Endless ramps up');

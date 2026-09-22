@@ -561,7 +561,88 @@ section('Endless: the board steps up a tier');
   })());
 }
 
-section('Endless: gold and the forge shop');
+section('Endless: gold scales with score');
+{
+  const c = C.CONFIG.shop;
+  ok('a board pays the base gold before any score', C.goldForBoard(0, {}) === c.goldPerBoard);
+  ok('nothing changes until the first ' + c.scoreStep + ' points',
+    C.goldForBoard(c.scoreStep - 1, {}) === c.goldPerBoard);
+  ok('every ' + c.scoreStep + ' points adds ' + c.goldPerScoreStep, (() => {
+    for (let k = 0; k <= 12; k++) {
+      const want = c.goldPerBoard + c.goldPerScoreStep * k;
+      if (Math.abs(C.goldForBoard(c.scoreStep * k, {}) - want) > 1e-9) return false;
+      // and it holds all the way to just before the next step
+      if (Math.abs(C.goldForBoard(c.scoreStep * k + c.scoreStep - 1, {}) - want) > 1e-9) return false;
+    }
+    return true;
+  })());
+  ok('the payout is kept to two decimals', (() => {
+    for (let sc = 0; sc < 5000; sc += 137) {
+      const g = C.goldForBoard(sc, { gild: 3 });
+      if (Math.abs(g * 100 - Math.round(g * 100)) > 1e-9) return false;
+    }
+    return true;
+  })());
+  ok('a negative or missing score cannot pay less than the base',
+    C.goldForBoard(-500, {}) === c.goldPerBoard && C.goldForBoard(undefined, {}) === c.goldPerBoard);
+}
+
+section('Endless: the forge shop');
+{
+  const c = C.CONFIG.shop;
+  ok('each Gilded Hammer level adds ' + c.goldPerGildLevel + ' gold a board', (() => {
+    for (let l = 0; l <= 10; l++) {
+      if (C.goldForBoard(0, { gild: l }) !== c.goldPerBoard + c.goldPerGildLevel * l) return false;
+    }
+    return true;
+  })());
+  ok('the score bonus and the upgrade stack',
+    C.goldForBoard(1500, { gild: 5 }) ===
+      c.goldPerBoard + c.goldPerScoreStep * 5 + c.goldPerGildLevel * 5);
+  ok('every upgrade has ten levels', C.CONFIG.shop.upgrades.every((d) => d.max === 10));
+  ok('upgrade levels are clamped to their maximum',
+    C.levelOf({ gild: 99 }, 'gild') === 10 && C.levelOf({}, 'gild') === 0 &&
+    C.levelOf({ gild: -3 }, 'gild') === 0);
+  ok('costs rise with every level and stop at the cap', (() => {
+    for (const def of C.CONFIG.shop.upgrades) {
+      if (C.upgradeCost(def.id, 0) !== def.costBase) return false;
+      for (let l = 1; l < def.max; l++) {
+        if (!(C.upgradeCost(def.id, l) > C.upgradeCost(def.id, l - 1))) return false;
+      }
+      if (C.upgradeCost(def.id, def.max) !== null) return false;
+    }
+    return true;
+  })());
+  ok('every cost is a whole number of gold', C.CONFIG.shop.upgrades.every((def) => {
+    for (let l = 0; l < def.max; l++) if (!Number.isInteger(C.upgradeCost(def.id, l))) return false;
+    return true;
+  }));
+  ok("the Smith's Ledger multiplies the score to \u00d72.5 at full",
+    Math.abs(C.scoreMultiplier({ ledger: 10 }) - 2.5) < 1e-9 && C.scoreMultiplier({}) === 1);
+  ok('Tempering cools by 3% a level, to 30% at full',
+    Math.abs(C.temperRelief({ temper: 10 }) - 0.3) < 1e-9);
+  ok('every upgrade describes what the next level does', C.CONFIG.shop.upgrades.every(
+    (d) => typeof d.effect(0) === 'string' && d.effect(0) !== d.effect(1) && d.effect(10)));
+  ok('an unknown upgrade is refused rather than guessed',
+    C.upgradeDef('nonesuch') === null && C.upgradeCost('nonesuch', 0) === null);
+}
+
+section('Endless: a pinned reshape chance survives the round change');
+{
+  const b = C.generateTourBoard('novice', C.mulberry32(4));
+  const pinned = C.createGame(b, { mode: 'endless', morphChance: 0 });
+  C.beginRound(pinned, C.generateTourBoard('novice', C.mulberry32(5)));
+  C.beginRound(pinned, C.generateTourBoard('novice', C.mulberry32(6)));
+  ok('an explicit chance is held for the whole run', pinned.morphChance === 0);
+  const rolling = C.createGame(b, { mode: 'endless' });
+  const first = rolling.morphChance;
+  for (let k = 0; k < C.CONFIG.endless.morphEvery; k++) {
+    C.beginRound(rolling, C.generateTourBoard('novice', C.mulberry32(k + 30)));
+  }
+  ok('an unpinned game still follows the ramp', rolling.morphChance > first);
+}
+
+section('Endless: gold is paid out in play');
 {
   const board = C.generateTourBoard('novice', C.mulberry32(3));
   const play = (upgrades) => {
@@ -570,35 +651,35 @@ section('Endless: gold and the forge shop');
     return g;
   };
   const plain = play({});
-  ok('clearing a board pays one gold', plain.gold === C.CONFIG.shop.goldPerBoard);
-  ok('the Gilded Hammer multiplies it', play({ gild: 1 }).gold === 2 && play({ gild: 4 }).gold === 5);
-  ok('gold stays a whole number at every level',
-    [0, 1, 2, 3, 4].every((l) => Number.isInteger(C.goldPerBoard({ gild: l }))));
-  ok("the Smith's Ledger multiplies the score",
-    play({ ledger: 4 }).score === plain.score * 2 &&
-    play({ ledger: 2 }).score > plain.score);
-  ok('an unfinished round still scores its strikes', (() => {
+  const boardScore = 9 * C.CONFIG.endless.pointsPerStrike + C.CONFIG.endless.roundBonus;
+  ok('clearing a board pays what the formula says',
+    plain.gold === C.goldForBoard(boardScore, {}), plain.gold + ' for ' + boardScore);
+  ok("the board's own points count towards its payout",
+    plain.gold > C.CONFIG.shop.goldPerBoard || boardScore < C.CONFIG.shop.scoreStep);
+  ok('the Gilded Hammer adds on top', play({ gild: 3 }).gold === plain.gold + 3);
+  ok("the Smith's Ledger raises the score and so the gold too", (() => {
+    const g = play({ ledger: 10 });
+    return g.score === plain.score * 2.5 && g.gold >= plain.gold;
+  })());
+  ok('an unfinished round still scores its strikes and pays no gold', (() => {
     const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
     C.applyStrike(g, board.route[0]);
     C.applyStrike(g, board.route[1]);
     return g.score === 2 * C.CONFIG.endless.pointsPerStrike && g.gold === 0;
   })());
-
-  ok('upgrade levels are clamped to their maximum', (() => {
-    return C.levelOf({ gild: 99 }, 'gild') === C.upgradeDef('gild').max &&
-      C.levelOf({}, 'gild') === 0 && C.levelOf({ gild: -3 }, 'gild') === 0;
-  })());
-  ok('costs rise with each level and stop at the cap', (() => {
-    for (const def of C.CONFIG.shop.upgrades) {
-      for (let l = 1; l < def.max; l++) if (!(C.upgradeCost(def.id, l) > C.upgradeCost(def.id, l - 1))) return false;
-      if (C.upgradeCost(def.id, def.max) !== null) return false;
+  ok('a long run pays more per board as the score climbs', (() => {
+    const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
+    const payouts = [];
+    for (let round = 0; round < 6; round++) {
+      const b = C.generateTourBoard('novice', C.mulberry32(round * 17 + 2));
+      if (round > 0) C.beginRound(g, b);
+      const before = g.gold;
+      for (const step of g.board.route) C.applyStrike(g, step);
+      payouts.push(C.roundGold(g.gold - before));
     }
-    return true;
+    for (let i = 1; i < payouts.length; i++) if (payouts[i] < payouts[i - 1]) return false;
+    return payouts[payouts.length - 1] > payouts[0];
   })());
-  ok('every upgrade describes what the next level does', C.CONFIG.shop.upgrades.every(
-    (d) => typeof d.effect(0) === 'string' && d.effect(0) !== d.effect(1)));
-  ok('an unknown upgrade is refused rather than guessed',
-    C.upgradeDef('nonesuch') === null && C.upgradeCost('nonesuch', 0) === null);
 }
 
 section('Forge mode is untouched by endless');

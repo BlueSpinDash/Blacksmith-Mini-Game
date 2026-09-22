@@ -112,30 +112,34 @@ routes mean anything.
 
 ## Gold and the forge shop
 
-Clearing a board pays **1 gold**, banked the moment it is earned so walking away
-never costs you what you already won. Gold and everything bought with it persist
-between runs, stored alongside the rest of the local save.
+Clearing a board pays gold, banked the moment it is earned so walking away never
+costs you what you already won. Gold and everything bought with it persist
+between runs.
 
-The **Forge Shop** on the title screen sells three permanent upgrades:
+**What a board pays** = `1` base **+ 0.25 for every 300 points** scored in the
+run **+ 1 per Gilded Hammer level**. The board's own points count towards its own
+payout, so a long run compounds:
 
-| Upgrade | Levels | What it does | Costs |
+| Score when the board clears | 0 | 300 | 900 | 1500 | 3000 |
+| --- | --- | --- | --- | --- | --- |
+| Gold paid (no upgrades) | 1 | 1.25 | 1.75 | 2.25 | 3.5 |
+| Gold paid (Gilded Hammer 5) | 6 | 6.25 | 6.75 | 7.25 | 8.5 |
+
+Gold is kept to two decimals and shown trimmed, so the purse reads `42.75`.
+
+The **Forge Shop** on the title screen sells three permanent upgrades, **ten
+levels each**. Costs grow geometrically — `round(costBase × costGrowth^level)`:
+
+| Upgrade | Per level | At level 10 | Costs (L1 → L10) |
 | --- | --- | --- | --- |
-| Gilded Hammer | 4 | Gold ×2 → ×5 per board cleared | 5, 12, 25, 45 |
-| Smith's Ledger | 4 | Score ×1.25 → ×2 | 4, 9, 18, 32 |
-| Tempering | 3 | −4% reshape chance per level | 6, 14, 28 |
+| Gilded Hammer | +1 gold a board | +10 gold a board | 5, 8, 12, 19, 29, 45, 69, 107, 167, 258 |
+| Smith's Ledger | +0.15 score multiplier | Score ×2.5 | 4, 6, 9, 14, 20, 30, 46, 68, 103, 154 |
+| Tempering | −3% reshape chance | −30% reshape | 6, 9, 14, 20, 30, 46, 68, 103, 154, 231 |
 
-Gold stays a whole number at every Gilded Hammer level. Everything above is in
-`CONFIG.shop`, including the cost tables, so retuning the economy is a one-line
-change.
-
-Endless rounds need a different guarantee from forge: a **Hamiltonian path**,
-visiting every square exactly once. That is a lighter constraint than the forge
-route — each square has a single departure, so its symbol only has to legalise
-one move — and the search is solution-first in the same way, with a Warnsdorff
-ordering that steps into the most cornered square first. Over 800 generated
-rounds there were no failures and the worst single build was 4 ms. As with
-forge, a verified route exists but *your* choice of opening square and route may
-still dead-end; the game never claims otherwise.
+Because the Ledger raises your score and the score raises the board payout, the
+two gold upgrades compound with each other. Everything above lives in
+`CONFIG.shop` — base, step, per-level values and cost curves — so retuning the
+economy is a few numbers.
 
 | Piece | Legal move from its square |
 | --- | --- |
@@ -215,8 +219,11 @@ CONFIG.endless.pool                    // symbols that can appear in endless
 CONFIG.endless.morphBase/Step/Every    // the reshape ramp
 CONFIG.endless.morphMax                // reshape ceiling
 CONFIG.endless.difficultyEvery         // rounds between tier step-ups
-CONFIG.shop.goldPerBoard               // gold before the Gilded Hammer
-CONFIG.shop.upgrades                   // the upgrade table and its costs
+CONFIG.shop.goldPerBoard               // base gold for clearing a board
+CONFIG.shop.scoreStep                  // points per gold step (300)
+CONFIG.shop.goldPerScoreStep           // gold added per step (0.25)
+CONFIG.shop.goldPerGildLevel           // gold added per Gilded Hammer level
+CONFIG.shop.upgrades                   // levels, cost base and growth per upgrade
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -246,8 +253,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 165 rule/generation checks
-node tools/verify-ui.mjs                                    # 145 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 179 rule/generation checks
+node tools/verify-ui.mjs                                    # 149 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
