@@ -729,5 +729,447 @@ section('Forge mode is untouched by endless');
     g.status === 'complete' && g.strikes.every((x) => x === 2) && C.scoreGame(g).quality === 100);
 }
 
+/* ---------- versus ---------- */
+section('Versus: board pairs');
+{
+  let allOk = true, worst = 0, detail = '';
+  for (const size of C.CONFIG.versus.sizes) {
+    for (const d of Object.keys(C.CONFIG.versus.difficulties)) {
+      for (let s = 0; s < 8; s++) {
+        const t0 = Date.now();
+        const b = C.makeVersusBoards(size, d, C.mulberry32(s * 131 + size * 7));
+        worst = Math.max(worst, Date.now() - t0);
+        if (!b) { allOk = false; detail = size + ' ' + d + ' produced nothing'; break; }
+        if (b.ai.join('') === b.you.join('')) { allOk = false; detail = 'identical layouts'; break; }
+        const bagA = b.ai.slice().sort().join(''), bagB = b.you.slice().sort().join('');
+        if (bagA !== bagB) { allOk = false; detail = 'different bags'; break; }
+        if (!C.versusLayoutOk(size, b.ai) || !C.versusLayoutOk(size, b.you)) {
+          allOk = false; detail = 'layout failed validation'; break;
+        }
+      }
+    }
+  }
+  ok('every size and skill pairs two valid boards, worst build ' + worst + 'ms', allOk, detail);
+  ok('both boards hold the same bag of symbols, arranged differently', allOk);
+  ok('no square is ever given a symbol that cannot move', (() => {
+    // a knight in the middle of a 3x3 has no jump at all
+    const T = C.tableFor(3);
+    if (T.N.list[4].length !== 0) return false;
+    const bad = ['K', 'K', 'K', 'K', 'N', 'K', 'K', 'K', 'K'];
+    return C.versusLayoutOk(3, bad) === false;
+  })());
+  ok('a disconnected layout is rejected', (() => {
+    // four bishops on one colour cannot reach the other colour
+    const pieces = ['B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'];
+    return C.versusLayoutOk(3, pieces) === false;
+  })());
+  ok('the rival board and yours start undamaged', (() => {
+    const b = C.makeVersusBoards(4, 'journeyman', C.mulberry32(3));
+    const m = C.createMatch(b, { rnd: C.mulberry32(1) });
+    return m.you.states.every((x) => x === C.SQ_INTACT) &&
+      m.foe.states.every((x) => x === C.SQ_INTACT) &&
+      m.you.current === -1 && m.foe.current === -1 && m.turn === 'you';
+  })());
+}
+
+section('Versus: movement and turns');
+{
+  const mk = () => {
+    const b = C.makeVersusBoards(4, 'journeyman', C.mulberry32(11));
+    return C.createMatch(b, { rnd: C.mulberry32(2) });
+  };
+  const m = mk();
+  ok('the opening strike may land anywhere', C.versusTargets(m, 'you').length === 16);
+  ok('it is the human who opens', m.turn === 'you' && C.versusCanStrike(m, 'foe', 0) === false);
+  const first = C.versusStrike(m, 'you', 5);
+  ok('the opening strike scores and takes the turn',
+    first.points === C.CONFIG.versus.scoring.strike && m.turn === 'foe' && m.you.current === 5);
+  ok('the human cannot strike out of turn', C.versusStrike(m, 'you', 6) === null);
+  ok('the boards are independent', m.foe.current === -1 && m.foe.strikes.every((x) => x === 0));
+  C.versusStrike(m, 'foe', 3);
+  ok('the rival opens on its own board', m.foe.current === 3 && m.you.current === 5);
+
+  ok('movement reads the departure square', (() => {
+    const g = mk();
+    C.versusStrike(g, 'you', 0);
+    const piece = g.you.pieces[0];
+    const want = C.tableFor(4)[piece].list[0].slice().sort().join(',');
+    g.turn = 'you';
+    return C.versusTargets(g, 'you').slice().sort().join(',') === want;
+  })());
+  ok('a square may be struck again and again', (() => {
+    const g = mk();
+    g.you.pieces = g.you.pieces.map(() => 'R');
+    C.versusStrike(g, 'you', 0);
+    g.turn = 'you'; C.versusStrike(g, 'you', 1);
+    g.turn = 'you'; C.versusStrike(g, 'you', 0);
+    return g.you.strikes[0] === 2 && !C.matchOver(g);
+  })());
+  ok('a stationary strike is refused', (() => {
+    const g = mk();
+    C.versusStrike(g, 'you', 4);
+    g.turn = 'you';
+    return C.versusCanStrike(g, 'you', 4) === false;
+  })());
+}
+
+section('Versus: route chain and patterns');
+{
+  const S = C.CONFIG.versus.scoring;
+  const rooks = (size) => {
+    const b = { size: size, difficulty: 'journeyman',
+      ai: new Array(size * size).fill('R'), you: new Array(size * size).fill('R') };
+    return C.createMatch(b, { rnd: C.mulberry32(5) });
+  };
+  const m = rooks(4);
+  const hit = (i) => { m.turn = 'you'; return C.versusStrike(m, 'you', i); };
+  const a = hit(0), b = hit(1), c = hit(2), d = hit(3), e = hit(1);
+  ok('the chain grows one square at a time',
+    a.chain === 1 && b.chain === 2 && c.chain === 3 && d.chain === 4);
+  ok('the multiplier follows 1 + 0.1 x (chain - 1)',
+    Math.abs(a.multiplier - 1) < 1e-9 && Math.abs(d.multiplier - 1.3) < 1e-9);
+  ok('revisiting a square resets the chain to that square alone',
+    e.reset === true && e.chain === 1 && Math.abs(e.multiplier - 1) < 1e-9);
+  ok('the resetting strike earns no pattern bonus', e.points === S.strike);
+
+  ok('three matching symbols pay the Three of a Kind, not a Pair', (() => {
+    const g = rooks(4);
+    const s1 = (i) => { g.turn = 'you'; return C.versusStrike(g, 'you', i); };
+    s1(0); const two = s1(1); const three = s1(2);
+    return two.pattern === 'Pair' && three.pattern === 'Three of a Kind' &&
+      three.points === Math.floor((S.strike + S.trio) * 1.2);
+  })());
+  ok('three different symbols pay Variety', (() => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const g = C.createMatch(b, { rnd: C.mulberry32(6) });
+    g.you.pieces[0] = 'R'; g.you.pieces[1] = 'K'; g.you.pieces[2] = 'B';
+    const s1 = (i) => { g.turn = 'you'; return C.versusStrike(g, 'you', i); };
+    s1(0); s1(1);
+    return s1(2).pattern === 'Variety';
+  })());
+  ok('the same two squares cannot farm a Pair twice', (() => {
+    const g = rooks(4);
+    const s1 = (i) => { g.turn = 'you'; return C.versusStrike(g, 'you', i); };
+    s1(0);
+    const paid = s1(1);                       // A -> B pays a Pair
+    s1(0);                                     // back to A: chain resets
+    const again = s1(1);                       // A -> B again: locked
+    return paid.pattern === 'Pair' && again.pattern === null;
+  })());
+  ok('striking a third square frees that pair again', (() => {
+    const g = rooks(4);
+    const s1 = (i) => { g.turn = 'you'; return C.versusStrike(g, 'you', i); };
+    s1(0); s1(1); s1(0); s1(1);                // pair now locked
+    s1(2);                                     // a third square outside the pair
+    s1(0);
+    return s1(1).pattern === 'Pair';
+  })());
+  ok('an older chain does not stop a square joining a new one', (() => {
+    const g = rooks(4);
+    const s1 = (i) => { g.turn = 'you'; return C.versusStrike(g, 'you', i); };
+    s1(0); s1(1); s1(2); s1(0);                // reset to [0]
+    return s1(2).chain === 2;                  // 2 is free to join the new chain
+  })());
+}
+
+section('Versus: the Shatter state machine');
+{
+  const setup = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(8) });
+    m.you.points = 1000; m.foe.points = 1000;
+    return m;
+  };
+  const m = setup();
+  const res = C.versusBuy(m, 'you', 'shatter', 5);
+  ok('Shatter cracks an intact enemy square', res.ok && m.foe.states[5] === C.SQ_CRACKED);
+  ok('it does not break it outright', m.foe.states[5] !== C.SQ_BROKEN && m.foe.broken === 0);
+  ok('a cracked square is still a legal place to land', (() => {
+    m.turn = 'foe'; m.foe.current = 1;
+    return C.versusTargets(m, 'foe').includes(5);
+  })());
+  ok('Shatter cannot stack on a cracked square',
+    C.versusUpgradeCheck(m, 'you', 'shatter', 5).ok === false);
+
+  m.turn = 'foe'; m.foe.current = 1;
+  C.versusStrike(m, 'foe', 5);
+  ok('striking a cracked square arms it', m.foe.states[5] === C.SQ_ARMED);
+  ok('landing on it does not break it', m.foe.states[5] !== C.SQ_BROKEN && m.foe.broken === 0);
+  m.turn = 'foe';
+  C.versusStrike(m, 'foe', 9);
+  ok('leaving an armed square breaks it for good',
+    m.foe.states[5] === C.SQ_BROKEN && m.foe.broken === 1);
+  ok('a broken square cannot be landed on', (() => {
+    m.turn = 'foe'; m.foe.current = 1;
+    return !C.versusTargets(m, 'foe').includes(5) && C.versusCanStrike(m, 'foe', 5) === false;
+  })());
+  ok('a slide may cross a hole even though it cannot land there', (() => {
+    m.turn = 'foe'; m.foe.current = 1;        // rook down the column 1,5,9,13
+    return C.versusTargets(m, 'foe').includes(13);
+  })());
+  ok('Repair can never resurrect a broken square',
+    C.versusUpgradeCheck(m, 'foe', 'repair', 5).ok === false);
+}
+
+section('Versus: Shatter on an occupied square waits its turn');
+{
+  const b = { size: 4, difficulty: 'journeyman',
+    ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+  const m = C.createMatch(b, { rnd: C.mulberry32(9) });
+  m.you.points = 1000;
+  m.turn = 'foe'; C.versusStrike(m, 'foe', 5);   // the rival stands on 5
+  m.turn = 'you';
+  C.versusBuy(m, 'you', 'shatter', 5);
+  ok('the square under the occupant only cracks', m.foe.states[5] === C.SQ_CRACKED);
+  m.turn = 'foe';
+  C.versusStrike(m, 'foe', 6);                   // it leaves straight away
+  ok('leaving it now does not break it, since it was never armed',
+    m.foe.states[5] === C.SQ_CRACKED && m.foe.broken === 0);
+  m.turn = 'foe'; C.versusStrike(m, 'foe', 5);   // returns and strikes it
+  ok('returning and striking it arms it', m.foe.states[5] === C.SQ_ARMED);
+  m.turn = 'foe'; C.versusStrike(m, 'foe', 7);
+  ok('only then does departing break it', m.foe.states[5] === C.SQ_BROKEN);
+}
+
+section('Versus: Repair');
+{
+  const mk = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(10) });
+    m.you.points = 1000; m.foe.points = 1000;
+    return m;
+  };
+  const m = mk();
+  m.foe.states[5] = C.SQ_CRACKED;
+  m.turn = 'foe';
+  ok('Repair clears a crack from your own board',
+    C.versusBuy(m, 'foe', 'repair', 5).ok && m.foe.states[5] === C.SQ_INTACT);
+  ok('Repair will not touch an intact square',
+    C.versusUpgradeCheck(m, 'foe', 'repair', 5).ok === false);
+
+  const g = mk();
+  g.foe.states[5] = C.SQ_ARMED;
+  g.foe.current = 5;
+  g.turn = 'foe';
+  ok('Repair works while standing on an armed square',
+    C.versusBuy(g, 'foe', 'repair', 5).ok && g.foe.states[5] === C.SQ_INTACT);
+  g.turn = 'foe';
+  C.versusStrike(g, 'foe', 6);
+  ok('and the repaired square survives the departure',
+    g.foe.states[5] === C.SQ_INTACT && g.foe.broken === 0);
+  ok('Repair cannot reach across to the enemy board', (() => {
+    const h = mk();
+    h.you.states[3] = C.SQ_CRACKED;
+    h.turn = 'foe';
+    return C.versusUpgradeCheck(h, 'foe', 'repair', 3).ok === false;
+  })());
+}
+
+section('Versus: Reforge and Row Shuffle');
+{
+  const mk = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(12) });
+    m.you.points = 1000; m.foe.points = 1000;
+    return m;
+  };
+  const m = mk();
+  m.foe.strikes[6] = 3; m.foe.states[6] = C.SQ_CRACKED;
+  const before = m.foe.pieces[6];
+  const res = C.versusBuy(m, 'you', 'reforge', 6, 'B');
+  ok('Reforge changes the symbol', res.ok && m.foe.pieces[6] !== before);
+  ok('it keeps the square\\u2019s damage and strike history',
+    m.foe.states[6] === C.SQ_CRACKED && m.foe.strikes[6] === 3);
+  ok('it never offers a symbol that could not move there',
+    C.versusReforgeOptions(m, 'you', 6).every((p) => C.tableFor(4)[p].list[6].length > 0));
+  ok('it never offers the symbol already there',
+    !C.versusReforgeOptions(m, 'you', 6).includes(m.foe.pieces[6]));
+  ok('Reforge can change the square the rival is standing on', (() => {
+    const g = mk();
+    g.turn = 'foe'; C.versusStrike(g, 'foe', 5);
+    g.turn = 'you';
+    const r = C.versusBuy(g, 'you', 'reforge', 5, 'K');
+    g.turn = 'foe';
+    const moves = C.versusTargets(g, 'foe');
+    return r.ok && g.foe.pieces[5] === 'K' &&
+      moves.slice().sort().join(',') === C.tableFor(4).K.list[5].slice().sort().join(',');
+  })());
+
+  const g = mk();
+  g.foe.pieces[4] = 'K'; g.foe.pieces[5] = 'R'; g.foe.pieces[6] = 'B'; g.foe.pieces[7] = 'N';
+  g.foe.states[6] = C.SQ_BROKEN; g.foe.broken = 1;
+  g.foe.strikes[5] = 2;
+  g.foe.current = 4;
+  const beforeRow = g.foe.pieces.slice();
+  const shuffle = C.versusBuy(g, 'you', 'shuffle', 1);
+  ok('Row Shuffle rearranges a row', shuffle.ok &&
+    g.foe.pieces.slice(4, 8).join('') !== beforeRow.slice(4, 8).join(''));
+  ok('it leaves broken squares alone', g.foe.pieces[6] === 'B' && g.foe.states[6] === C.SQ_BROKEN);
+  ok('it keeps damage, strike counts and the hammer where they were',
+    g.foe.strikes[5] === 2 && g.foe.current === 4 && g.foe.broken === 1);
+  ok('a row of one repeated symbol is refused, and costs nothing', (() => {
+    const h = mk();
+    h.foe.pieces[8] = 'R'; h.foe.pieces[9] = 'R'; h.foe.pieces[10] = 'R'; h.foe.pieces[11] = 'R';
+    const points = h.you.points;
+    const r = C.versusBuy(h, 'you', 'shuffle', 2);
+    return r.ok === false && h.you.points === points && h.upgradeUsed === false;
+  })());
+}
+
+section('Versus: points, allowance and defeat');
+{
+  const mk = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(14) });
+    m.you.points = 1000; m.foe.points = 1000;
+    return m;
+  };
+  const m = mk();
+  const earnedBefore = m.you.earned;
+  C.versusBuy(m, 'you', 'shatter', 5);
+  ok('a purchase spends available points but never total earned',
+    m.you.points === 1000 - C.upgradeById('shatter').cost && m.you.earned === earnedBefore);
+  ok('only one upgrade is allowed a turn',
+    C.versusUpgradeCheck(m, 'you', 'repair', 0).ok === false &&
+    C.versusUpgradeCheck(m, 'you', 'shatter', 6).why === 'already used this turn');
+  ok('an unaffordable purchase spends nothing', (() => {
+    const g = mk();
+    g.you.points = 5;
+    const r = C.versusBuy(g, 'you', 'shatter', 5);
+    return r.ok === false && g.you.points === 5 && g.upgradeUsed === false;
+  })());
+  ok('an invalid target spends nothing and keeps the allowance', (() => {
+    const g = mk();
+    g.foe.states[5] = C.SQ_BROKEN;
+    const r = C.versusBuy(g, 'you', 'shatter', 5);
+    return r.ok === false && g.you.points === 1000 && g.upgradeUsed === false;
+  })());
+  ok('both sides pay the same price for the same upgrade', (() => {
+    const g = mk();
+    const cost = C.upgradeById('shatter').cost;
+    C.versusBuy(g, 'you', 'shatter', 5);
+    g.turn = 'foe'; g.upgradeUsed = false;
+    C.versusBuy(g, 'foe', 'shatter', 5);
+    return g.you.points === 1000 - cost && g.foe.points === 1000 - cost;
+  })());
+
+  ok('walling yourself in loses the match at once', (() => {
+    // a knight in the corner of a 3x3 with both its jumps broken
+    const b = { size: 3, difficulty: 'journeyman',
+      ai: new Array(9).fill('R'), you: new Array(9).fill('R') };
+    const g = C.createMatch(b, { rnd: C.mulberry32(15) });
+    g.you.pieces[0] = 'N';
+    g.you.states[5] = C.SQ_BROKEN; g.you.states[7] = C.SQ_BROKEN; g.you.broken = 2;
+    g.you.current = 1;
+    const r = C.versusStrike(g, 'you', 0);     // land on the knight with no jumps left
+    return r !== null && C.matchOver(g) && g.winner === 'foe' && g.reason === 'trapped';
+  })());
+  ok('an upgrade that traps the rival wins without a strike', (() => {
+    const b = { size: 3, difficulty: 'journeyman',
+      ai: new Array(9).fill('R'), you: new Array(9).fill('R') };
+    const g = C.createMatch(b, { rnd: C.mulberry32(16) });
+    g.you.points = 1000;
+    g.foe.pieces = g.foe.pieces.map(() => 'R');
+    g.foe.current = 0;
+    // break everything the rook at 0 can reach, bar one square, then reforge that
+    for (const i of [1, 2, 3, 6]) { g.foe.states[i] = C.SQ_BROKEN; g.foe.broken++; }
+    const r = C.versusBuy(g, 'you', 'reforge', 0, 'N');   // a knight at 0 on a 3x3 reaches 5 and 7
+    if (!r.ok) return false;
+    for (const i of [5, 7]) g.foe.states[i] = C.SQ_BROKEN;
+    return C.versusTargets(g, 'foe').length === 0;
+  })());
+  ok('conceding hands the match over', (() => {
+    const g = mk();
+    return C.versusConcede(g, 'you') && g.winner === 'foe' && g.reason === 'conceded';
+  })());
+  ok('a decided match refuses further play', (() => {
+    const g = mk();
+    C.versusConcede(g, 'you');
+    return C.versusStrike(g, 'foe', 3) === null &&
+      C.versusUpgradeCheck(g, 'foe', 'shatter', 3).ok === false;
+  })());
+  ok('merely visiting every square never ends the match', (() => {
+    const g = mk();
+    // a legal rook path that covers all sixteen squares, snaking row by row
+    const walk = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12];
+    for (const i of walk) {
+      g.turn = 'you';
+      if (!C.versusStrike(g, 'you', i)) return false;
+    }
+    return !C.matchOver(g) && g.you.strikes.every((x) => x >= 1);
+  })());
+}
+
+section('Versus: the rival plays by the same rules');
+{
+  let illegal = 0, ended = 0, worst = 0, usedUpgrades = 0;
+  for (const d of Object.keys(C.CONFIG.versus.difficulties)) {
+    for (let s = 0; s < 4; s++) {
+      const b = C.makeVersusBoards(4, d, C.mulberry32(s * 91 + 5));
+      const m = C.createMatch(b, { rnd: C.mulberry32(s + 21) });
+      let guard = 0;
+      while (!C.matchOver(m) && guard++ < 600) {
+        const who = m.turn;
+        const t0 = Date.now();
+        const buy = C.versusChooseUpgrade(m, who);
+        if (buy) {
+          const r = C.versusBuy(m, who, buy.id, buy.target);
+          if (r.ok) usedUpgrades++; else illegal++;
+        }
+        if (C.matchOver(m)) break;
+        const mv = C.versusChooseStrike(m, who);
+        worst = Math.max(worst, Date.now() - t0);
+        if (mv < 0) break;
+        if (!C.versusTargets(m, who).includes(mv)) { illegal++; break; }
+        if (!C.versusStrike(m, who, mv)) { illegal++; break; }
+      }
+      if (C.matchOver(m)) ended++;
+    }
+  }
+  ok('16 self-played matches all reach a decided end', ended === 16, ended + '/16');
+  ok('the rival never proposes an illegal action', illegal === 0);
+  ok('every difficulty actually buys upgrades', usedUpgrades > 0);
+  ok('a turn is decided well inside its budget (' + worst + 'ms)',
+    worst <= C.CONFIG.versus.ai.timeBudgetMs);
+  ok('stronger tiers beat weaker ones', (() => {
+    let strong = 0;
+    for (let s = 0; s < 10; s++) {
+      const b = C.makeVersusBoards(4, 'journeyman', C.mulberry32(s * 311 + 5));
+      const m = C.createMatch(b, { rnd: C.mulberry32(s * 13 + 2) });
+      let guard = 0;
+      while (!C.matchOver(m) && guard++ < 800) {
+        const who = m.turn;
+        m.difficulty = who === 'you' ? 'master' : 'novice';
+        const buy = C.versusChooseUpgrade(m, who);
+        if (buy) C.versusBuy(m, who, buy.id, buy.target);
+        if (C.matchOver(m)) break;
+        const mv = C.versusChooseStrike(m, who);
+        if (mv < 0 || !C.versusStrike(m, who, mv)) break;
+      }
+      if (m.winner === 'you') strong++;
+    }
+    return strong >= 8;
+  })());
+}
+
+section('Versus leaves the other modes alone');
+{
+  const fb = C.makeBoard('journeyman', C.mulberry32(8));
+  const fg = C.createGame(fb, { morphChance: 0 });
+  for (const step of fb.route) if (!C.applyStrike(fg, step)) break;
+  ok('forge still finishes at quality 100',
+    fg.status === 'complete' && C.scoreGame(fg).quality === 100);
+  const eb = C.generateTourBoard('novice', C.mulberry32(3));
+  const eg = C.createGame(eb, { mode: 'endless', morphChance: 0 });
+  for (const step of eb.route) C.applyStrike(eg, step);
+  ok('endless still clears a round and pays gold',
+    eg.roundsCompleted === 1 && eg.gold >= 1 && Number.isInteger(eg.gold));
+}
+
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
 process.exit(failures.length ? 1 : 0);

@@ -67,8 +67,11 @@ carelessly and you will wall yourself in.
 
 ## Endless mode
 
-The game opens on a **title screen**: pick a mode, pick a difficulty, press
-Begin. The hamburger button in the top bar takes you back there at any time.
+The game opens on a **title screen** offering three modes — Forge, Endless and
+Versus — then whatever settings that mode takes, then Begin. Forge picks a
+difficulty; Endless picks nothing and always starts on 3×3; Versus picks a board
+size and the rival's skill independently. The hamburger button in the top bar
+takes you back there at any time.
 
 Endless replaces the two-strike rules with a score chase:
 
@@ -144,6 +147,97 @@ levels each**. Costs grow geometrically — `round(costBase × costGrowth^level)
 Because the Ledger raises your score and the score raises the board rate, the two
 gold upgrades compound. Everything above lives in `CONFIG.shop` — base, step,
 per-level values and cost curves — so retuning the economy is a few numbers.
+
+## Versus mode
+
+Two smiths, **two separate boards, side by side** — the rival on the left, you on
+the right. Both boards are the same size and hold the **same bag of symbols in a
+different arrangement**, so neither side gets an easier pool. Board size (3×3 to
+6×6) and the rival's skill are chosen independently on the title screen. You
+strike first, then the rival, turn about.
+
+**Points do not decide the match.** The winner is whoever is *not* out of legal
+moves. Strand the rival and you win; wall yourself in and you lose. Visiting every
+square wins nothing and resets nothing — squares may be struck as often as you
+like, and none of them is ever "finished".
+
+A turn is **at most one upgrade, then exactly one strike**. The upgrade is
+optional, the strike is not. **Concede** ends the match.
+
+### Points and the route bonus
+
+| Award | Value |
+| --- | --- |
+| Strike | 10 |
+| Pair (two of the same symbol in a row) | +5 |
+| Three of a Kind | +10 |
+| Variety (three different symbols in a row) | +8 |
+| Route multiplier | `1 + 0.1 × (route length − 1)` |
+
+Only the **largest** pattern pays, and the award is
+`floor((10 + bonus) × multiplier)`. Striking a square already in the current
+route **restarts the route from that square alone** — no bonus, multiplier back
+to 1.0×. Bouncing between two squares pays its Pair once and is then locked until
+you strike elsewhere, so there is no farming a two-square loop for points.
+
+### Upgrades
+
+| Upgrade | Cost | Effect |
+| --- | --- | --- |
+| Reforge | 80 | Change one unbroken rival square to a different symbol |
+| Row Shuffle | 60 | Shuffle the symbols along one rival row |
+| Shatter | 40 | Crack an intact rival square |
+| Repair | 50 | Clear a crack from one of your own squares |
+
+**Repair costs 50, not the prototype's 30.** At 30 it is strictly cheaper to undo
+damage than to cause it, so two competent players trade shatter-for-repair
+forever and no board ever degrades: self-play measured **0 of 12 matches reaching
+an end**. Sweeping the cost, every match ends from 45 upward; at 50, **127 of 128
+matches terminate**. The spec invites tuning prototype numbers, and this one
+needed it. Everything is in `CONFIG.versus.upgrades`.
+
+### Damage is a four-state machine
+
+```text
+Intact  --Shatter-->  Cracked  --struck-->  Armed  --departed-->  Broken
+                         \__________ Repair __________/
+```
+
+A cracked square is **safe to stand on**. It arms only when struck, and collapses
+into a permanent hole the moment you leave it. **Repair restores a Cracked or
+Armed square to Intact — including the one you are standing on. Nothing repairs a
+Broken square.** So a shattered square is not a square you must avoid; it is one
+you must pay for or walk into.
+
+Each strike runs in a fixed order: validate → land the blow and move the marker →
+arm a cracked destination → break the vacated square if it was armed → award
+points → **recalculate legal destinations, after the departure square has
+broken**. No destinations means that smith has lost. Walling yourself in with your
+own upgrade loses immediately, and an upgrade that strands the rival wins without
+a strike.
+
+### The rival
+
+| Tier | Piece pool | Search depth |
+| --- | --- | --- |
+| Novice | King, Rook | 0 (greedy, buys at random) |
+| Apprentice | King, Rook, Bishop | 1 |
+| Journeyman | King, Rook, Bishop, Knight | 2 |
+| Master | King, Rook, Bishop, Knight, occasional Queens | 3 |
+
+The tiers differ by **decision quality, not by delay**: a minimax from the
+rival's own point of view, weighing exits, reachable squares, holes punched in
+each board and the damage standing on it, under a node and wall-clock budget
+(`CONFIG.versus.ai`). Self-play confirms stronger tiers beat weaker ones and that
+a turn resolves well inside its budget.
+
+### Narrow screens
+
+Both boards stay side by side so the whole match is readable at a glance. When
+that makes the tiles smaller than a comfortable 44 CSS-px target, **the first tap
+on a board enlarges it rather than striking a tiny cell**; strike from there, and
+"Back to both boards" returns to the overview. The zoom buttons in each panel
+header do the same deliberately.
 
 | Piece | Legal move from its square |
 | --- | --- |
@@ -229,6 +323,12 @@ CONFIG.shop.scoreStep                  // points per gold step (300)
 CONFIG.shop.goldPerScoreStep           // rate added per step (0.25)
 CONFIG.shop.goldPerGildLevel           // gold added per Gilded Hammer level
 CONFIG.shop.upgrades                   // levels, cost base and growth per upgrade
+CONFIG.versus.sizes                    // board sizes offered in versus
+CONFIG.versus.difficulties             // versus: pool, queens and search depth per tier
+CONFIG.versus.scoring                  // strike, pair, trio, variety, route step
+CONFIG.versus.upgrades                 // versus upgrade ids, costs and targets
+CONFIG.versus.ai                       // rival node, time and think budgets
+CONFIG.versus.generation               // attempts and mobility tolerance for board pairs
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
 CONFIG.animation.strikeMs              // full hammer action (250-350ms feels right)
@@ -258,8 +358,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 185 rule/generation checks
-node tools/verify-ui.mjs                                    # 155 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 253 rule/generation checks
+node tools/verify-ui.mjs                                    # 188 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

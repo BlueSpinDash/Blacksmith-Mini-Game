@@ -472,7 +472,7 @@ async function run() {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   ok('the menu button returns to the title screen', await page.isVisible('#titleScreen'));
   ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
-  ok('both modes are offered', (await page.locator('.mode-card').count()) === 2);
+  ok('all three modes are offered', (await page.locator('.mode-card').count()) === 3);
   ok('all four difficulties are offered', (await page.locator('#titleDiff .diff-btn').count()) === 4);
   await page.click('#titleDiff .diff-btn[data-tdiff="journeyman"]');
   ok('picking a difficulty checks it',
@@ -821,6 +821,245 @@ async function run() {
     return g.mode === 'forge' && g.board.route.length === 18 &&
       document.getElementById('materialBar').hidden === true &&
       document.getElementById('statsForge').hidden === false;
+  }));
+
+  /* ============ versus mode ============ */
+  section('Versus: the title screen');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  ok('Versus sits directly below Endless in the menu', await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll('.mode-card')).map((c) => c.dataset.mode);
+    return cards.join(',') === 'forge,endless,versus';
+  }));
+  await page.click('.mode-card[data-mode="versus"]');
+  ok('choosing Versus shows its own two selectors',
+    await page.isVisible('#titleVersusBlock') && await page.isVisible('#titleSize') &&
+    await page.isVisible('#titleFoe'));
+  ok('and hides the forge difficulty picker', await page.isHidden('#titleDiffBlock'));
+  await page.click('#titleSize .diff-btn[data-tsize="3"]');
+  await page.click('#titleFoe .diff-btn[data-tfoe="master"]');
+  ok('board size and rival skill are chosen independently', await page.evaluate(
+    () => window.CHECKSMITH.app.vsSize === 3 && window.CHECKSMITH.app.vsFoe === 'master'));
+  await page.click('#titleSize .diff-btn[data-tsize="4"]');
+  await page.click('#titleFoe .diff-btn[data-tfoe="apprentice"]');
+
+  section('Versus: the match');
+  await page.click('#beginBtn');
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.match, null, { timeout: 10000 });
+  await page.waitForTimeout(250);
+  const vs = await page.evaluate(() => {
+    const m = window.CHECKSMITH.app.match;
+    const panels = Array.from(document.querySelectorAll('.vs-panel')).map((p) => p.dataset.side);
+    return {
+      size: m.size, turn: m.turn, order: panels.join(','),
+      foeTiles: document.querySelectorAll('#foeBoard .tile').length,
+      youTiles: document.querySelectorAll('#youBoard .tile').length,
+      sameBag: m.you.pieces.slice().sort().join('') === m.foe.pieces.slice().sort().join(''),
+      different: m.you.pieces.join('') !== m.foe.pieces.join(''),
+      shop: document.querySelectorAll('.vs-buy').length,
+      forgeBoardHidden: document.querySelector('.board-wrap').hidden
+    };
+  });
+  ok('the rival is on the left and you are on the right', vs.order === 'foe,you', vs.order);
+  ok('both boards are drawn at the chosen size',
+    vs.foeTiles === 16 && vs.youTiles === 16 && vs.size === 4);
+  ok('the two boards share a bag but not a layout', vs.sameBag && vs.different);
+  ok('the forge board is out of the way', vs.forgeBoardHidden === true);
+
+  // Versus owns the whole view. Any forge or endless chrome still taking up
+  // space here is a leak: `.actions` and `.stats` appear more than once, so a
+  // careless querySelector hides the wrong one.
+  const leftovers = await page.evaluate(() => {
+    const shown = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    return {
+      diffRow: shown('.difficulty:not(#titleDiff)'),
+      prompt: shown('#prompt'),
+      statsForge: shown('#statsForge'),
+      statsEndless: shown('#statsEndless'),
+      materialBar: shown('#materialBar'),
+      forgeActions: shown('#forgeActions'),
+      legend: shown('#legendPanel'),
+      bestLine: shown('#bestLine'),
+      versusView: shown('#versusView')
+    };
+  });
+  ok('no forge or endless chrome leaks into the match',
+    Object.entries(leftovers).every(([k, v]) => (k === 'versusView' ? v === true : v === false)),
+    JSON.stringify(leftovers));
+  ok('all four upgrades are offered', vs.shop === 4);
+  ok('the human moves first', vs.turn === 'you');
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+  });
+  await page.screenshot({ path: path.join(SHOTS, '12-versus.png'), fullPage: true });
+
+  // striking the rival's board is not allowed
+  const beforeTap = await page.evaluate(() => window.CHECKSMITH.app.match.foe.strikes.slice());
+  await page.evaluate(() => document.querySelector('#foeBoard .tile[data-i="0"]').click());
+  await page.waitForTimeout(150);
+  ok('you cannot strike the rival’s board', await page.evaluate(
+    (b) => JSON.stringify(window.CHECKSMITH.app.match.foe.strikes) === JSON.stringify(b), beforeTap));
+  await page.evaluate(() => { window.CHECKSMITH.vs.focus = 'none'; window.CHECKSMITH.vsRender(); });
+
+  // On a narrow screen the overview tiles are below a comfortable tap size,
+  // so the first tap opens that board rather than striking a tiny cell.
+  const tiny = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    const width = document.querySelector('#youBoard .tile').getBoundingClientRect().width;
+    const first = C.versusTargets(m, 'you')[0];
+    document.querySelector(`#youBoard .tile[data-i="${first}"]`).click();
+    await new Promise((r) => setTimeout(r, 150));
+    return { width, focus: document.getElementById('vsBoards').dataset.focus,
+      struck: m.you.strikes[first] };
+  });
+  ok('overview tiles below 44px do not take a strike',
+    tiny.width < 44 ? (tiny.struck === 0 && tiny.focus === 'you') : true,
+    JSON.stringify(tiny));
+  ok('tapping one instead enlarges that board',
+    tiny.width < 44 ? tiny.focus === 'you' : true);
+
+  // an opening strike, then the rival replies on its own
+  const opened = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    F.vs.focus = 'you';                      // play from the enlarged board
+    F.vsRender();
+    const first = C.versusTargets(m, 'you')[0];
+    document.querySelector(`#youBoard .tile[data-i="${first}"]`).click();
+    await new Promise((r) => setTimeout(r, 1400));
+    const now = F.app.match;
+    return { first, yourStrikes: now.you.strikes[first], foePlaced: now.foe.current >= 0,
+      turn: now.turn, points: now.you.points,
+      enlarged: document.querySelector('#youBoard .tile').getBoundingClientRect().width };
+  });
+  ok('the enlarged board gives comfortable targets', opened.enlarged >= 44,
+    String(opened.enlarged));
+  ok('your opening blow lands and scores',
+    opened.yourStrikes === 1 && opened.points >= 10, JSON.stringify(opened));
+  ok('the rival takes its own turn unprompted', opened.foePlaced === true);
+  ok('and hands the turn back', opened.turn === 'you');
+
+  // upgrade targeting must never strike the square it is aimed at
+  const targeting = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    m.you.points = 1000;
+    F.vsRender();
+    document.querySelector('.vs-buy[data-buy="shatter"]').click();
+    const armed = !!F.vs.targeting;
+    const before = m.foe.strikes.slice();
+    const target = m.foe.states.findIndex((s) => s === C.SQ_INTACT);
+    document.querySelector(`#foeBoard .tile[data-i="${target}"]`).click();
+    await new Promise((r) => setTimeout(r, 120));
+    return { armed, target, cracked: m.foe.states[target] === C.SQ_CRACKED,
+      struck: JSON.stringify(m.foe.strikes) !== JSON.stringify(before),
+      points: m.you.points, used: m.upgradeUsed, cleared: !F.vs.targeting };
+  });
+  ok('picking an upgrade enters targeting', targeting.armed === true);
+  ok('the target tap cracks the square instead of striking it',
+    targeting.cracked === true && targeting.struck === false);
+  ok('it charges once and spends the turn’s allowance',
+    targeting.points === 1000 - 40 && targeting.used === true);
+  ok('targeting clears itself after the purchase', targeting.cleared === true);
+
+  // cancelling spends nothing and keeps the allowance
+  const cancelled = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const m = F.app.match;
+    m.upgradeUsed = false; m.you.points = 1000;
+    F.vsRender();
+    document.querySelector('.vs-buy[data-buy="reforge"]').click();
+    const armed = !!F.vs.targeting;
+    document.getElementById('vsCancelBtn').click();
+    return { armed, gone: !F.vs.targeting, points: m.you.points, used: m.upgradeUsed };
+  });
+  ok('cancelling targeting spends nothing',
+    cancelled.armed && cancelled.gone && cancelled.points === 1000 && cancelled.used === false);
+
+  // the enlarged single-board view, for narrow screens
+  const zoomed = await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.vs.focus = 'none';                     // start from the overview, whatever went before
+    F.vsRender();
+    document.querySelector('.vs-zoom[data-zoom="you"]').click();
+    const focus = document.getElementById('vsBoards').dataset.focus;
+    const foeShown = document.querySelector('.vs-panel[data-side="foe"]').offsetParent !== null;
+    document.getElementById('vsOverviewBtn').click();
+    return { focus, foeShown, back: document.getElementById('vsBoards').dataset.focus };
+  });
+  ok('a board can be enlarged for comfortable taps',
+    zoomed.focus === 'you' && zoomed.foeShown === false);
+  ok('and the two-board overview comes back', zoomed.back === 'none');
+
+  // play the match out and check the result sheet
+  const match = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const wait = () => new Promise((r) => { const t = setInterval(() => {
+      if (!F.app.busy && (C.matchOver(F.app.match) || F.app.match.turn === 'you')) { clearInterval(t); r(); }
+    }, 10); });
+    let guard = 0;
+    while (!C.matchOver(F.app.match) && guard++ < 500) {
+      const m = F.app.match;
+      if (m.turn !== 'you') { await wait(); continue; }
+      const mv = C.versusChooseStrike(m, 'you');
+      if (mv < 0) break;
+      document.querySelector(`#youBoard .tile[data-i="${mv}"]`).click();
+      await wait();
+    }
+    const m = F.app.match;
+    return { over: C.matchOver(m), winner: m.winner, turns: m.turns,
+      dialog: !document.getElementById('results').hidden,
+      label: document.getElementById('rLabel').textContent,
+      caption: document.getElementById('rQualityCaption').textContent,
+      frozenTurn: document.getElementById('vsTurnBar').dataset.turn };
+  });
+  ok('the match reaches a decided end', match.over === true, String(match.turns) + ' turns');
+  ok('someone is declared the winner', match.winner === 'you' || match.winner === 'foe');
+  ok('the result sheet explains the outcome',
+    match.dialog && /win/i.test(match.label) && match.caption === 'YOUR RECORD HERE');
+  ok('the match freezes once decided', match.frozenTurn === 'over');
+  ok('strikes after the end change nothing', await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const before = F.app.match.you.strikes.slice();
+    document.querySelector('#youBoard .tile[data-i="0"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return JSON.stringify(F.app.match.you.strikes) === JSON.stringify(before);
+  }));
+  ok('the versus record is kept by size and skill', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !!(d.versusRecord && d.versusRecord['4xapprentice']); } catch (e) { return false; } }));
+  await page.screenshot({ path: path.join(SHOTS, '13-versus-result.png'), fullPage: true });
+
+  // Play Again keeps the settings but forges a new match
+  await page.click('#rRetry');
+  await page.waitForFunction(() => window.CHECKSMITH.app.match &&
+    !window.CHECKSMITH.core.matchOver(window.CHECKSMITH.app.match), null, { timeout: 10000 });
+  ok('Play Again starts a fresh match on the same settings', await page.evaluate(() => {
+    const m = window.CHECKSMITH.app.match;
+    return m.size === 4 && m.turns === 0 && m.you.points === 0 && m.foe.points === 0 &&
+      m.you.broken === 0 && m.foe.broken === 0 && m.you.current === -1;
+  }));
+
+  // and the other modes are untouched
+  await page.evaluate(() => document.getElementById('vsConcedeBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(300);
+  await page.click('#rChange');
+  await startFromTitle(page, 'forge', 'novice');
+  ok('forge still plays under its own rules', await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g && g.mode === 'forge' && g.board.route.length === 18 &&
+      document.getElementById('versusView').hidden === true &&
+      document.querySelector('.board-wrap').hidden === false;
   }));
 
   ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));

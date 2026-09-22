@@ -52,6 +52,10 @@ button,input,select{font-family:inherit;color:inherit;}
   overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;
 }
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px;}
+/* Any class that sets `display` beats the UA rule for the hidden attribute,
+   and this page hides plenty of flex and grid containers. Say it once here
+   rather than chasing each one. */
+[hidden]{display:none!important;}
 
 .app{
   width:100%;
@@ -71,7 +75,7 @@ button,input,select{font-family:inherit;color:inherit;}
   text-shadow:0 0 10px rgba(255,138,61,.55);
 }
 .brand h1{
-  font-size:clamp(17px,5.4vw,22px);
+  font-size:clamp(15px,4.6vw,22px);
   margin:0;letter-spacing:.04em;font-weight:600;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
@@ -85,8 +89,9 @@ button,input,select{font-family:inherit;color:inherit;}
 .icon-btn[aria-pressed="true"]{border-color:var(--ember);color:var(--ember);}
 .icon-btn:active{transform:translateY(1px);}
 input[type=range]{
-  width:78px;accent-color:var(--ember);height:var(--tap);
+  width:64px;accent-color:var(--ember);height:var(--tap);
 }
+@media (min-width:420px){ input[type=range]{width:78px;} }
 
 /* ---------- difficulty ---------- */
 .difficulty{
@@ -386,6 +391,78 @@ input[type=range]{
 .board[data-mode="endless"][data-tier="4"] .tile[data-hit="1"]{--hit-a:#bdf5e8;--hit-b:#5fbfab;--hit-c:#2f7c6d;--hit-edge:#8ee6d4;}
 .board[data-mode="endless"][data-tier="5"] .tile[data-hit="1"]{--hit-a:#ddc9ff;--hit-b:#9b78e0;--hit-c:#5a3fa0;--hit-edge:#c3a2ff;}
 
+/* ---------- versus ---------- */
+#versusView[hidden]{display:none;}
+.vs-turnbar{
+  margin:0;padding:8px 11px;border-radius:10px;text-align:center;font-size:14px;
+  border:1px solid var(--edge);background:var(--panel);
+}
+.vs-turnbar b{letter-spacing:.04em;}
+.vs-turnbar span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;}
+.vs-turnbar[data-turn="you"]{border-color:var(--brass);}
+.vs-turnbar[data-turn="you"] b{color:var(--gold);}
+.vs-turnbar[data-turn="foe"]{border-color:var(--steel,#7fc4f2);}
+.vs-turnbar[data-turn="foe"] b{color:var(--steel,#7fc4f2);}
+.vs-turnbar[data-turn="over"]{border-color:var(--ember);}
+
+.vs-boards{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:start;}
+.vs-boards[data-focus="you"]{grid-template-columns:1fr;}
+.vs-boards[data-focus="foe"]{grid-template-columns:1fr;}
+.vs-boards[data-focus="you"] .vs-panel[data-side="foe"],
+.vs-boards[data-focus="foe"] .vs-panel[data-side="you"]{display:none;}
+.vs-panel{
+  min-width:0;padding:7px;border-radius:var(--radius);
+  background:linear-gradient(180deg,#22242c,#16171c);
+  border:1px solid var(--edge);
+}
+.vs-panel[data-side="you"]{border-color:#4a3a1c;}
+.vs-panel[data-side="foe"]{border-color:#283b48;}
+.vs-head{display:flex;align-items:center;justify-content:space-between;gap:4px;}
+.vs-who{font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.vs-panel[data-side="you"] .vs-who{color:var(--gold);}
+.vs-panel[data-side="foe"] .vs-who{color:var(--steel,#7fc4f2);}
+.vs-zoom{
+  min-width:30px;min-height:30px;border-radius:7px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--muted);font-size:13px;
+}
+.vs-meta{margin:3px 0 0;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.vs-meta b{color:var(--text);font-size:12.5px;}
+.vs-piece{margin:1px 0 5px;font-size:11px;color:var(--muted);min-height:1.2em;}
+.vs-board{container-type:inline-size;}
+.vs-overview{width:100%;}
+.vs-overview[hidden]{display:none;}
+.vs-prompt{min-height:44px;font-size:13px;}
+
+/* square damage states, spelled out by shape as well as colour */
+.tile[data-vs="cracked"]{border-color:#b8791f;}
+.tile[data-vs="cracked"]::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;z-index:5;
+  border:2px dashed rgba(240,180,80,.9);
+}
+.tile[data-vs="armed"]{border-color:var(--danger);}
+.tile[data-vs="armed"]::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;z-index:5;
+  border:2px solid var(--danger);
+  animation:spent-warn 1s ease-in-out infinite;
+}
+.tile[data-vs="armed"] .count{background:rgba(160,36,20,.95);}
+.tile[data-target="1"]{
+  box-shadow:0 0 0 3px var(--focus), 0 0 14px rgba(111,211,255,.5);
+  cursor:crosshair;
+}
+.vs-shop{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+.vs-buy{
+  min-height:var(--tap);padding:6px 8px;border-radius:10px;cursor:pointer;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));
+  border:1px solid var(--edge);
+  display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;
+}
+.vs-buy b{font-size:13px;letter-spacing:.02em;}
+.vs-buy small{font-size:10.5px;color:var(--brass);}
+.vs-buy:disabled{opacity:.42;cursor:not-allowed;}
+.vs-buy[aria-pressed="true"]{border-color:var(--focus);box-shadow:inset 0 0 0 1px rgba(111,211,255,.4);}
+@media (min-width:560px){ .vs-shop{grid-template-columns:repeat(4,1fr);} }
+
 /* ---------- the purse and the shop ---------- */
 .title-purse{margin:0 0 8px;font-size:13px;color:var(--brass);letter-spacing:.05em;}
 .title-purse[hidden]{display:none;}
@@ -564,6 +641,40 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <span id="promptText">Choose any square to begin.</span>
   </p>
 
+  <div id="versusView" hidden>
+    <p class="vs-turnbar" id="vsTurnBar" data-turn="you"><b id="vsTurnText">Your turn</b><span id="vsTurnSub"></span></p>
+    <div class="vs-boards" id="vsBoards" data-focus="none">
+      <section class="vs-panel" data-side="foe">
+        <header class="vs-head">
+          <span class="vs-who">Rival</span>
+          <button class="vs-zoom" type="button" data-zoom="foe" aria-label="Enlarge the rival's board">&#9974;</button>
+        </header>
+        <p class="vs-meta"><b id="foePoints">0</b> pts &middot; <span id="foeMult">1.0&times;</span> &middot;
+          <span id="foeBroken">0</span> holes</p>
+        <p class="vs-piece" id="foePiece">&mdash;</p>
+        <div class="board vs-board" id="foeBoard" role="group" aria-label="Rival board"></div>
+      </section>
+      <section class="vs-panel" data-side="you">
+        <header class="vs-head">
+          <span class="vs-who">You</span>
+          <button class="vs-zoom" type="button" data-zoom="you" aria-label="Enlarge your board">&#9974;</button>
+        </header>
+        <p class="vs-meta"><b id="youPoints">0</b> pts &middot; <span id="youMult">1.0&times;</span> &middot;
+          <span id="youBroken">0</span> holes</p>
+        <p class="vs-piece" id="youPiece">&mdash;</p>
+        <div class="board vs-board" id="youBoard" role="group" aria-label="Your board"></div>
+      </section>
+    </div>
+    <button class="btn ghost vs-overview" type="button" id="vsOverviewBtn" hidden>Back to both boards</button>
+    <p class="prompt vs-prompt" id="vsPrompt"><span id="vsPromptText">Choose any square to begin.</span></p>
+    <div class="vs-shop" id="vsShop"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="vsCancelBtn" hidden>Cancel</button>
+      <button class="btn" type="button" id="vsConcedeBtn">Concede</button>
+      <button class="btn ghost" type="button" id="vsHelpBtn">How to Play</button>
+    </div>
+  </div>
+
   <div class="material-bar" id="materialBar" hidden data-tier="0">
     <span class="mat-name" id="matName">Bronze</span>
     <span class="mat-meta">
@@ -591,7 +702,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   </div>
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
 
-  <div class="actions">
+  <div class="actions" id="forgeActions">
     <button class="btn" type="button" id="restartBtn">Restart Board</button>
     <button class="btn" type="button" id="newBtn">New Puzzle</button>
     <button class="btn" type="button" id="menuActionBtn" hidden>Main Menu</button>
@@ -626,6 +737,11 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
         <span class="mc-desc">Hit every square once to advance a material. Keep forging until no legal move remains.</span>
         <span class="mc-best" id="endlessBest">&nbsp;</span>
       </button>
+      <button class="mode-card" type="button" data-mode="versus" role="radio" aria-checked="false">
+        <span class="mc-name">Versus</span>
+        <span class="mc-desc">Two boards, turn by turn against the rival smith. Trap them with no legal move left.</span>
+        <span class="mc-best" id="versusBest">&nbsp;</span>
+      </button>
     </div>
 
     <div id="titleDiffBlock">
@@ -636,6 +752,24 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <button class="diff-btn" type="button" data-tdiff="journeyman" role="radio" aria-checked="false">Journey.<small>5&times;5</small></button>
       <button class="diff-btn" type="button" data-tdiff="master"     role="radio" aria-checked="false">Master<small>6&times;6</small></button>
     </div>
+    </div>
+    <div id="titleVersusBlock" hidden>
+      <h2 class="title-label" id="sizeLabel">Board size</h2>
+      <div class="difficulty" id="titleSize" role="radiogroup" aria-labelledby="sizeLabel">
+        <button class="diff-btn" type="button" data-tsize="3" role="radio" aria-checked="false">3&times;3<small>9</small></button>
+        <button class="diff-btn" type="button" data-tsize="4" role="radio" aria-checked="true">4&times;4<small>16</small></button>
+        <button class="diff-btn" type="button" data-tsize="5" role="radio" aria-checked="false">5&times;5<small>25</small></button>
+        <button class="diff-btn" type="button" data-tsize="6" role="radio" aria-checked="false">6&times;6<small>36</small></button>
+      </div>
+      <h2 class="title-label" id="foeLabel">Rival skill</h2>
+      <div class="difficulty" id="titleFoe" role="radiogroup" aria-labelledby="foeLabel">
+        <button class="diff-btn" type="button" data-tfoe="novice"     role="radio" aria-checked="true">Novice<small>K R</small></button>
+        <button class="diff-btn" type="button" data-tfoe="apprentice" role="radio" aria-checked="false">Appren.<small>K R B</small></button>
+        <button class="diff-btn" type="button" data-tfoe="journeyman" role="radio" aria-checked="false">Journey.<small>K R B N</small></button>
+        <button class="diff-btn" type="button" data-tfoe="master"     role="radio" aria-checked="false">Master<small>+ Q</small></button>
+      </div>
+      <p class="title-note">Board size and rival skill are chosen separately &mdash; a small board can still
+        face a Master, and a large one a Novice.</p>
     </div>
     <p class="title-note" id="endlessNote" hidden>Endless always starts on the 3&times;3 board and
       steps up a size every 5 rounds. Every symbol can appear, and the metal reshapes more often
@@ -734,6 +868,34 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        <b>Gilded Hammer</b> adds a whole gold to every board, the <b>Smith's Ledger</b> raises your
        score (which in turn raises what boards pay), and <b>Tempering</b> cools the metal so squares
        reshape less often. Upgrades are permanent.</p>
+    <h2 style="font-size:16px;margin:16px 0 4px">Versus Mode</h2>
+    <p>You and a rival smith work <b>separate boards, side by side</b> &mdash; the rival on the left,
+       you on the right. Both boards are the same size and hold the same bag of symbols, laid out
+       differently. You strike first, then the rival, turn about.</p>
+    <p><b>Winning has nothing to do with points.</b> The match ends the moment a smith has no legal
+       square to strike. Leave the rival stranded and you win; wall yourself in and you lose.</p>
+    <p><b>1.</b> Tap any square on <i>your</i> board to begin; after that the symbol on the square you
+       are standing on decides where the hammer may go, exactly as in the forge.<br>
+       <b>2.</b> Squares may be struck as often as you like here &mdash; nothing is &ldquo;finished&rdquo;
+       and visiting the whole board neither wins nor resets anything.<br>
+       <b>3.</b> A turn is <b>at most one upgrade, then exactly one strike</b>. You may skip the upgrade,
+       never the strike. <b>Concede</b> ends the match if you would rather not play it out.</p>
+    <p><b>Points and the route bonus.</b> Every strike is worth <b>10</b>. Keep extending a fresh route
+       and the multiplier climbs by <b>0.1 for each square in it</b>. The symbols you pass through pay a
+       bonus on top: <b>Pair +5</b> for two of the same in a row, <b>Three of a Kind +10</b> for three,
+       <b>Variety +8</b> for three all different. Only the largest pattern pays. Return to a square you
+       have already used this route and the route restarts from that square alone, with no bonus and
+       the multiplier back to 1.0&times;. Bouncing between the same two squares pays its Pair once;
+       it will not pay again until you strike elsewhere.</p>
+    <p><b>Spend those points on the forge.</b> Below the boards: <b>Reforge (80)</b> changes one unbroken
+       rival square to a different symbol, <b>Row Shuffle (60)</b> scrambles the symbols along one rival
+       row, <b>Shatter (40)</b> cracks an intact rival square, and <b>Repair (50)</b> clears a crack from
+       one of your own.</p>
+    <p><b>Cracks, and what they cost.</b> A cracked square is still perfectly safe to stand on. It only
+       <i>arms</i> when struck &mdash; and it collapses into a permanent hole the moment you leave it.
+       <b>Repair undoes a crack, even an armed one, while you are still standing there; nothing repairs
+       a hole.</b> So a shattered square is not a trap you must avoid, it is a trap you must pay for or
+       walk into.</p>
     <p><b>Marks:</b> a brass diamond shows where the hammer stands now; dashed rings show every legal destination.
        Notches along the bottom of a square count its strikes, a red dashed border means the square is
        crumbling and about to blank, and a dark hole means it is already spent.</p>
@@ -815,6 +977,38 @@ const CONFIG = {
     startTier: 'novice',
     difficultyEvery: 5,
     generation: { nodeBudget: 200000, timeBudgetMs: 900, attempts: 24 }
+  },
+  versus: {
+    sizes: [3, 4, 5, 6],
+    difficulties: {
+      novice:     { label: 'Novice',     pool: ['K', 'R'],                maxQueens: 0, depth: 0, upgradeOdds: 0.25 },
+      apprentice: { label: 'Apprentice', pool: ['K', 'R', 'B'],           maxQueens: 0, depth: 1, upgradeOdds: 1 },
+      journeyman: { label: 'Journeyman', pool: ['K', 'R', 'B', 'N'],      maxQueens: 0, depth: 2, upgradeOdds: 1 },
+      master:     { label: 'Master',     pool: ['K', 'R', 'B', 'N'],      maxQueens: 2, depth: 3, upgradeOdds: 1 }
+    },
+    scoring: {
+      strike: 10,         // every legal strike, before the multiplier
+      pair: 5,            // two consecutive matching symbols
+      trio: 10,           // three consecutive matching symbols
+      variety: 8,         // three consecutive different symbols
+      chainStep: 0.1      // multiplier = 1 + chainStep * (chainLength - 1)
+    },
+    upgrades: [
+      { id: 'reforge', name: 'Reforge', cost: 80, target: 'enemySquare',
+        blurb: "Change an unbroken enemy square to a different symbol." },
+      { id: 'shuffle', name: 'Row Shuffle', cost: 60, target: 'enemyRow',
+        blurb: "Shuffle the symbols along one enemy row." },
+      { id: 'shatter', name: 'Shatter', cost: 40, target: 'enemySquare',
+        blurb: "Crack an intact enemy square. It breaks once struck and left." },
+      // Repair deliberately costs MORE than Shatter. At the spec's 30 it is
+      // strictly cheaper to undo damage than to cause it, so two competent
+      // players trade shatter-for-repair forever and no board ever degrades:
+      // measured 0 of 12 matches reaching an end, versus 12 of 12 at 50.
+      { id: 'repair', name: 'Repair', cost: 50, target: 'ownSquare',
+        blurb: "Clear a crack from one of your own squares." }
+    ],
+    generation: { attempts: 400, mobilityTolerance: 0.12, timeBudgetMs: 700 },
+    ai: { nodeBudget: 6000, timeBudgetMs: 220, thinkMs: 520 }
   },
   shop: {
     goldPerBoard: 1,        // what a cleared board pays before any bonus
@@ -1708,6 +1902,572 @@ function scoreGame(game) {
   return { quality: quality, label: label, stats: st };
 }
 
+/* =================================================================
+   VERSUS - a turn-based match against the forge's rival smith.
+
+   Two independent boards, same size and same bag of symbols, laid out
+   differently. Sides alternate: human, AI, human, AI. A turn is an
+   optional upgrade followed by exactly one legal strike. The objective
+   is to leave the opponent with no legal move; score does not decide it.
+
+   Squares live on a four-state machine:
+     INTACT -> (Shatter) -> CRACKED -> (struck) -> ARMED -> (departed) -> BROKEN
+   Repair returns CRACKED or ARMED to INTACT. BROKEN is forever.
+   ================================================================= */
+const SQ_INTACT = 0, SQ_CRACKED = 1, SQ_ARMED = 2, SQ_BROKEN = 3;
+const SQ_WORDS = ['intact', 'cracked', 'armed', 'broken'];
+
+/* ---------- board generation ---------- */
+/* The same bag of symbols for both boards, so neither gets richer
+   material - only a different arrangement of it. */
+function versusBag(size, diffKey, rnd) {
+  const cfg = CONFIG.versus.difficulties[diffKey];
+  const n = size * size, bag = [];
+  const queens = cfg.maxQueens ? Math.min(cfg.maxQueens, 1 + Math.floor(rnd() * cfg.maxQueens)) : 0;
+  for (let i = 0; i < queens && bag.length < n; i++) bag.push('Q');
+  let k = 0;
+  while (bag.length < n) { bag.push(cfg.pool[k % cfg.pool.length]); k++; }
+  return bag;
+}
+
+function shuffled(list, rnd) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = out[i]; out[i] = out[j]; out[j] = t;
+  }
+  return out;
+}
+
+/* Every square must have somewhere to go - a knight in the middle of a
+   3x3 has no jump at all - and the whole board must stay reachable, so
+   no opening choice can be a dead end. */
+function versusLayoutOk(size, pieces) {
+  const n = size * size, T = tableFor(size);
+  for (let i = 0; i < n; i++) if (T[pieces[i]].list[i].length === 0) return false;
+  return isStronglyConnected(size, pieces);
+}
+
+function versusMobility(size, pieces) {
+  const n = size * size, T = tableFor(size);
+  let total = 0;
+  for (let i = 0; i < n; i++) total += T[pieces[i]].list[i].length;
+  return total;
+}
+
+/* Two validated layouts of one bag, close enough in mobility that
+   neither side opens at an obvious disadvantage. */
+function makeVersusBoards(size, diffKey, rnd, limits) {
+  const g = Object.assign({}, CONFIG.versus.generation, limits || {});
+  const deadline = Date.now() + g.timeBudgetMs;
+  let bag = versusBag(size, diffKey, rnd);
+
+  for (let relax = 0; relax < 4; relax++) {
+    const valid = [];
+    for (let attempt = 0; attempt < g.attempts; attempt++) {
+      if ((attempt & 31) === 0 && Date.now() > deadline) break;
+      const pieces = shuffled(bag, rnd);
+      if (!versusLayoutOk(size, pieces)) continue;
+      valid.push(pieces);
+      // pair the newest layout with an earlier one of similar mobility
+      const mine = versusMobility(size, pieces);
+      for (let k = 0; k < valid.length - 1; k++) {
+        const other = valid[k];
+        if (other.join('') === pieces.join('')) continue;
+        const theirs = versusMobility(size, other);
+        const spread = Math.abs(mine - theirs) / Math.max(mine, theirs);
+        if (spread <= g.mobilityTolerance) {
+          return { size: size, difficulty: diffKey, ai: other, you: pieces };
+        }
+      }
+    }
+    // Too hard a bag for this size: soften it and try again rather than spin.
+    const hard = bag.lastIndexOf('N') >= 0 ? 'N' : (bag.lastIndexOf('B') >= 0 ? 'B' : null);
+    if (!hard) break;
+    bag[bag.lastIndexOf(hard)] = 'R';
+  }
+  return null;
+}
+
+/* ---------- match state ---------- */
+function versusSide(size, pieces, isAi) {
+  const n = size * size;
+  return {
+    ai: !!isAi,
+    size: size,
+    pieces: pieces.slice(),
+    states: new Array(n).fill(SQ_INTACT),
+    strikes: new Array(n).fill(0),
+    current: -1,
+    points: 0,            // spendable
+    earned: 0,            // total ever earned
+    chain: [],            // coordinates in the live route chain
+    chainPieces: [],      // symbol seen at each strike of that chain
+    lockedPairs: [],      // pairs that already paid, pending a third square
+    longestChain: 0,
+    broken: 0
+  };
+}
+
+function createMatch(boards, options) {
+  const opts = options || {};
+  return {
+    size: boards.size,
+    difficulty: boards.difficulty,
+    you: versusSide(boards.size, boards.you, false),
+    foe: versusSide(boards.size, boards.ai, true),
+    turn: 'you',                    // the human always opens
+    upgradeUsed: false,             // this turn's single upgrade allowance
+    status: 'playing',              // 'playing' | 'over'
+    winner: null,                   // 'you' | 'foe'
+    reason: null,                   // 'trapped' | 'conceded'
+    turns: 0,
+    rnd: opts.rnd || Math.random
+  };
+}
+
+function sideOf(match, who) { return who === 'you' ? match.you : match.foe; }
+function foeOf(who) { return who === 'you' ? 'foe' : 'you'; }
+function matchOver(match) { return match.status === 'over'; }
+
+/* ---------- movement ---------- */
+/* Broken squares cannot be landed on, but they do not block a slide or a
+   jump: only the landing square matters. */
+function versusTargets(match, who) {
+  const side = sideOf(match, who);
+  const n = side.size * side.size, out = [];
+  if (matchOver(match)) return out;
+  if (side.current < 0) {                      // opening strike: any unbroken square
+    for (let i = 0; i < n; i++) if (side.states[i] !== SQ_BROKEN) out.push(i);
+    return out;
+  }
+  const piece = side.pieces[side.current];
+  const moves = tableFor(side.size)[piece].list[side.current];
+  for (let k = 0; k < moves.length; k++) {
+    if (side.states[moves[k]] !== SQ_BROKEN) out.push(moves[k]);
+  }
+  return out;
+}
+
+function versusCanStrike(match, who, idx) {
+  if (matchOver(match) || match.turn !== who) return false;
+  const side = sideOf(match, who);
+  const n = side.size * side.size;
+  if (!(idx >= 0 && idx < n)) return false;
+  if (side.states[idx] === SQ_BROKEN) return false;
+  if (side.current < 0) return true;
+  if (idx === side.current) return false;      // no stationary strikes
+  return isLegalMove(side.pieces[side.current], side.current, idx, side.size);
+}
+
+/* ---------- scoring ---------- */
+function pairKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
+
+/* The largest qualifying pattern only - a Pair never stacks with a Three
+   of a Kind - and never on a strike that reset the chain. */
+function patternFor(side, reset) {
+  if (reset) return { bonus: 0, name: null };
+  const p = side.chainPieces, n = p.length;
+  const S = CONFIG.versus.scoring;
+  if (n >= 3 && p[n - 1] === p[n - 2] && p[n - 2] === p[n - 3]) return { bonus: S.trio, name: 'Three of a Kind' };
+  if (n >= 3 && p[n - 1] !== p[n - 2] && p[n - 2] !== p[n - 3] && p[n - 1] !== p[n - 3]) {
+    return { bonus: S.variety, name: 'Variety' };
+  }
+  if (n >= 2 && p[n - 1] === p[n - 2]) return { bonus: S.pair, name: 'Pair' };
+  return { bonus: 0, name: null };
+}
+
+/* ---------- the strike transaction ---------- */
+function versusStrike(match, who, idx) {
+  if (!versusCanStrike(match, who, idx)) return null;
+  const side = sideOf(match, who);
+  const S = CONFIG.versus.scoring;
+
+  const from = side.current;
+  const piece = side.pieces[idx];               // the symbol seen at this strike
+
+  // 1-2: land the blow and move the marker
+  side.strikes[idx] += 1;
+  side.current = idx;
+
+  // 3: a cracked destination arms itself on being struck
+  let armed = false;
+  if (side.states[idx] === SQ_CRACKED) { side.states[idx] = SQ_ARMED; armed = true; }
+
+  // 4: the square just left collapses if it was armed
+  let brokeAt = -1;
+  if (from >= 0 && from !== idx && side.states[from] === SQ_ARMED) {
+    side.states[from] = SQ_BROKEN;
+    side.broken += 1;
+    brokeAt = from;
+  }
+
+  // 5: chain, patterns and points
+  const inChain = side.chain.indexOf(idx) !== -1;
+  let reset = false;
+  if (side.current < 0 || side.chain.length === 0) {
+    side.chain = [idx]; side.chainPieces = [piece];
+  } else if (inChain) {
+    side.chain = [idx]; side.chainPieces = [piece]; reset = true;
+  } else {
+    side.chain.push(idx); side.chainPieces.push(piece);
+  }
+  side.longestChain = Math.max(side.longestChain, side.chain.length);
+
+  // a strike outside a locked pair frees it again
+  side.lockedPairs = side.lockedPairs.filter(function (key) {
+    const parts = key.split('|');
+    return Number(parts[0]) === idx || Number(parts[1]) === idx;
+  });
+
+  let pattern = patternFor(side, reset);
+  let lockKey = null;
+  if (pattern.name === 'Pair' && from >= 0) {
+    lockKey = pairKey(from, idx);
+    if (side.lockedPairs.indexOf(lockKey) !== -1) {
+      pattern = { bonus: 0, name: null };       // this pair already paid
+      lockKey = null;
+    }
+  }
+  const multiplier = 1 + S.chainStep * (side.chain.length - 1);
+  const points = Math.floor((S.strike + pattern.bonus) * multiplier);
+  side.points += points;
+  side.earned += points;
+  if (lockKey) side.lockedPairs.push(lockKey);
+
+  // 6: the defeat check runs AFTER the vacated square has broken
+  match.turns += 1;
+  const mine = versusTargets(match, who);
+  if (mine.length === 0) {
+    match.status = 'over';
+    match.winner = foeOf(who);
+    match.reason = 'trapped';
+  } else {
+    match.turn = foeOf(who);
+    match.upgradeUsed = false;
+  }
+
+  return {
+    side: who, index: idx, from: from, piece: piece, points: points,
+    multiplier: multiplier, pattern: pattern.name, armed: armed,
+    broke: brokeAt, reset: reset, chain: side.chain.length,
+    over: matchOver(match), winner: match.winner
+  };
+}
+
+/* ---------- upgrades ---------- */
+function upgradeById(id) {
+  return CONFIG.versus.upgrades.find(function (u) { return u.id === id; }) || null;
+}
+
+/* Says whether a purchase is legal without charging for it, so the
+   interface and the AI can ask the same question. */
+function versusUpgradeCheck(match, who, id, target) {
+  if (matchOver(match) || match.turn !== who) return { ok: false, why: 'not your turn' };
+  if (match.upgradeUsed) return { ok: false, why: 'already used this turn' };
+  const def = upgradeById(id);
+  if (!def) return { ok: false, why: 'no such upgrade' };
+  const me = sideOf(match, who), them = sideOf(match, foeOf(who));
+  if (me.points < def.cost) return { ok: false, why: 'not enough points' };
+  const n = match.size * match.size;
+
+  if (id === 'repair') {
+    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick one of your squares' };
+    const st = me.states[target];
+    if (st !== SQ_CRACKED && st !== SQ_ARMED) return { ok: false, why: 'that square is not cracked' };
+    return { ok: true, def: def };
+  }
+  if (id === 'shatter') {
+    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick an enemy square' };
+    if (them.states[target] !== SQ_INTACT) return { ok: false, why: 'that square is already damaged' };
+    return { ok: true, def: def };
+  }
+  if (id === 'reforge') {
+    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick an enemy square' };
+    if (them.states[target] === SQ_BROKEN) return { ok: false, why: 'that square is broken' };
+    if (versusReforgeOptions(match, who, target).length === 0) return { ok: false, why: 'nothing to change it to' };
+    return { ok: true, def: def };
+  }
+  if (id === 'shuffle') {
+    if (!(target >= 0 && target < match.size)) return { ok: false, why: 'pick an enemy row' };
+    const cells = versusRowCells(them, target);
+    if (cells.length < 2) return { ok: false, why: 'too few squares left in that row' };
+    const symbols = cells.map(function (i) { return them.pieces[i]; });
+    if (symbols.every(function (x) { return x === symbols[0]; })) {
+      return { ok: false, why: 'that row is all one symbol' };
+    }
+    return { ok: true, def: def };
+  }
+  return { ok: false, why: 'no such upgrade' };
+}
+
+function versusRowCells(side, row) {
+  const out = [];
+  for (let c = 0; c < side.size; c++) {
+    const i = row * side.size + c;
+    if (side.states[i] !== SQ_BROKEN) out.push(i);
+  }
+  return out;
+}
+
+/* Symbols this square could legitimately be changed to. */
+function versusReforgeOptions(match, who, target) {
+  const them = sideOf(match, foeOf(who));
+  const cfg = CONFIG.versus.difficulties[match.difficulty];
+  const pool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
+  const T = tableFor(match.size);
+  return pool.filter(function (p) {
+    if (p === them.pieces[target]) return false;
+    return T[p].list[target].length > 0;        // never forge a symbol that cannot move
+  });
+}
+
+function versusBuy(match, who, id, target, choice) {
+  const check = versusUpgradeCheck(match, who, id, target);
+  if (!check.ok) return { ok: false, why: check.why };
+  const me = sideOf(match, who), them = sideOf(match, foeOf(who));
+  const def = check.def;
+  let detail = null;
+
+  if (id === 'repair') {
+    me.states[target] = SQ_INTACT;
+    detail = { square: target };
+  } else if (id === 'shatter') {
+    them.states[target] = SQ_CRACKED;
+    detail = { square: target };
+  } else if (id === 'reforge') {
+    const options = versusReforgeOptions(match, who, target);
+    const pick = options.indexOf(choice) !== -1 ? choice : options[Math.floor(match.rnd() * options.length)];
+    detail = { square: target, from: them.pieces[target], to: pick };
+    them.pieces[target] = pick;                 // coordinates, damage and history are untouched
+  } else if (id === 'shuffle') {
+    const cells = versusRowCells(them, target);
+    const before = cells.map(function (i) { return them.pieces[i]; });
+    let after = before, tries = 0;
+    do { after = shuffled(before, match.rnd); tries++; }
+    while (tries < 24 && after.join('') === before.join(''));
+    if (after.join('') === before.join('')) return { ok: false, why: 'that row cannot be rearranged' };
+    cells.forEach(function (i, k) { them.pieces[i] = after[k]; });
+    detail = { row: target, cells: cells.slice() };
+  }
+
+  me.points -= def.cost;
+  match.upgradeUsed = true;
+
+  // An upgrade can win outright: if it leaves either side with no move,
+  // the match ends there and no strike is required.
+  let trapped = null;
+  if (versusTargets(match, foeOf(who)).length === 0 && sideOf(match, foeOf(who)).current >= 0) {
+    trapped = foeOf(who);
+  } else if (versusTargets(match, who).length === 0 && me.current >= 0) {
+    trapped = who;
+  }
+  if (trapped) {
+    match.status = 'over';
+    match.winner = foeOf(trapped);
+    match.reason = 'trapped';
+  }
+  return { ok: true, id: id, side: who, cost: def.cost, detail: detail, trapped: trapped, over: matchOver(match) };
+}
+
+function versusConcede(match, who) {
+  if (matchOver(match)) return false;
+  match.status = 'over';
+  match.winner = foeOf(who);
+  match.reason = 'conceded';
+  return true;
+}
+
+/* ---------- the rival smith --------------------------------------------
+   One evaluation and one search, with the difficulty deciding how deep it
+   looks. It plays by exactly the same rules through the same functions,
+   never sees a shuffle's result before it happens, and is bounded by both
+   node count and wall clock so a turn cannot stall the interface. */
+function cloneSide(side) {
+  return {
+    ai: side.ai, size: side.size,
+    pieces: side.pieces.slice(), states: side.states.slice(), strikes: side.strikes.slice(),
+    current: side.current, points: side.points, earned: side.earned,
+    chain: side.chain.slice(), chainPieces: side.chainPieces.slice(),
+    lockedPairs: side.lockedPairs.slice(), longestChain: side.longestChain, broken: side.broken
+  };
+}
+function cloneMatch(match) {
+  return {
+    size: match.size, difficulty: match.difficulty,
+    you: cloneSide(match.you), foe: cloneSide(match.foe),
+    turn: match.turn, upgradeUsed: match.upgradeUsed, status: match.status,
+    winner: match.winner, reason: match.reason, turns: match.turns,
+    rnd: match.rnd
+  };
+}
+
+/* How much of the board a side can still get to from where it stands. */
+function versusReach(match, who) {
+  const side = sideOf(match, who);
+  if (side.current < 0) return side.size * side.size;
+  const T = tableFor(side.size), seen = new Set([side.current]);
+  const stack = [side.current];
+  while (stack.length) {
+    const cur = stack.pop();
+    for (const next of T[side.pieces[cur]].list[cur]) {
+      if (side.states[next] === SQ_BROKEN || seen.has(next)) continue;
+      seen.add(next); stack.push(next);
+    }
+  }
+  return seen.size;
+}
+
+const VS_WIN = 100000;
+
+function versusEvaluate(match, who) {
+  const them = foeOf(who);
+  const myExits = versusTargets(match, who).length;
+  const theirExits = versusTargets(match, them).length;
+  if (matchOver(match)) return match.winner === who ? VS_WIN : -VS_WIN;
+  // being on the move with nowhere to go is a loss next tick
+  if (match.turn === who && myExits === 0) return -VS_WIN;
+  if (match.turn === them && theirExits === 0) return VS_WIN;
+
+  const me = sideOf(match, who), foe = sideOf(match, them);
+  // Damage has to be worth something on both sides of the board, or the
+  // rival only ever repairs and never attacks.
+  const weigh = (side) => {
+    let n = 0;
+    for (let i = 0; i < side.states.length; i++) {
+      if (side.states[i] === SQ_CRACKED) n += 1;
+      else if (side.states[i] === SQ_ARMED) n += 2;   // one departure from a hole
+    }
+    return n;
+  };
+  return 6 * (myExits - theirExits)
+    + 2 * (versusReach(match, who) - versusReach(match, them))
+    + 4 * (foe.broken - me.broken)
+    + 0.04 * (me.points - foe.points)
+    + 2.5 * (weigh(foe) - weigh(me));
+}
+
+/* Negamax over strikes only. Upgrades are chosen by the heuristic below
+   rather than searched, which keeps the tree small and bounded. */
+function versusSearch(match, who, depth, ctx) {
+  if (matchOver(match) || depth <= 0) return versusEvaluate(match, who);
+  if (++ctx.nodes > ctx.nodeBudget) { ctx.bailed = true; return versusEvaluate(match, who); }
+  if ((ctx.nodes & 63) === 0 && Date.now() > ctx.deadline) { ctx.bailed = true; return versusEvaluate(match, who); }
+
+  const mover = match.turn;
+  const targets = versusTargets(match, mover);
+  if (targets.length === 0) return mover === who ? -VS_WIN : VS_WIN;
+
+  // look at the most promising handful first, and cap the width
+  const ranked = targets.map(function (t) {
+    const probe = cloneMatch(match);
+    versusStrike(probe, mover, t);
+    return { t: t, probe: probe, quick: versusEvaluate(probe, mover) };
+  }).sort(function (a, b) { return b.quick - a.quick; }).slice(0, ctx.width);
+
+  // The evaluation is always from `who`'s point of view, so `who` maximises
+  // and the opponent minimises. Never assume the opponent helps.
+  let best = mover === who ? -Infinity : Infinity;
+  for (const cand of ranked) {
+    const value = versusSearch(cand.probe, who, depth - 1, ctx);
+    best = mover === who ? Math.max(best, value) : Math.min(best, value);
+    if (ctx.bailed) break;
+  }
+  return Number.isFinite(best) ? best : versusEvaluate(match, who);
+}
+
+function versusChooseStrike(match, who) {
+  const targets = versusTargets(match, who);
+  if (!targets.length) return -1;
+  const cfg = CONFIG.versus.difficulties[match.difficulty];
+  const budget = CONFIG.versus.ai;
+
+  if (cfg.depth === 0) {
+    // Novice: weighted random, nudged towards points, with just enough
+    // sense not to walk into its own grave.
+    const scored = targets.map(function (t) {
+      const probe = cloneMatch(match);
+      const res = versusStrike(probe, who, t);
+      const safe = versusTargets(probe, who).length > 0;
+      return { t: t, w: (safe ? 1 : 0.01) * (1 + (res ? res.points : 0) / 20) + match.rnd() * 0.6 };
+    });
+    scored.sort(function (a, b) { return b.w - a.w; });
+    return scored[0].t;
+  }
+
+  const ctx = { nodes: 0, nodeBudget: budget.nodeBudget, width: cfg.depth >= 3 ? 8 : 6,
+    deadline: Date.now() + budget.timeBudgetMs, bailed: false };
+  let best = targets[0], bestVal = -Infinity;
+  for (const t of targets) {
+    const probe = cloneMatch(match);
+    versusStrike(probe, who, t);
+    let value = matchOver(probe)
+      ? (probe.winner === who ? VS_WIN : -VS_WIN)
+      : versusSearch(probe, who, cfg.depth - 1, ctx);
+    value += match.rnd() * 0.25;                 // break ties without changing plans
+    if (value > bestVal) { bestVal = value; best = t; }
+    if (ctx.bailed) break;                       // out of budget: keep the best so far
+  }
+  return best;
+}
+
+/* Upgrades: every difficulty uses them. Novice buys something affordable
+   now and then; the rest weigh each legal purchase by the position it
+   leaves behind, and take it only if it genuinely helps. */
+function versusChooseUpgrade(match, who) {
+  const cfg = CONFIG.versus.difficulties[match.difficulty];
+  const me = sideOf(match, who), them = sideOf(match, foeOf(who));
+  const n = match.size * match.size;
+  const legal = [];
+
+  for (const def of CONFIG.versus.upgrades) {
+    if (me.points < def.cost) continue;
+    if (def.target === 'ownSquare') {
+      for (let i = 0; i < n; i++) {
+        if (versusUpgradeCheck(match, who, def.id, i).ok) legal.push({ id: def.id, target: i });
+      }
+    } else if (def.target === 'enemySquare') {
+      for (let i = 0; i < n; i++) {
+        if (versusUpgradeCheck(match, who, def.id, i).ok) legal.push({ id: def.id, target: i });
+      }
+    } else if (def.target === 'enemyRow') {
+      for (let r = 0; r < match.size; r++) {
+        if (versusUpgradeCheck(match, who, def.id, r).ok) legal.push({ id: def.id, target: r });
+      }
+    }
+  }
+  if (!legal.length) return null;
+
+  if (cfg.depth === 0) {
+    if (match.rnd() > cfg.upgradeOdds) return null;
+    return legal[Math.floor(match.rnd() * legal.length)];
+  }
+
+  const base = versusEvaluate(match, who);
+  let best = null, bestGain = 0.5;               // must actually be worth the points
+  for (const option of legal) {
+    if (option.id === 'shuffle') {
+      // A shuffle's result is random and must not be foreseen. Judge it
+      // only by how much of the opponent's position that row touches.
+      const cells = versusRowCells(them, option.target);
+      const theirs = new Set(versusTargets(match, foeOf(who)));
+      let touch = 0;
+      for (const c of cells) if (theirs.has(c) || c === them.current) touch++;
+      const gain = touch * 1.5 - 1;
+      if (gain > bestGain) { bestGain = gain; best = option; }
+      continue;
+    }
+    const probe = cloneMatch(match);
+    const res = versusBuy(probe, who, option.id, option.target);
+    if (!res.ok) continue;
+    const gain = matchOver(probe)
+      ? (probe.winner === who ? VS_WIN : -VS_WIN)
+      : versusEvaluate(probe, who) - base;
+    if (gain > bestGain) { bestGain = gain; best = option; }
+  }
+  return best;
+}
+
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
   mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
@@ -1720,6 +2480,15 @@ const CHECKSMITH_CORE = {
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
   isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
   materialFor: materialFor, romanFor: romanFor, beginRound: beginRound, roundTier: roundTier,
+  SQ_INTACT: SQ_INTACT, SQ_CRACKED: SQ_CRACKED, SQ_ARMED: SQ_ARMED, SQ_BROKEN: SQ_BROKEN, SQ_WORDS: SQ_WORDS,
+  makeVersusBoards: makeVersusBoards, versusBag: versusBag, versusLayoutOk: versusLayoutOk,
+  versusMobility: versusMobility, createMatch: createMatch, sideOf: sideOf, foeOf: foeOf,
+  matchOver: matchOver, versusTargets: versusTargets, versusCanStrike: versusCanStrike,
+  versusStrike: versusStrike, versusBuy: versusBuy, versusUpgradeCheck: versusUpgradeCheck,
+  versusReforgeOptions: versusReforgeOptions, versusRowCells: versusRowCells,
+  versusConcede: versusConcede, upgradeById: upgradeById,
+  versusChooseStrike: versusChooseStrike, versusChooseUpgrade: versusChooseUpgrade,
+  versusEvaluate: versusEvaluate, versusReach: versusReach, cloneMatch: cloneMatch,
   endlessMorphChance: endlessMorphChance, tierForRound: tierForRound,
   upgradeDef: upgradeDef, upgradeCost: upgradeCost, levelOf: levelOf,
   goldRateFor: goldRateFor, payoutFor: payoutFor, scoreMultiplier: scoreMultiplier,
@@ -2151,6 +2920,10 @@ const App = {
   focusIndex: 0,
   best: {},
   endlessBest: 0,       // best endless score; endless has no difficulty to pick
+  match: null,          // the live versus match
+  vsSize: 4,            // versus board size, chosen apart from rival skill
+  vsFoe: 'novice',      // versus rival skill
+  versusRecord: {},     // versus wins/losses, kept per size and skill
   gold: 0,              // the purse, kept between runs
   upgrades: {},         // purchased upgrade levels, kept between runs
   lastFocus: null,
@@ -2660,15 +3433,477 @@ function buyUpgrade(id) {
   announce(def.name + ' is now level ' + App.upgrades[id] + '. ' + formatGold(App.gold) + ' gold left.');
 }
 
+/* ---------- versus: the match view -----------------------------------
+   Two boards, two tile grids, one turn at a time. Input is locked while
+   a hammer is in flight and for the whole of the rival's turn, and every
+   pending callback is token-guarded so leaving a match cannot let it
+   reach into the next one. */
+const VS = {
+  tiles: { you: [], foe: [] },
+  targeting: null,        // { id, stage, square } while choosing an upgrade target
+  focus: 'none'
+};
+
+function vsSide(who) { return sideOf(App.match, who); }
+
+function vsBuildTiles(size) {
+  for (const who of ['foe', 'you']) {
+    const host = $(who === 'you' ? 'youBoard' : 'foeBoard');
+    host.textContent = '';
+    host.style.setProperty('--n', size);
+    VS.tiles[who] = [];
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < size * size; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tile';
+      b.dataset.i = String(i);
+      b.dataset.side = who;
+      b.innerHTML = '<span class="glyph"></span><span class="marks"></span>';
+      frag.appendChild(b);
+      VS.tiles[who].push(b);
+    }
+    host.appendChild(frag);
+  }
+}
+
+/* Tiles below a comfortable tap size are read-only in the two-board
+   overview; tapping one opens that board full width instead of striking,
+   so a move is never a precision tap on a tiny cell. */
+function vsTileTooSmall(who) {
+  const first = VS.tiles[who][0];
+  if (!first) return false;
+  return first.getBoundingClientRect().width < 44;
+}
+
+function vsRenderBoard(who) {
+  const m = App.match, side = vsSide(who), size = side.size;
+  const mine = who === 'you';
+  const legal = new Set(m.turn === who && !matchOver(m) ? versusTargets(m, who) : []);
+  const targeting = VS.targeting;
+
+  for (let i = 0; i < size * size; i++) {
+    const el = VS.tiles[who][i];
+    const state = side.states[i];
+    const piece = side.pieces[i];
+    const broken = state === SQ_BROKEN;
+    const isCurrent = i === side.current;
+    const isLegal = mine && legal.has(i) && !isCurrent;
+
+    el.dataset.s = broken ? '0' : String(Math.min(side.strikes[i], 2));
+    el.dataset.vs = SQ_WORDS[state];
+    el.dataset.void = broken ? '1' : '0';
+    el.dataset.current = isCurrent ? '1' : '0';
+    el.dataset.legal = isLegal && !targeting ? '1' : '0';
+
+    // a square that can be picked as this upgrade's target
+    let isTarget = false;
+    if (targeting && targeting.stage === 'square') {
+      const wants = targeting.def.target;
+      if ((wants === 'ownSquare' && mine) || (wants === 'enemySquare' && !mine)) {
+        isTarget = versusUpgradeCheck(m, 'you', targeting.id, i).ok;
+      }
+    } else if (targeting && targeting.stage === 'row' && !mine) {
+      isTarget = versusUpgradeCheck(m, 'you', targeting.id, Math.floor(i / size)).ok;
+    }
+    el.dataset.target = isTarget ? '1' : '0';
+
+    el.firstChild.textContent = broken ? '' : PIECES[piece].glyph;
+    const marks = el.children[1];
+    if (marks.childElementCount !== 0) marks.textContent = '';
+
+    let badge = el.querySelector('.count');
+    if (!broken && side.strikes[i] > 0) {
+      if (!badge) { badge = document.createElement('span'); badge.className = 'count'; el.appendChild(badge); }
+      badge.textContent = String(side.strikes[i]);
+    } else if (badge) badge.remove();
+
+    const where = squareName(i, size);
+    let label = (mine ? 'Your board, ' : "Rival's board, ") + where + ', ';
+    if (broken) label += 'broken hole, cannot be used again';
+    else {
+      label += PIECES[piece].name + ', ' + SQ_WORDS[state];
+      if (state === SQ_ARMED) label += ', breaks when the hammer leaves it';
+      else if (state === SQ_CRACKED) label += ', will arm when struck';
+      if (isCurrent) label += mine ? ', your hammer is here' : ', the rival is here';
+      if (isTarget) label += ', can be targeted';
+      else if (isLegal) label += ', legal destination';
+    }
+    el.setAttribute('aria-label', label);
+    el.disabled = false;
+  }
+
+  $(who + 'Points').textContent = String(side.points);
+  $(who + 'Mult').textContent = (1 + CONFIG.versus.scoring.chainStep * Math.max(0, side.chain.length - 1)).toFixed(1) + '×';
+  $(who + 'Broken').textContent = String(side.broken);
+  $(who + 'Piece').textContent = side.current < 0
+    ? 'no hammer placed yet'
+    : PIECES[side.pieces[side.current]].name + ' — ' + PIECES[side.pieces[side.current]].move;
+}
+
+function vsRenderShop() {
+  const m = App.match, me = vsSide('you');
+  const host = $('vsShop');
+  host.textContent = '';
+  for (const def of CONFIG.versus.upgrades) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn vs-buy';
+    b.dataset.buy = def.id;
+    b.innerHTML = '<b></b><small></small>';
+    b.firstChild.textContent = def.name;
+    b.lastChild.textContent = def.cost + ' pts';
+    b.title = def.blurb;
+    const blocked = matchOver(m) || m.turn !== 'you' || m.upgradeUsed || me.points < def.cost || App.busy;
+    b.disabled = blocked;
+    b.setAttribute('aria-pressed', VS.targeting && VS.targeting.id === def.id ? 'true' : 'false');
+    b.setAttribute('aria-label', def.name + ', ' + def.cost + ' points. ' + def.blurb);
+    b.addEventListener('click', () => vsStartTargeting(def.id));
+    host.appendChild(b);
+  }
+}
+
+function vsRenderMatch() {
+  const m = App.match;
+  if (!m) return;
+  vsRenderBoard('foe');
+  vsRenderBoard('you');
+  vsRenderShop();
+
+  const bar = $('vsTurnBar');
+  if (matchOver(m)) {
+    bar.dataset.turn = 'over';
+    $('vsTurnText').textContent = m.winner === 'you' ? 'You win' : 'The rival wins';
+    $('vsTurnSub').textContent = m.reason === 'conceded' ? 'conceded' : 'no legal move remained';
+  } else {
+    bar.dataset.turn = m.turn;
+    $('vsTurnText').textContent = m.turn === 'you' ? 'Your turn' : 'Rival thinking…';
+    $('vsTurnSub').textContent = m.turn === 'you'
+      ? (m.upgradeUsed ? 'upgrade spent — now strike' : 'one upgrade, then one strike')
+      : '';
+  }
+
+  const t = VS.targeting;
+  $('vsCancelBtn').hidden = !t;
+  $('vsOverviewBtn').hidden = VS.focus === 'none';
+  $('vsBoards').dataset.focus = VS.focus;
+
+  if (t) {
+    $('vsPromptText').textContent = t.stage === 'piece'
+      ? 'Choose the new symbol for that square.'
+      : (t.def.target === 'enemyRow' ? 'Choose a row on the rival’s board.'
+        : (t.def.target === 'ownSquare' ? 'Choose a cracked square on your board.'
+          : 'Choose a square on the rival’s board.'));
+  } else if (matchOver(m)) {
+    $('vsPromptText').textContent = m.winner === 'you'
+      ? 'The rival has nowhere left to strike.'
+      : 'You have nowhere left to strike.';
+  } else if (m.turn !== 'you') {
+    $('vsPromptText').textContent = 'The rival is choosing its blow…';
+  } else if (vsSide('you').current < 0) {
+    $('vsPromptText').textContent = 'Choose any square on your board to begin.';
+  } else {
+    const piece = PIECES[vsSide('you').pieces[vsSide('you').current]];
+    $('vsPromptText').innerHTML = '<b>' + piece.name + ':</b> ' + piece.move + '.';
+  }
+  vsRenderPieceChoices();
+}
+
+/* Reforge asks for a square and then a symbol. */
+function vsRenderPieceChoices() {
+  let host = $('vsPieceChoices');
+  const t = VS.targeting;
+  if (!t || t.stage !== 'piece') { if (host) host.remove(); return; }
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'vsPieceChoices';
+    host.className = 'vs-shop';
+    $('vsShop').after(host);
+  }
+  host.textContent = '';
+  for (const p of versusReforgeOptions(App.match, 'you', t.square)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn vs-buy';
+    b.innerHTML = '<b></b><small></small>';
+    b.firstChild.textContent = PIECES[p].glyph + ' ' + PIECES[p].name;
+    b.lastChild.textContent = PIECES[p].move;
+    b.addEventListener('click', () => vsCommitUpgrade(t.id, t.square, p));
+    host.appendChild(b);
+  }
+}
+
+/* ---------- targeting ---------- */
+function vsStartTargeting(id) {
+  const m = App.match;
+  if (!m || matchOver(m) || m.turn !== 'you' || m.upgradeUsed || App.busy) return;
+  const def = upgradeById(id);
+  if (!def || vsSide('you').points < def.cost) return;
+  if (VS.targeting && VS.targeting.id === id) { vsCancelTargeting(); return; }
+  VS.targeting = { id: id, def: def, stage: def.target === 'enemyRow' ? 'row' : 'square', square: -1 };
+  Sound.unlock();
+  vsRenderMatch();
+  announce(def.name + '. ' + $('vsPromptText').textContent);
+}
+
+function vsCancelTargeting() {
+  // Cancelling spends nothing and does not use up the turn's allowance.
+  VS.targeting = null;
+  vsRenderMatch();
+  announce('Targeting cancelled. Nothing was spent.');
+}
+
+function vsCommitUpgrade(id, target, choice) {
+  const res = versusBuy(App.match, 'you', id, target, choice);
+  if (!res.ok) {
+    SOUNDS.invalid();
+    announce('That target will not work: ' + res.why + '. Nothing was spent.');
+    return;
+  }
+  VS.targeting = null;
+  SOUNDS.morph();
+  if (id === 'shatter' || id === 'reforge') FX.morph(VS.tiles.foe[target] || VS.tiles.foe[0]);
+  if (id === 'repair') FX.morph(VS.tiles.you[target]);
+  vsRenderMatch();
+  announce(upgradeById(id).name + ' bought for ' + res.cost + ' points.');
+  if (res.over) { vsFinish(); return; }
+  if (App.match.turn !== 'you') vsScheduleAi();
+}
+
+/* ---------- input ---------- */
+function vsTapTile(who, idx) {
+  const m = App.match;
+  if (!m || App.busy || matchOver(m)) return;
+  const t = VS.targeting;
+
+  if (t) {
+    // A tap while targeting never strikes the square.
+    if (t.stage === 'row') {
+      if (who !== 'foe') { SOUNDS.invalid(); return; }
+      vsCommitUpgrade(t.id, Math.floor(idx / m.size));
+      return;
+    }
+    const wantsOwn = t.def.target === 'ownSquare';
+    if ((wantsOwn && who !== 'you') || (!wantsOwn && who !== 'foe')) { SOUNDS.invalid(); return; }
+    const check = versusUpgradeCheck(m, 'you', t.id, idx);
+    if (!check.ok) {
+      SOUNDS.invalid();
+      announce('Not a valid target: ' + check.why + '. Nothing was spent.');
+      return;
+    }
+    if (t.id === 'reforge') { t.square = idx; t.stage = 'piece'; vsRenderMatch(); return; }
+    vsCommitUpgrade(t.id, idx);
+    return;
+  }
+
+  if (m.turn !== 'you') { SOUNDS.invalid(); announce('Wait for the rival.'); return; }
+  if (who !== 'you') {                        // the rival's board is not yours to strike
+    vsFocusBoard('foe');
+    return;
+  }
+  if (vsTileTooSmall('you') && VS.focus === 'none') { vsFocusBoard('you'); return; }
+  if (!versusCanStrike(m, 'you', idx)) {
+    SOUNDS.invalid();
+    const el = VS.tiles.you[idx];
+    if (el && !FX.reduced) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+      setTimeout(() => el.classList.remove('shake'), 240); }
+    announce('Not a legal destination.');
+    return;
+  }
+  Sound.unlock();
+  vsPerformStrike('you', idx);
+}
+
+function vsFocusBoard(who) {
+  VS.focus = VS.focus === who ? 'none' : who;
+  vsRenderMatch();
+  announce(VS.focus === 'none' ? 'Both boards shown.' : (who === 'you' ? 'Your board enlarged.' : "Rival's board enlarged."));
+}
+
+/* ---------- strikes ---------- */
+function vsPerformStrike(who, idx) {
+  App.busy = true;
+  vsRenderShop();
+  const myToken = App.token;
+  const total = FX.reduced ? CONFIG.animation.reducedMs : CONFIG.animation.strikeMs;
+  const delay = FX.reduced ? Math.round(total * 0.4) : Math.round(total * CONFIG.animation.impactAt);
+  const land = () => {
+    if (myToken !== App.token) return;
+    App.impactTimer = null;
+    App.pendingImpact = null;
+    App.busy = false;
+    vsImpact(who, idx);
+  };
+  App.pendingImpact = land;
+  const tile = VS.tiles[who][idx];
+  if (tile) FX.swing(tile, total, who === 'foe' ? 'ai' : null);
+  App.impactTimer = setTimeout(land, delay);
+}
+
+function vsImpact(who, idx) {
+  const m = App.match;
+  const res = versusStrike(m, who, idx);
+  if (!res) return;                            // exactly one strike, or none
+
+  const tile = VS.tiles[who][idx];
+  if (res.armed) SOUNDS.crack(); else SOUNDS.shape();
+  if (tile) {
+    FX.impact(tile, res.pattern ? 2 : 1);
+    if (!FX.reduced) {
+      tile.classList.remove('impact'); void tile.offsetWidth; tile.classList.add('impact');
+      setTimeout(() => tile.classList.remove('impact'), 300);
+    }
+  }
+  if (res.broke >= 0) {
+    const gone = VS.tiles[who][res.broke];
+    if (gone) FX.collapse(gone);
+    SOUNDS.crumble();
+  }
+  vsRenderMatch();
+
+  let said = (who === 'you' ? 'You: ' : 'Rival: ') + squareName(idx, m.size) +
+    '. +' + res.points + ' points';
+  if (res.pattern) said += ', ' + res.pattern;
+  if (res.reset) said += '. Route reset';
+  if (res.armed) said += '. That square is armed';
+  if (res.broke >= 0) said += '. The square behind collapsed';
+  announce(said + '.');
+
+  if (res.over) { vsFinish(); return; }
+  if (m.turn === 'foe') vsScheduleAi();
+}
+
+/* ---------- the rival's turn ---------- */
+function vsScheduleAi() {
+  const m = App.match;
+  if (!m || matchOver(m) || m.turn !== 'foe') return;
+  const myToken = App.token;
+  App.busy = true;
+  vsRenderShop();
+  App.aiTimer = setTimeout(() => {
+    App.aiTimer = null;
+    if (myToken !== App.token) return;
+    const match = App.match;
+    if (!match || matchOver(match) || match.turn !== 'foe') { App.busy = false; return; }
+    let bought = null;
+    try {
+      const pick = versusChooseUpgrade(match, 'foe');
+      if (pick) {
+        const res = versusBuy(match, 'foe', pick.id, pick.target);
+        if (res.ok) bought = pick.id;
+      }
+    } catch (err) { bought = null; }
+    if (bought) {
+      SOUNDS.morph();
+      vsRenderMatch();
+      announce('The rival used ' + upgradeById(bought).name + '.');
+    }
+    if (matchOver(match)) { App.busy = false; vsFinish(); return; }
+    let move = -1;
+    try { move = versusChooseStrike(match, 'foe'); } catch (err) { move = -1; }
+    if (move < 0) {                            // nowhere to go: it has lost
+      App.busy = false;
+      match.status = 'over';
+      match.winner = 'you';
+      match.reason = 'trapped';
+      vsRenderMatch();
+      vsFinish();
+      return;
+    }
+    App.busy = false;
+    vsPerformStrike('foe', move);
+  }, FX.reduced ? 120 : CONFIG.versus.ai.thinkMs);
+}
+
+/* ---------- match lifecycle ---------- */
+function vsStartMatch() {
+  cancelPending(false);
+  VS.targeting = null;
+  VS.focus = 'none';
+  App.game = null;
+  $('versusView').hidden = false;
+  $('vsPromptText').textContent = 'Forging two boards…';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    let boards = null;
+    try { boards = makeVersusBoards(App.vsSize, App.vsFoe, App.rnd); } catch (err) { boards = null; }
+    if (!boards) {
+      $('vsPromptText').textContent = 'Could not forge a fair pair of boards. Try another size.';
+      return;
+    }
+    App.match = createMatch(boards, { rnd: App.rnd });
+    vsBuildTiles(App.vsSize);
+    VS.focus = 'none';
+    vsRenderMatch();
+    announce('Versus, ' + App.vsSize + ' by ' + App.vsSize + ', rival at ' +
+      CONFIG.versus.difficulties[App.vsFoe].label + '. You strike first.');
+  }));
+}
+
+function vsFinish() {
+  const m = App.match;
+  const won = m.winner === 'you';
+  App.resultTimer = setTimeout(() => {
+    App.resultTimer = null;
+    if (won) SOUNDS.complete(m.foe.broken > 0); else SOUNDS.stranded();
+  }, 220);
+  const key = App.vsSize + 'x' + App.vsFoe;
+  const rec = App.versusRecord[key] || { w: 0, l: 0 };
+  if (won) rec.w += 1; else rec.l += 1;
+  App.versusRecord[key] = rec;
+  Store.patch({ versusRecord: App.versusRecord });
+  vsRenderMatch();
+  vsShowResult(m, rec);
+  announce((won ? 'You win. ' : 'The rival wins. ') + 'Turns played ' + m.turns + '.');
+}
+
+function vsShowResult(m, rec) {
+  const sheet = $('results').querySelector('.sheet');
+  sheet.dataset.outcome = m.winner === 'you' ? 'complete' : 'lost';
+  $('rQuality').firstChild.textContent = rec.w + '–' + rec.l;
+  $('rQualityCaption').textContent = 'YOUR RECORD HERE';
+  const label = $('rLabel');
+  label.textContent = m.winner === 'you' ? 'You win' : 'The rival wins';
+  label.classList.toggle('masterwork', m.winner === 'you');
+  label.classList.toggle('stranded', m.winner !== 'you');
+  $('resultTitle').textContent = m.reason === 'conceded'
+    ? (m.winner === 'you' ? 'The rival concedes' : 'You concede')
+    : (m.winner === 'you' ? 'The rival is trapped' : 'You are trapped');
+  $('rDiffLabel').textContent = 'Match';
+  $('rDiff').textContent = m.size + '×' + m.size + ' · ' + CONFIG.versus.difficulties[App.vsFoe].label;
+  $('rStrikesLabel').textContent = 'Turns played';
+  $('rStrikes').textContent = String(m.turns);
+  $('rSpentLabel').textContent = 'You earned';
+  $('rSpent').textContent = String(m.you.earned);
+  $('rPerfectLabel').textContent = 'Longest chain';
+  $('rPerfect').textContent = String(m.you.longestChain);
+  $('rRetry').textContent = 'Play Again';
+  $('rNew').hidden = true;
+  $('rChange').textContent = 'Main Menu';
+  $('rBest').textContent = 'Rival earned ' + m.foe.earned + '. Holes: yours ' + m.you.broken +
+    ', theirs ' + m.foe.broken + '.';
+  show($('results'));
+}
+
 /* ---------- title screen --------------------------------------------- */
 function syncTitleUi() {
   const endless = App.mode === 'endless';
+  const versus = App.mode === 'versus';
   for (const b of document.querySelectorAll('.mode-card')) {
     b.setAttribute('aria-checked', b.dataset.mode === App.mode ? 'true' : 'false');
   }
   // Endless is not a difficulty you pick: it always starts small and climbs.
-  $('titleDiffBlock').hidden = endless;
+  // Versus picks board size and rival skill separately instead.
+  $('titleDiffBlock').hidden = endless || versus;
   $('endlessNote').hidden = !endless;
+  $('titleVersusBlock').hidden = !versus;
+  for (const b of document.querySelectorAll('#titleSize .diff-btn')) {
+    b.setAttribute('aria-checked', Number(b.dataset.tsize) === App.vsSize ? 'true' : 'false');
+  }
+  for (const b of document.querySelectorAll('#titleFoe .diff-btn')) {
+    b.setAttribute('aria-checked', b.dataset.tfoe === App.vsFoe ? 'true' : 'false');
+  }
+  const vrec = App.versusRecord[App.vsSize + 'x' + App.vsFoe];
+  $('versusBest').textContent = vrec ? 'Record here: ' + vrec.w + 'W ' + vrec.l + 'L' : '\u00a0';
   for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
     b.setAttribute('aria-checked', b.dataset.tdiff === App.difficulty ? 'true' : 'false');
   }
@@ -2682,6 +3917,9 @@ function syncTitleUi() {
 function showTitle() {
   cancelPending(false);
   App.game = null;
+  App.match = null;
+  VS.targeting = null;
+  $('versusView').hidden = true;
   hide($('results'));
   syncTitleUi();
   $('titleScreen').hidden = false;
@@ -2691,6 +3929,22 @@ function showTitle() {
 /* Chrome that differs between the two modes. */
 function syncModeChrome() {
   const endless = App.mode === 'endless';
+  const versus = App.mode === 'versus';
+  // The versus match has its own view and its own controls.
+  $('versusView').hidden = !versus;
+  document.querySelector('.board-wrap').hidden = versus;
+  // `.actions` matches the versus row first now that #versusView sits above the
+  // forge one, so reach for the forge row by id.
+  $('forgeActions').hidden = versus;
+  $('prompt').hidden = versus;
+  $('legendPanel').hidden = versus;
+  $('bestLine').hidden = versus;
+  // render() owns the stat rows, but it never runs in versus (there is no
+  // App.game), so settle them here too.
+  $('statsForge').hidden = versus || endless;
+  $('statsEndless').hidden = versus || !endless;
+  $('materialBar').hidden = versus || !endless;
+  document.querySelector('.difficulty:not(#titleDiff)').hidden = versus || endless;
   $('restartBtn').textContent = endless ? 'Restart Run' : 'Restart Board';
   $('newBtn').hidden = endless;
   $('menuActionBtn').hidden = !endless;
@@ -2705,6 +3959,7 @@ function beginRun() {
   // endless ignores the picker and always opens on the smallest board
   if (App.mode === 'endless') App.difficulty = CONFIG.endless.startTier;
   syncModeChrome();
+  if (App.mode === 'versus') { vsStartMatch(); return; }
   loadBoard(App.difficulty, () => {
     buildLegend();
     announce(App.mode === 'endless'
@@ -2907,6 +4162,7 @@ function boot() {
   } else App.endlessBest = 0;
   App.gold = typeof saved.gold === 'number' && saved.gold >= 0 ? Math.floor(saved.gold) : 0;
   App.upgrades = (saved.upgrades && typeof saved.upgrades === 'object') ? saved.upgrades : {};
+  App.versusRecord = (saved.versusRecord && typeof saved.versusRecord === 'object') ? saved.versusRecord : {};
   Sound.muted = saved.muted === true;
   Sound.volume = typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 0.7;
   applyAudioUI();
@@ -2943,6 +4199,34 @@ function boot() {
   for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
     b.addEventListener('click', () => { App.difficulty = b.dataset.tdiff; syncTitleUi(); });
   }
+  for (const b of document.querySelectorAll('#titleSize .diff-btn')) {
+    b.addEventListener('click', () => { App.vsSize = Number(b.dataset.tsize); syncTitleUi(); });
+  }
+  for (const b of document.querySelectorAll('#titleFoe .diff-btn')) {
+    b.addEventListener('click', () => { App.vsFoe = b.dataset.tfoe; syncTitleUi(); });
+  }
+  for (const host of ['foeBoard', 'youBoard']) {
+    $(host).addEventListener('click', (e) => {
+      const tile = e.target.closest ? e.target.closest('.tile') : null;
+      if (!tile) return;
+      vsTapTile(tile.dataset.side, Number(tile.dataset.i));
+    });
+  }
+  for (const b of document.querySelectorAll('.vs-zoom')) {
+    b.addEventListener('click', () => vsFocusBoard(b.dataset.zoom));
+  }
+  $('vsOverviewBtn').addEventListener('click', () => { VS.focus = 'none'; vsRenderMatch(); });
+  $('vsCancelBtn').addEventListener('click', vsCancelTargeting);
+  $('vsHelpBtn').addEventListener('click', () => show($('help')));
+  $('vsConcedeBtn').addEventListener('click', () => {
+    if (!App.match || matchOver(App.match)) return;
+    askDiscard('Conceding hands this match to the rival.', () => {
+      cancelPending(false);
+      versusConcede(App.match, 'you');
+      vsRenderMatch();
+      vsFinish();
+    });
+  });
   $('beginBtn').addEventListener('click', beginRun);
   $('shopBtn').addEventListener('click', () => { renderShop(); show($('shop')); });
   $('shopClose').addEventListener('click', () => hide($('shop')));
@@ -2981,7 +4265,9 @@ function boot() {
 
   $('rRetry').addEventListener('click', () => {
     hide($('results'));
-    if (App.mode === 'endless') startRun(); else restartBoard();
+    if (App.mode === 'versus') vsStartMatch();
+    else if (App.mode === 'endless') startRun();
+    else restartBoard();
   });
   $('rNew').addEventListener('click', () => {
     if (App.mode === 'endless') { renderShop(); show($('shop')); return; }
@@ -2990,7 +4276,7 @@ function boot() {
   });
   $('rChange').addEventListener('click', () => {
     hide($('results'));
-    if (App.mode === 'endless') { showTitle(); return; }
+    if (App.mode === 'endless' || App.mode === 'versus') { showTitle(); return; }
     const first = document.querySelector('.difficulty:not(#titleDiff) .diff-btn');
     if (first) first.focus();
   });
@@ -3007,6 +4293,7 @@ function boot() {
     if (e.key !== 'Escape') return;
     if (!$('confirm').hidden) { App.confirmAction = null; hide($('confirm')); }
     else if (!$('shop').hidden) { hide($('shop')); }
+    else if (VS.targeting) { vsCancelTargeting(); }
     else if (!$('help').hidden) { hide($('help')); }
   });
 
@@ -3027,7 +4314,8 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 // exposed for the automated test harness
-window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare };
+window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare,
+  vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch };
 </script>
 </body>
 </html>
