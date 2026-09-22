@@ -329,7 +329,7 @@ These are two independent variables, deliberately:
 | Bronze | 1 | 2nd | 14g | ×1.0 |
 | Silver | 2 | 3rd | 34g | ×2.3 |
 | Gold | 3 | 4th | 76g | ×4.6 |
-| Mythril | 4 | 5th | 150g | ×8.6 |
+| Mithril | 4 | 5th | 150g | ×8.6 |
 | Adamantine | 5 | 6th | 330g | ×15.0 |
 
 A square may be left part-worked and returned to; what ruins it is one strike
