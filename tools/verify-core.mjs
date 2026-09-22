@@ -1276,11 +1276,39 @@ section('Open Your Forge: material sets the strikes, not the difficulty');
     return true;
   })());
 
-  ok('board size and symbols come from the item and the tier', (() => {
-    const shop = C.createShop({ rnd: C.mulberry32(3), difficulty: 'master' });
-    const spec = C.forgeBoardSpec(shop, 'plate', 'adamantine');
-    return spec.size === 6 && spec.difficulty === 'master' &&
-      spec.visits === 5 && spec.perfect === 5 && spec.spent === 6;
+  ok('the item picks the size, the material the strikes, the batch the symbols', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(3) });
+    const small = C.forgeBoardSpec(shop, 'plate', 'adamantine', 1);
+    const big = C.forgeBoardSpec(shop, 'plate', 'adamantine', 10);
+    return small.size === 6 && small.visits === 5 && small.perfect === 5 && small.spent === 6 &&
+      big.size === small.size && big.visits === small.visits &&
+      small.difficulty === 'novice' && big.difficulty === 'master';
+  })());
+
+  ok('every three pieces in a batch is another tier', (() => {
+    const want = { 1: 'novice', 2: 'novice', 3: 'novice',
+      4: 'apprentice', 6: 'apprentice',
+      7: 'journeyman', 9: 'journeyman',
+      10: 'master', 12: 'master' };
+    for (const qty in want) if (C.batchDifficulty(Number(qty)) !== want[qty]) return false;
+    return true;
+  })());
+
+  ok('a batch past the last tier stays at the last tier', (() => {
+    const last = C.CONFIG.order[C.CONFIG.order.length - 1];
+    return C.batchDifficulty(40) === last && C.batchDifficulty(400) === last;
+  })());
+
+  ok('the shop keeps no difficulty of its own to pick', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(31) });
+    return shop.difficulty === undefined;
+  })());
+
+  ok('a bigger batch really is a harder board', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(32) });
+    const one = C.CONFIG.difficulties[C.forgeBoardSpec(shop, 'mace', 'bronze', 1).difficulty];
+    const ten = C.CONFIG.difficulties[C.forgeBoardSpec(shop, 'mace', 'bronze', 10).difficulty];
+    return ten.pool.length > one.pool.length;
   })());
 
   ok('a square is perfect at the material’s count and ruined one past it', (() => {

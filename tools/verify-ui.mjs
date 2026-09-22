@@ -1227,9 +1227,11 @@ async function run() {
     stars: document.getElementById('shStars').getAttribute('aria-label'),
     actions: Array.from(document.querySelectorAll('#shActions .act-btn'))
       .map((b) => b.querySelector('b').textContent),
-    tabs: Array.from(document.querySelectorAll('.shop-tab')).map((b) => b.textContent)
+    tabs: Array.from(document.querySelectorAll('.shop-tab')).map((b) => b.textContent),
+    noPicker: document.getElementById('titleDiffBlock').hidden
   }));
   ok('the shop opens on day one, morning', board.day === '1' && board.phase === 'Morning');
+  ok('the mode offers no difficulty to pick', board.noPicker === true);
   ok('the five actions are all offered', board.actions.length === 5 &&
     board.actions.join(',') === 'Forge,Tend the Store,Purchase Materials,Stock Shelves,Search for Employees',
     board.actions.join(','));
@@ -1256,8 +1258,11 @@ async function run() {
       window.CHECKSMITH.shopUi.redraw();
     });
     await page.selectOption('#shopSheetBody [data-sel="material"]', 'silver');
-    // the select redraws the sheet, so let the new buttons settle first
     await page.waitForTimeout(120);
+    // a batch of one is a Novice board; the dialog has to say so before it is worked
+    const said = await page.evaluate(() => document.getElementById('shopSheetBody').innerText);
+    ok('the order dialog names the difficulty the batch will be worked at',
+      /Board difficulty/.test(said) && /Novice/.test(said), said.slice(0, 200));
     await page.click('#shopSheetActions button:not([disabled])');
     // wait for THIS order's board, not whatever game the last section left
     await page.waitForFunction(
@@ -1281,9 +1286,24 @@ async function run() {
   ok('the route visits every square that many times',
     forged.visits === 2 && forged.route === 2 * 16);
   ok('the anvil takes over the screen', forged.shopHidden === true);
+  // The batch is the difficulty lever now, so raising it has to change the
+  // board the player is handed, not just the label.
+  ok('a bigger batch is dealt a harder board', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const sh = window.CHECKSMITH.app.shop;
+    const small = C.forgeBoardSpec(sh, 'plate', 'bronze', 1);
+    const large = C.forgeBoardSpec(sh, 'plate', 'bronze', 7);
+    const boardA = C.makeShopBoard(small.size, small.difficulty, small.visits, C.mulberry32(21));
+    const boardB = C.makeShopBoard(large.size, large.difficulty, large.visits, C.mulberry32(21));
+    const kinds = (b) => new Set(b.pieces).size;
+    return small.difficulty === 'novice' && large.difficulty === 'journeyman' &&
+      kinds(boardB) > kinds(boardA);
+  }));
+
   ok('the banner says what is being made and what will ruin it',
     /Silver Stiletto/.test(forged.banner) && /2 strikes/.test(forged.banner) &&
-    /3rd strike ruins it/.test(forged.banner), forged.banner);
+    /3rd strike ruins it/.test(forged.banner) && /Novice board/.test(forged.banner),
+    forged.banner);
 
   // On its own board, never the live one: striking the order the player is
   // about to work would desynchronise it from its verified route.

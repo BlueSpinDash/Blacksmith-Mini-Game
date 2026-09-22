@@ -71,8 +71,8 @@ The game opens on a **title screen** offering four modes — Forge, Endless,
 Versus and Open Your Forge — then whatever settings that mode takes, then Begin.
 Forge picks a difficulty; Endless picks nothing and always starts on 3×3; Versus
 picks a board size and the rival's skill independently; Open Your Forge picks
-the difficulty its orders will be worked at. The hamburger button in the top bar
-takes you back there at any time.
+nothing at all, taking every board's difficulty from the size of the batch being
+worked. The hamburger button in the top bar takes you back there at any time.
 
 Endless replaces the two-strike rules with a score chase:
 
@@ -314,15 +314,30 @@ to open the shop. Later the same day is *forge while the Runner buys and the
 Store Hand stocks*, then *forge again while a Salesperson serves*, then *serve
 the counter yourself*. That shift is the whole progression.
 
-### Material is not difficulty
+### Three levers, all of them the order
 
-These are two independent variables, deliberately:
+Nothing about the board is picked on the title screen — this mode has no
+difficulty selector. Every property of the puzzle falls out of the order:
 
-| | Sets | Chosen by |
+| | Sets | Comes from |
 | --- | --- | --- |
-| **Material** | how many strikes each square needs, and which strike ruins it | the order you place |
-| **Forge difficulty** | which chess symbols appear on the board | the title screen, once |
-| **Item** | how big the board is | the order you place |
+| **Item** | how big the board is | the item ordered |
+| **Material** | how many strikes each square needs, and which strike ruins it | the material ordered |
+| **Batch size** | which chess symbols appear on the board | how many pieces the batch holds |
+
+Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
+
+| Batch | Tier | Symbols |
+| --- | --- | --- |
+| 1–3 | Novice | King, Rook |
+| 4–6 | Apprentice | + Bishop |
+| 7–9 | Journeyman | + Knight |
+| 10+ | Master | + the occasional Queen |
+
+That makes a large batch the efficient choice and the dangerous one at the same
+time: more goods from a single puzzle, on a board much more likely to strand
+you. The order sheet names the tier, its symbols and what batch would step up
+again, before the player commits.
 
 | Material | Strikes per square | Ruined on | Ingot | Value |
 | --- | --- | --- | --- | --- |
@@ -526,6 +541,7 @@ SHOP.customers                         // who shops here, and what pulls them in
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
 SHOP.tiers                             // premises: rent, staff, shelf, storage, batch
 SHOP.upgrades                          // the upgrade framework
+SHOP.batchPerTier                      // pieces per step up the difficulty tiers
 SHOP.weekLength / SHOP.startGold       // how long a week is, and what you start with
 CONFIG.generation.nodeBudget           // search nodes before giving up
 CONFIG.generation.timeBudgetMs         // hard wall-clock cap per board request
@@ -556,8 +572,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 316 rule/generation checks
-node tools/verify-ui.mjs                                    # 241 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 320 rule/generation checks
+node tools/verify-ui.mjs                                    # 244 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

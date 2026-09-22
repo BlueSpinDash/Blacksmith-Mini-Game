@@ -1134,13 +1134,17 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <p><b>The metal decides the puzzle.</b> Bronze needs <b>1</b> strike on every square, Silver
        <b>2</b>, Gold <b>3</b>, Mithril <b>4</b>, Adamantine <b>5</b> &mdash; and one strike past
        that ruins the square. You may leave a square half-finished and come back to it; what you
-       must not do is over-strike one that is already done. The forge difficulty you pick is a
-       separate thing entirely: it sets which chess symbols appear, not how many blows a square
-       needs.</p>
+       must not do is over-strike one that is already done.</p>
     <p><b>One puzzle is one batch.</b> Five swords take one board, not five. Finish it and the
        ingots are spent and the batch goes on the anvil overnight; ruin it and you lose the phase
        but keep the metal. How well you worked the board is the quality of the goods, and quality
        is what they are worth.</p>
+    <p><b>The size of the order is the difficulty.</b> There is nothing to pick: <b>every three
+       pieces in a batch</b> is another tier of symbols on the board. One to three is a Novice
+       board of kings and rooks; four to six adds bishops; seven to nine adds knights; ten or more
+       brings in the occasional queen. So a big batch is the efficient thing and the risky thing at
+       once &mdash; more goods off one puzzle, on a board far more likely to strand you. The order
+       sheet names the tier before you commit to it.</p>
     <p><b>Nothing sells itself.</b> Finished work lands in <b>storage</b> the next morning and sits
        there until you spend a phase carrying it out to the shelves. Every line starts at its
        recommended price and you may ask whatever you like &mdash; tap the price to change it.
@@ -2847,6 +2851,7 @@ const SHOP = {
   phases: ['morning', 'afternoon', 'evening'],
   phaseName: { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' },
   weekLength: 7,               // rent falls due at the end of every 7th day
+  batchPerTier: 3,             // pieces in a batch per step up the difficulty tiers
   startGold: 260,
   startStock: { bronze: 10 },
   reputationStart: 12,         // 0-100, shown as 1-5 stars: a new shop is a one-star shop
@@ -3097,7 +3102,6 @@ function createShop(opts) {
     applicants: [],
     log: [],              // reports, newest first
     assignments: {},      // employeeId -> { phase, job }
-    difficulty: o.difficulty || 'novice',
     rentPaid: 0,
     closed: false,        // true once the shop has gone under
     nextId: 1,
@@ -3226,13 +3230,22 @@ function forgeCheck(shop, itemId, materialId, qty) {
   return { ok: true, item: it, material: mt, qty: qty, max: max };
 }
 
-/* The board an order is worked on: the item chooses its size, the shop's
-   forge difficulty chooses the symbols, and the material chooses how many
-   times each square must be struck. */
-function forgeBoardSpec(shop, itemId, materialId) {
+/* How hard the board is comes from the size of the order: every three pieces
+   in a batch is another tier of symbols. Nobody picks a difficulty here - you
+   choose it by deciding how much to make at once, which makes a big batch a
+   real gamble rather than a free saving. */
+function batchDifficulty(qty) {
+  const step = Math.floor((Math.max(1, qty) - 1) / SHOP.batchPerTier);
+  return CONFIG.order[Math.min(step, CONFIG.order.length - 1)];
+}
+
+/* The board an order is worked on: the item chooses its size, the batch size
+   chooses the symbols, and the material chooses how many times each square
+   must be struck. Three independent levers, all of them the player's. */
+function forgeBoardSpec(shop, itemId, materialId, qty) {
   const it = shopItem(itemId), mt = shopMaterial(materialId);
   if (!it || !mt) return null;
-  return { size: it.size, difficulty: shop.difficulty, visits: mt.strikes,
+  return { size: it.size, difficulty: batchDifficulty(qty || 1), visits: mt.strikes,
     perfect: mt.strikes, spent: mt.strikes + 1 };
 }
 
@@ -3726,6 +3739,7 @@ const CHECKSMITH_CORE = {
   weeklyBill: weeklyBill, shopLog: shopLog, addStorage: addStorage,
   shopMoveToShelf: shopMoveToShelf, shopPullFromShelf: shopPullFromShelf, shopSetPrice: shopSetPrice,
   purchaseCost: purchaseCost, shopBuyMaterials: shopBuyMaterials, forgeCheck: forgeCheck,
+  batchDifficulty: batchDifficulty,
   forgeBoardSpec: forgeBoardSpec, shopFinishForge: shopFinishForge, trafficFor: trafficFor,
   customerWeights: customerWeights, pickWeighted: pickWeighted, openCounter: openCounter,
   chooseGoods: chooseGoods, counterNext: counterNext, counterRespond: counterRespond,
@@ -5558,9 +5572,26 @@ function shopForgeBody(smith) {
   }
   html += '</select></div>';
 
-  html += '<div class="pick-row"><label>Batch</label>' + stepper('qty', d.qty || 1, 1, cap) +
+  const qty = d.qty || 1;
+  const tier = batchDifficulty(qty);
+  const tierCfg = CONFIG.difficulties[tier];
+  const nextAt = (Math.floor((qty - 1) / SHOP.batchPerTier) + 1) * SHOP.batchPerTier + 1;
+  html += '<div class="pick-row"><label>Batch</label>' + stepper('qty', qty, 1, cap) +
     '<span style="font-size:11.5px;color:var(--muted)">Up to ' + cap +
     ' from one board. You work the puzzle once, however many you make.</span></div>';
+  if (!smith) {
+    // The batch IS the difficulty here, so it has to be visible while choosing.
+    html += '<div class="shop-row" style="margin:0 0 10px">' +
+      '<span class="nm">Board difficulty</span>' +
+      '<span class="amt">' + esc(tierCfg.label) + '</span>' +
+      '<span class="sub">Every ' + SHOP.batchPerTier +
+      ' pieces in a batch is another tier of symbols \u00b7 ' +
+      esc(tierCfg.pool.map(function (k) { return PIECES[k].name; }).join(', ')) +
+      (tierCfg.maxQueens > 0 ? ' and the odd Queen' : '') +
+      (nextAt <= cap && batchDifficulty(nextAt) !== tier
+        ? ' \u00b7 a batch of ' + nextAt + ' steps up again' : '') +
+      '</span></div>';
+  }
 
   const check = forgeCheck(sh, d.item, d.material, d.qty || 1);
   const it = shopItem(d.item), mt = shopMaterial(d.material);
@@ -5972,7 +6003,7 @@ function shopStartForge() {
   const d = SHOPUI.draft;
   const check = forgeCheck(sh, d.item, d.material, d.qty);
   if (!check.ok) { shopToast(check.why); return; }
-  const spec = forgeBoardSpec(sh, d.item, d.material);
+  const spec = forgeBoardSpec(sh, d.item, d.material, d.qty);
   SHOPUI.order = { item: d.item, material: d.material, qty: d.qty };
   shopSheetClose();
 
@@ -5986,13 +6017,13 @@ function shopStartForge() {
   $('forgeBanner').hidden = false;
   $('forgeBanner').innerHTML = '<b>' + d.qty + ' × ' +
     esc(shopMaterial(d.material).name) + ' ' + esc(shopItem(d.item).name) + '</b>' +
-    '<small>Every square needs ' + spec.perfect +
-    (spec.perfect === 1 ? ' strike' : ' strikes') + ' · a ' + (spec.perfect + 1) +
+    '<small>' + esc(CONFIG.difficulties[spec.difficulty].label) + ' board · every square needs ' +
+    spec.perfect + (spec.perfect === 1 ? ' strike' : ' strikes') + ' · a ' + (spec.perfect + 1) +
     getOrdinalSuffix(spec.perfect + 1) + ' strike ruins it</small>';
 
   requestAnimationFrame(function () { requestAnimationFrame(function () {
     let board = null;
-    try { board = makeShopBoard(spec.size, sh.difficulty, spec.visits, App.rnd); } catch (err) { board = null; }
+    try { board = makeShopBoard(spec.size, spec.difficulty, spec.visits, App.rnd); } catch (err) { board = null; }
     if (!board) {
       $('promptText').textContent = 'That die would not set. Try another item or material.';
       $('forgeBanner').hidden = true;
@@ -6004,7 +6035,8 @@ function shopStartForge() {
     startGame(board, { perfect: spec.perfect, spent: spec.spent });
     buildLegend();
     announce(d.qty + ' ' + shopMaterial(d.material).name + ' ' + shopItem(d.item).name +
-      '. Every square needs ' + spec.perfect + ' strikes. Choose any square to begin.');
+      '. ' + CONFIG.difficulties[spec.difficulty].label + ' board. Every square needs ' +
+      spec.perfect + ' strikes. Choose any square to begin.');
   }); });
 }
 
@@ -6113,7 +6145,7 @@ function startShop() {
   cancelPending(false);
   App.game = null;
   App.match = null;
-  App.shop = createShop({ rnd: App.rnd, difficulty: App.difficulty });
+  App.shop = createShop({ rnd: App.rnd });
   SHOPUI.tab = 'shelf';
   SHOPUI.session = null;
   SHOPUI.order = null;
@@ -6246,8 +6278,9 @@ function syncTitleUi() {
     b.setAttribute('aria-checked', b.dataset.mode === App.mode ? 'true' : 'false');
   }
   // Endless is not a difficulty you pick: it always starts small and climbs.
-  // Versus picks board size and rival skill separately instead.
-  $('titleDiffBlock').hidden = endless || versus;
+  // Versus picks board size and rival skill separately instead, and Open Your
+  // Forge takes its difficulty from the size of the batch being worked.
+  $('titleDiffBlock').hidden = endless || versus || App.mode === 'shop';
   $('endlessNote').hidden = !endless;
   $('titleVersusBlock').hidden = !versus;
   for (const b of document.querySelectorAll('#titleSize .diff-btn')) {
