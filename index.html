@@ -603,21 +603,109 @@ input[type=range]{
   background:#101216;border:1px solid var(--edge);color:var(--text);width:100%;
 }
 
-/* the counter: one customer at a time */
-.cust{
-  padding:11px;border-radius:var(--radius);text-align:left;
-  background:linear-gradient(180deg,#26282f,#181a1f);border:1px solid var(--edge);
+/* ---------- the counter: one customer at a time, with beats ----------
+   Every keyframe finishes on the visible state, so the global
+   prefers-reduced-motion clamp lands on a readable screen rather than an
+   invisible one. */
+.cust-head{
+  position:relative;overflow:hidden;
+  padding:11px 13px;border-radius:12px;
+  background:linear-gradient(135deg,#3a2415 0%,#241a12 60%,#1b1c22 100%);
+  border:1px solid var(--ember);
+  animation:cust-in .34s cubic-bezier(.2,.9,.3,1.2) both;
 }
-.cust .who{font-size:15px;color:var(--gold);letter-spacing:.03em;}
-.cust .want{margin:5px 0 0;font-size:13px;color:var(--text);}
-.cust .offer{margin:7px 0 0;font-size:13px;color:var(--brass);font-variant-numeric:tabular-nums;}
-.cust .offer b{font-size:17px;color:var(--gold);}
-.cust-log{display:grid;gap:4px;margin:9px 0 0;max-height:190px;overflow:auto;}
+.cust-head .who{
+  display:block;font-size:19px;letter-spacing:.03em;color:var(--gold);line-height:1.15;
+}
+.cust-head .kind{
+  display:block;margin-top:2px;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);
+}
+@keyframes cust-in{
+  from{opacity:0;transform:translateY(-10px) scale(.97);}
+  to{opacity:1;transform:none;}
+}
+
+.cust-want{
+  margin:10px 0 0;font-size:13.5px;color:var(--text);line-height:1.45;
+  animation:fade-up .3s ease-out .08s both;
+}
+.cust-want b{color:var(--gold);}
+@keyframes fade-up{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+/* the offer itself: fades in late and pops, so it lands as its own beat */
+.cust-bid{
+  margin:12px 0 0;padding:12px 10px;border-radius:12px;text-align:center;
+  background:var(--panel);border:1px dashed var(--brass);
+  animation:bid-pop .42s cubic-bezier(.2,1.5,.4,1) .26s both;
+}
+.cust-bid .lead{
+  display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+}
+.cust-bid .sum{
+  display:block;margin-top:3px;font-size:32px;line-height:1;color:var(--gold);
+  font-variant-numeric:tabular-nums;text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+.cust-bid .vs{display:block;margin-top:5px;font-size:11.5px;color:var(--muted);}
+.cust-bid .vs b{color:var(--ember);}
+.cust-bid.under{border-color:var(--ember);}
+.cust-bid.fair{border-style:solid;border-color:var(--brass);}
+@keyframes bid-pop{
+  0%{opacity:0;transform:scale(.7);}
+  60%{opacity:1;transform:scale(1.06);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* SOLD / WALKED OUT: the outcome of the beat, stamped across the card */
+.stamp{
+  margin:12px 0 0;padding:16px 10px;border-radius:12px;text-align:center;
+  border:2px solid var(--brass);background:rgba(202,166,74,.10);
+  animation:stamp-in .34s cubic-bezier(.2,1.6,.4,1) both;
+}
+.stamp .word{
+  display:block;font-size:30px;line-height:1;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--gold);text-shadow:0 2px 8px rgba(0,0,0,.7);
+}
+.stamp .note{display:block;margin-top:7px;font-size:12.5px;color:var(--muted);line-height:1.45;}
+.stamp .sum{display:block;margin-top:5px;font-size:22px;color:var(--brass);font-variant-numeric:tabular-nums;}
+.stamp.lost{border-color:#7d2b20;background:rgba(214,64,42,.10);}
+.stamp.lost .word{color:#f0a493;}
+.stamp.lost .sum{color:#c98a7e;}
+@keyframes stamp-in{
+  0%{opacity:0;transform:scale(.6) rotate(-7deg);}
+  60%{opacity:1;transform:scale(1.05) rotate(1.5deg);}
+  100%{opacity:1;transform:scale(1) rotate(-1.5deg);}
+}
+
+/* naming your own price */
+.haggle-box{margin:12px 0 0;padding:11px;border-radius:12px;background:var(--panel);border:1px solid var(--edge);}
+.haggle-box .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.haggle-box .row + .row{margin-top:9px;}
+.haggle-box label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.haggle-box .band{margin:8px 0 0;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.haggle-quick{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:9px 0 0;}
+.haggle-quick button{
+  min-height:32px;padding:4px 2px;border-radius:8px;cursor:pointer;font-size:11px;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+}
+.odds{margin:9px 0 0;font-size:12.5px;text-align:center;}
+.odds b{letter-spacing:.04em;}
+.odds[data-read="good"] b{color:var(--brass);}
+.odds[data-read="fair"] b{color:var(--gold);}
+.odds[data-read="poor"] b{color:var(--ember);}
+.odds[data-read="grim"] b{color:var(--danger);}
+
+.cust-count{
+  margin:0 0 2px;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+
+/* what has already happened this phase, kept quiet under the live beat */
+.cust-log{display:grid;gap:4px;margin:11px 0 0;max-height:150px;overflow:auto;}
 .cust-log p{
-  margin:0;padding:5px 8px;border-radius:7px;font-size:11.5px;
+  margin:0;padding:5px 8px;border-radius:7px;font-size:11.5px;line-height:1.4;
   background:var(--panel);border-left:2px solid var(--edge);color:var(--muted);
 }
-.cust-log p.sale{border-left-color:var(--brass);color:var(--text);}
+.cust-log p.sale{border-left-color:var(--brass);}
 .cust-log p.gone{border-left-color:#5a3a34;}
 
 .report dl{display:grid;grid-template-columns:1fr auto;gap:4px 10px;margin:8px 0 0;}
@@ -1153,9 +1241,15 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        knights, soldiers and guards; stock daggers and boots and you will get rogues, scouts and
        travellers. These are leanings, not rules &mdash; anyone may buy anything. You never declare
        what kind of shop this is; it becomes one.</p>
-    <p><b>Haggling.</b> Some customers offer under your price. Take it, refuse it, or haggle for
-       something in between &mdash; the Haggler's Ledger and a good salesperson both improve your
-       odds.</p>
+    <p><b>Every customer is yours to answer.</b> They step up to the counter one at a time, say
+       what they want and name a price. Some are happy to pay what you are asking; others offer
+       under it. You <b>accept</b>, <b>refuse</b>, or <b>haggle</b> &mdash; and haggling means
+       naming a figure of your own, anywhere between their offer and your asking price. The nearer
+       you push to your own price the likelier they are to walk, and the screen tells you how they
+       are taking it before you commit. Push too far and they either leave or give you their last
+       word, which you may still take. The Haggler's Ledger and a good salesperson both improve
+       your odds. Every outcome is stamped up &mdash; <b>Sold</b> or <b>Walked out</b> &mdash;
+       before the next one steps forward.</p>
     <p><b>Staff are hands, not percentages.</b> A <b>Salesperson</b> minds the counter for one
        phase a day, so two of them plus you keeps the shop open all day. A <b>Runner</b> fetches
        ingots, at a price that may beat the market or miss it. A <b>Smith</b> fills an order
@@ -3355,8 +3449,14 @@ function counterNext(session, shop) {
   const spread = 0.82 + shop.rnd() * 0.5;                  // what this one will bear
   const budget = Math.round(rec * type.budget * spread);
 
+  // Every customer who wants something now names a price, and the seller
+  // answers it. A sale that settled itself inside this function was a customer
+  // the player never saw, which made a selling phase feel as though it ended
+  // after the first haggle.
   if (line.price <= budget) {
-    return settleSale(session, shop, key, line.price, typeId, 'paid');
+    session.pending = { kind: 'offer', type: typeId, name: type.name, key: key,
+      price: line.price, offer: line.price, budget: budget, recommended: rec, full: true };
+    return session.pending;
   }
   // Too dear for them. Close enough and they will try their luck.
   const gap = line.price / Math.max(1, budget);
@@ -3367,10 +3467,30 @@ function counterNext(session, shop) {
       key: key, price: line.price };
   }
   const offer = Math.max(1, Math.round(Math.min(budget, line.price * (0.72 + shop.rnd() * 0.16))));
-  session.report.haggles++;
   session.pending = { kind: 'offer', type: typeId, name: type.name, key: key,
-    price: line.price, offer: offer, budget: budget, recommended: rec };
+    price: line.price, offer: offer, budget: budget, recommended: rec, full: false };
   return session.pending;
+}
+
+/* The band a counter-offer may sit in: never below what they already put on
+   the table, never above what the shop is asking. */
+function counterBounds(pending) {
+  return { min: pending.offer, max: Math.max(pending.offer, pending.price) };
+}
+
+/* How likely they are to meet a named price. Close to their own offer is easy;
+   past what they can actually afford it falls away fast. Shop and seller skill
+   both help, and a natural haggler is harder to move. */
+function counterOdds(shop, session, pending, ask) {
+  const type = shopCustomerType(pending.type);
+  const bounds = counterBounds(pending);
+  if (ask <= bounds.min) return 1;
+  const span = Math.max(1, bounds.max - bounds.min);
+  const reach = (ask - bounds.min) / span;                 // 0 at their offer, 1 at your price
+  const over = Math.max(0, (ask - pending.budget) / Math.max(1, pending.budget));
+  const skill = haggleSkill(shop) + 0.05 * (session.seller.power || 0);
+  return Math.max(0.03, Math.min(0.97,
+    0.92 - reach * 0.5 - over * 2.4 + skill - type.haggle * 0.2));
 }
 
 function settleSale(session, shop, key, price, typeId, how) {
@@ -3390,35 +3510,52 @@ function settleSale(session, shop, key, price, typeId, how) {
 
 /* Answer a haggle. 'accept' takes the offer, 'reject' sends them away, and
    'haggle' tries for a price between the two. */
-function counterRespond(session, shop, choice) {
+function counterRespond(session, shop, choice, ask) {
   const p = session.pending;
   if (!p) return null;
-  session.pending = null;
-  const type = shopCustomerType(p.type);
+
   if (choice === 'accept') {
-    session.report.won++;
-    return settleSale(session, shop, p.key, p.offer, p.type, 'haggled');
+    session.pending = null;
+    if (p.countered) session.report.won++;
+    return settleSale(session, shop, p.key, p.offer, p.type,
+      p.full ? 'paid your price' : p.countered ? 'met your price' : 'their own offer');
   }
+
   if (choice === 'reject') {
-    // some will pay up rather than walk, most will not
-    if (shop.rnd() < 0.18) return settleSale(session, shop, p.key, p.price, p.type, 'paid');
+    session.pending = null;
+    // some will pay up rather than walk away empty-handed, most will not
+    if (!p.full && shop.rnd() < 0.18) {
+      return settleSale(session, shop, p.key, p.price, p.type, 'paid up rather than lose it');
+    }
     session.report.left++;
     nudgeReputation(shop, -0.1);
     return { kind: 'leave', type: p.type, name: p.name, why: 'turned down flat' };
   }
-  const skill = 0.42 + haggleSkill(shop) + 0.06 * (session.seller.power || 0) - type.haggle * 0.25;
-  if (shop.rnd() < Math.max(0.08, Math.min(0.94, skill))) {
-    const met = Math.round((p.offer + p.price) / 2);
+
+  // a haggle: one counter per customer, and it must sit inside the band
+  const bounds = counterBounds(p);
+  const named = Math.max(bounds.min, Math.min(bounds.max, Math.round(ask || bounds.max)));
+  session.report.haggles++;
+  if (shop.rnd() < counterOdds(shop, session, p, named)) {
+    session.pending = null;
     session.report.won++;
-    return settleSale(session, shop, p.key, met, p.type, 'met in the middle');
+    return settleSale(session, shop, p.key, named, p.type, 'met your price');
   }
-  if (shop.rnd() < 0.42) {
-    session.report.won++;
-    return settleSale(session, shop, p.key, p.offer, p.type, 'held their price');
+
+  // they will not go that far: walk out, or hold what they first said
+  const type = shopCustomerType(p.type);
+  if (shop.rnd() < 0.3 + type.haggle * 0.35) {
+    session.pending = null;
+    session.report.left++;
+    nudgeReputation(shop, -0.14);
+    return { kind: 'leave', type: p.type, name: p.name, why: 'walked out mid-haggle',
+      asked: named };
   }
-  session.report.left++;
-  nudgeReputation(shop, -0.14);
-  return { kind: 'leave', type: p.type, name: p.name, why: 'walked out mid-haggle' };
+  // their last word: the same offer again, and no more haggling
+  session.pending = { kind: 'offer', type: p.type, name: p.name, key: p.key,
+    price: p.price, offer: p.offer, budget: p.budget, recommended: p.recommended,
+    full: p.full, countered: true, refused: named, final: true };
+  return session.pending;
 }
 
 /* An employee works the same queue, answering their own haggles. A better
@@ -3426,19 +3563,35 @@ function counterRespond(session, shop, choice) {
 function autoRespond(session, shop) {
   const p = session.pending;
   const power = session.seller.power || 0;
+  if (p.full) return 'accept';                         // they are paying the asking price
+  if (p.final) {                                       // no room left: take it or lose it
+    return p.offer / Math.max(1, p.recommended) >= 0.6 ? 'accept' : 'reject';
+  }
   const margin = p.offer / Math.max(1, p.recommended);
   if (margin >= 0.95) return 'accept';                 // a good offer is a good offer
   if (margin < 0.62 && power >= 3) return 'reject';    // too cheap to bother with
   return shop.rnd() < 0.3 + 0.1 * power ? 'haggle' : 'accept';
 }
 
+/* What an employee names when they push: partway up the band, and further the
+   better they are. */
+function autoCounterPrice(session, shop) {
+  const p = session.pending;
+  const bounds = counterBounds(p);
+  const nerve = 0.25 + 0.1 * (session.seller.power || 0);
+  return Math.round(bounds.min + (bounds.max - bounds.min) * Math.min(0.9, nerve));
+}
+
 function runCounter(shop, seller) {
   const session = openCounter(shop, seller);
   let guard = 0;
-  while (guard++ < 400) {
+  while (guard++ < 600) {
     const event = counterNext(session, shop);
     if (!event) break;
-    if (event.kind === 'offer') counterRespond(session, shop, autoRespond(session, shop));
+    if (event.kind !== 'offer') continue;
+    const choice = autoRespond(session, shop);
+    counterRespond(session, shop, choice,
+      choice === 'haggle' ? autoCounterPrice(session, shop) : 0);
   }
   return session.report;
 }
@@ -3743,7 +3896,8 @@ const CHECKSMITH_CORE = {
   forgeBoardSpec: forgeBoardSpec, shopFinishForge: shopFinishForge, trafficFor: trafficFor,
   customerWeights: customerWeights, pickWeighted: pickWeighted, openCounter: openCounter,
   chooseGoods: chooseGoods, counterNext: counterNext, counterRespond: counterRespond,
-  autoRespond: autoRespond, runCounter: runCounter,
+  autoRespond: autoRespond, autoCounterPrice: autoCounterPrice, runCounter: runCounter,
+  counterBounds: counterBounds, counterOdds: counterOdds,
   rollRank: rollRank, makeApplicant: makeApplicant, shopSearchStaff: shopSearchStaff,
   shopHire: shopHire, shopFire: shopFire, staffById: staffById, staffOfRole: staffOfRole,
   shopAssign: shopAssign, shopUnassign: shopUnassign, assignmentFor: assignmentFor,
@@ -5775,8 +5929,11 @@ function shopOpenHire(applicants) {
 }
 
 /* ---------- the counter ------------------------------------------------
-   The player works the same queue an employee would, one customer at a
-   time, and answers the haggles themselves. */
+   Every customer is a beat of their own: they arrive under a banner, their
+   offer fades in and pops, the seller answers, and the outcome is stamped
+   across the card before the next one steps up. Nothing resolves off-screen,
+   which is what made a selling phase feel as though it ended after the first
+   haggle. */
 function shopOpenCounter() {
   const sh = shop();
   SHOPUI.session = openCounter(sh, { kind: 'player', power: 2, name: 'You' });
@@ -5784,47 +5941,146 @@ function shopOpenCounter() {
   shopCounterStep();
 }
 
+function custLine(session) {
+  return '<p class="cust-count">Customer ' + Math.max(1, session.at) + ' of ' +
+    session.queue.length + '</p>';
+}
+
+function custHead(p) {
+  return '<div class="cust-head"><span class="who">' + esc(p.name) + '</span>' +
+    '<span class="kind">at the counter</span></div>';
+}
+
+/* Draw the customer, what they want and what they are offering for it. */
+function shopCounterStep() {
+  const sh = shop();
+  const session = SHOPUI.session;
+  const event = session.pending || counterNext(session, sh);
+
+  if (!event) { shopCloseCounter(); return; }
+  if (event.kind === 'leave') { shopCounterOutcome(event); return; }
+  if (event.kind === 'sale') { shopCounterOutcome(event); return; }
+
+  const p = event;
+  const under = p.price - p.offer;
+  const buttons = [
+    { label: 'Accept ' + coin(p.offer) + 'g', primary: true,
+      onClick: function () { shopCounterAnswer('accept'); } }
+  ];
+  if (!p.full && !p.final) {
+    buttons.push({ label: 'Haggle', onClick: shopCounterHaggle });
+  }
+  buttons.push({ label: 'Refuse', ghost: true,
+    onClick: function () { shopCounterAnswer('reject'); } });
+
+  shopSheet('At the counter',
+    custLine(session) + custHead(p) +
+    '<p class="cust-want">Wants your <b>' + esc(lineName(p.key)) + '</b>, marked at ' +
+    coin(p.price) + 'g.</p>' +
+    (p.final
+      ? '<p class="cust-want" style="color:var(--ember)">They will not go to ' +
+        coin(p.refused) + 'g. This is their last word.</p>'
+      : '') +
+    '<div class="cust-bid ' + (p.full ? 'fair' : 'under') + '">' +
+    '<span class="lead">' + (p.full ? 'Happy to pay' : 'They offer') + '</span>' +
+    '<span class="sum">' + coin(p.offer) + 'g</span>' +
+    '<span class="vs">' + (p.full
+      ? 'your full asking price'
+      : '<b>' + coin(under) + 'g</b> under your price · worth about ' +
+        coin(p.recommended) + 'g') +
+    '</span></div>' +
+    counterLogHtml(),
+    buttons);
+}
+
+/* Name your own price. The band runs from what they offered to what you are
+   asking; anything in between is fair game, and the nearer your own price the
+   likelier they are to walk. */
+function shopCounterHaggle() {
+  const session = SHOPUI.session;
+  const p = session.pending;
+  const bounds = counterBounds(p);
+  if (SHOPUI.draft.ask === undefined ||
+      SHOPUI.draft.ask < bounds.min || SHOPUI.draft.ask > bounds.max) {
+    SHOPUI.draft.ask = Math.round((bounds.min + bounds.max) / 2);
+  }
+  const redraw = function () {
+    const sh = shop();
+    const ask = SHOPUI.draft.ask;
+    const odds = counterOdds(sh, session, p, ask);
+    const read = odds >= 0.72 ? 'good' : odds >= 0.45 ? 'fair' : odds >= 0.22 ? 'poor' : 'grim';
+    const words = { good: 'They look willing', fair: 'They are weighing it up',
+      poor: 'They are baulking', grim: 'You will likely lose them' };
+    shopSheet('Name your price',
+      custHead(p) +
+      '<div class="haggle-box">' +
+      '<div class="row"><label for="askNum">Your counter</label>' +
+      stepper('ask', ask, bounds.min, bounds.max) + '</div>' +
+      '<p class="band">They offered ' + coin(bounds.min) + 'g · you are asking ' +
+      coin(bounds.max) + 'g</p>' +
+      '<div class="haggle-quick">' +
+      '<button type="button" data-ask="' + bounds.min + '">Their ' + coin(bounds.min) + 'g</button>' +
+      '<button type="button" data-ask="' + Math.round((bounds.min + bounds.max) / 2) +
+      '">Split it</button>' +
+      '<button type="button" data-ask="' + bounds.max + '">Full ' + coin(bounds.max) + 'g</button>' +
+      '</div>' +
+      '<p class="odds" data-read="' + read + '"><b>' + words[read] + '</b></p>' +
+      '</div>',
+      [
+        { label: 'Put it to them', primary: true,
+          onClick: function () { shopCounterAnswer('haggle', SHOPUI.draft.ask); } },
+        { label: 'Back', ghost: true, onClick: function () { SHOPUI.redraw = null; shopCounterStep(); } }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+function shopCounterAnswer(choice, ask) {
+  SHOPUI.redraw = null;
+  SHOPUI.draft = {};
+  const result = counterRespond(SHOPUI.session, shop(), choice, ask);
+  shopRenderBar();
+  if (result && result.kind === 'offer') { shopCounterStep(); return; }  // their last word
+  if (result) SHOPUI.session.events.push({ kind: result.kind, text: shopEventLine(result) });
+  shopCounterOutcome(result);
+}
+
+/* The stamp: what just happened, held on screen until the player moves on. */
+function shopCounterOutcome(event) {
+  const session = SHOPUI.session;
+  if (!event) { shopCloseCounter(); return; }
+  if (event.kind === 'leave' &&
+      !session.events.some(function (e) { return e.text === shopEventLine(event); })) {
+    session.events.push({ kind: 'leave', text: shopEventLine(event) });
+  }
+  const more = session.at < session.queue.length;
+  const sold = event.kind === 'sale';
+  const body = custLine(session) +
+    '<div class="stamp' + (sold ? '' : ' lost') + '">' +
+    '<span class="word">' + (sold ? 'Sold' : 'Walked out') + '</span>' +
+    (sold ? '<span class="sum">+' + coin(event.price) + 'g</span>' : '') +
+    '<span class="note">' + esc(event.name) +
+    (sold ? ' takes the ' + lineName(event.key) + ' — ' + esc(event.how) + '.'
+      : ' left — ' + esc(event.why) + '.') +
+    '</span></div>' + counterLogHtml();
+  shopSheet(sold ? 'Sold' : 'No sale', body,
+    [{ label: more ? 'Next customer' : 'Close up and count it', primary: true,
+      onClick: function () {
+        if (more) shopCounterStep();
+        else shopCloseCounter();
+      } }]);
+}
+
 function counterLogHtml() {
   const events = SHOPUI.session.events;
-  if (!events.length) return '';
+  if (events.length < 2) return '';
   let html = '<div class="cust-log">';
-  for (let i = events.length - 1; i >= 0 && i >= events.length - 12; i--) {
+  for (let i = events.length - 2; i >= 0 && i >= events.length - 9; i--) {
     const e = events[i];
     html += '<p class="' + (e.kind === 'sale' ? 'sale' : 'gone') + '">' + esc(e.text) + '</p>';
   }
   return html + '</div>';
-}
-
-function shopCounterStep() {
-  const sh = shop();
-  const session = SHOPUI.session;
-  const event = counterNext(session, sh);
-
-  if (!event) { shopCloseCounter(); return; }
-
-  if (event.kind !== 'offer') {
-    session.events.push({ kind: event.kind, text: shopEventLine(event) });
-    shopCounterStep();
-    return;
-  }
-
-  const rec = event.recommended;
-  const cut = Math.round((1 - event.offer / event.price) * 100);
-  shopSheet('Customer ' + (session.at) + ' of ' + session.queue.length,
-    '<div class="cust">' +
-    '<div class="who">' + esc(event.name) + '</div>' +
-    '<p class="want">Wants your <b>' + esc(lineName(event.key)) + '</b>, marked at ' +
-    coin(event.price) + 'g.</p>' +
-    '<p class="offer">They offer <b>' + coin(event.offer) + 'g</b> &mdash; ' + cut +
-    '% under your price' + (event.offer < rec ? ', and under the ' + coin(rec) +
-      'g it is worth' : '') + '.</p>' +
-    '</div>' + counterLogHtml(),
-    [
-      { label: 'Accept ' + coin(event.offer) + 'g', primary: true,
-        onClick: function () { shopCounterAnswer('accept'); } },
-      { label: 'Haggle', onClick: function () { shopCounterAnswer('haggle'); } },
-      { label: 'Refuse', ghost: true, onClick: function () { shopCounterAnswer('reject'); } }
-    ]);
 }
 
 function shopEventLine(event) {
@@ -5833,12 +6089,6 @@ function shopEventLine(event) {
       'g (' + event.how + ').';
   }
   return event.name + ' left — ' + event.why + '.';
-}
-
-function shopCounterAnswer(choice) {
-  const result = counterRespond(SHOPUI.session, shop(), choice);
-  if (result) SHOPUI.session.events.push({ kind: result.kind, text: shopEventLine(result) });
-  shopCounterStep();
 }
 
 function shopCloseCounter() {
@@ -6225,6 +6475,12 @@ function wireShop() {
       const next = Math.max(min, Math.min(max, (Number(input.value) || 0) + by));
       SHOPUI.draft[id] = next;
       if (id === 'qty' || id === 'price') SHOPUI.draft[id] = next;
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const ask = e.target.closest ? e.target.closest('[data-ask]') : null;
+    if (ask) {
+      SHOPUI.draft.ask = Number(ask.dataset.ask);
       if (SHOPUI.redraw) SHOPUI.redraw();
       return;
     }

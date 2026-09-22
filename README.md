@@ -384,11 +384,31 @@ full of daggers and boots draws rogues, scouts and travellers. Weights, not
 rules — a rogue will still buy the only mace in an otherwise empty shop. The
 player never declares a specialism; the shop acquires one.
 
-Customers who cannot afford the asking price may **haggle**. Accept, refuse, or
-push for the middle; the Haggler's Ledger and a salesperson's rank both improve
-the odds. An employee at the counter runs the identical queue with their own
-rank standing in for the player's judgement — one code path, so the two cannot
-drift apart.
+### The counter is played one customer at a time
+
+Every customer who wants something **surfaces as its own beat**: a banner as
+they step up, their offer fading in and popping as a figure of its own, the
+seller's answer, then a **Sold** or **Walked out** stamp before the next one.
+Nothing resolves off-screen. It used to: a customer happy to pay the asking
+price was settled silently inside `counterNext`, so only hagglers ever reached
+the player and a selling phase felt as though it ended after the first one.
+
+Answering is accept / refuse / **haggle**, and haggling means naming a figure
+of your own anywhere between their offer and your asking price — not taking an
+automatic midpoint. `counterOdds` reads that figure: easy near their own offer,
+falling away as it climbs the band and falling off a cliff past what they can
+actually afford, shifted by the Haggler's Ledger, the seller's rank and how
+much of a haggler the customer is. The screen reports it qualitatively
+("They look willing" → "You will likely lose them") rather than as a number.
+
+A counter that fails is not the end of them: they either walk out or give their
+**last word** — the offer they first made, with no further haggling — which the
+seller may still take. One counter per customer, so a phase cannot be ground
+down indefinitely.
+
+An employee at the counter runs the identical queue, with `autoRespond` and
+`autoCounterPrice` standing in for the player's judgement and nerve — one code
+path, so the two cannot drift apart.
 
 ### Staff take work, not stat lines
 
@@ -572,8 +592,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 320 rule/generation checks
-node tools/verify-ui.mjs                                    # 244 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 329 rule/generation checks
+node tools/verify-ui.mjs                                    # 250 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

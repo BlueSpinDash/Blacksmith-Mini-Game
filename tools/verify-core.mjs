@@ -1565,6 +1565,135 @@ section('Open Your Forge: the counter');
     return false;
   })());
 
+  ok('every customer who wants something is put to the seller', (() => {
+    // nothing may settle itself inside counterNext: each one has to surface
+    const s = C.createShop({ rnd: C.mulberry32(60) });
+    s.shelf[C.lineKey('dagger', 'bronze')] = { qty: 99, quality: 100, price: 1 };
+    const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
+    let offers = 0, guard = 0;
+    while (guard++ < 200) {
+      const e = C.counterNext(session, s);
+      if (!e) break;
+      if (e.kind === 'offer') { offers++; C.counterRespond(session, s, 'accept'); }
+    }
+    return offers === session.report.customers && session.report.sold === offers;
+  })());
+
+  ok('a customer happy with the price offers exactly that', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(61) });
+    s.shelf[C.lineKey('dagger', 'bronze')] = { qty: 99, quality: 100, price: 1 };
+    const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
+    const e = C.counterNext(session, s);
+    return e.kind === 'offer' && e.full === true && e.offer === 1;
+  })());
+
+  ok('a counter-offer is bounded by their offer and your price', (() => {
+    const p = { offer: 40, price: 100 };
+    const b = C.counterBounds(p);
+    return b.min === 40 && b.max === 100;
+  })());
+
+  ok('naming their own offer back is always taken', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(62) });
+    const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
+    const p = { type: 'adventurer', offer: 40, price: 100, budget: 60 };
+    return C.counterOdds(s, session, p, 40) === 1;
+  })());
+
+  ok('asking nearer your own price is likelier to lose them', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(63) });
+    const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
+    const p = { type: 'adventurer', offer: 40, price: 100, budget: 60 };
+    const low = C.counterOdds(s, session, p, 45);
+    const mid = C.counterOdds(s, session, p, 60);
+    const high = C.counterOdds(s, session, p, 95);
+    return low > mid && mid > high && high > 0;
+  })());
+
+  ok('a shop that has practised haggling does better at it', (() => {
+    const plain = C.createShop({ rnd: C.mulberry32(64) });
+    const skilled = C.createShop({ rnd: C.mulberry32(64) });
+    skilled.upgrades.ledger = 3;
+    const p = { type: 'adventurer', offer: 40, price: 100, budget: 60 };
+    const seller = { kind: 'player', power: 2, name: 'You' };
+    const a = C.counterOdds(plain, { seller: seller }, p, 60);
+    const b = C.counterOdds(skilled, { seller: seller }, p, 60);
+    return b > a;
+  })());
+
+  ok('a counter that lands sells at the price you named', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(65) });
+    s.shelf[C.lineKey('plate', 'bronze')] = { qty: 200, quality: 100, price: 400 };
+    for (let round = 0; round < 80; round++) {
+      const session = C.openCounter(s, { kind: 'player', power: 6, name: 'You' });
+      let guard = 0;
+      while (guard++ < 200) {
+        const e = C.counterNext(session, s);
+        if (!e) break;
+        if (e.kind !== 'offer' || e.full) continue;
+        const gold = s.gold;
+        const named = e.offer + 1;                    // barely above their offer: near certain
+        const res = C.counterRespond(session, s, 'haggle', named);
+        if (res && res.kind === 'sale') {
+          return res.price === named && s.gold === gold + named &&
+            session.report.haggles >= 1 && session.report.won >= 1;
+        }
+      }
+    }
+    return false;
+  })());
+
+  ok('a failed counter ends in a walkout or their last word, never silence', (() => {
+    // priced dear enough to be haggled over, not so dear that everyone baulks
+    // before they ever make an offer
+    const s = C.createShop({ rnd: C.mulberry32(66) });
+    let walked = 0, held = 0, sold = 0, tries = 0;
+    for (let round = 0; round < 200 && tries < 40; round++) {
+      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 400 };
+      const session = C.openCounter(s, { kind: 'player', power: 1, name: 'You' });
+      let guard = 0;
+      while (guard++ < 200) {
+        const e = C.counterNext(session, s);
+        if (!e) break;
+        if (e.kind !== 'offer') continue;
+        if (e.full || e.final) { C.counterRespond(session, s, 'reject'); continue; }
+        tries++;
+        const res = C.counterRespond(session, s, 'haggle', e.price);   // ask the earth
+        if (!res) return false;
+        if (res.kind === 'leave') walked++;
+        else if (res.kind === 'sale') sold++;          // the rare 3% that lands
+        else if (res.kind === 'offer' && res.final) held++;
+        else return false;
+        break;
+      }
+    }
+    return tries > 0 && walked + held + sold === tries && held > 0 && walked > 0;
+  })());
+
+  ok('their last word is their own offer, taken as it stands', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(67) });
+    for (let round = 0; round < 200; round++) {
+      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 400 };
+      const session = C.openCounter(s, { kind: 'player', power: 1, name: 'You' });
+      let guard = 0;
+      while (guard++ < 200) {
+        const e = C.counterNext(session, s);
+        if (!e) break;
+        if (e.kind !== 'offer') continue;
+        if (e.full || e.final) { C.counterRespond(session, s, 'reject'); continue; }
+        const res = C.counterRespond(session, s, 'haggle', e.price);
+        if (res && res.kind === 'offer' && res.final) {
+          const gold = s.gold;
+          const after = C.counterRespond(session, s, 'accept');
+          return after.kind === 'sale' && after.price === e.offer &&
+            s.gold === gold + e.offer && session.report.won >= 1;
+        }
+        break;
+      }
+    }
+    return false;
+  })());
+
   ok('a better haggler wins more of them', (() => {
     const run = (power) => {
       const s = C.createShop({ rnd: C.mulberry32(500) });

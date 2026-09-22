@@ -1422,31 +1422,85 @@ async function run() {
   section('Open Your Forge: the counter');
   await page.evaluate(() => {
     const F = window.CHECKSMITH, sh = F.app.shop;
-    sh.shelf[F.core.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 52 };
+    sh.reputation = 70;
+    sh.shelf[F.core.lineKey('longsword', 'bronze')] = { qty: 30, quality: 95, price: 62 };
+    sh.shelf[F.core.lineKey('buckler', 'bronze')] = { qty: 30, quality: 88, price: 40 };
     F.shopRender();
   });
   await page.click('#shActions [data-act="tend"]');
-  await page.waitForTimeout(250);
-  let guard = 0, sawOffer = false;
-  while ((await page.isVisible('#shopSheet')) && guard++ < 40) {
-    const title = await page.textContent('#shopSheetTitle');
-    if (/Sales Report/.test(title)) break;
-    const labels = await page.evaluate(() => Array.from(
-      document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent));
-    if (!labels.some((l) => /Accept/.test(l))) break;
-    sawOffer = true;
-    await page.click('#shopSheetActions button');
-    await page.waitForTimeout(90);
+  await page.waitForTimeout(300);
+
+  // Every customer has to be a beat of their own: a banner, an offer, a
+  // decision and a stamped outcome. Nothing may resolve off-screen.
+  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, beats: 0 };
+  let guard = 0;
+  while ((await page.isVisible('#shopSheet')) && guard++ < 60) {
+    const view = await page.evaluate(() => ({
+      title: document.getElementById('shopSheetTitle').textContent,
+      head: !!document.querySelector('.cust-head'),
+      bid: document.querySelector('.cust-bid') ? document.querySelector('.cust-bid').innerText : null,
+      stamp: document.querySelector('.stamp') ? document.querySelector('.stamp').innerText : null,
+      lost: !!document.querySelector('.stamp.lost'),
+      band: document.querySelector('.haggle-box .band')
+        ? document.querySelector('.haggle-box .band').textContent : null,
+      odds: document.querySelector('.odds') ? document.querySelector('.odds').dataset.read : null,
+      labels: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+    }));
+    if (/Sales Report/.test(view.title)) break;
+    seen.beats++;
+
+    if (view.bid) {
+      seen.offers++;
+      if (/HAPPY TO PAY/i.test(view.bid)) seen.full++;
+      const canHaggle = view.labels.some((l) => /^Haggle$/.test(l));
+      if (canHaggle && seen.haggleScreens < 2) {
+        await page.click('#shopSheetActions button:nth-child(2)');
+      } else {
+        await page.click('#shopSheetActions button:nth-child(1)');
+      }
+    } else if (view.band) {
+      seen.haggleScreens++;
+      ok('the haggle screen names the band and reads the odds ' + seen.haggleScreens,
+        /offered/.test(view.band) && /asking/.test(view.band) &&
+        ['good', 'fair', 'poor', 'grim'].includes(view.odds), JSON.stringify(view));
+      await page.click('#shopSheetBody [data-ask]:nth-child(2)');   // split the difference
+      await page.waitForTimeout(70);
+      await page.click('#shopSheetActions button:nth-child(1)');
+    } else if (view.stamp) {
+      if (view.lost) seen.left++; else seen.sold++;
+      if (!seen.shotSold && !view.lost) {
+        seen.shotSold = true;
+        await page.screenshot({ path: path.join(SHOTS, '16-shop-sold.png'), fullPage: true });
+      }
+      await page.click('#shopSheetActions button:nth-child(1)');
+    } else break;
+    await page.waitForTimeout(110);
   }
+
+  ok('every customer is shown, not resolved off-screen', seen.offers >= 3,
+    JSON.stringify(seen));
+  ok('a customer who will pay the asking price is still shown to the player',
+    seen.full >= 1, JSON.stringify(seen));
+  ok('haggling opens a counter-offer of the player’s own', seen.haggleScreens >= 1,
+    JSON.stringify(seen));
+  ok('each outcome is stamped, sold or walked out', seen.sold + seen.left >= 3,
+    JSON.stringify(seen));
   const report = await page.evaluate(() => ({
     title: document.getElementById('shopSheetTitle').textContent,
-    body: document.getElementById('shopSheetBody').innerText
+    body: document.getElementById('shopSheetBody').innerText,
+    tally: window.CHECKSMITH.app.shop.log[0]
   }));
+  // Every customer in the queue ends in exactly one stamp. Offers can differ:
+  // someone who baulks never makes one, and a customer who stands firm after a
+  // failed counter is shown twice.
+  ok('every customer ends in exactly one stamp',
+    seen.sold === report.tally.sold && seen.left === report.tally.left &&
+    seen.sold + seen.left === report.tally.customers,
+    JSON.stringify([seen, report.tally]));
   ok('a selling phase ends in a sales report', /Sales Report/.test(report.title), report.title);
   ok('the report counts customers, sales, revenue and haggles',
     /Customers/.test(report.body) && /Items sold/.test(report.body) &&
     /Revenue/.test(report.body) && /Haggles attempted/.test(report.body), report.body);
-  ok('customers do haggle when the price is above what they will bear', sawOffer || true);
   await page.screenshot({ path: path.join(SHOTS, '15-shop-report.png'), fullPage: true });
   await page.click('#shopSheetActions button');
   await page.waitForTimeout(250);
