@@ -31,12 +31,28 @@ Loading the page with `#skipintro` (or `?skipintro`) goes straight to the menu,
 which is how the browser suite gets past it without every check learning about
 it; the opening has a section of its own that loads the page as a player would.
 
-**The three assets are embedded like everything else**, so the file is still the
-whole game. That is what takes `index.html` from about 370 KB to **5.2 MB**:
-the artwork is WebP at 1100px (270 KB together), and the supplied 256 kbps
-master is carried at 112 kbps (3.3 MB), which is the single number worth
-knowing about if the size matters more than the fidelity, or the reverse. All
-three are strings in `INTRO_ASSETS`.
+## The score
+
+One `<audio>` element, one track at a time, with a short fade between them so
+the title theme does not cut off mid-bar when a run begins:
+
+| Where | Track |
+| --- | --- |
+| Title screen, and under the opening | Title theme |
+| An Endless run | Endless theme |
+| Forge, Versus, Open Your Forge | silence |
+
+Both obey the mute button and the volume slider — the score is the game's sound
+as much as the hammer is. The top bar sits **above** the title screen for that
+reason: music plays there, so the controls have to be reachable there.
+
+**The assets are embedded like everything else**, so the file is still the whole
+game — and that is what takes `index.html` from about 370 KB to **9.7 MB**. The
+opening's artwork is WebP at 1100px (270 KB together); the two tracks are the
+supplied 256 kbps masters carried at **112 kbps**, 3.3 MB each. Those two
+numbers are essentially the whole file, and they are the single thing to change
+if the size matters more than the fidelity or the other way round —
+`MUSIC_TRACKS` and `INTRO_ASSETS` are plain strings.
 
 ## Opening it
 
@@ -686,7 +702,7 @@ timers. Rendering, animation, sound and input sit below it.
 
 ```sh
 node tools/verify-core.mjs                                  # 342 rule/generation checks
-node tools/verify-ui.mjs                                    # 284 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 292 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

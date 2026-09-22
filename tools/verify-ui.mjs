@@ -1319,7 +1319,13 @@ async function run() {
       const g = window.CHECKSMITH.app.game;
       return { size: g.board.size, visits: g.board.visits, perfect: g.perfect, spent: g.spent,
         shopHidden: document.getElementById('shopView').hidden,
-        banner: document.getElementById('forgeBanner').textContent,
+        prompt: document.getElementById('promptText').innerText,
+        banner: !!document.getElementById('forgeBanner'),
+        above: Array.from(document.querySelectorAll('.app > *')).filter((e) => {
+          const r = e.getBoundingClientRect();
+          const board = document.querySelector('.board-wrap').getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < board.top && e.id !== 'live';
+        }).map((e) => e.id || e.className),
         route: g.board.route.length };
     });
   })();
@@ -1343,10 +1349,14 @@ async function run() {
       kinds(boardB) > kinds(boardA);
   }));
 
-  ok('the banner says what is being made and what will ruin it',
-    /Silver Stiletto/.test(forged.banner) && /2 strikes/.test(forged.banner) &&
-    /3rd strike ruins it/.test(forged.banner) && /Novice board/.test(forged.banner),
-    forged.banner);
+  // Nothing sits above the board but the top bar and the prompt: a banner up
+  // there reads as a board-size picker, which is not something this mode has.
+  ok('nothing stands between the top bar and the board',
+    forged.banner === false && forged.above.join(',') === 'topbar,prompt',
+    JSON.stringify(forged.above));
+  ok('the prompt says what is on the anvil and what the metal asks',
+    /Silver Stiletto/.test(forged.prompt) && /2 strikes a square/.test(forged.prompt),
+    forged.prompt);
 
   // On its own board, never the live one: striking the order the player is
   // about to work would desynchronise it from its verified route.
@@ -1403,7 +1413,7 @@ async function run() {
     () => document.getElementById('shPhase').textContent === 'Afternoon'));
   ok('and the shop screen is back', await page.evaluate(
     () => !document.getElementById('shopView').hidden &&
-      document.getElementById('forgeBanner').hidden));
+      !document.getElementById('forgeBanner')));
 
   section('Open Your Forge: production, then stocking, then selling');
   await page.click('#shAdvanceBtn');
@@ -1983,6 +1993,66 @@ async function run() {
   ok('and that same tap starts the opening', await page.evaluate(() =>
     !document.getElementById('intro').hidden &&
     Number(getComputedStyle(document.getElementById('introLogo')).opacity) > 0.5));
+  await ctx.close();
+
+  /* the score follows the player from screen to screen */
+  section('The score');
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE + '#skipintro');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  const playing = () => page.evaluate(() => {
+    const M = window.CHECKSMITH.music, el = M && M.el;
+    return { track: M ? M.track : null, on: !!(el && !el.paused), muted: el ? el.muted : null };
+  });
+  await page.waitForTimeout(700);
+  ok('the title track plays on the menu', JSON.stringify(await playing()) ===
+    JSON.stringify({ track: 'title', on: true, muted: false }), JSON.stringify(await playing()));
+
+  await page.click('.mode-card[data-mode="endless"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(1400);
+  const inRun = await playing();
+  ok('endless has a track of its own', inRun.track === 'endless' && inRun.on,
+    JSON.stringify(inRun));
+
+  await page.evaluate(() => document.getElementById('menuActionBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1400);
+  const backHome = await playing();
+  ok('and the title track comes back with the menu',
+    backHome.track === 'title' && backHome.on, JSON.stringify(backHome));
+
+  await page.click('.mode-card[data-mode="forge"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(1400);
+  const atForge = await playing();
+  ok('a forge board is played in silence', !atForge.on, JSON.stringify(atForge));
+
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1200);
+  ok('the mute button can be reached while the menu is up', await page.evaluate(() => {
+    const r = document.getElementById('muteBtn').getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!(hit && hit.closest('#muteBtn'));
+  }));
+  await page.click('#muteBtn');
+  await page.waitForTimeout(400);
+  const hushed = await playing();
+  ok('and it silences the score too', hushed.muted === true, JSON.stringify(hushed));
+  await page.click('#muteBtn');
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const v = document.getElementById('volume');
+    v.value = '30';
+    v.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(700);
+  ok('the volume slider carries the score with it', await page.evaluate(() =>
+    Math.abs(window.CHECKSMITH.music.el.volume - 0.3) < 0.08),
+    await page.evaluate(() => window.CHECKSMITH.music.el.volume));
   await ctx.close();
 
   ok('the opening raises no errors', introErrs.length === 0, introErrs.slice(0, 3).join(' | '));
