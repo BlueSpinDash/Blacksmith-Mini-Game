@@ -7432,6 +7432,7 @@ const Music = {
   el: null,
   track: null,
   ramp: null,
+  held: false,
 
   load() {
     this.el = $('introMusic');
@@ -7466,6 +7467,7 @@ const Music = {
     if (!this.el || !src) { this.stop(); return Promise.resolve(); }
     if (this.track === name && !this.el.paused) { this.sync(); return Promise.resolve(); }
     const begin = () => {
+      this.held = false;
       this.track = name;
       this.el.src = src;
       this.sync();
@@ -7481,13 +7483,46 @@ const Music = {
   },
 
   stop() {
-    if (!this.el || this.el.paused) { this.track = null; return; }
+    this.held = false;
+    const wasPlaying = this.el && !this.el.paused;
+    this.track = null;
+    if (!wasPlaying) return;
     this.fade(0, 280, () => {
       this.el.pause();
       try { this.el.currentTime = 0; } catch (err) { /* not seekable yet */ }
-      this.track = null;
       this.el.volume = this.level();
     });
+  },
+
+  /* Sent away: the app is behind something else, so the track goes quiet at
+     once - no fade, because a fade needs timers the system is about to take
+     away, and half a second of music leaking out of a pocket is the whole
+     complaint. The track is remembered rather than cleared, so coming back
+     picks the song up where it stood instead of starting it over. */
+  suspend() {
+    if (!this.el || this.el.paused) { this.held = false; return; }
+    if (this.ramp) { clearInterval(this.ramp); this.ramp = null; }
+    const carry = !!this.track;
+    this.el.pause();
+    if (carry) {
+      this.el.volume = this.level();
+    } else {
+      // A fade-out was in flight; let it end here rather than resume.
+      try { this.el.currentTime = 0; } catch (err) { /* not seekable yet */ }
+      this.el.volume = this.level();
+    }
+    this.held = carry;
+  },
+
+  /* Back in front. Only a track this pair parked is restarted, so a player
+     who muted, or a screen that has no music of its own, stays silent. */
+  resume() {
+    if (!this.el || !this.held) { this.held = false; return; }
+    this.held = false;
+    if (!this.track) return;
+    this.sync();
+    const attempt = this.el.play();
+    if (attempt && attempt.catch) attempt.catch(() => {});
   }
 };
 
@@ -7785,10 +7820,20 @@ function boot() {
     else if (!$('help').hidden) { hide($('help')); }
   });
 
-  // Leaving the page must not strand a half-applied strike.
+  // Leaving the page must not strand a half-applied strike, and must not
+  // leave the music playing to somebody who has gone somewhere else.
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { cancelPending(true); Sound.park(); }
+    if (document.hidden) { cancelPending(true); Sound.park(); Music.suspend(); }
+    else Music.resume();
   });
+  // Safari reaches its page cache without ever going hidden, and a phone that
+  // kills the tab outright fires nothing else, so the pair is backed up here.
+  window.addEventListener('pagehide', () => { Sound.park(); Music.suspend(); });
+  window.addEventListener('pageshow', () => { Music.resume(); });
+  // The native shells call these when the app itself is sent away, because a
+  // WebView is not obliged to report that as a visibility change.
+  window.checksmithPause = () => { cancelPending(true); Sound.park(); Music.suspend(); };
+  window.checksmithResume = () => { Music.resume(); };
   window.addEventListener('resize', () => { if (!App.busy) FX.clear(); });
 
   App.mode = 'forge';
@@ -7807,7 +7852,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 // exposed for the automated test harness
-window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, fx: FX, tap: tapSquare,
+window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, music: Music, fx: FX, tap: tapSquare,
   vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,

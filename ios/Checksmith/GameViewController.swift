@@ -52,7 +52,32 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
         // A puzzle with no timer invites long pauses for thinking; don't let
         // the screen drop out mid-plan.
         UIApplication.shared.isIdleTimerDisabled = true
+        watchAppState()
         loadGame()
+    }
+
+    /// Sending the app away has to silence the music, and WKWebView will not
+    /// always report that to the page as a visibility change - a call answered
+    /// mid-round is the usual way through. The app's own lifecycle is the
+    /// reliable signal, so it is passed straight to the page.
+    private func watchAppState() {
+        let centre = NotificationCenter.default
+        centre.addObserver(self,
+                           selector: #selector(appWentAway),
+                           name: UIApplication.willResignActiveNotification,
+                           object: nil)
+        centre.addObserver(self,
+                           selector: #selector(appCameBack),
+                           name: UIApplication.didBecomeActiveNotification,
+                           object: nil)
+    }
+
+    @objc private func appWentAway() {
+        web?.evaluateJavaScript("window.checksmithPause && window.checksmithPause();")
+    }
+
+    @objc private func appCameBack() {
+        web?.evaluateJavaScript("window.checksmithResume && window.checksmithResume();")
     }
 
     private func loadGame() {
@@ -88,6 +113,7 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKUIDele
     override var prefersHomeIndicatorAutoHidden: Bool { false }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
         UIApplication.shared.isIdleTimerDisabled = false
     }
 }

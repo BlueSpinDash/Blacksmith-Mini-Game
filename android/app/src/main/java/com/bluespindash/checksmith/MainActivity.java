@@ -116,6 +116,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (web == null) {
+            return;
+        }
+        // The page is told first, while its scripts still run: a WebView is
+        // not obliged to report being sent away as a visibility change, and
+        // onPause below stops the timers the page would need to react.
+        web.evaluateJavascript("window.checksmithPause && window.checksmithPause();", null);
         web.onPause();          // suspends JS timers and audio while backgrounded
         web.pauseTimers();
     }
@@ -123,8 +130,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (web == null) {
+            return;
+        }
         web.resumeTimers();
         web.onResume();
+        // Only after the scripts are running again can the page hear this.
+        web.evaluateJavascript("window.checksmithResume && window.checksmithResume();", null);
     }
 
     @Override

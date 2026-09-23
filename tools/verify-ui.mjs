@@ -2055,6 +2055,92 @@ async function run() {
     await page.evaluate(() => window.CHECKSMITH.music.el.volume));
   await ctx.close();
 
+  /* music has to stop when the player leaves the app */
+  section('The score goes quiet in the background');
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  const bgErrs = [];
+  page.on('pageerror', (e) => bgErrs.push(String(e)));
+  await page.goto(RAW_FILE + '#skipintro');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  // the page reads document.hidden, so that is what is faked here
+  await page.evaluate(() => {
+    window.__hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true, get: () => (window.__hidden ? 'hidden' : 'visible')
+    });
+    window.__away = (v) => {
+      window.__hidden = v;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+  });
+  const score = () => page.evaluate(() => {
+    const M = window.CHECKSMITH.music, el = M && M.el;
+    return { track: M ? M.track : null, held: M ? M.held : null,
+      on: !!(el && !el.paused), at: el ? el.currentTime : 0 };
+  });
+  await page.waitForTimeout(900);
+  const scoreBefore = await score();
+  ok('the title track is running to begin with', scoreBefore.on && scoreBefore.track === 'title',
+    JSON.stringify(scoreBefore));
+
+  await page.evaluate(() => window.__away(true));
+  await page.waitForTimeout(120);
+  const scoreAway = await score();
+  ok('sending the app away stops the music at once',
+    !scoreAway.on && scoreAway.held === true && scoreAway.track === 'title', JSON.stringify(scoreAway));
+  ok('and it stops without waiting out a fade', scoreAway.at > 0 && scoreAway.at >= scoreBefore.at,
+    JSON.stringify([scoreBefore.at, scoreAway.at]));
+
+  await page.waitForTimeout(700);
+  ok('it stays stopped while the app is away', !(await score()).on, JSON.stringify(await score()));
+
+  await page.evaluate(() => window.__away(false));
+  await page.waitForTimeout(400);
+  const scoreBack = await score();
+  ok('coming back picks the same track up again',
+    scoreBack.on && scoreBack.track === 'title' && scoreBack.held === false, JSON.stringify(scoreBack));
+  ok('and carries on from where it stood rather than starting over',
+    scoreBack.at >= scoreAway.at, JSON.stringify([scoreAway.at, scoreBack.at]));
+
+  // the hooks the two native shells call, since a WebView need not report
+  // being sent away as a visibility change at all
+  await page.evaluate(() => window.checksmithPause());
+  await page.waitForTimeout(120);
+  const shellAway = await score();
+  ok('the shell pause hook silences it the same way',
+    !shellAway.on && shellAway.held === true, JSON.stringify(shellAway));
+  await page.evaluate(() => window.checksmithResume());
+  await page.waitForTimeout(400);
+  ok('and the shell resume hook brings it back', (await score()).on, JSON.stringify(await score()));
+
+  // a screen with no music of its own must stay silent through the round trip
+  await page.click('.mode-card[data-mode="forge"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { window.__away(true); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(500);
+  const scoreQuiet = await score();
+  ok('a silent screen is still silent after a trip to the background',
+    !scoreQuiet.on && scoreQuiet.held === false, JSON.stringify(scoreQuiet));
+
+  // and a player who muted stays muted
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1000);
+  await page.click('#muteBtn');
+  await page.evaluate(() => { window.__away(true); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  ok('a muted player comes back to silence', await page.evaluate(() =>
+    window.CHECKSMITH.music.el.muted === true));
+  ok('going to the background raises no errors', bgErrs.length === 0, bgErrs.slice(0, 3).join(' | '));
+  await ctx.close();
+
   ok('the opening raises no errors', introErrs.length === 0, introErrs.slice(0, 3).join(' | '));
   await loud.close();
 
