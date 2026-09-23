@@ -586,6 +586,12 @@ input[type=range]{
   padding:9px 11px;border-radius:var(--radius);
   background:linear-gradient(180deg,#24262e,#17181d);border:1px solid var(--edge);
 }
+/* which forge this is - it spans the bar, because with several kept at
+   once the name is the first thing worth knowing on opening up */
+.shop-name{
+  grid-column:1 / -1;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--brass);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
 .shop-when{font-size:15px;letter-spacing:.04em;color:var(--text);}
 .shop-when b{color:var(--gold);}
 .shop-purse{font-size:15px;color:var(--brass);font-variant-numeric:tabular-nums;text-align:right;}
@@ -876,6 +882,51 @@ input[type=range]{
 .shop-save b{color:var(--brass);}
 #titleShopBlock[hidden]{display:none;}
 
+/* ---------- the forge list ----------
+   One row per saved forge: the name it was opened under, and the state it
+   was put down in. The row is the selection; the bin beside it is separate
+   so a mis-tap cannot throw a shop away. */
+.forge-slots{display:flex;flex-direction:column;gap:7px;margin-bottom:10px;}
+.forge-slots[hidden]{display:none;}
+.forge-row{display:flex;gap:7px;align-items:stretch;}
+.forge-slot{
+  flex:1;min-width:0;text-align:left;cursor:pointer;
+  background:var(--panel);border:1px solid var(--edge-soft);border-radius:11px;
+  padding:9px 11px;color:var(--text);font:inherit;
+  display:flex;flex-direction:column;gap:3px;
+}
+.forge-slot[aria-checked="true"]{
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.25),0 0 12px rgba(255,138,61,.18);
+}
+.fs-name{
+  font-size:15px;letter-spacing:.03em;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.forge-slot[aria-checked="true"] .fs-name{color:var(--gold);}
+.fs-line{font-size:11.5px;line-height:1.45;color:var(--muted);}
+.fs-line b{color:var(--brass);font-weight:600;}
+.fs-anvil{color:var(--ember);}
+.forge-bin{
+  flex:0 0 auto;width:40px;cursor:pointer;
+  background:var(--panel);border:1px solid var(--edge-soft);border-radius:11px;
+  color:var(--muted);font:inherit;font-size:16px;line-height:1;
+}
+.forge-bin:hover{color:var(--ember);border-color:var(--ember);}
+.forge-empty{
+  margin:0 0 10px;padding:12px;border:1px dashed var(--edge-soft);border-radius:11px;
+  font-size:12.5px;color:var(--muted);text-align:center;line-height:1.5;
+}
+.forge-empty[hidden]{display:none;}
+.name-field{
+  width:100%;box-sizing:border-box;margin-top:10px;
+  background:#15110d;border:1px solid var(--edge-soft);border-radius:9px;
+  padding:11px 12px;color:var(--text);font:inherit;font-size:16px;
+}
+.name-field:focus{border-color:var(--ember);outline:none;}
+.name-note{margin:8px 0 0;font-size:11.5px;color:var(--muted);}
+
 /* ---------- stats ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
 /* a class that sets display beats the UA rule for [hidden], so say it again */
@@ -903,6 +954,8 @@ input[type=range]{
   border-color:#e0864a;color:#fff6ea;
 }
 .btn.ghost{background:transparent;}
+/* a button that cannot be pressed should not look pressable */
+.btn:disabled{opacity:.45;cursor:default;box-shadow:none;}
 details.panel{
   background:var(--panel);border:1px solid var(--edge-soft);border-radius:10px;
 }
@@ -1241,6 +1294,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 
   <div id="shopView" hidden>
     <div class="shop-bar">
+      <span class="shop-name" id="shName">Your Forge</span>
       <span class="shop-when">Day <b id="shDay">1</b> &middot; <span id="shPhase">Morning</span></span>
       <span class="shop-purse"><b id="shGold">0</b>g</span>
       <span class="shop-rent" id="shRent">Rent 220g due in 7 days</span>
@@ -1342,10 +1396,12 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     </div>
     </div>
     <div id="titleShopBlock" hidden>
-      <h2 class="title-label">Your forge</h2>
-      <p class="shop-save" id="shopSaveLine">No forge yet.</p>
-      <div class="sheet-actions row" id="shopSaveActions" hidden>
-        <button class="btn ghost" type="button" id="shopFreshBtn">Start a new forge</button>
+      <h2 class="title-label" id="forgeLabel">Your forges</h2>
+      <div class="forge-slots" id="shopSlots" role="radiogroup" aria-labelledby="forgeLabel"></div>
+      <p class="forge-empty" id="shopEmpty" hidden>No forges yet. Name one and the door opens.</p>
+      <p class="shop-save" id="shopSaveLine"></p>
+      <div class="sheet-actions row" id="shopSaveActions">
+        <button class="btn ghost" type="button" id="shopNewBtn">New forge</button>
       </div>
     </div>
     <div id="titleVersusBlock" hidden>
@@ -1578,6 +1634,20 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 </div>
 
 <!-- confirm -->
+<div class="overlay" id="nameForge" hidden role="dialog" aria-modal="true" aria-labelledby="nameForgeTitle">
+  <div class="sheet" style="max-width:340px">
+    <h2 id="nameForgeTitle">Name your forge</h2>
+    <p id="nameForgeText">The sign over the door. You can keep several forges going at once.</p>
+    <input class="name-field" id="nameForgeInput" type="text" maxlength="24" autocomplete="off"
+           spellcheck="false" aria-labelledby="nameForgeTitle" placeholder="Your Forge">
+    <p class="name-note" id="nameForgeNote">Up to 24 characters.</p>
+    <div class="sheet-actions row">
+      <button class="btn primary" type="button" id="nameForgeGo">Open the doors</button>
+      <button class="btn" type="button" id="nameForgeCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
   <div class="sheet" style="max-width:340px">
     <h2 id="confirmTitle">Abandon this piece?</h2>
@@ -3481,6 +3551,7 @@ function priceAppeal(price, recommended) {
 function createShop(opts) {
   const o = opts || {};
   const shop = {
+    name: shopNameOf(o.name, SHOP_NAME_DEFAULT),
     day: 1,
     phaseIndex: 0,
     gold: typeof o.gold === 'number' ? o.gold : SHOP.startGold,
@@ -3512,11 +3583,47 @@ function createShop(opts) {
    back is treated as hostile: a save can be stale, hand-edited or written
    by an older build, so each field is checked and anything that does not
    survive is dropped rather than taken on trust or thrown over. */
-const SHOP_SAVE_VERSION = 1;
+/* Version 2 added the shop's name and the slot it lives in. A version 1
+   save is still readable - it is simply a forge that was never named. */
+const SHOP_SAVE_VERSION = 2;
+
+/* How many forges a player may keep at once. The title screen lists them
+   all, so this is a screenful rather than a storage limit. */
+const SHOP_SAVE_SLOTS = 5;
+const SHOP_NAME_MAX = 24;
+const SHOP_NAME_DEFAULT = 'Your Forge';
+
+/* A name is typed by hand and read back from storage, so it is flattened,
+   trimmed and cut to length before it is ever shown. Anything that comes
+   out empty falls back rather than leaving a nameless row on the menu. */
+function shopNameOf(raw, fallback) {
+  const text = String(raw == null ? '' : raw)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, SHOP_NAME_MAX);
+  return text || shopNameOf(fallback == null ? SHOP_NAME_DEFAULT : fallback, SHOP_NAME_DEFAULT);
+}
+
+/* A new forge is named for the player unless they pick something else, and
+   two forges called the same thing on one menu help nobody. */
+function shopNameFree(name, taken) {
+  const want = shopNameOf(name, SHOP_NAME_DEFAULT);
+  const used = {};
+  for (const t of taken || []) used[shopNameOf(t, SHOP_NAME_DEFAULT).toLowerCase()] = true;
+  if (!used[want.toLowerCase()]) return want;
+  for (let n = 2; n < 100; n++) {
+    const tail = ' ' + n;
+    const tried = want.slice(0, SHOP_NAME_MAX - tail.length) + tail;
+    if (!used[tried.toLowerCase()]) return tried;
+  }
+  return want;
+}
 
 function serializeShop(shop) {
   return {
     v: SHOP_SAVE_VERSION,
+    name: shop.name,
     day: shop.day, phaseIndex: shop.phaseIndex, gold: shop.gold,
     reputation: shop.reputation, tier: shop.tier, rentPaid: shop.rentPaid,
     closed: shop.closed, nextId: shop.nextId,
@@ -3546,9 +3653,10 @@ function knownLine(key) {
 
 function restoreShop(data, rnd) {
   if (!data || typeof data !== 'object') return null;
-  if (data.v !== SHOP_SAVE_VERSION) return null;
+  if (data.v !== SHOP_SAVE_VERSION && data.v !== 1) return null;
 
   const shop = createShop({ rnd: rnd });
+  shop.name = shopNameOf(data.name, SHOP_NAME_DEFAULT);
   shop.day = whole(data.day, 1, 100000, 1);
   shop.phaseIndex = whole(data.phaseIndex, 0, SHOP.phases.length - 1, 0);
   shop.gold = whole(data.gold, 0, 1e12, SHOP.startGold);
@@ -4302,7 +4410,10 @@ const CHECKSMITH_CORE = {
   priceAppeal: priceAppeal, createShop: createShop, shopPhase: shopPhase,
   shopPhaseName: shopPhaseName, daysToRent: daysToRent, rentDue: rentDue, wageBill: wageBill,
   weeklyBill: weeklyBill, shopLog: shopLog, addStorage: addStorage,
-  SHOP_SAVE_VERSION: SHOP_SAVE_VERSION, serializeShop: serializeShop, restoreShop: restoreShop,
+  SHOP_SAVE_VERSION: SHOP_SAVE_VERSION, SHOP_SAVE_SLOTS: SHOP_SAVE_SLOTS,
+  SHOP_NAME_MAX: SHOP_NAME_MAX, SHOP_NAME_DEFAULT: SHOP_NAME_DEFAULT,
+  shopNameOf: shopNameOf, shopNameFree: shopNameFree,
+  serializeShop: serializeShop, restoreShop: restoreShop,
   knownLine: knownLine,
   shopMoveToShelf: shopMoveToShelf, shopPullFromShelf: shopPullFromShelf, shopSetPrice: shopSetPrice,
   purchaseCost: purchaseCost, shopBuyMaterials: shopBuyMaterials, forgeCheck: forgeCheck,
@@ -4751,11 +4862,13 @@ const App = {
   vsFoe: 'novice',      // versus rival skill
   versusRecord: {},     // versus wins/losses, kept per size and skill
   shop: null,           // the live Open Your Forge business
-  shopResume: null,     // a saved forge the title screen is offering to carry on
+  shopSlot: 0,          // which saved forge is open; 0 when none is
+  shopPick: 0,          // the forge the title screen has selected
   gold: 0,              // the purse, kept between runs
   upgrades: {},         // purchased upgrade levels, kept between runs
   lastFocus: null,
-  confirmAction: null
+  confirmAction: null,
+  nameAction: null      // what to do with the name the player is typing
 };
 
 /* ---------- cancellation ------------------------------------------
@@ -5772,17 +5885,81 @@ function shop() { return App.shop; }
    save taken half way through would let the player quit, reload and serve
    the same queue again. Leaving it alone until the phase closes means an
    interrupted phase is simply unplayed. */
-function saveShop() {
-  if (!App.shop || SHOPUI.session) return;
-  Store.patch({ shopSave: { v: CHECKSMITH_CORE.SHOP_SAVE_VERSION,
-    shop: serializeShop(App.shop), anvil: anvilSnapshot() } });
+
+/* Forges are kept in a list rather than one at a time, so a player can run
+   a careful shop and a reckless one side by side. Each entry is a slot: an
+   id the title screen selects by, the name typed when it was opened, when
+   it was last put down, and the shop itself. A single `shopSave` written by
+   an older build is folded in as the first slot so nobody loses a forge to
+   the upgrade. Everything read back is treated as hostile, the same as the
+   shop inside it. */
+function readSlots() {
+  const data = Store.read();
+  const out = [];
+  const seen = {};
+  const take = (raw) => {
+    if (!raw || typeof raw !== 'object' || out.length >= CHECKSMITH_CORE.SHOP_SAVE_SLOTS) return;
+    const id = Math.round(Number(raw.id));
+    if (!Number.isFinite(id) || id < 1 || seen[id]) return;
+    if (!raw.shop || typeof raw.shop !== 'object') return;
+    seen[id] = true;
+    out.push({ id: id, name: CHECKSMITH_CORE.shopNameOf(raw.name || raw.shop.name),
+      saved: Math.max(0, Number(raw.saved) || 0),
+      shop: raw.shop, anvil: raw.anvil && typeof raw.anvil === 'object' ? raw.anvil : null });
+  };
+  if (Array.isArray(data.shopSaves)) for (const raw of data.shopSaves) take(raw);
+  // a forge from before there were slots
+  if (!out.length && data.shopSave && typeof data.shopSave === 'object') {
+    take(Object.assign({ id: 1, saved: 0 }, data.shopSave));
+  }
+  return out;
 }
-function clearShopSave() { Store.patch({ shopSave: null }); }
-function readShopSave() {
-  const raw = Store.read().shopSave;
-  if (!raw || typeof raw !== 'object') return null;
-  const shop = restoreShop(raw.shop, App.rnd);
-  return shop ? { shop: shop, anvil: raw.anvil || null } : null;
+
+function writeSlots(slots) {
+  Store.patch({ shopSaves: slots.slice(0, CHECKSMITH_CORE.SHOP_SAVE_SLOTS), shopSave: null });
+}
+
+/* The stored shop is raw data; this hands back a playable one, or null if
+   it no longer adds up. */
+function slotResume(slot) {
+  if (!slot) return null;
+  const shop = restoreShop(slot.shop, App.rnd);
+  if (!shop) return null;
+  shop.name = slot.name;
+  return { id: slot.id, name: slot.name, shop: shop, anvil: slot.anvil || null };
+}
+
+function slotById(id) {
+  for (const slot of readSlots()) if (slot.id === id) return slot;
+  return null;
+}
+
+function nextSlotId(slots) {
+  let top = 0;
+  for (const slot of slots) top = Math.max(top, slot.id);
+  return top + 1;
+}
+
+/* A forge is only put down where it stands: never mid-counter, for the
+   reason above, and always into the slot it was opened from. */
+function saveShop() {
+  if (!App.shop || SHOPUI.session || !App.shopSlot) return;
+  const slots = readSlots();
+  const entry = { id: App.shopSlot, name: App.shop.name, saved: Date.now(),
+    shop: serializeShop(App.shop), anvil: anvilSnapshot() };
+  const at = slots.findIndex((slot) => slot.id === App.shopSlot);
+  if (at < 0) slots.push(entry); else slots[at] = entry;
+  writeSlots(slots);
+}
+
+function clearShopSave() {
+  if (!App.shopSlot) return;
+  deleteSlot(App.shopSlot);
+}
+
+function deleteSlot(id) {
+  writeSlots(readSlots().filter((slot) => slot.id !== id));
+  if (App.shopSlot === id) App.shopSlot = 0;
 }
 
 /* A batch on the anvil is saved with its board, so quitting mid-puzzle
@@ -5876,6 +6053,7 @@ function portrait(typeId, extra) {
 /* ---------- the status bar ---------- */
 function shopRenderBar() {
   const sh = shop();
+  $('shName').textContent = sh.name;
   $('shDay').textContent = sh.day;
   $('shPhase').textContent = shopPhaseName(sh);
   $('shGold').textContent = coin(sh.gold);
@@ -6769,7 +6947,8 @@ function shopDayBreak(result) {
       'You lasted ' + (sh.day - 1) + ' days and paid ' + sh.rentPaid +
       (sh.rentPaid === 1 ? ' week' : ' weeks') + ' of rent.</p>',
       [
-        { label: 'Open a new forge', primary: true, onClick: function () { shopSheetClose(); startShop(); } },
+        { label: 'Open a new forge', primary: true,
+          onClick: function () { shopSheetClose(); askForgeName(function (name) { startShop(null, name); }); } },
         { label: 'Main Menu', ghost: true, onClick: function () { shopSheetClose(); showTitle(); } }
       ]);
     return;
@@ -6918,13 +7097,16 @@ function shopSendStaff(id) {
 }
 
 /* ---------- starting and leaving --------------------------------------- */
-function startShop(resume) {
+function startShop(resume, name) {
   App.mode = 'shop';
   cancelPending(false);
   App.game = null;
   App.match = null;
   if (resume && resume.shop) {
     App.shop = resume.shop;
+    App.shopSlot = resume.id;
+    App.shopPick = resume.id;
+    Store.patch({ shopLast: resume.id });
     SHOPUI.tab = 'shelf';
     SHOPUI.session = null;
     SHOPUI.order = null;
@@ -6940,8 +7122,12 @@ function startShop(resume) {
       '. The forge is as you left it.');
     return;
   }
-  clearShopSave();
-  App.shop = createShop({ rnd: App.rnd });
+  const slots = readSlots();
+  App.shop = createShop({ rnd: App.rnd,
+    name: CHECKSMITH_CORE.shopNameFree(name, slots.map((slot) => slot.name)) });
+  App.shopSlot = nextSlotId(slots);
+  App.shopPick = App.shopSlot;
+  Store.patch({ shopLast: App.shopSlot });
   SHOPUI.tab = 'shelf';
   SHOPUI.session = null;
   SHOPUI.order = null;
@@ -6949,7 +7135,7 @@ function startShop(resume) {
   $('shopView').hidden = false;
   syncModeChrome();
   shopRender();
-  shopToast('Your forge, day one. Ten bronze ingots and the rent already ticking.');
+  shopToast(App.shop.name + ', day one. Ten bronze ingots and the rent already ticking.');
 }
 
 function shopAct(id) {
@@ -7007,8 +7193,18 @@ function wireShop() {
     shopSpendPhase('You let the ' + shopPhaseName(shop()).toLowerCase() + ' go by.');
   });
   $('shHelpBtn').addEventListener('click', function () { show($('help')); });
+  // Leaving is not losing it any more - the forge keeps its slot, and the
+  // menu lists it waiting. Only an open counter costs anything, because a
+  // selling phase is never saved half way through.
   $('shMenuBtn').addEventListener('click', function () {
-    askDiscard('Leaving for the main menu will close this forge for good.', showTitle);
+    if (SHOPUI.session) {
+      askConfirm('The counter is still open. ' + shop().name +
+        ' will be put down as it stood before you opened up.',
+        function () { saveShop(); showTitle(); }, 'Leave anyway', 'Keep serving');
+      return;
+    }
+    saveShop();
+    showTitle();
   });
 
   // dialog controls: steppers, selects, hire and delegate buttons
@@ -7072,26 +7268,90 @@ function shopConfirmFire(id) {
   });
 }
 
-/* The Open Your Forge card either opens a new shop or carries on the saved
-   one, and says which before the player commits to it. */
+/* One line describing a forge as it was put down: far enough to tell two
+   of them apart at a glance without reading the whole ledger. */
+function slotLine(slot) {
+  const sh = restoreShop(slot.shop, App.rnd);
+  if (!sh) return '<span class="fs-line">Unreadable \u2014 this forge cannot be opened.</span>';
+  return '<span class="fs-line">Day <b>' + sh.day + '</b>, ' + esc(shopPhaseName(sh)) +
+    ' \u00b7 <b>' + coin(sh.gold) + 'g</b> \u00b7 ' + shopStars(sh) + ' of 5 \u00b7 ' +
+    esc(shopTier(sh).name) +
+    (slot.anvil ? ' \u00b7 <span class="fs-anvil">a batch on the anvil</span>' : '') +
+    '</span>';
+}
+
+/* The Open Your Forge card lists every forge the player keeps, and Begin
+   carries on whichever one is picked. With none saved - or with the new
+   row picked - Begin asks for a name first. */
 function syncShopTitle() {
   const isShop = App.mode === 'shop';
   $('titleShopBlock').hidden = !isShop;
-  const save = isShop ? readShopSave() : null;
-  App.shopResume = save;
-  $('shopSaveActions').hidden = !save;
   if (!isShop) return;
-  if (save) {
-    const sh = save.shop;
-    $('shopSaveLine').innerHTML = 'Day <b>' + sh.day + '</b>, ' +
-      esc(shopPhaseName(sh)) + ' \u00b7 <b>' + coin(sh.gold) + 'g</b> \u00b7 ' +
-      shopStars(sh) + ' of 5 stars \u00b7 ' + esc(shopTier(sh).name) +
-      (save.anvil ? ' \u00b7 a batch on the anvil' : '');
+
+  const slots = readSlots();
+  const known = {};
+  for (const slot of slots) known[slot.id] = true;
+  // the forge last played is the one waiting when the player comes back
+  if (!known[App.shopPick]) {
+    const last = Math.round(Number(Store.read().shopLast)) || 0;
+    App.shopPick = known[last] ? last : (slots.length ? slots[0].id : 0);
+  }
+
+  const host = $('shopSlots');
+  host.hidden = !slots.length;
+  host.innerHTML = slots.map((slot) =>
+    '<div class="forge-row">' +
+      '<button class="forge-slot" type="button" role="radio" data-slot="' + slot.id + '"' +
+        ' aria-checked="' + (slot.id === App.shopPick ? 'true' : 'false') + '">' +
+        '<span class="fs-name">' + esc(slot.name) + '</span>' + slotLine(slot) +
+      '</button>' +
+      '<button class="forge-bin" type="button" data-bin="' + slot.id + '"' +
+        ' aria-label="Close ' + esc(slot.name) + ' for good" title="Close this forge">' +
+        '\u00d7</button>' +
+    '</div>').join('');
+
+  $('shopEmpty').hidden = slots.length > 0;
+  const full = slots.length >= CHECKSMITH_CORE.SHOP_SAVE_SLOTS;
+  const newBtn = $('shopNewBtn');
+  newBtn.disabled = full;
+  newBtn.textContent = full ? 'All ' + CHECKSMITH_CORE.SHOP_SAVE_SLOTS + ' forges in use' : 'New forge';
+
+  const picked = slots.find((slot) => slot.id === App.shopPick);
+  if (picked) {
+    $('shopSaveLine').textContent = slots.length +
+      (slots.length === 1 ? ' forge kept' : ' forges kept') + ' of ' +
+      CHECKSMITH_CORE.SHOP_SAVE_SLOTS + '. Begin carries on ' + picked.name + '.';
     $('beginBtn').textContent = 'Carry on';
   } else {
-    $('shopSaveLine').textContent = 'No forge yet. Begin opens a new one.';
+    $('shopSaveLine').textContent = 'Begin opens a new forge and asks what to call it.';
     $('beginBtn').textContent = 'Begin';
   }
+}
+
+/* ---------- naming a forge -------------------------------------------- */
+function askForgeName(then) {
+  App.nameAction = then;
+  const field = $('nameForgeInput');
+  field.value = '';
+  field.placeholder = CHECKSMITH_CORE.shopNameFree(CHECKSMITH_CORE.SHOP_NAME_DEFAULT,
+    readSlots().map((slot) => slot.name));
+  show($('nameForge'));
+  // a phone keyboard covering the sheet is worse than a tap to open it, so
+  // the field is focused but not forced
+  try { field.focus({ preventScroll: true }); } catch (err) { field.focus(); }
+}
+
+function closeForgeName() {
+  App.nameAction = null;
+  hide($('nameForge'));
+}
+
+function confirmForgeName() {
+  const then = App.nameAction;
+  const field = $('nameForgeInput');
+  const typed = field.value.trim() ? field.value : field.placeholder;
+  closeForgeName();
+  if (then) then(typed);
 }
 
 /* ---------- title screen --------------------------------------------- */
@@ -7131,6 +7391,9 @@ function showTitle() {
   cancelPending(false);
   App.game = null;
   App.match = null;
+  // the forge is put down on the way out; the list decides what opens next
+  App.shop = null;
+  App.shopSlot = 0;
   VS.targeting = null;
   $('versusView').hidden = true;
   hide($('results'));
@@ -7190,13 +7453,33 @@ function syncModeChrome() {
   }
 }
 
+/* Begin, with a forge picked, carries that one on. With none picked - a
+   first visit, or after the last one was closed - it asks for a name, and
+   the title screen stays up behind the dialog in case the player backs out. */
+function beginShop() {
+  const resume = slotResume(slotById(App.shopPick));
+  if (resume) {
+    musicFor('shop');
+    App.lastLayout = '';
+    $('titleScreen').hidden = true;
+    startShop(resume);
+    return;
+  }
+  askForgeName((name) => {
+    musicFor('shop');
+    App.lastLayout = '';
+    $('titleScreen').hidden = true;
+    startShop(null, name);
+  });
+}
+
 function beginRun() {
-  musicFor(App.mode === 'endless' ? 'endless' : App.mode === 'shop' ? 'shop' : 'game');
+  if (App.mode === 'shop') { beginShop(); return; }
+  musicFor(App.mode === 'endless' ? 'endless' : 'game');
   $('titleScreen').hidden = true;
   App.lastLayout = '';
   // endless ignores the picker and always opens on the smallest board
   if (App.mode === 'endless') App.difficulty = CONFIG.endless.startTier;
-  if (App.mode === 'shop') { startShop(App.shopResume); return; }
   syncModeChrome();
   if (App.mode === 'versus') { vsStartMatch(); return; }
   loadBoard(App.difficulty, () => {
@@ -7311,12 +7594,22 @@ function showEndlessResult(st, record, prev) {
   show($('results'));
 }
 
+/* A yes/no that always asks, whatever is on the board. Used where what is
+   at stake is not a half-worked piece but something the player cannot get
+   back - closing a forge for good, say. */
+function askConfirm(text, action, yes, no) {
+  $('confirmText').textContent = text;
+  $('confirmYes').textContent = yes || 'Discard';
+  $('confirmNo').textContent = no || 'Keep forging';
+  App.confirmAction = action;
+  show($('confirm'));
+}
+
+/* The same prompt, but only when there is progress to lose. */
 function askDiscard(text, action) {
   const g = App.game;
   if (!g || g.totalStrikes === 0 || g.status === 'complete') { action(); return; }
-  $('confirmText').textContent = text;
-  App.confirmAction = action;
-  show($('confirm'));
+  askConfirm(text, action, 'Discard', 'Keep forging');
 }
 
 /* ---------- difficulty ---------------------------------------------- */
@@ -7708,13 +8001,38 @@ function boot() {
   for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
     b.addEventListener('click', () => { App.difficulty = b.dataset.tdiff; syncTitleUi(); });
   }
-  $('shopFreshBtn').addEventListener('click', () => {
-    askDiscard('Starting a new forge throws away the saved one for good.', () => {
-      clearShopSave();
-      App.shopResume = null;
-      syncTitleUi();
-      announce('Saved forge discarded. Begin opens a new one.');
+  $('shopNewBtn').addEventListener('click', () => {
+    askForgeName((name) => {
+      musicFor('shop');
+      $('titleScreen').hidden = true;
+      startShop(null, name);
     });
+  });
+  // one listener for the list, since the rows are redrawn on every change
+  $('shopSlots').addEventListener('click', (e) => {
+    const bin = e.target.closest('[data-bin]');
+    if (bin) {
+      const id = Number(bin.dataset.bin);
+      const slot = slotById(id);
+      if (!slot) return;
+      askConfirm('Closing ' + slot.name + ' throws that forge away for good.', () => {
+        deleteSlot(id);
+        if (App.shopPick === id) App.shopPick = 0;
+        syncTitleUi();
+        announce(slot.name + ' closed for good.');
+      }, 'Close it', 'Keep it');
+      return;
+    }
+    const row = e.target.closest('[data-slot]');
+    if (!row) return;
+    App.shopPick = Number(row.dataset.slot);
+    syncTitleUi();
+  });
+
+  $('nameForgeGo').addEventListener('click', confirmForgeName);
+  $('nameForgeCancel').addEventListener('click', closeForgeName);
+  $('nameForgeInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); confirmForgeName(); }
   });
   for (const b of document.querySelectorAll('#titleSize .diff-btn')) {
     b.addEventListener('click', () => { App.vsSize = Number(b.dataset.tsize); syncTitleUi(); });
@@ -7749,6 +8067,11 @@ function boot() {
   $('shopClose').addEventListener('click', () => hide($('shop')));
   $('titleHelpBtn').addEventListener('click', () => show($('help')));
   $('menuBtn').addEventListener('click', () => {
+    if (App.mode === 'shop') {
+      askDiscard(shop().name + ' will be put down with this batch still on the anvil.',
+        () => { saveShop(); showTitle(); });
+      return;
+    }
     askDiscard('Leaving for the main menu will discard this run.', showTitle);
   });
   $('menuActionBtn').addEventListener('click', () => {
@@ -7820,6 +8143,7 @@ function boot() {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!$('confirm').hidden) { App.confirmAction = null; hide($('confirm')); }
+    else if (!$('nameForge').hidden) { closeForgeName(); }
     else if (!$('shop').hidden) { hide($('shop')); }
     else if (VS.targeting) { vsCancelTargeting(); }
     else if (!$('help').hidden) { hide($('help')); }

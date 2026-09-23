@@ -560,29 +560,47 @@ item's id in `SHOP.items` and nothing else needs to know. A browser check
 asserts every item, customer type and material is covered, so a new row in the
 table without a sprite fails the suite rather than rendering an empty box.
 
-### The forge keeps
+### Several forges, each with a name
 
-The shop is saved to `localStorage` as you play — after anything that changes
-the business, and **never in the middle of a selling phase**. The counter
-mutates gold and stock as it goes, so a save taken half way through would let
-the player quit, reload and serve the same queue again; leaving it alone until
-the phase closes means an interrupted phase is simply unplayed. A batch left on
-the anvil is saved **with its board**, so quitting mid-puzzle resumes the same
-one rather than dealing a fresh board for a second try at the same order.
+You name a forge when you open it — the sign over the door, up to 24
+characters — and you can keep **five** going at once. The title screen lists
+them: name, day and phase, purse, stars, premises, and whether a batch is
+sitting on the anvil. Tap a row to pick it, Begin to carry it on. *New forge*
+raises the naming dialog; the × beside a row closes that forge for good and
+asks first, by name. With nothing saved, Begin asks for a name before it opens
+anything, so the first forge is named like every other.
 
-The title screen reads the save before you commit to it — which day, how much
-gold, how many stars, which premises, and whether something is on the anvil —
-and Begin becomes **Carry on**. *Start a new forge* discards it.
+Names are trimmed, flattened and cut to length before they are ever shown,
+control characters included, and an empty one falls back to *Your Forge*. Two
+forges on one menu never share a name: `shopNameFree` counts up until it finds
+one free, and the result still fits the sign. Everything is escaped where it is
+drawn.
+
+Each forge lives in a slot: `{ id, name, saved, shop, anvil }`, stored under
+`shopSaves`. The forge last played is the one waiting when you come back. A
+single `shopSave` written by the build before slots existed is folded in as the
+first forge rather than lost, and reads back as an unnamed one.
+
+Saving happens as you play — after anything that changes the business, and
+**never in the middle of a selling phase**. The counter mutates gold and stock
+as it goes, so a save taken half way through would let the player quit, reload
+and serve the same queue again; leaving it alone until the phase closes means an
+interrupted phase is simply unplayed. A batch left on the anvil is saved **with
+its board**, so quitting mid-puzzle resumes the same one rather than dealing a
+fresh board for a second try at the same order. Leaving for the main menu puts
+the forge down where it stands; only an open counter costs anything, and that
+one asks first.
 
 Everything read back is treated as hostile. A save can be stale, hand-edited or
 written by an older build, so `restoreShop` checks every field and drops what
-does not survive rather than trusting it or throwing: a version that is not the
-current one is refused outright, numbers are clamped to their ranges, goods and
-orders naming an item or material that no longer exists are dropped, staff with
-an unknown role or rank are left behind, a save cannot smuggle in more staff
-than the premises hold, assignments for people no longer employed are forgotten,
-and restored ids are bumped clear of anything still in use. Thirteen core checks
-cover exactly those cases.
+does not survive rather than trusting it or throwing: a version it does not know
+is refused outright (version 1, from before names, is still read), numbers are
+clamped to their ranges, goods and orders naming an item or material that no
+longer exists are dropped, staff with an unknown role or rank are left behind, a
+save cannot smuggle in more staff than the premises hold, assignments for people
+no longer employed are forgotten, a doctored name cannot smuggle markup or
+length onto the menu, and restored ids are bumped clear of anything still in
+use. Twenty core checks and fifteen browser checks cover exactly those cases.
 
 ### Everything is a table
 

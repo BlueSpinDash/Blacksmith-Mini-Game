@@ -1539,6 +1539,57 @@ section('Open Your Forge: the shop survives being put down');
     for (let i = 0; i < 3; i++) C.shopAdvancePhase(b);
     return b.day === before + 1 && C.countStorage(b) >= 3;
   })());
+
+  /* ---- the name over the door ---- */
+  ok('a forge keeps its name through the round trip', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(3), name: 'Emberline' });
+    return trip(shop).name === 'Emberline';
+  })());
+
+  ok('a name is trimmed and flattened',
+    C.shopNameOf('   Ash   fall   ') === 'Ash fall' &&
+    C.shopNameOf('a'.repeat(80)).length === C.SHOP_NAME_MAX);
+
+  ok('control characters never reach the sign',
+    C.shopNameOf('Ember\u0000line\u001f') === 'Ember line' &&
+    C.shopNameOf('\u0000\u0007') === C.SHOP_NAME_DEFAULT);
+
+  ok('a nameless forge falls back rather than showing a blank',
+    C.shopNameOf('') === C.SHOP_NAME_DEFAULT &&
+    C.shopNameOf(null) === C.SHOP_NAME_DEFAULT &&
+    C.shopNameOf('   ') === C.SHOP_NAME_DEFAULT &&
+    C.shopNameOf({}) !== '' &&
+    C.createShop({ rnd: C.mulberry32(1) }).name === C.SHOP_NAME_DEFAULT);
+
+  ok('two forges on one menu never share a name',
+    C.shopNameFree('Emberline', []) === 'Emberline' &&
+    C.shopNameFree('Emberline', ['Emberline']) === 'Emberline 2' &&
+    C.shopNameFree('Emberline', ['Emberline', 'Emberline 2']) === 'Emberline 3' &&
+    C.shopNameFree('emberline', ['EMBERLINE']) === 'emberline 2');
+
+  ok('a name made unique still fits the sign', (() => {
+    const long = 'x'.repeat(C.SHOP_NAME_MAX);
+    const out = C.shopNameFree(long, [long]);
+    return out.length <= C.SHOP_NAME_MAX && out !== long;
+  })());
+
+  ok('a forge saved before names existed reads back as an unnamed one', (() => {
+    const blob = C.serializeShop(build());
+    blob.v = 1;
+    delete blob.name;
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return !!b && b.name === C.SHOP_NAME_DEFAULT && b.gold === build().gold;
+  })());
+
+  ok('a doctored name cannot smuggle markup or length into the menu', (() => {
+    const blob = C.serializeShop(build());
+    blob.name = '<img src=x onerror=alert(1)> ' + 'y'.repeat(200);
+    const b = C.restoreShop(blob, C.mulberry32(1));
+    return b.name.length <= C.SHOP_NAME_MAX;
+  })());
+
+  ok('the menu holds a fixed number of forges',
+    C.SHOP_SAVE_SLOTS >= 2 && C.SHOP_SAVE_SLOTS <= 12);
 }
 
 section('Open Your Forge: pricing and customers');

@@ -1220,8 +1220,15 @@ async function run() {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   await page.click('.mode-card[data-mode="shop"]');
   await page.click('#beginBtn');
+  // with no forge saved, Begin asks what to call the new one
+  await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+  await page.fill('#nameForgeInput', 'Ashfall Forge');
+  await page.click('#nameForgeGo');
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
   await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
+  ok('the forge is opened under the name the player typed',
+    (await page.textContent('#shName')) === 'Ashfall Forge' &&
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Ashfall Forge');
 
   const board = await page.evaluate(() => ({
     day: document.getElementById('shDay').textContent,
@@ -1764,20 +1771,33 @@ async function run() {
   page.on('pageerror', (e) => saveErrs.push(String(e)));
   await page.goto(FILE);
 
-  const openShop = async () => {
+  // `name` is typed into the naming dialog when Begin raises it, which it
+  // does whenever no saved forge is picked
+  const openShop = async (name) => {
     await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
     await page.click('.mode-card[data-mode="shop"]');
     await page.waitForTimeout(140);
     const line = await page.textContent('#shopSaveLine');
     const begin = await page.textContent('#beginBtn');
+    const rows = await page.$$eval('#shopSlots .forge-slot',
+      (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
     await page.click('#beginBtn');
+    if (await page.isVisible('#nameForge')) {
+      if (name) await page.fill('#nameForgeInput', name);
+      await page.click('#nameForgeGo');
+    }
     // carrying on can land either on the shop floor or straight back at the
     // anvil, so wait for whichever the save asked for
     await page.waitForFunction(
       () => !document.getElementById('shopView').hidden || !!window.CHECKSMITH.app.game,
       null, { timeout: 15000 });
     await page.waitForTimeout(250);
-    return { line, begin };
+    return { line, begin, rows };
+  };
+  const toMenu = async () => {
+    await page.evaluate(() => document.getElementById('menuBtn').click());
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   };
   const shopState = () => page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -1786,9 +1806,12 @@ async function run() {
       stars: C.shopStars(sh), phase: document.getElementById('shPhase').textContent };
   });
 
-  const first = await openShop();
+  const first = await openShop('Cinderhall');
   ok('a first visit offers a new forge, not a saved one',
-    /No forge yet/.test(first.line) && first.begin === 'Begin', JSON.stringify(first));
+    /opens a new forge/.test(first.line) && first.begin === 'Begin' && first.rows.length === 0,
+    JSON.stringify(first));
+  ok('and it is opened under the typed name',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Cinderhall');
 
   await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -1802,8 +1825,10 @@ async function run() {
   const kept = await shopState();
   await page.reload();
   const second = await openShop();
-  ok('the title screen offers to carry the saved forge on',
-    second.begin === 'Carry on' && /Day 4/.test(second.line) && /1,777g/.test(second.line),
+  ok('the title screen lists the saved forge and offers to carry it on',
+    second.begin === 'Carry on' && second.rows.length === 1 &&
+    /^Cinderhall /.test(second.rows[0]) && /Day 4/.test(second.rows[0]) &&
+    /1,777g/.test(second.rows[0]) && /Cinderhall/.test(second.line),
     JSON.stringify(second));
   const back = await shopState();
   ok('gold, day, metal, stock, staff and standing all come back',
@@ -1825,8 +1850,8 @@ async function run() {
   });
   await page.reload();
   const third = await openShop();
-  ok('a batch left on the anvil is announced on the title screen',
-    /on the anvil/.test(third.line), third.line);
+  ok('a batch left on the anvil is announced on the forge\'s row',
+    third.rows.length === 1 && /on the anvil/.test(third.rows[0]), JSON.stringify(third.rows));
   const resumed = await page.evaluate(() => {
     const g = window.CHECKSMITH.app.game;
     return g ? { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),
@@ -1889,19 +1914,161 @@ async function run() {
     stillThere.gold === played.gold && stillThere.phase === played.phase,
     JSON.stringify([played, stillThere]));
 
-  // and the player can throw the whole thing away
-  await page.evaluate(() => document.getElementById('menuBtn').click());
-  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
-  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
-  await page.click('.mode-card[data-mode="shop"]');
-  await page.waitForTimeout(140);
-  await page.click('#shopFreshBtn');
-  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
-  await page.waitForTimeout(250);
-  ok('starting a new forge discards the saved one',
-    /No forge yet/.test(await page.textContent('#shopSaveLine')) &&
-    (await page.textContent('#beginBtn')) === 'Begin');
   ok('saving and restoring raises no errors', saveErrs.length === 0, saveErrs.slice(0, 3).join(' | '));
+  await ctx.close();
+
+  /* ============ several forges at once ============ */
+  section('Open Your Forge: a forge for every slot');
+  ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
+  page = await ctx.newPage();
+  const slotErrs = [];
+  page.on('pageerror', (e) => slotErrs.push(String(e)));
+  await page.goto(FILE);
+
+  // the same helpers, against this page
+  const shopCard = async () => {
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.waitForTimeout(160);
+  };
+  const slotNames = () => page.$$eval('#shopSlots .fs-name', (els) => els.map((e) => e.textContent));
+  const newForge = async (name) => {
+    await shopCard();
+    await page.click('#shopNewBtn');
+    await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+    if (name !== undefined) await page.fill('#nameForgeInput', name);
+    await page.click('#nameForgeGo');
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+    await page.waitForTimeout(200);
+  };
+  const leave = async () => {
+    await page.click('#shMenuBtn');
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  };
+
+  await shopCard();
+  await page.click('#beginBtn');
+  await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+  ok('with nothing saved, Begin asks for a name first',
+    await page.isVisible('#nameForgeInput'));
+  await page.fill('#nameForgeInput', 'Emberline');
+  await page.click('#nameForgeGo');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.app.shop.gold = 111; window.CHECKSMITH.shopRender(); });
+  await page.waitForTimeout(150);
+  await leave();
+
+  await newForge('Coldwater Anvil');
+  await page.evaluate(() => { window.CHECKSMITH.app.shop.gold = 222; window.CHECKSMITH.shopRender(); });
+  await page.waitForTimeout(150);
+  await leave();
+  await shopCard();
+  ok('a second forge sits beside the first rather than replacing it',
+    JSON.stringify(await slotNames()) === JSON.stringify(['Emberline', 'Coldwater Anvil']),
+    JSON.stringify(await slotNames()));
+
+  // each keeps its own ledger
+  await page.click('#shopSlots .forge-row:nth-child(1) .forge-slot');
+  await page.waitForTimeout(150);
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  const openedFirst = await page.evaluate(() => ({ name: window.CHECKSMITH.app.shop.name,
+    gold: window.CHECKSMITH.app.shop.gold, bar: document.getElementById('shName').textContent }));
+  ok('picking a forge opens that one, with its own purse',
+    openedFirst.name === 'Emberline' && openedFirst.gold === 111 && openedFirst.bar === 'Emberline', JSON.stringify(openedFirst));
+  await leave();
+  await shopCard();
+  await page.click('#shopSlots .forge-row:nth-child(2) .forge-slot');
+  await page.waitForTimeout(150);
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  const openedSecond = await page.evaluate(() => ({ name: window.CHECKSMITH.app.shop.name,
+    gold: window.CHECKSMITH.app.shop.gold }));
+  ok('and the other keeps its own', openedSecond.name === 'Coldwater Anvil' && openedSecond.gold === 222,
+    JSON.stringify(openedSecond));
+  await leave();
+
+  // the forge last played is the one waiting on the way back in
+  await page.reload();
+  await shopCard();
+  ok('the forge last played is the one waiting when you come back',
+    (await page.getAttribute('#shopSlots .forge-row:nth-child(2) .forge-slot', 'aria-checked')) === 'true' &&
+    /Coldwater Anvil/.test(await page.textContent('#shopSaveLine')));
+
+  // names are cleaned up rather than taken on trust
+  await newForge('   ');
+  ok('an empty name falls back rather than leaving a blank sign',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)).length > 0,
+    await page.evaluate(() => window.CHECKSMITH.app.shop.name));
+  await leave();
+  await newForge('Emberline');
+  ok('a name already in use is made unique',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Emberline 2',
+    await page.evaluate(() => window.CHECKSMITH.app.shop.name));
+  await leave();
+
+  await shopCard();
+  const beforeFull = (await slotNames()).length;
+  await newForge('Last One');
+  await leave();
+  await shopCard();
+  const full = await page.evaluate(() => ({
+    rows: document.querySelectorAll('#shopSlots .forge-slot').length,
+    newDisabled: document.getElementById('shopNewBtn').disabled,
+    label: document.getElementById('shopNewBtn').textContent,
+    cap: window.CHECKSMITH.core.SHOP_SAVE_SLOTS
+  }));
+  ok('the list fills up and then says so',
+    beforeFull === 4 && full.rows === full.cap && full.newDisabled === true &&
+    /in use/.test(full.label), JSON.stringify([beforeFull, full]));
+
+  // a forge can be closed for good, and only that one
+  await page.click('#shopSlots .forge-row:nth-child(1) .forge-bin');
+  await page.waitForSelector('#confirm:not([hidden])', { timeout: 8000 });
+  ok('closing a forge names the one being thrown away',
+    /Emberline/.test(await page.textContent('#confirmText')),
+    await page.textContent('#confirmText'));
+  await page.click('#confirmYes');
+  await page.waitForTimeout(250);
+  const afterBin = await slotNames();
+  ok('closing one forge leaves the rest alone',
+    afterBin.length === full.cap - 1 && afterBin.indexOf('Emberline') < 0 &&
+    afterBin.indexOf('Coldwater Anvil') >= 0, JSON.stringify(afterBin));
+  ok('and the New forge button opens up again',
+    (await page.evaluate(() => document.getElementById('shopNewBtn').disabled)) === false);
+
+  // a forge left at the menu is still there after a reload
+  await page.reload();
+  await shopCard();
+  ok('every forge survives a reload',
+    JSON.stringify(await slotNames()) === JSON.stringify(afterBin), JSON.stringify(await slotNames()));
+
+  // a save written by the build before slots existed becomes the first forge
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+    delete raw.shopSaves;
+    delete raw.shopLast;
+    raw.shopSave = { v: 1, shop: { v: 1, day: 9, gold: 640, phaseIndex: 1, reputation: 55,
+      tier: 1, rentPaid: 1, closed: false, nextId: 3, upgrades: {}, materials: {},
+      storage: {}, shelf: {}, staff: [], orders: [], assignments: {} }, anvil: null };
+    localStorage.setItem('checksmith:v1', JSON.stringify(raw));
+  });
+  await page.reload();
+  await shopCard();
+  const legacy = await page.evaluate(() => ({
+    rows: Array.from(document.querySelectorAll('#shopSlots .forge-slot'))
+      .map((e) => e.innerText.replace(/\s+/g, ' ').trim())
+  }));
+  ok('a forge saved before there were slots is carried over, not lost',
+    legacy.rows.length === 1 && /Day 9/.test(legacy.rows[0]) && /640g/.test(legacy.rows[0]),
+    JSON.stringify(legacy));
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  ok('and it opens with a name rather than a blank sign',
+    (await page.textContent('#shName')).length > 0, await page.textContent('#shName'));
+
+  ok('several forges raise no errors', slotErrs.length === 0, slotErrs.slice(0, 3).join(' | '));
   await ctx.close();
 
   /* ============ the opening ============ */
@@ -2035,6 +2202,7 @@ async function run() {
   await page.waitForTimeout(1200);
   await page.click('.mode-card[data-mode="shop"]');
   await page.click('#beginBtn');
+  if (await page.isVisible('#nameForge')) await page.click('#nameForgeGo');
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
   await page.waitForTimeout(1400);
   const atShop = await playing();
