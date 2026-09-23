@@ -2137,6 +2137,204 @@ section('Open Your Forge: the counter');
   })());
 }
 
+/* The whole day is planned from one screen, so the rules behind it have to
+   hold across phases rather than only for the one in progress. */
+section('Open Your Forge: the day’s roster');
+{
+  const build = (roles) => {
+    const s = C.createShop({ rnd: C.mulberry32(77) });
+    s.tier = 4;                                  // room for everybody
+    let id = 1;
+    for (const r of roles) {
+      s.staff.push({ id: id, name: 'Hand ' + id, role: r, rank: 'C', power: 3, wage: 30,
+        face: null });
+      id++;
+    }
+    return s;
+  };
+  const phases = C.SHOP.phases;
+
+  ok('every role can be booked into any phase still ahead', (() => {
+    for (const role of C.SHOP.roles) {
+      const s = build([role.id]);
+      for (const phase of phases) {
+        const fresh = build([role.id]);
+        if (!C.shopAssign(fresh, 1, {}, phase).ok) return false;
+        const at = C.assignmentAt(fresh, role.id, phase);
+        if (!at || at.staff.id !== 1) return false;
+      }
+      if (!s) return false;
+    }
+    return true;
+  })());
+
+  ok('a phase already gone by cannot be booked', (() => {
+    const s = build(['runner']);
+    s.phaseIndex = 2;                            // evening
+    return C.shopAssign(s, 1, {}, phases[0]).ok === false &&
+      C.shopAssign(s, 1, {}, phases[2]).ok === true;
+  })());
+
+  ok('an unknown phase is refused rather than stored',
+    C.shopAssign(build(['runner']), 1, {}, 'midnight').ok === false);
+
+  /* One job a day: booking anywhere takes them off every other box. */
+  ok('booking an employee takes them out of every other picker', (() => {
+    const s = build(['runner', 'runner']);
+    if (C.staffCandidates(s, 'runner', phases[0]).length !== 2) return false;
+    C.shopAssign(s, 1, {}, phases[2]);
+    for (const phase of phases) {
+      const left = C.staffCandidates(s, 'runner', phase);
+      if (left.length !== 1 || left[0].id !== 2) return false;
+    }
+    return true;
+  })());
+
+  ok('and dropping them again puts them back in every picker', (() => {
+    const s = build(['runner', 'runner']);
+    C.shopAssign(s, 1, {}, phases[2]);
+    if (!C.shopUnassign(s, 1).ok) return false;
+    return phases.every((phase) => C.staffCandidates(s, 'runner', phase).length === 2);
+  })());
+
+  ok('a picker never offers somebody of another role', (() => {
+    const s = build(['runner', 'smith', 'salesperson']);
+    return C.staffCandidates(s, 'runner', phases[0]).every((e) => e.role === 'runner') &&
+      C.staffCandidates(s, 'smith', phases[0]).length === 1 &&
+      C.staffCandidates(s, 'storehand', phases[0]).length === 0;
+  })());
+
+  ok('nor anybody for a phase that has gone by', (() => {
+    const s = build(['runner']);
+    s.phaseIndex = 1;
+    return C.staffCandidates(s, 'runner', phases[0]).length === 0 &&
+      C.staffCandidates(s, 'runner', phases[1]).length === 1;
+  })());
+
+  /* upcoming / active / done, and what may still be changed */
+  ok('work reads as upcoming, active or done as the day moves', (() => {
+    const s = build(['runner']);
+    C.shopAssign(s, 1, {}, phases[2]);
+    if (C.assignmentStatus(s, 1) !== 'upcoming') return false;
+    s.phaseIndex = 2;
+    if (C.assignmentStatus(s, 1) !== 'active') return false;
+    s.assignments[1].done = true;
+    return C.assignmentStatus(s, 1) === 'done';
+  })());
+
+  ok('only work still ahead may be dropped', (() => {
+    const s = build(['runner']);
+    C.shopAssign(s, 1, {}, phases[2]);
+    if (!C.shopUnassign(s, 1).ok) return false;
+    C.shopAssign(s, 1, {}, phases[2]);
+    s.phaseIndex = 2;
+    if (C.shopUnassign(s, 1).ok) return false;            // active
+    s.assignments[1].done = true;
+    return C.shopUnassign(s, 1).ok === false;             // done
+  })());
+
+  ok('somebody who has worked stays unavailable for the rest of the day', (() => {
+    const s = build(['storehand']);
+    C.shopAssign(s, 1, {}, phases[0]);
+    s.assignments[1].done = true;
+    s.phaseIndex = 1;
+    return phases.every((phase) => C.staffCandidates(s, 'storehand', phase).length === 0);
+  })());
+
+  /* each job runs once, in its own phase and no other */
+  ok('a rostered job runs in its phase and only then', (() => {
+    const s = build(['salesperson']);
+    s.reputation = 70;
+    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 60 };
+    C.shopAssign(s, 1, {}, phases[2]);
+    const first = C.shopAdvancePhase(s);          // morning closes
+    if (first.reports.some((r) => r.who === 'Hand 1')) return false;
+    const second = C.shopAdvancePhase(s);         // afternoon closes
+    if (second.reports.some((r) => r.who === 'Hand 1')) return false;
+    const third = C.shopAdvancePhase(s);          // evening closes - theirs
+    return third.reports.some((r) => r.who === 'Hand 1');
+  })());
+
+  ok('and never runs a second time', (() => {
+    const s = build(['storehand']);
+    C.addStorage(s, C.lineKey('longsword', 'bronze'), 6, 90);
+    C.shopAssign(s, 1, {}, phases[0]);
+    const before = C.countStorage(s);
+    C.shopAdvancePhase(s);
+    const moved = before - C.countStorage(s);
+    if (moved <= 0) return false;
+    // the assignment is still on the books for the day; closing more phases
+    // must not let it work again
+    C.shopAdvancePhase(s);
+    C.shopAdvancePhase(s);
+    return before - C.countStorage(s) === moved;
+  })());
+
+  ok('the roster is wiped when the day turns over', (() => {
+    const s = build(['runner']);
+    C.shopAssign(s, 1, {}, phases[2]);
+    s.gold = 99999;
+    for (let i = 0; i < 3; i++) C.shopAdvancePhase(s);
+    return Object.keys(s.assignments).length === 0 &&
+      C.staffCandidates(s, 'runner', phases[0]).length === 1;
+  })());
+
+  /* capacity shows up as boxes that cannot be filled, not as missing boxes */
+  ok('a box with nobody to put in it offers nobody', (() => {
+    const s = build([]);
+    s.tier = 1;
+    return C.SHOP.phases.every((phase) =>
+      C.SHOP.roles.every((role) => C.staffCandidates(s, role.id, phase).length === 0));
+  })());
+
+  /* portraits */
+  ok('every hire is given a face, and keeps it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(12) });
+    const a = C.makeApplicant(s, 'runner', 'C');
+    return !!a.face && C.staffFace(a) === a.face &&
+      C.SHOP.customers.some((c) => c.id === a.face);
+  })());
+
+  ok('a hire saved before there were faces is given one, and the same one twice', (() => {
+    const old = { id: 7, name: 'Mara Ashford', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const first = C.staffFace(old), second = C.staffFace(old);
+    return first === second && C.SHOP.customers.some((c) => c.id === first);
+  })());
+
+  ok('a face survives the save and does not change on the way back', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(13) });
+    s.staff.push({ id: 5, name: 'Old Hand', role: 'smith', rank: 'B', power: 4, wage: 60 });
+    const derived = C.staffFace(s.staff[0]);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const again = C.restoreShop(C.serializeShop(back), C.mulberry32(1));
+    return back.staff[0].face === derived && again.staff[0].face === derived;
+  })());
+
+  ok('the roster itself survives the save, phase and all', (() => {
+    const s = build(['runner', 'smith']);
+    C.shopAssign(s, 1, { order: { bronze: 3 } }, phases[2]);
+    C.shopAssign(s, 2, { order: { item: 'dagger', material: 'bronze', qty: 1 } }, phases[1]);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const r = C.assignmentAt(back, 'runner', phases[2]);
+    const m = C.assignmentAt(back, 'smith', phases[1]);
+    return !!r && r.staff.id === 1 && r.job.order.bronze === 3 &&
+      !!m && m.staff.id === 2 && m.job.order.item === 'dagger';
+  })());
+
+  ok('and finished work comes back finished, never to be paid for twice', (() => {
+    const s = build(['storehand']);
+    C.addStorage(s, C.lineKey('longsword', 'bronze'), 6, 90);
+    C.shopAssign(s, 1, {}, phases[0]);
+    C.shopAdvancePhase(s);
+    const shelf = C.countShelf(s);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    if (C.assignmentStatus(back, 1) !== 'done') return false;
+    C.shopAdvancePhase(back);
+    C.shopAdvancePhase(back);
+    return C.countShelf(back) === shelf;
+  })());
+}
+
 section('Open Your Forge: employees do the work, not the maths');
 {
   ok('all five roles exist', (() => {
@@ -2169,10 +2367,12 @@ section('Open Your Forge: employees do the work, not the maths');
     return hired === C.staffCapacity(s);
   })());
 
-  ok('an apprentice makes your own batches bigger', (() => {
+  ok('an apprentice on the bench this phase makes your own batches bigger', (() => {
     const s = C.createShop({ rnd: C.mulberry32(30) });
     const before = C.batchCapacity(s);
     s.staff.push({ id: 99, name: 'App', role: 'apprentice', rank: 'A', power: 5, wage: 100 });
+    // the help follows the roster now: booked into this phase, it lands
+    C.shopAssign(s, 99, {});
     return C.batchCapacity(s) > before;
   })());
 
@@ -2195,10 +2395,14 @@ section('Open Your Forge: employees do the work, not the maths');
     return a.ok && b.ok;
   })());
 
-  ok('an apprentice cannot be sent off on a job of their own', (() => {
+  ok('an apprentice is rostered like anyone else, and helps only their phase', (() => {
     const s = C.createShop({ rnd: C.mulberry32(33) });
     s.staff.push({ id: 1, name: 'App', role: 'apprentice', rank: 'C', power: 3, wage: 30 });
-    return C.shopAssign(s, 1, {}).ok === false;
+    const bare = C.batchCapacity(s);                       // unrostered: no help
+    if (!C.shopAssign(s, 1, {}, 'afternoon').ok) return false;
+    if (C.batchCapacity(s) !== bare) return false;         // it is not their phase yet
+    s.phaseIndex = 1;
+    return C.batchCapacity(s) === bare + 2;                // C rank, ceil(3/2)
   })());
 
   ok('a runner buys the order and the price is their own', (() => {

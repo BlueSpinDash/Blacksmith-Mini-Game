@@ -615,13 +615,71 @@ path, so the two cannot drift apart.
 | Store Hand | Carries finished goods out to the shelves |
 
 Ranks E→S set `power`, which drives every rank-sensitive roll, and wage. Better
-ranks are rarer among applicants as well as dearer. Only the Apprentice works
-alongside you; everyone else takes **one job a day**, which is why keeping the
-shop open all day takes two salespeople plus you.
+ranks are rarer among applicants as well as dearer. Everyone takes **one job a
+day**, which is why keeping the shop open all day takes two salespeople plus
+you.
 
 A Smith never quite matches a good run at the anvil — even an S-rank tops out
 short of 100 quality, verified by a check — so delegating production is a real
 trade rather than an upgrade.
+
+### The day's roster
+
+The **Staff** tab is the whole day on one screen: a section for each role, and
+inside it a box for every phase the game defines. No phase-by-phase screens, no
+handing work out three times.
+
+Opening it costs nothing and **filling a box costs nothing** — the player's own
+one action a phase is untouched. Work planned into a later phase simply sits
+there, and `runAssignments` does it when that phase closes, the same code path
+that always ran the work.
+
+A box is in one of four states, and they read differently at a glance:
+
+| State | What it means |
+| --- | --- |
+| empty | tap to pick somebody; disabled when nobody qualifies, or the phase has gone |
+| **upcoming** (amber) | booked and still ahead — the only state you may still change |
+| **active** (gold) | its phase is under way, so it is out of your hands |
+| **done** (dimmed) | worked; that employee is finished for the day |
+
+A box outlined in red is booked but **missing its orders** — a Runner with an
+empty shopping list, a Smith with no order, a Store Hand with bare storage — and
+says so before its phase arrives rather than failing silently when it runs.
+
+Tapping an empty box opens a picker of everyone who could take it: right role,
+employed, and with nothing else on today. Anyone already working is simply
+**absent** rather than shown greyed out. Each card carries their portrait, name,
+role, rank and what that rank buys in that role. With nobody eligible it says so
+plainly. Booking one removes them from every other picker on the day at once.
+
+Tapping a filled box opens the assignment: who, which phase, what they were told
+to do, and — while it is still upcoming — *Change orders*, *Change employee* and
+*Remove*. A swap only releases the old employee **once the replacement is
+actually chosen**; backing out of the picker leaves the original booking alone.
+
+The task controls are the player's own. A Runner's shopping list is the buy
+dialog, a Smith's order is the forge dialog, a Store Hand's picks are the shelf
+grid — the same screens, not copies of them. `rosterBook` is the one way a job
+reaches the roster from any of them.
+
+**The Apprentice is rostered like everyone else now**, and their help lands in
+the phase they were booked into rather than all day. `apprenticeBonus` reads
+the current phase's assignment, so an apprentice idle in the afternoon does
+nothing for a morning at the anvil. That is a change to an existing rule: before
+this, an apprentice on the books helped every batch you forged, whatever the
+hour.
+
+### Everyone has a face
+
+Staff wear the same portraits the customers do — same symbols, same framing,
+same palette — so the shop looks like one place. `face` is stored on the hire,
+and `staffFace` is the single read: it returns the stored one, or, for an
+employee saved before there were any, derives one from the two things that never
+change about them (id and name). That makes it stable across screens, reloads
+and save round trips without touching anything else in an old save, and the
+first save afterwards writes it down. The same face follows them through
+recruitment, the roster list, the pickers and their box.
 
 ### The week
 

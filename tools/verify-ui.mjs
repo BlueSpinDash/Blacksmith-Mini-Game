@@ -212,16 +212,45 @@ async function run() {
     });
     const click = async (i) => { document.querySelector(`.tile[data-i="${i}"]`).click(); await wait(); };
     const g = () => F.app.game;
+    // Drive one square to three strikes. A straight there-and-back is not
+    // always available - on a small board a bishop next door cannot send the
+    // hammer back the way it came - so the way home is searched for on the
+    // board's own movement graph, which is strongly connected by construction.
     const home = g().board.route[0];
     await click(home);
+    const pathHome = () => {
+      const size = g().board.size, n = size * size;
+      const from = g().current;
+      if (from === home) return [];
+      const prev = new Array(n).fill(-1);
+      const seen = new Array(n).fill(false);
+      seen[from] = true;
+      const queue = [from];
+      while (queue.length) {
+        const at = queue.shift();
+        for (const to of F.core.movesFrom(g().pieces[at], at, size)) {
+          if (seen[to] || g().pieces[to] == null) continue;
+          seen[to] = true;
+          prev[to] = at;
+          if (to === home) {
+            const out = [];
+            for (let step = home; step !== from; step = prev[step]) out.unshift(step);
+            return out;
+          }
+          queue.push(to);
+        }
+      }
+      return null;
+    };
     let target = null;
-    for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < 2 && !F.core.isOver(g()); pass++) {
       const away = F.core.legalTargets(g()).find((t) => t !== home);
       if (away == null) break;
       await click(away);
-      const back = F.core.legalTargets(g()).find((t) => t === home);
-      if (back == null) break;
-      await click(home);
+      const way = pathHome();
+      if (!way || !way.length) break;
+      for (const step of way) await click(step);
+      if (g().current !== home) break;
       target = home;
     }
     return { target, strikes: g().strikes.slice(), status: g().status, current: g().current };
@@ -2025,6 +2054,201 @@ async function run() {
     delegated.assigned && delegated.reports === 1 && delegated.kind === 'sales',
     JSON.stringify(delegated));
   ok('and only one phase a day', delegated.twice === false);
+
+  /* The day is planned from one screen: a section for each kind of work and a
+     box for every phase inside it. Driven through the real boxes. */
+  section('Open Your Forge: the day is planned from the Staff screen');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    // room for this cast, and a tier left above for the growth section below
+    sh.tier = 3; sh.gold = 9000; sh.day = 3; sh.phaseIndex = 0;
+    sh.assignments = {};
+    sh.staff = [
+      { id: 801, name: 'Mara Ashford', role: 'salesperson', rank: 'B', power: 4, wage: 60 },
+      { id: 802, name: 'Coll Tanner', role: 'salesperson', rank: 'D', power: 2, wage: 18 },
+      { id: 803, name: 'Bryn Hale', role: 'apprentice', rank: 'A', power: 5, wage: 104 },
+      { id: 804, name: 'Edda Vance', role: 'runner', rank: 'C', power: 3, wage: 34 },
+      { id: 805, name: 'Nell Rook', role: 'storehand', rank: 'C', power: 3, wage: 34 }
+    ];
+    sh.materials.bronze = 20;
+    C.addStorage(sh, C.lineKey('longsword', 'bronze'), 6, 90);
+    sh.shelf[C.lineKey('buckler', 'bronze')] = { qty: 8, quality: 90, price: 40 };
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+
+  const rosterView = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const roles = Array.from(document.querySelectorAll('#shPanel .roster-role')).map((r) => ({
+      head: r.querySelector('.roster-head b').textContent,
+      whens: Array.from(r.querySelectorAll('.rb-when')).map((w) => w.textContent),
+      boxes: r.querySelectorAll('.roster-box').length
+    }));
+    return { roles: roles, names: C.SHOP.roles.map((r) => r.name),
+      phases: C.SHOP.phases.map((p) => C.SHOP.phaseName[p]) };
+  });
+  ok('every role has a section of its own, in the game’s own order',
+    rosterView.roles.map((r) => r.head).join(',') === rosterView.names.join(','),
+    JSON.stringify(rosterView.roles.map((r) => r.head)));
+  ok('and a labelled box for every phase the game defines',
+    rosterView.roles.every((r) => r.boxes === rosterView.phases.length &&
+      r.whens.join(',') === rosterView.phases.join(',')),
+    JSON.stringify(rosterView.roles[0]));
+
+  // filling a box: tap, pick, done - and no phase is spent doing it
+  const beforePlan = await page.evaluate(() => ({
+    phase: window.CHECKSMITH.app.shop.phaseIndex, day: window.CHECKSMITH.app.shop.day }));
+  await page.click('#shPanel .roster-role:nth-child(3) .roster-box.empty:not(:disabled)');
+  await page.waitForTimeout(180);
+  const whoSheet = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    cards: Array.from(document.querySelectorAll('#shopSheetBody [data-pick-hand]'))
+      .map((c) => c.innerText.replace(/\s+/g, ' ').trim()),
+    faces: document.querySelectorAll('#shopSheetBody [data-pick-hand] .portrait').length
+  }));
+  ok('tapping an empty box asks who should work that phase',
+    /Who works the/.test(whoSheet.title) && whoSheet.cards.length === 2, JSON.stringify(whoSheet));
+  ok('each candidate shows a portrait, name, role, rank and what they bring',
+    whoSheet.faces === 2 && whoSheet.cards.every((t) =>
+      /Salesperson/.test(t) && /rank [EDCBAS]/.test(t) && /haggles/.test(t)),
+    JSON.stringify(whoSheet.cards));
+
+  await page.click('#shopSheetBody [data-pick-hand]');
+  await page.waitForTimeout(300);
+  const boxFilled = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const box = document.querySelector('#shPanel .roster-role:nth-child(3) .roster-box[data-hand]');
+    return { sheetShut: document.getElementById('shopSheet').hidden,
+      who: box && box.getAttribute('data-hand'),
+      face: !!(box && box.querySelector('.portrait')),
+      rank: box && box.querySelector('.rank') && box.querySelector('.rank').textContent,
+      state: box && box.querySelector('.rb-state').textContent,
+      phase: sh.phaseIndex, day: sh.day,
+      assigned: C.assignmentStatus(sh, 801) };
+  });
+  ok('picking somebody fills the box with their portrait, rank and status',
+    boxFilled.who === '801' && boxFilled.face && boxFilled.rank === 'B' &&
+    /Working now|Booked/.test(boxFilled.state), JSON.stringify(boxFilled));
+  ok('and planning the day costs the player no phase at all',
+    boxFilled.phase === beforePlan.phase && boxFilled.day === beforePlan.day,
+    JSON.stringify([beforePlan, boxFilled]));
+
+  // one job a day: they vanish from every other picker
+  const offRoster = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    return C.SHOP.phases.map((p) => C.staffCandidates(sh, 'salesperson', p).map((e) => e.id));
+  });
+  ok('a booked employee leaves every other picker for that day',
+    offRoster.every((ids) => ids.indexOf(801) < 0), JSON.stringify(offRoster));
+
+  // a filled box opens its details, and an upcoming one can be dropped
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.assignments = {};
+    F.core.shopAssign(F.app.shop, 804, { order: { bronze: 4 } }, 'evening');
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+  await page.click('#shPanel .roster-box[data-hand="804"]');
+  await page.waitForTimeout(180);
+  const bookDetails = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    buttons: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+  }));
+  ok('a filled box opens the assignment, with its task summarised',
+    /Evening/.test(bookDetails.title) && /Bronze/.test(bookDetails.body), JSON.stringify(bookDetails));
+  ok('and offers to change the orders, the employee, or drop it',
+    bookDetails.buttons.join(',') === 'Change orders,Change employee,Remove,Back',
+    JSON.stringify(bookDetails.buttons));
+
+  await page.click('#shopSheetActions button:nth-child(3)');
+  await page.waitForTimeout(250);
+  ok('dropping upcoming work frees them for every picker again', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    return C.assignmentStatus(sh, 804) === null &&
+      C.SHOP.phases.every((p) => C.staffCandidates(sh, 'runner', p).some((e) => e.id === 804));
+  }));
+
+  // backing out of a replacement keeps the original
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.core.shopAssign(F.app.shop, 801, {}, 'evening');
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+  await page.click('#shPanel .roster-box[data-hand="801"]');
+  await page.waitForTimeout(180);
+  await page.click('#shopSheetActions button:nth-child(2)');   // change employee
+  await page.waitForTimeout(180);
+  await page.click('#shopSheetActions button');                // Back, without picking
+  await page.waitForTimeout(200);
+  ok('backing out of a swap leaves the original booking alone', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const at = C.assignmentAt(sh, 'salesperson', 'evening');
+    return !!at && at.staff.id === 801;
+  }));
+
+  // a job with nothing to do is flagged before its phase arrives
+  ok('a job missing its orders is flagged on the box', await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.assignments = {};
+    F.core.shopAssign(F.app.shop, 804, { order: {} }, 'evening');   // empty list
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="804"]');
+    return !!box && box.classList.contains('needs') &&
+      /Needs orders/.test(box.querySelector('.rb-state').textContent);
+  }));
+
+  // active and done are locked, and look it
+  ok('work under way is locked and marked as such', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.assignments = {};
+    C.shopAssign(sh, 805, {}, C.SHOP.phases[sh.phaseIndex]);
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="805"]');
+    return !!box && box.classList.contains('active') &&
+      C.shopUnassign(sh, 805).ok === false;
+  }));
+  ok('and finished work is dimmed, its employee out for the day', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.assignments[805].done = true;
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="805"]');
+    return !!box && box.classList.contains('done') &&
+      C.SHOP.phases.every((p) => C.staffCandidates(sh, 'storehand', p).length === 0);
+  }));
+
+  // portraits are the customers' own art, and they do not wander
+  ok('staff wear the same portraits the customers do, and keep them',
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.assignments = {};
+      F.shopRender();
+      const ids = C.SHOP.customers.map((c) => c.id);
+      const first = sh.staff.map((e) => C.staffFace(e));
+      if (!first.every((f) => ids.indexOf(f) >= 0)) return false;
+      // the same answer on every screen, and after a save round trip
+      const again = sh.staff.map((e) => C.staffFace(e));
+      const back = C.restoreShop(C.serializeShop(sh), C.mulberry32(1));
+      const after = back.staff.map((e) => C.staffFace(e));
+      return first.join(',') === again.join(',') && first.join(',') === after.join(',');
+    }));
+
+  // the phone layout: three boxes across, readable labels, tappable
+  ok('the roster fits a phone without scrolling sideways', await page.evaluate(() => {
+    const panel = document.getElementById('shPanel');
+    if (panel.scrollWidth > panel.clientWidth + 1) return false;
+    const boxes = Array.from(document.querySelectorAll('#shPanel .roster-box'));
+    return boxes.length > 0 && boxes.every((b) => {
+      const r = b.getBoundingClientRect();
+      return r.width >= 44 && r.height >= 44 && r.right <= window.innerWidth + 1;
+    });
+  }));
+  ok('and every phase label is legible on it', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#shPanel .rb-when')).every((w) =>
+      w.textContent.trim().length > 0 && parseFloat(getComputedStyle(w).fontSize) >= 9)));
 
   section('Open Your Forge: growth and the weekly bill');
   const grown = await page.evaluate(() => {

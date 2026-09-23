@@ -709,6 +709,77 @@ input[type=range]{
 .pick-line .cnt{font-size:11.5px;color:var(--brass);font-variant-numeric:tabular-nums;}
 .pick-line .sub{font-size:10.5px;color:var(--muted);grid-column:1/-1;}
 
+/* ---------- the day's roster ----------
+   One section a role, one box a phase, built on the same frame as the shelf
+   boxes so the two screens read as one shop. The grid fills to its width,
+   which is what keeps three phases side by side on a phone and lets them
+   spread on anything wider. */
+.roster-role{margin:0 0 12px;}
+.roster-head{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 5px;
+}
+.roster-head b{font-size:13px;color:var(--text);letter-spacing:.02em;}
+.roster-head .what{font-size:11px;color:var(--muted);flex:1;min-width:120px;}
+.roster-grid{
+  display:grid;gap:6px;
+  /* 84px is what lets all three phases sit on one line at 320px, the
+     narrowest phone worth designing for; wider screens just spread. */
+  grid-template-columns:repeat(auto-fit,minmax(84px,1fr));
+}
+.roster-box{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-height:104px;padding:8px 5px;border-radius:10px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+  font:inherit;text-align:center;overflow:hidden;
+}
+/* the phase this box belongs to, said on the box and not only in a header */
+.roster-box .rb-when{
+  font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+}
+.roster-box .rb-name{
+  font-size:11px;line-height:1.2;color:var(--text);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.roster-box .rb-state{font-size:9.5px;letter-spacing:.06em;color:var(--muted);}
+/* 36px: below this the hooded and helmed faces stop reading as faces */
+.roster-box .portrait{width:36px;height:36px;border-radius:9px;}
+.roster-box .rank{margin:0;}
+.roster-box .rb-plus{font-size:19px;line-height:1;}
+.roster-box.empty{
+  background:transparent;border-style:dashed;border-color:var(--edge-soft);color:var(--muted);
+}
+.roster-box.empty:hover:not(:disabled){border-color:var(--ember);color:var(--ember);}
+.roster-box.empty:disabled{opacity:.3;cursor:default;}
+/* booked, and still ahead: the only state the player may still change */
+.roster-box.upcoming{border-color:var(--ember);
+  background:linear-gradient(180deg,#3a2415,#241a12);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.22);}
+.roster-box.upcoming .rb-when{color:var(--brass);}
+/* under way now: locked, and lit so you can see which phase you are in */
+.roster-box.active{border-color:var(--gold);
+  background:linear-gradient(180deg,#3d3116,#231d10);
+  box-shadow:inset 0 0 0 1px rgba(243,215,145,.3),0 0 10px rgba(243,215,145,.16);}
+.roster-box.active .rb-when,.roster-box.active .rb-state{color:var(--gold);}
+/* worked: done with, and dimmed out of the day */
+.roster-box.done{opacity:.5;cursor:default;}
+.roster-box.done .rb-state{color:var(--brass);}
+/* a job that will not run for want of instructions */
+.roster-box.needs{border-color:var(--danger);}
+.roster-box.needs .rb-state{color:var(--danger);}
+.roster-note{margin:0 0 9px;font-size:11.5px;color:var(--muted);line-height:1.5;}
+.roster-note b{color:var(--brass);}
+
+/* a candidate in the picker: the whole card is the button */
+.hand-line{
+  display:grid;grid-template-columns:auto 1fr;gap:2px 9px;align-items:center;
+  padding:9px 10px;border-radius:10px;cursor:pointer;font:inherit;text-align:left;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+}
+.hand-line:hover{border-color:var(--ember);}
+.hand-line .portrait{width:40px;height:40px;border-radius:10px;grid-row:span 2;}
+.hand-line .nm{font-size:13.5px;}
+.hand-line .sub{font-size:10.5px;color:var(--muted);}
+
 /* number steppers used by the buy and stock sheets */
 .step{display:flex;align-items:center;gap:5px;}
 .step button{
@@ -852,11 +923,13 @@ input[type=range]{
 .report dd.good{color:var(--brass);}
 
 .applicant{
-  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  display:grid;grid-template-columns:auto 1fr auto;gap:2px 9px;align-items:center;
   padding:8px 10px;border-radius:10px;background:var(--panel-2);border:1px solid var(--edge);
 }
 .applicant .nm{font-size:14px;color:var(--text);}
-.applicant .role{font-size:11px;color:var(--muted);grid-column:1/-1;}
+/* the face spans both rows, the way the counter draws a customer */
+.applicant .portrait{width:38px;height:38px;border-radius:10px;grid-row:span 2;}
+.applicant .role{font-size:11px;color:var(--muted);grid-column:2/-1;}
 .rank{
   display:inline-block;min-width:19px;padding:0 4px;border-radius:5px;margin-right:5px;
   font-size:11px;font-weight:700;text-align:center;color:#12131a;background:var(--muted);
@@ -1625,6 +1698,14 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        do <i>one</i> thing in each: forge, tend the store, buy materials, stock shelves, or go
        looking for staff. The three phases never increase. What grows is how much gets done inside
        them, because employees work alongside you.</p>
+    <p><b>Plan their whole day on the Staff tab.</b> A section for each role, a box for each phase,
+       and tapping a box picks who works it. <b>It costs you nothing</b> &mdash; your own one action
+       a phase is untouched &mdash; and each job runs by itself when its phase comes round. Everyone
+       takes <b>one job a day</b>, so booking somebody anywhere takes them off every other box.
+       Amber is booked and still yours to change, gold is under way and no longer yours, dimmed is
+       worked; a red outline means they are missing their orders and will not run without them.
+       An <b>Apprentice</b> is booked like anyone else, and helps the batch you forge in
+       <i>their</i> phase.</p>
     <p><b>The metal decides the puzzle.</b> Bronze needs <b>1</b> strike on every square, Silver
        <b>2</b>, Gold <b>3</b>, Mithril <b>4</b>, Adamantine <b>5</b> &mdash; and one strike past
        that ruins the square. You may leave a square half-finished and come back to it; what you
@@ -3620,10 +3701,17 @@ function staffCapacity(shop) { return shopTier(shop).staff; }
 function batchCapacity(shop) {
   return shopTier(shop).batch + shopUpgradeLevel(shop, 'bellows') + apprenticeBonus(shop);
 }
+/* An apprentice helps the batch you forge yourself. They are rostered like
+   everyone else now, so the help lands in the phase they were booked into
+   and nowhere else - an apprentice standing idle in the afternoon is no use
+   to a morning at the anvil. The best one on the bench that phase is the one
+   who counts; two do not stack. */
 function apprenticeBonus(shop) {
   let best = 0;
   for (const e of shop.staff) {
     if (e.role !== 'apprentice') continue;
+    const a = assignmentFor(shop, e.id);
+    if (!a || a.done) continue;
     best = Math.max(best, Math.ceil(shopRank(e.rank).power / 2));
   }
   return best;
@@ -3769,7 +3857,9 @@ function serializeShop(shop) {
     materials: Object.assign({}, shop.materials),
     storage: JSON.parse(JSON.stringify(shop.storage)),
     shelf: JSON.parse(JSON.stringify(shop.shelf)),
-    staff: shop.staff.map(function (e) { return Object.assign({}, e); }),
+    staff: shop.staff.map(function (e) {
+      return Object.assign({}, e, { face: staffFace(e) });
+    }),
     orders: shop.orders.map(function (o) { return Object.assign({}, o); }),
     assignments: JSON.parse(JSON.stringify(shop.assignments))
   };
@@ -3833,9 +3923,12 @@ function restoreShop(data, rnd) {
     const role = shopRole(raw && raw.role), rank = shopRank(raw && raw.rank);
     if (!role || !rank) continue;
     if (shop.staff.length >= staffCapacity(shop)) break;
-    shop.staff.push({ id: whole(raw.id, 1, 1e9, shop.nextId++), name: String(raw.name || 'Hand'),
+    const hand = { id: whole(raw.id, 1, 1e9, shop.nextId++), name: String(raw.name || 'Hand'),
       role: role.id, rank: rank.id, power: rank.power,
-      wage: whole(raw.wage, 1, 1e6, rank.wage) });
+      wage: whole(raw.wage, 1, 1e6, rank.wage), face: null };
+    // a hire from before there were faces is given one and keeps it from here
+    hand.face = staffFace(hand);
+    shop.staff.push(hand);
   }
 
   for (const raw of Array.isArray(data.orders) ? data.orders : []) {
@@ -4311,7 +4404,25 @@ function makeApplicant(shop, roleId, rankId) {
   // a little scatter so two C-rank runners are not the same hire
   const wage = Math.max(1, Math.round(rank.wage * (0.88 + shop.rnd() * 0.24)));
   return { id: shop.nextId++, name: first + ' ' + last, role: role.id,
-    rank: rank.id, power: rank.power, wage: wage };
+    rank: rank.id, power: rank.power, wage: wage,
+    face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id };
+}
+
+/* ---------- a face that stays theirs ----------------------------------
+   Staff are drawn with the same portraits the customers use - same framing,
+   same palette, same level of detail - so the shop looks like one place.
+   The face is stored on the hire, but a save written before there were any
+   still has to show the same person every time it is opened, so a missing
+   one is derived from the two things about an employee that never change.
+   Either way the answer is stable, which is the whole requirement. */
+function staffFace(employee) {
+  if (!employee) return SHOP.customers[0].id;
+  const kept = SHOP.customers.find(function (c) { return c.id === employee.face; });
+  if (kept) return kept.id;
+  const seed = String(employee.id) + '|' + String(employee.name);
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return SHOP.customers[h % SHOP.customers.length].id;
 }
 
 /* A better-known shop is worth applying to, so its pool starts higher up. */
@@ -4349,21 +4460,56 @@ function shopFire(shop, staffId) {
 function staffById(shop, id) { return shop.staff.find(function (e) { return e.id === id; }) || null; }
 function staffOfRole(shop, roleId) { return shop.staff.filter(function (e) { return e.role === roleId; }); }
 
-/* Assign a job to this phase. A salesperson may only work one phase a day,
-   which is why an all-day shop takes more than one of them. */
-function shopAssign(shop, staffId, job) {
+/* ---------- the day's roster -------------------------------------------
+   The whole day is planned at once rather than a phase at a time. An
+   assignment names the day, the phase it falls in and the job, and one
+   employee takes one job a day - so filling a box anywhere on the roster
+   takes that person off every other box for the rest of the day.
+
+   Nothing here advances time. The phase this was planned for comes around
+   on its own and runAssignments does the work then, which is why a job
+   sitting in a later phase is simply left alone until it arrives. */
+
+function phaseIndexOf(phase) { return SHOP.phases.indexOf(phase); }
+
+/* upcoming: still ahead. active: happening now, so no longer the player's
+   to move. done: worked, and its employee is finished for the day. */
+function assignmentStatus(shop, staffId) {
+  const a = shop.assignments[staffId];
+  if (!a || a.day !== shop.day) return null;
+  if (a.done) return 'done';
+  const at = phaseIndexOf(a.phase);
+  if (at < 0 || at < shop.phaseIndex) return 'done';   // its phase has gone by
+  return at === shop.phaseIndex ? 'active' : 'upcoming';
+}
+
+/* Book an employee into a phase. `phase` defaults to the one in progress,
+   which is what the older one-phase-at-a-time callers still pass. */
+function shopAssign(shop, staffId, job, phase) {
   const e = staffById(shop, staffId);
   if (!e) return { ok: false, why: 'not on the books' };
-  const role = shopRole(e.role);
-  if (!role.phase) return { ok: false, why: role.name + ' works alongside you, not on their own' };
+  const want = phase || shopPhase(shop);
+  const at = phaseIndexOf(want);
+  if (at < 0) return { ok: false, why: 'no such phase' };
+  if (at < shop.phaseIndex) return { ok: false, why: SHOP.phaseName[want] + ' has already gone by' };
   const already = shop.assignments[e.id];
   if (already && already.day === shop.day) {
-    return { ok: false, why: e.name + ' has already worked today' };
+    return { ok: false, why: e.name + ' already has work today' };
   }
-  shop.assignments[e.id] = { day: shop.day, phase: shopPhase(shop), job: job || {} };
+  shop.assignments[e.id] = { day: shop.day, phase: want, job: job || {}, done: false };
+  return { ok: true, phase: want };
+}
+
+/* Take an employee off the roster. Only work still ahead may be dropped:
+   once its phase is in progress the day has taken it out of your hands. */
+function shopUnassign(shop, staffId) {
+  const status = assignmentStatus(shop, staffId);
+  if (status === 'done') return { ok: false, why: 'that work is already finished' };
+  if (status === 'active') return { ok: false, why: 'that phase is already under way' };
+  delete shop.assignments[staffId];
   return { ok: true };
 }
-function shopUnassign(shop, staffId) { delete shop.assignments[staffId]; return { ok: true }; }
+
 function assignmentFor(shop, staffId) {
   const a = shop.assignments[staffId];
   return a && a.day === shop.day && a.phase === shopPhase(shop) ? a : null;
@@ -4372,6 +4518,28 @@ function assignedThisDay(shop, staffId) {
   const a = shop.assignments[staffId];
   return a && a.day === shop.day ? a : null;
 }
+
+/* Whoever is booked into this box, or null. */
+function assignmentAt(shop, roleId, phase) {
+  for (const e of shop.staff) {
+    if (e.role !== roleId) continue;
+    const a = shop.assignments[e.id];
+    if (a && a.day === shop.day && a.phase === phase) return { staff: e, job: a.job, done: !!a.done };
+  }
+  return null;
+}
+
+/* Who may still be dropped into this box: the right role, employed, and
+   with nothing else on today. Anyone already working is simply not a
+   candidate rather than a candidate shown greyed out. */
+function staffCandidates(shop, roleId, phase) {
+  const at = phaseIndexOf(phase);
+  if (at < 0 || at < shop.phaseIndex) return [];
+  return shop.staff.filter(function (e) {
+    return e.role === roleId && !assignedThisDay(shop, e.id);
+  });
+}
+
 
 /* ---------- what each role actually does -------------------------------- */
 
@@ -4448,6 +4616,14 @@ function runSalesperson(shop, employee) {
 }
 
 /* Run everybody assigned to the phase that is closing. */
+/* An apprentice does no job of their own: their phase at the anvil has
+   already been spent by then, through batchCapacity. This closes it out so
+   they read as finished for the day like anyone else. */
+function runApprentice(shop, employee) {
+  return { ok: true, kind: 'apprentice', who: employee.name, rank: employee.rank,
+    bonus: Math.ceil(shopRank(employee.rank).power / 2) };
+}
+
 function runAssignments(shop) {
   const reports = [];
   for (const e of shop.staff) {
@@ -4459,6 +4635,7 @@ function runAssignments(shop) {
     else if (e.role === 'runner') report = runRunner(shop, e, a.job.order || {});
     else if (e.role === 'smith') report = runSmith(shop, e, a.job.order || {});
     else if (e.role === 'storehand') report = runStoreHand(shop, e, a.job.order || {});
+    else if (e.role === 'apprentice') report = runApprentice(shop, e);
     if (report) reports.push(shopLog(shop, report));
   }
   return reports;
@@ -4480,6 +4657,12 @@ function shopEndDay(shop) {
   const delivered = [];
   shop.day += 1;
   shop.phaseIndex = 0;
+
+  // yesterday's roster is gone: everyone is free again, and nothing left
+  // unworked carries over to be worked twice
+  for (const id in shop.assignments) {
+    if (shop.assignments[id].day < shop.day) delete shop.assignments[id];
+  }
 
   // yesterday's production comes off the anvil and into storage
   const still = [];
@@ -4606,6 +4789,9 @@ const CHECKSMITH_CORE = {
   rollRank: rollRank, makeApplicant: makeApplicant, shopSearchStaff: shopSearchStaff,
   shopHire: shopHire, shopFire: shopFire, staffById: staffById, staffOfRole: staffOfRole,
   shopAssign: shopAssign, shopUnassign: shopUnassign, assignmentFor: assignmentFor,
+  assignmentStatus: assignmentStatus, assignmentAt: assignmentAt,
+  staffCandidates: staffCandidates, staffFace: staffFace,
+  phaseIndexOf: phaseIndexOf,
   assignedThisDay: assignedThisDay, runnerScale: runnerScale, runRunner: runRunner,
   smithQuality: smithQuality, runSmith: runSmith, runStoreHand: runStoreHand,
   runSalesperson: runSalesperson, runAssignments: runAssignments,
@@ -6242,7 +6428,10 @@ const SHOPUI = {
   order: null,        // the batch being worked at the anvil
   draft: {},          // scratch numbers for whichever dialog is open
   ringed: null,       // the customer the doorbell has already rung for
-  slot: null          // the shelf box being filled, while the picker is open
+  slot: null,         // the shelf box being filled, while the picker is open
+  planPhase: null,    // the phase the roster is booking into
+  replacing: null,    // whoever is being swapped out, while the picker is open
+  reorder: false      // changing a booking's orders rather than making one
 };
 
 function shop() { return App.shop; }
@@ -6535,6 +6724,215 @@ function rowHtml(name, sub, amount, button) {
     '</div>';
 }
 
+/* ---------- the day's roster -----------------------------------------
+   The whole day on one screen: a section for each kind of work, and inside
+   it a box for every phase of the day. Opening this or filling a box costs
+   nothing - the player's own one action a phase is untouched - and the work
+   happens by itself when its phase comes around.
+
+   The boxes are the shelf boxes in a different coat: same frame, same
+   spacing, same tap target, because they are the same gesture. */
+
+function staffPortrait(employee, extra) {
+  return portrait(staffFace(employee), extra);
+}
+
+/* What a job still needs before it can run, or '' when it is ready. */
+function jobGap(sh, employee, job) {
+  const order = (job && job.order) || {};
+  if (employee.role === 'runner') {
+    return purchaseCost(sh, order) > 0 ? '' : 'no shopping list yet';
+  }
+  if (employee.role === 'smith') {
+    if (!order.item || !order.material) return 'no order yet';
+    const check = forgeCheck(sh, order.item, order.material, order.qty || 1);
+    return check.ok ? '' : check.why;
+  }
+  if (employee.role === 'storehand') {
+    return countStorage(sh) > 0 ? '' : 'nothing in storage to carry out';
+  }
+  return '';
+}
+
+/* One line saying what this employee has been told to do. */
+function jobSummary(sh, employee, job) {
+  const order = (job && job.order) || {};
+  if (employee.role === 'runner') {
+    const parts = [];
+    for (const m of SHOP.materials) if (order[m.id] > 0) parts.push(order[m.id] + ' ' + m.name);
+    return parts.length ? parts.join(', ') + ' · about ' +
+      coin(purchaseCost(sh, order)) + 'g' : 'nothing on the list';
+  }
+  if (employee.role === 'smith') {
+    if (!order.item || !order.material) return 'no order given';
+    return (order.qty || 1) + ' × ' + lineName(lineKey(order.item, order.material));
+  }
+  if (employee.role === 'storehand') {
+    const keys = (order.keys || []).filter(function (k) { return !!sh.storage[k]; });
+    return keys.length ? keys.map(lineName).join(', ')
+      : 'whatever is waiting in storage';
+  }
+  if (employee.role === 'salesperson') return 'minds the counter for the phase';
+  return 'at the anvil beside you';
+}
+
+function rosterBox(sh, role, phase) {
+  const when = '<span class="rb-when">' + esc(SHOP.phaseName[phase]) + '</span>';
+  const held = assignmentAt(sh, role.id, phase);
+  const past = phaseIndexOf(phase) < sh.phaseIndex;
+
+  if (!held) {
+    const open = staffCandidates(sh, role.id, phase).length > 0;
+    return '<button class="roster-box empty" type="button"' +
+      (open ? ' data-slot-role="' + role.id + '" data-slot-phase="' + phase + '"' : ' disabled') +
+      ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name +
+        (open ? ', assign employee' : past ? ', this phase has gone by' : ', nobody free')) + '">' +
+      when + '<span class="rb-plus">+</span>' +
+      '<span class="rb-name">' + (open ? 'Assign employee' : past ? '—' : 'Nobody free') +
+      '</span></button>';
+  }
+
+  const e = held.staff;
+  const status = assignmentStatus(sh, e.id) || 'done';
+  const gap = status === 'done' ? '' : jobGap(sh, e, held.job);
+  const word = status === 'done' ? 'Worked' : status === 'active' ? 'Working now' : 'Booked';
+  return '<button class="roster-box ' + status + (gap ? ' needs' : '') + '" type="button"' +
+    ' data-hand="' + e.id + '"' +
+    ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + ', ' + e.name +
+      ', rank ' + e.rank + ', ' + (gap ? word + ', ' + gap : word)) + '">' +
+    when + staffPortrait(e) +
+    '<span class="rb-name"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
+    esc(e.name.split(' ')[0]) + '</span>' +
+    '<span class="rb-state">' + esc(gap ? 'Needs orders' : word) + '</span>' +
+    '</button>';
+}
+
+function shopRosterHtml(sh) {
+  let html = '<p class="shop-cap">Staff ' + sh.staff.length + ' / ' + staffCapacity(sh) +
+    ' · wages ' + coin(wageBill(sh)) + 'g a week · day ' + sh.day + ', ' +
+    esc(shopPhaseName(sh)) + '</p>';
+  if (!sh.staff.length) {
+    return html + '<p class="shop-empty">You work alone. Search for employees and their day is ' +
+      'planned here.</p>';
+  }
+  html += '<p class="roster-note">Plan the whole day at once. Booking work costs you ' +
+    '<b>nothing</b> — your own one action a phase is untouched, and each job runs by itself ' +
+    'when its phase comes round. One job each a day.</p>';
+
+  for (const role of SHOP.roles) {
+    const mine = staffOfRole(sh, role.id);
+    html += '<div class="roster-role"><div class="roster-head"><b>' + esc(role.name) + '</b>' +
+      '<span class="what">' + esc(role.blurb) + '</span>' +
+      '<span class="what" style="flex:0 0 auto">' + mine.length +
+      (mine.length === 1 ? ' hired' : ' hired') + '</span></div>' +
+      '<div class="roster-grid">';
+    for (const phase of SHOP.phases) html += rosterBox(sh, role, phase);
+    html += '</div></div>';
+  }
+  html += '<div class="shop-list">';
+  // everybody on the books, under the same face they wear on the roster
+  for (const e of sh.staff) {
+    const held = assignedThisDay(sh, e.id);
+    const state = held
+      ? (assignmentStatus(sh, e.id) === 'done' ? 'worked the ' : 'down for the ') +
+        SHOP.phaseName[held.phase].toLowerCase()
+      : 'free today';
+    html += '<div class="applicant">' + staffPortrait(e) +
+      '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
+      ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
+      '<button data-fire="' + e.id + '">Let go</button>' +
+      '<span class="role">' + esc(shopRole(e.role).name) + ' · ' + coin(e.wage) +
+      'g a week · ' + esc(state) + '</span></div>';
+  }
+  return html + '</div>';
+}
+
+/* ---------- filling a box ---------- */
+function shopOpenHandPicker(roleId, phase) {
+  const sh = shop();
+  const role = shopRole(roleId);
+  const free = staffCandidates(sh, roleId, phase);
+  SHOPUI.planPhase = phase;
+  if (!free.length) {
+    shopSheet(SHOP.phaseName[phase] + ' · ' + role.name,
+      '<p class="shop-empty">No available employees for this role.</p>',
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  let html = '<p class="roster-note">' + esc(role.blurb) + '</p><div class="shop-list">';
+  for (const e of free) {
+    html += '<button class="hand-line" type="button" data-pick-hand="' + e.id + '">' +
+      staffPortrait(e) +
+      '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
+      esc(e.name) + '</span>' +
+      '<span class="sub">' + esc(role.name) + ' · rank ' + e.rank + ' · ' +
+      esc(rankBenefit(role.id, e)) + '</span></button>';
+  }
+  shopSheet('Who works the ' + SHOP.phaseName[phase].toLowerCase() + '?', html + '</div>',
+    [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+}
+
+/* What this rank buys you in this role, in a few words. */
+function rankBenefit(roleId, e) {
+  const power = shopRank(e.rank).power;
+  if (roleId === 'apprentice') return '+' + Math.ceil(power / 2) + ' to a batch you forge';
+  if (roleId === 'runner') return 'buys sharper the higher the rank';
+  // the midpoint of their roll, with the luck taken out of it
+  if (roleId === 'smith') return 'works to about ' + (34 + power * 9) + ' quality';
+  if (roleId === 'salesperson') return 'haggles with their own rank behind it';
+  if (roleId === 'storehand') return 'carries ' + (4 + power * 2) + ' pieces a phase';
+  return '';
+}
+
+/* ---------- a box already filled ---------- */
+function shopOpenAssignment(staffId) {
+  const sh = shop();
+  const e = staffById(sh, staffId);
+  if (!e) return;
+  const a = assignedThisDay(sh, e.id);
+  if (!a) return;
+  const status = assignmentStatus(sh, e.id) || 'done';
+  const role = shopRole(e.role);
+  const gap = status === 'done' ? '' : jobGap(sh, e, a.job);
+  const word = status === 'done' ? 'Worked this day'
+    : status === 'active' ? 'Under way now — no longer yours to move'
+      : 'Booked for ' + SHOP.phaseName[a.phase];
+
+  const html = '<div class="hand-line" style="cursor:default;margin-bottom:10px">' +
+    staffPortrait(e, 'lg') +
+    '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
+    esc(e.name) + '</span>' +
+    '<span class="sub">' + esc(role.name) + ' · ' + coin(e.wage) + 'g a week</span></div>' +
+    '<div class="sheet-total"><span>' + esc(SHOP.phaseName[a.phase]) + '</span><b>' +
+    esc(word) + '</b></div>' +
+    '<div class="sheet-total"><span>Told to</span><b>' + esc(jobSummary(sh, e, a.job)) +
+    '</b></div>' +
+    (gap ? '<p class="roster-note" style="color:var(--danger)">This will not run: ' + esc(gap) +
+      '. Give them their orders before ' + esc(SHOP.phaseName[a.phase].toLowerCase()) + '.</p>'
+      : '');
+
+  const buttons = [];
+  if (status === 'upcoming') {
+    if (role.phase) {
+      buttons.push({ label: gap ? 'Give orders' : 'Change orders', primary: !!gap,
+        onClick: function () { SHOPUI.planPhase = a.phase; shopSendStaff(e.id, true); } });
+    }
+    buttons.push({ label: 'Change employee', onClick: function () {
+      SHOPUI.replacing = e.id;
+      shopOpenHandPicker(e.role, a.phase);
+    } });
+    buttons.push({ label: 'Remove', onClick: function () {
+      const res = shopUnassign(sh, e.id);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      shopSheetClose();
+      shopRender();
+      shopToast(e.name + ' is free again.');
+    } });
+  }
+  buttons.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+  shopSheet(SHOP.phaseName[a.phase] + ' · ' + role.name, html, buttons);
+}
+
 function shopRenderPanel() {
   const sh = shop();
   const host = $('shPanel');
@@ -6598,36 +6996,7 @@ function shopRenderPanel() {
     }
     html += '</div>';
   } else if (SHOPUI.tab === 'staff') {
-    html += '<p class="shop-cap">Staff ' + sh.staff.length + ' / ' + staffCapacity(sh) +
-      ' · wages ' + coin(wageBill(sh)) + 'g a week</p>';
-    if (sh.staff.length) {
-      // Handing out work costs no phase of your own: that is the whole point
-      // of having staff.
-      html += '<div class="shop-row" style="margin-bottom:6px">' +
-        '<span class="nm">Hand out this phase’s work</span>' +
-        '<button data-delegate="1">Assign</button>' +
-        '<span class="sub">Each employee can take one job a day, worked alongside you.</span>' +
-        '</div>';
-    }
-    if (!sh.staff.length) {
-      html += '<p class="shop-empty">You work alone. Search for employees to get more done in a day.</p>';
-    } else {
-      html += '<div class="shop-list">';
-      for (const e of sh.staff) {
-        const role = shopRole(e.role);
-        const a = assignedThisDay(sh, e.id);
-        const status = !role.phase ? 'At the anvil with you'
-          : a ? 'Working ' + SHOP.phaseName[a.phase] : 'Free today';
-        html += '<div class="shop-row">' +
-          '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
-          ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
-          '<button data-fire="' + e.id + '">Let go</button>' +
-          '<span class="sub">' + esc(role.name) + ' · ' + coin(e.wage) + 'g a week · ' +
-          esc(status) + '</span>' +
-          '</div>';
-      }
-      html += '</div>';
-    }
+    html += shopRosterHtml(sh);
   } else {
     const tier = shopTier(sh), next = shopNextTier(sh);
     html += '<div class="shop-list">';
@@ -6711,7 +7080,12 @@ function shopSheet(title, bodyHtml, buttons) {
     if (back) back.focus();
   }
 }
-function shopSheetClose() { hide($('shopSheet')); }
+function shopSheetClose() {
+  // a swap that was never completed is not a swap: the original booking stays
+  SHOPUI.replacing = null;
+  SHOPUI.reorder = false;
+  hide($('shopSheet'));
+}
 
 function stepper(id, value, min, max) {
   return '<div class="step">' +
@@ -6773,11 +7147,12 @@ function shopOpenBuy(runner) {
 function shopConfirmBuy(runner) {
   const sh = shop();
   if (runner) {
-    const res = shopAssign(sh, runner.id, { order: Object.assign({}, SHOPUI.draft) });
-    if (!res.ok) { shopToast(res.why); return; }
+    const res = rosterBook(runner, { order: Object.assign({}, SHOPUI.draft) });
+    if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
     shopSheetClose();
     shopRender();
-    announce(runner.name + ' has gone to market.');
+    announce(runner.name + ' will go to market in the ' +
+      SHOP.phaseName[res.phase].toLowerCase() + '.');
     return;
   }
   const res = shopBuyMaterials(sh, SHOPUI.draft);
@@ -6882,11 +7257,12 @@ function shopOpenForge(smith) {
 
 function shopGiveSmithOrder(smith) {
   const d = SHOPUI.draft;
-  const res = shopAssign(shop(), smith.id, { order: { item: d.item, material: d.material, qty: d.qty } });
-  if (!res.ok) { shopToast(res.why); return; }
+  const res = rosterBook(smith, { order: { item: d.item, material: d.material, qty: d.qty } });
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   shopSheetClose();
   shopRender();
-  announce(smith.name + ' has taken the order.');
+  announce(smith.name + ' has the order for the ' +
+    SHOP.phaseName[res.phase].toLowerCase() + '.');
 }
 
 /* ---------- stock the shelves ---------- */
@@ -7026,12 +7402,13 @@ function shopConfirmStock(hand) {
   const counts = stockPicked();
   if (hand) {
     const keys = Object.keys(counts);
-    const res = shopAssign(sh, hand.id, { order: { keys: keys } });
-    if (!res.ok) { shopToast(res.why); return; }
+    const res = rosterBook(hand, { order: { keys: keys } });
+    if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
     SOUNDS.shelve();
     shopSheetClose();
     shopRender();
-    announce(hand.name + ' will stock the shelves.');
+    announce(hand.name + ' will stock the shelves in the ' +
+      SHOP.phaseName[res.phase].toLowerCase() + '.');
     return;
   }
   let moved = 0;
@@ -7087,7 +7464,8 @@ function shopOpenHire(applicants) {
   for (const a of applicants) {
     const role = shopRole(a.role);
     const full = sh.staff.length >= staffCapacity(sh);
-    html += '<div class="applicant">' +
+    // the face on the card is the face they will keep for good
+    html += '<div class="applicant">' + staffPortrait(a) +
       '<span class="nm"><span class="rank" data-r="' + a.rank + '" aria-label="' + a.rank +
       ' rank">' + a.rank + '</span> ' + esc(a.name) + '</span>' +
       '<button data-hire="' + a.id + '"' + (full ? ' disabled' : '') + '>' +
@@ -7525,49 +7903,46 @@ function shopForgeFailed() {
 }
 
 /* ---------- handing work to staff -------------------------------------- */
-function shopOpenDelegate() {
-  const sh = shop();
-  const free = sh.staff.filter(function (e) {
-    return shopRole(e.role).phase && !assignedThisDay(sh, e.id);
-  });
-  if (!free.length) {
-    shopSheet('Nobody free', '<p class="shop-empty">' +
-      (sh.staff.length ? 'Everyone who can work a phase has already worked today.'
-        : 'You have no staff yet. Search for employees to get more done in a day.') + '</p>',
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
-    return;
-  }
-  let html = '<p style="margin:0 0 9px;font-size:12.5px;color:var(--muted)">' +
-    'They work this phase alongside whatever you do. Each can take one job a day.</p>' +
-    '<div class="shop-list">';
-  for (const e of free) {
-    const role = shopRole(e.role);
-    html += '<div class="applicant">' +
-      '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
-      ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
-      '<button data-send="' + e.id + '">Set to work</button>' +
-      '<span class="role">' + esc(role.name) + ' · ' + esc(role.blurb) + '</span>' +
-      '</div>';
-  }
-  html += '</div>';
-  shopSheet('Hand out the work', html, [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
-}
-
-function shopSendStaff(id) {
+/* Book somebody into the phase the roster is pointing at. The roles that
+   need instructions hand off to their own dialog, which is the same dialog
+   the player uses for the same job - nothing here is a second copy of it.
+   `again` means they are already booked and only their orders are changing,
+   so the booking is not made twice. */
+function shopSendStaff(id, again) {
   const sh = shop();
   const e = staffById(sh, id);
   if (!e) return;
-  if (e.role === 'salesperson') {
-    const res = shopAssign(sh, e.id, {});
-    if (!res.ok) { shopToast(res.why); return; }
+  const phase = SHOPUI.planPhase || shopPhase(sh);
+  SHOPUI.planPhase = phase;
+  SHOPUI.reorder = !!again;
+  if (e.role === 'salesperson' || e.role === 'apprentice') {
+    if (!again) {
+      const res = shopAssign(sh, e.id, {}, phase);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+    }
     shopSheetClose();
     shopRender();
-    announce(e.name + ' will mind the counter this phase.');
+    announce(e.name + ' is down for the ' + SHOP.phaseName[phase].toLowerCase() + '.');
     return;
   }
   if (e.role === 'runner') { SHOPUI.draft = {}; shopOpenBuy(e); return; }
   if (e.role === 'smith') { shopOpenForge(e); return; }
   if (e.role === 'storehand') { shopOpenStock(e); return; }
+}
+
+/* One way in for every job a rostered employee is given: book them into the
+   phase the roster asked for, or just replace the orders of a booking they
+   already hold. */
+function rosterBook(employee, job) {
+  const sh = shop();
+  const phase = SHOPUI.planPhase || shopPhase(sh);
+  if (SHOPUI.reorder) {
+    const a = assignedThisDay(sh, employee.id);
+    if (!a || a.done) return { ok: false, why: 'that work is already finished' };
+    a.job = job || {};
+    return { ok: true, phase: a.phase };
+  }
+  return shopAssign(sh, employee.id, job, phase);
 }
 
 /* ---------- starting and leaving --------------------------------------- */
@@ -7662,8 +8037,15 @@ function wireShop() {
       shopRender();
       return;
     }
-    const del = t.closest('[data-delegate]');
-    if (del) { shopOpenDelegate(); return; }
+    // the roster: an empty box opens the picker, a filled one its details
+    const slot = t.closest('[data-slot-role]');
+    if (slot && !slot.disabled) {
+      SHOPUI.replacing = null;
+      shopOpenHandPicker(slot.dataset.slotRole, slot.dataset.slotPhase);
+      return;
+    }
+    const hand = t.closest('[data-hand]');
+    if (hand && !hand.disabled) { shopOpenAssignment(Number(hand.dataset.hand)); return; }
     const ex = t.closest('[data-expand]');
     if (ex && !ex.disabled) {
       const res = shopExpand(shop());
@@ -7739,6 +8121,17 @@ function wireShop() {
       SHOPUI.slot = null;
       SOUNDS.shelve();
       if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    // picking somebody out of the roster's candidate list. A replacement only
+    // frees the one being swapped out once the new one is actually chosen -
+    // backing out of the picker leaves the original booking alone.
+    const picked = e.target.closest ? e.target.closest('[data-pick-hand]') : null;
+    if (picked) {
+      const out = SHOPUI.replacing;
+      if (out) shopUnassign(shop(), out);
+      SHOPUI.replacing = null;
+      shopSendStaff(Number(picked.dataset.pickHand), false);
       return;
     }
     const send = e.target.closest ? e.target.closest('[data-send]') : null;
