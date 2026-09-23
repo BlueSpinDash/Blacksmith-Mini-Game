@@ -266,21 +266,92 @@ route **restarts the route from that square alone** — no bonus, multiplier bac
 to 1.0×. Bouncing between two squares pays its Pair once and is then locked until
 you strike elsewhere, so there is no farming a two-square loop for points.
 
-### Upgrades
+### Powers
 
-| Upgrade | Cost | Effect |
-| --- | --- | --- |
-| Reforge | 80 | Change one unbroken rival square to a different symbol |
-| Row Shuffle | 60 | Shuffle the symbols along one rival row |
-| Shatter | 40 | Crack an intact rival square |
-| Repair | 50 | Clear a crack from one of your own squares |
+Six, and every one of them moves metal on a board. One a turn, spent before your
+strike.
+
+| Power | Cost | Picks | Effect |
+| --- | --- | --- | --- |
+| Shatter | 40 | 1 | Crack an intact rival square |
+| Repair | 50 | 1 | Clear the damage from one of your own |
+| Double Shatter | 90 | 2 | Crack two rival squares at once |
+| Reforge | 100 | — | Reshape the square the rival is **standing on** |
+| Master Repair | 140 | — | Clear every damaged square of one symbol on your board |
+| Triple Shatter | 150 | 3 | Crack three rival squares at once |
+
+**The multi-square powers cost more than buying the single one that many times**
+— two Shatters is 80, Double Shatter is 90. A turn only ever carries *one*
+power, so the premium buys **tempo**, which is the scarcest thing in the match,
+not raw damage.
 
 **Repair costs 50, not the prototype's 30.** At 30 it is strictly cheaper to undo
 damage than to cause it, so two competent players trade shatter-for-repair
 forever and no board ever degrades: self-play measured **0 of 12 matches reaching
 an end**. Sweeping the cost, every match ends from 45 upward; at 50, **127 of 128
-matches terminate**. The spec invites tuning prototype numbers, and this one
-needed it. Everything is in `CONFIG.versus.upgrades`.
+matches terminate**.
+
+**Reforge costs 100, above two cracks.** It measures as by far the strongest
+thing on the list: a well-aimed one is worth several times what a Shatter is
+(mean gain 6.8 against Shatter's 0.9, on the same evaluator). At 80 the rival
+bought nothing else; at 120 it never bought one at all. 100 is where all four of
+the powers it can reach see real use.
+
+Everything is in `CONFIG.versus.upgrades`.
+
+#### Reforge redirects; it never executes
+
+Reforge lands on whichever square the rival is standing on — there is no square
+to choose, only a symbol — and **it can never be the blow that ends the match**.
+`versusReforgeOptions` filters out any replacement that would leave the rival
+with nowhere legal to go, checked against the board as it actually stands with
+its holes in it, so the option is not merely disabled in the interface: it is
+never offered, and buying it by hand is refused. What it is *for* is steering
+them onto cracked squares, into corners, or off a symbol that was serving them
+well. A core check walks 40 boards, every square the rival could stand on and
+every symbol offered there, and asserts none of them strands anybody.
+
+#### Targeting
+
+A power is armed from the rail, not bought. Valid targets light up, everything
+else on that board dims to 38%, and the prompt says what is wanted — *Select 2
+squares*, then *1 square remaining*. A chosen square goes brass rather than
+blue, so "picked" and "pickable" are never the same light, and tapping it again
+takes it back. **Nothing is charged until the last pick lands**, so cancelling
+half way through costs nothing at all. Already-damaged and broken squares are
+not offered to Shatter; only damaged ones are offered to either Repair.
+
+#### Banners
+
+Every power announces itself: the name in large type, a line of context under
+it (`3 squares cracked`, `Rook → Bishop`, `2 squares of Bishop mended`), in for
+1.5 seconds and out. The rival's come in red and read *Rival: Shatter — on your
+board*, because the one thing a player must never miss is the opponent doing
+something to their board. `pointer-events` is off throughout, so a banner can
+never eat a tap meant for a square beneath it, and it sits over the turn header
+rather than the first row of squares so the damage it is announcing stays
+visible.
+
+#### What the rival does with them
+
+The rival judges every power the same way: clone the match, buy it there, and
+see how much better the position got. `versusEvaluate` already counts points, so
+a gain is what the power does **after paying for itself** — about +0.9 for one
+crack, +1.4 for two, +1.5 for three, and far more for a good Reforge.
+
+Two things make it play with the whole set rather than the cheapest item.
+`ai.minGain` (0.9) is what a power must be worth before it is worth a turn's
+allowance at all: without it the rival fires a 40-point Shatter every single
+turn and so never holds the 100 for a Reforge. And the multi-square powers are
+chosen **greedily** — best square, then the best second given the first —
+because trying every pair and triple on a 6×6 board is 630 and 7,140 clones,
+far past the AI's time budget.
+
+Measured over 42 self-played matches at 5×5: all 42 reach an end, and the rival
+spends on Shatter, Repair, Reforge and Double Shatter in real numbers. It does
+not reach for Triple Shatter or Master Repair against another copy of itself —
+Master Repair only pays once somebody has multi-shattered several squares of one
+symbol on its board, which a human does and its mirror does not.
 
 ### Damage is a four-state machine
 
@@ -310,8 +381,8 @@ Each strike runs in a fixed order: validate → land the blow and move the marke
 arm a cracked destination → break the vacated square if it was armed → award
 points → **recalculate legal destinations, after the departure square has
 broken**. No destinations means that smith has lost. Walling yourself in with your
-own upgrade loses immediately, and an upgrade that strands the rival wins without
-a strike.
+own power loses immediately, and a Shatter that strands the rival wins without a
+strike. Reforge is the one exception and never can — see above.
 
 ### The rival
 

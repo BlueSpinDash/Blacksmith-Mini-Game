@@ -1116,7 +1116,7 @@ async function run() {
   ok('no forge or endless chrome leaks into the match',
     Object.entries(leftovers).every(([k, v]) => (k === 'versusView' ? v === true : v === false)),
     JSON.stringify(leftovers));
-  ok('all four upgrades are offered', vs.shop === 4);
+  ok('every power is offered', vs.shop === 6, String(vs.shop));
   ok('the human moves first', vs.turn === 'you');
   await page.evaluate(() => {
     const C = window.CHECKSMITH.core;
@@ -1286,6 +1286,242 @@ async function run() {
       document.querySelector('.board-wrap').hidden === false;
   }));
 
+
+  /* The six powers, driven through the real board: targeting, the running
+     count for the multi-square ones, the banners, and Reforge's promise
+     that it can never be the blow that ends the match. */
+  section('Versus: the powers on the board');
+  // the section above plays its match out, so this one needs a board of its own
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+    window.CHECKSMITH.app.vsSize = 5;
+    window.CHECKSMITH.app.vsFoe = 'journeyman';
+    window.CHECKSMITH.vsStart();
+  });
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.match, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
+
+  const armPower = async (id) => {
+    await page.evaluate((p) => {
+      const F = window.CHECKSMITH, m = F.app.match;
+      m.turn = 'you'; m.upgradeUsed = false; m.you.points = 5000;
+      F.vs.targeting = null;
+      F.vs.focus = 'none';
+      F.vsRender();
+    }, id);
+    await page.click(`#vsShop [data-buy="${id}"]`);
+    await page.waitForTimeout(90);
+  };
+  const boardState = () => page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    return { prompt: document.getElementById('vsPromptText').textContent,
+      targets: document.querySelectorAll('#foeBoard .tile[data-target="1"]').length,
+      mineTargets: document.querySelectorAll('#youBoard .tile[data-target="1"]').length,
+      chosen: document.querySelectorAll('.tile[data-chosen="1"]').length,
+      aimingFoe: document.getElementById('foeBoard').dataset.aiming,
+      aimingYou: document.getElementById('youBoard').dataset.aiming,
+      points: F.app.match.you.points, used: F.app.match.upgradeUsed };
+  });
+  const tapFoe = async (i) => {
+    await page.evaluate((k) => document.querySelector(`#foeBoard .tile[data-i="${k}"]`).click(), i);
+    await page.waitForTimeout(110);
+  };
+
+  ok('every power in the new set is on the rail, and no old one is',
+    await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll('#vsShop [data-buy]'))
+        .map((b) => b.dataset.buy);
+      return ids.join(',') === 'shatter,repair,doubleShatter,reforge,masterRepair,tripleShatter';
+    }));
+
+  // ---- Shatter: one square, banner, and the crack that does not vanish
+  await armPower('shatter');
+  const aiming = await boardState();
+  ok('arming a power lights the valid targets and dims the rest',
+    aiming.targets > 0 && aiming.aimingFoe === '1' && aiming.aimingYou === '0' &&
+    /intact square/.test(aiming.prompt), JSON.stringify(aiming));
+  const pointsBefore = aiming.points;
+  const firstTarget = await page.evaluate(() =>
+    Number(document.querySelector('#foeBoard .tile[data-target="1"]').dataset.i));
+  await tapFoe(firstTarget);
+  const afterShatter = await page.evaluate((i) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return { state: F.app.match.foe.states[i], points: F.app.match.you.points,
+      banner: !document.getElementById('vsBanner').hidden,
+      word: document.getElementById('vsBannerWord').textContent,
+      side: document.getElementById('vsBanner').dataset.side,
+      cracked: C.SQ_CRACKED };
+  }, firstTarget);
+  ok('Shatter cracks the square it was pointed at',
+    afterShatter.state === afterShatter.cracked, JSON.stringify(afterShatter));
+  ok('and only then are the points spent',
+    afterShatter.points === pointsBefore - 40, JSON.stringify(afterShatter));
+  ok('a banner announces it, in the player’s own colour',
+    afterShatter.banner && /Shatter/.test(afterShatter.word) && afterShatter.side === 'you',
+    JSON.stringify(afterShatter));
+
+  // ---- Double Shatter: the running count, taking a pick back, cancelling
+  await armPower('doubleShatter');
+  const two0 = await boardState();
+  ok('a two-square power says how many to select', /Select 2 squares/.test(two0.prompt), two0.prompt);
+  const spots = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(spots[0]);
+  const two1 = await boardState();
+  ok('after one pick it counts down, and marks the square chosen',
+    /1 square remaining/.test(two1.prompt) && two1.chosen === 1 && two1.used === false,
+    JSON.stringify(two1));
+  ok('and nothing has been spent yet', two1.points === two0.points && two1.used === false,
+    JSON.stringify([two0.points, two1.points]));
+  await tapFoe(spots[0]);
+  const two2 = await boardState();
+  ok('tapping a chosen square takes it back',
+    /Select 2 squares/.test(two2.prompt) && two2.chosen === 0, JSON.stringify(two2));
+  await tapFoe(spots[0]);
+  await page.click('#vsCancelBtn');
+  await page.waitForTimeout(90);
+  ok('cancelling half way spends nothing at all', await page.evaluate((p) =>
+    window.CHECKSMITH.app.match.you.points === p &&
+    window.CHECKSMITH.app.match.upgradeUsed === false &&
+    document.querySelectorAll('.tile[data-chosen="1"]').length === 0, two0.points));
+
+  await armPower('doubleShatter');
+  const pair = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(pair[0]);
+  await tapFoe(pair[1]);
+  ok('the second pick resolves it, cracking both', await page.evaluate((ab) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return F.app.match.foe.states[ab[0]] === C.SQ_CRACKED &&
+      F.app.match.foe.states[ab[1]] === C.SQ_CRACKED &&
+      /Double Shatter/.test(document.getElementById('vsBannerWord').textContent);
+  }, [pair[0], pair[1]]));
+
+  // ---- Triple Shatter
+  await armPower('tripleShatter');
+  const trio = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(trio[0]);
+  await tapFoe(trio[1]);
+  const mid = await boardState();
+  ok('a three-square power counts down the same way',
+    /1 square remaining/.test(mid.prompt) && mid.chosen === 2, JSON.stringify(mid));
+  await tapFoe(trio[2]);
+  ok('and cracks all three at once', await page.evaluate((abc) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return abc.every((i) => F.app.match.foe.states[i] === C.SQ_CRACKED) &&
+      /Triple Shatter/.test(document.getElementById('vsBannerWord').textContent);
+  }, trio.slice(0, 3)));
+
+  // ---- Repair and Master Repair, on the player's own board
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.pieces[1] = 'B'; m.you.pieces[2] = 'B'; m.you.pieces[3] = 'K';
+    m.you.states[1] = C.SQ_CRACKED; m.you.states[2] = C.SQ_ARMED; m.you.states[3] = C.SQ_CRACKED;
+    F.vsRender();
+  });
+  await armPower('repair');
+  const mending = await boardState();
+  ok('a repair aims at your own board, not the rival’s',
+    mending.mineTargets === 3 && mending.targets === 0 && mending.aimingYou === '1',
+    JSON.stringify(mending));
+  await page.evaluate(() => document.querySelector('#youBoard .tile[data-i="1"]').click());
+  await page.waitForTimeout(110);
+  ok('Repair mends the one square', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    return F.app.match.you.states[1] === C.SQ_INTACT && F.app.match.you.states[2] === C.SQ_ARMED;
+  }));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[1] = C.SQ_CRACKED;
+    F.vsRender();
+  });
+  await armPower('masterRepair');
+  await page.evaluate(() => document.querySelector('#youBoard .tile[data-i="1"]').click());
+  await page.waitForTimeout(110);
+  ok('Master Repair mends every damaged square of that symbol', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    return m.you.states[1] === C.SQ_INTACT && m.you.states[2] === C.SQ_INTACT &&
+      m.you.states[3] === C.SQ_CRACKED &&                        // the king is untouched
+      /Master Repair/.test(document.getElementById('vsBannerWord').textContent);
+  }));
+
+  // ---- Reforge: no square to pick, and never a winning blow
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.foe.current = -1;
+    F.vsRender();
+  });
+  await armPower('reforge');
+  ok('Reforge will not arm before the rival has struck', await page.evaluate(() =>
+    window.CHECKSMITH.vs.targeting === null));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.foe.current = 6;
+    F.vsRender();
+  });
+  await armPower('reforge');
+  const reforging = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    const lit = Array.from(document.querySelectorAll('#foeBoard .tile[data-target="1"]'))
+      .map((t) => Number(t.dataset.i));
+    const choices = Array.from(document.querySelectorAll('#vsPieceChoices .vs-buy'))
+      .map((b) => b.querySelector('b').textContent);
+    return { lit: lit, choices: choices,
+      legal: C.versusReforgeOptions(F.app.match, 'you').length,
+      prompt: document.getElementById('vsPromptText').textContent };
+  });
+  ok('Reforge lights the square the rival is standing on, and only that one',
+    reforging.lit.join(',') === '6', JSON.stringify(reforging.lit));
+  ok('and offers only symbols that leave them a move',
+    reforging.choices.length === reforging.legal && reforging.choices.length > 0,
+    JSON.stringify(reforging));
+  await page.click('#vsPieceChoices .vs-buy');
+  await page.waitForTimeout(140);
+  ok('choosing one reshapes that square and says what it became', await page.evaluate(() => {
+    const note = document.getElementById('vsBannerNote').textContent;
+    return /Reforge/.test(document.getElementById('vsBannerWord').textContent) &&
+      /→/.test(note);
+  }));
+
+  ok('no offered symbol ever leaves the rival stranded', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    for (let at = 0; at < m.size * m.size; at++) {
+      if (m.foe.states[at] === C.SQ_BROKEN) continue;
+      m.foe.current = at;
+      for (const p of C.versusReforgeOptions(m, 'you', at)) {
+        const probe = C.cloneMatch(m);
+        probe.turn = 'you'; probe.upgradeUsed = false; probe.you.points = 5000;
+        const r = C.versusBuy(probe, 'you', 'reforge', null, p);
+        if (!r.ok || r.trapped === 'foe') return false;
+        probe.turn = 'foe';
+        if (C.versusTargets(probe, 'foe').length === 0) return false;
+      }
+    }
+    return true;
+  }));
+
+  // ---- the rival's own power, announced against the player
+  ok('a power the rival uses is announced in its own colour', await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.turn = 'foe'; m.upgradeUsed = false; m.foe.points = 5000;
+    const said = F.vsPowerWords('foe', 'shatter', { count: 2, squares: [1, 2] });
+    F.vsBanner('foe', said.word, said.note);
+    await new Promise((r) => setTimeout(r, 60));
+    const el = document.getElementById('vsBanner');
+    return !el.hidden && el.dataset.side === 'foe' &&
+      /Rival/.test(document.getElementById('vsBannerWord').textContent) &&
+      /your board/.test(document.getElementById('vsBannerNote').textContent);
+  }));
+  ok('and the banner never swallows a tap meant for the board', await page.evaluate(() =>
+    getComputedStyle(document.getElementById('vsBanner')).pointerEvents === 'none'));
+
+  await page.evaluate(() => { window.CHECKSMITH.vs.targeting = null; window.CHECKSMITH.vsRender(); });
 
   section('Open Your Forge: the management screen');
   await page.evaluate(() => document.getElementById('menuBtn').click());

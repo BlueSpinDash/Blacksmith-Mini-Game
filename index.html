@@ -401,6 +401,14 @@ input[type=range]{
   box-shadow:inset 0 0 0 2px var(--focus), 0 0 0 2px rgba(111,211,255,.55), 0 0 12px rgba(111,211,255,.4);
   cursor:crosshair;
 }
+/* A square already chosen for a power that wants several: brass rather than
+   blue, so "picked" and "pickable" are never the same light. */
+.tile[data-chosen="1"]{
+  box-shadow:inset 0 0 0 2px var(--gold), 0 0 0 2px rgba(243,215,145,.6), 0 0 14px rgba(243,215,145,.45);
+}
+/* While a power is armed, anything it cannot be pointed at falls back, so
+   the valid targets are the only lit things on either board. */
+.board[data-aiming="1"] .tile[data-target="0"]{opacity:.38;cursor:default;}
 .tile[data-legal="0"][data-current="0"]{opacity:.82;}
 /* damaged squares stay at full strength: they are information, not background */
 .tile[data-vs="cracked"],.tile[data-vs="armed"]{opacity:1;}
@@ -708,6 +716,49 @@ input[type=range]{
 .pick-line .nm{display:flex;align-items:center;gap:7px;font-size:13px;}
 .pick-line .cnt{font-size:11.5px;color:var(--brass);font-variant-numeric:tabular-nums;}
 .pick-line .sub{font-size:10.5px;color:var(--muted);grid-column:1/-1;}
+
+/* ---------- the power banner ----------
+   Arcade, brief, and over the boards rather than in them: it slams in,
+   holds long enough to read at a glance, and is gone. Pointer events are
+   off throughout, so it never eats a tap meant for a square underneath. */
+.power-banner{
+  /* high enough to sit over the turn header rather than the first row of
+     squares, so the cracks it is announcing are the thing you can see */
+  position:fixed;left:50%;top:15%;transform:translate(-50%,-50%);
+  z-index:70;pointer-events:none;text-align:center;
+  padding:10px 20px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(58,36,21,.96),rgba(26,18,12,.96));
+  border:1px solid var(--ember);
+  box-shadow:0 0 22px rgba(255,138,61,.35),inset 0 0 0 1px rgba(255,138,61,.3);
+  animation:power-in 1.5s ease-out forwards;
+}
+.power-banner[hidden]{display:none;}
+.power-banner b{
+  display:block;font-size:21px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--gold);text-shadow:0 2px 0 rgba(0,0,0,.6);white-space:nowrap;
+}
+.power-banner span{
+  display:block;margin-top:2px;font-size:11.5px;letter-spacing:.05em;color:var(--brass);
+}
+/* the rival's powers come in cold, so whose turn it was is never in doubt */
+.power-banner[data-side="foe"]{
+  background:linear-gradient(180deg,rgba(58,21,21,.96),rgba(26,12,12,.96));
+  border-color:var(--danger);
+  box-shadow:0 0 22px rgba(255,106,82,.35),inset 0 0 0 1px rgba(255,106,82,.3);
+}
+.power-banner[data-side="foe"] b{color:#ffb4a4;}
+.power-banner[data-side="foe"] span{color:#e79384;}
+@keyframes power-in{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.72);}
+  12%{opacity:1;transform:translate(-50%,-50%) scale(1.06);}
+  20%{transform:translate(-50%,-50%) scale(1);}
+  78%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-56%) scale(.98);}
+}
+@media (prefers-reduced-motion: reduce){
+  .power-banner{animation:power-hold 1.5s linear forwards;}
+}
+@keyframes power-hold{0%,100%{opacity:1;}}
 
 /* ---------- the day's roster ----------
    One section a role, one box a phase, built on the same frame as the shelf
@@ -1679,10 +1730,20 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        uses &mdash; one strike Bronze, then Silver, Gold, Platinum, Mithril and Adamantine &mdash;
        so a glance across both boards tells you which squares each smith has been leaning on.
        Damage shows through whatever metal a square had reached.</p>
-    <p><b>Spend those points on the forge.</b> Below the boards: <b>Reforge (80)</b> changes one unbroken
-       rival square to a different symbol, <b>Row Shuffle (60)</b> scrambles the symbols along one rival
-       row, <b>Shatter (40)</b> cracks an intact rival square, and <b>Repair (50)</b> clears a crack from
-       one of your own.</p>
+    <p><b>Spend those points on the forge.</b> One power a turn, before your strike, and nothing is
+       charged until you have picked a valid target &mdash; cancel at any point and it costs you
+       nothing.</p>
+    <p>
+       <b>Shatter (40)</b> cracks one intact rival square.<br>
+       <b>Repair (50)</b> clears the damage from one of your own.<br>
+       <b>Double Shatter (90)</b> cracks two rival squares at once.<br>
+       <b>Reforge (100)</b> reshapes the square the rival is <i>standing on</i>, changing where they
+       may go next &mdash; it only ever offers symbols that still leave them a move, so it can
+       redirect them but never strand them outright.<br>
+       <b>Master Repair (140)</b> clears the damage from every square of one symbol on your board.<br>
+       <b>Triple Shatter (150)</b> cracks three rival squares at once.</p>
+    <p>The multi-square powers cost more than buying the single one that many times, because a turn
+       only ever carries <i>one</i> power: what the extra pays for is doing it all at once.</p>
     <p><b>Cracks, and what they cost.</b> Cracked metal splits and glows exactly as it does in the
        forge on a third strike &mdash; dashed amber ring for cracked, solid red for armed. It is still
        perfectly safe to stand on. It only <i>arms</i> when struck &mdash; and it collapses into a
@@ -1782,6 +1843,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 </div>
 
 <!-- confirm -->
+<div class="power-banner" id="vsBanner" hidden aria-hidden="true">
+  <b id="vsBannerWord"></b><span id="vsBannerNote"></span>
+</div>
+
 <div class="overlay" id="nameForge" hidden role="dialog" aria-modal="true" aria-labelledby="nameForgeTitle">
   <div class="sheet" style="max-width:340px">
     <h2 id="nameForgeTitle">Name your forge</h2>
@@ -1884,22 +1949,41 @@ const CONFIG = {
       variety: 8,         // three consecutive different symbols
       chainStep: 0.1      // multiplier = 1 + chainStep * (chainLength - 1)
     },
+    /* Six powers, and every one of them moves metal on a board. `picks` is
+       how many squares the power asks for; `target` is whose board and what
+       kind of thing it wants.
+
+       The multi-square powers cost more than buying their single version
+       that many times - two Shatters is 80, Double Shatter is 90 - because
+       a turn only ever carries ONE power. The premium buys tempo, which is
+       the scarcest thing in the match, not raw damage. */
     upgrades: [
-      { id: 'reforge', name: 'Reforge', cost: 80, target: 'enemySquare',
-        blurb: "Change an unbroken enemy square to a different symbol." },
-      { id: 'shuffle', name: 'Row Shuffle', cost: 60, target: 'enemyRow',
-        blurb: "Shuffle the symbols along one enemy row." },
-      { id: 'shatter', name: 'Shatter', cost: 40, target: 'enemySquare',
-        blurb: "Crack an intact enemy square. It breaks once struck and left." },
+      { id: 'shatter', name: 'Shatter', cost: 40, target: 'enemySquare', picks: 1,
+        blurb: "Crack an intact rival square. It still works, but breaks once struck and left." },
       // Repair deliberately costs MORE than Shatter. At the spec's 30 it is
       // strictly cheaper to undo damage than to cause it, so two competent
       // players trade shatter-for-repair forever and no board ever degrades:
       // measured 0 of 12 matches reaching an end, versus 12 of 12 at 50.
-      { id: 'repair', name: 'Repair', cost: 50, target: 'ownSquare',
-        blurb: "Clear a crack from one of your own squares." }
+      { id: 'repair', name: 'Repair', cost: 50, target: 'ownSquare', picks: 1,
+        blurb: "Clear the damage from one of your own squares." },
+      { id: 'doubleShatter', name: 'Double Shatter', cost: 90, target: 'enemySquare', picks: 2,
+        blurb: "Crack two rival squares in one turn." },
+      // Reforge is priced above two cracks because it measures as by far the
+      // strongest thing on the list: a well-aimed one is worth several times
+      // what a Shatter is. At 80 the rival bought nothing else; at 120 it
+      // never bought one at all. 100 is where all four see real use.
+      { id: 'reforge', name: 'Reforge', cost: 100, target: 'enemyCurrent', picks: 1,
+        blurb: "Reshape the square the rival is standing on, changing where they may go." },
+      { id: 'masterRepair', name: 'Master Repair', cost: 140, target: 'ownPiece', picks: 1,
+        blurb: "Clear the damage from every square of one symbol on your board." },
+      { id: 'tripleShatter', name: 'Triple Shatter', cost: 150, target: 'enemySquare', picks: 3,
+        blurb: "Crack three rival squares in one turn." }
     ],
     generation: { attempts: 400, mobilityTolerance: 0.12, timeBudgetMs: 700 },
-    ai: { comboWeight: 1.5, nodeBudget: 6000, timeBudgetMs: 220, thinkMs: 520 }
+    ai: { comboWeight: 1.5, nodeBudget: 6000, timeBudgetMs: 220, thinkMs: 520,
+      // what a power must be worth, after paying for itself, before the
+      // rival will spend its one allowance on it
+      minGain: 0.9 }
   },
   shop: {
     goldPerBoard: 1,        // what a cleared board pays before any bonus
@@ -3155,8 +3239,76 @@ function upgradeById(id) {
 }
 
 /* Says whether a purchase is legal without charging for it, so the
-   interface and the AI can ask the same question. */
-function versusUpgradeCheck(match, who, id, target) {
+   interface and the AI can ask the same question.
+
+   `targets` is a square index, or an array of them for the powers that ask
+   for more than one. Everything is normalised to an array here so there is
+   one shape below and one shape for callers to think about. */
+function targetList(targets) {
+  if (Array.isArray(targets)) return targets.slice();
+  return targets === undefined || targets === null ? [] : [targets];
+}
+
+/* Damage that a Repair can still undo. A broken square is past saving -
+   that is the whole point of letting it break. */
+function isDamaged(state) { return state === SQ_CRACKED || state === SQ_ARMED; }
+
+/* The square Reforge acts on: whichever one the rival is standing on. It
+   has nothing to work with before they have taken their opening strike. */
+function reforgeSquare(match, who) {
+  const them = sideOf(match, foeOf(who));
+  return them.current;
+}
+
+/* Symbols that square could legitimately become.
+
+   Two filters, and the second is the important one: a replacement that
+   would leave the rival with nowhere legal to go is left out entirely, so
+   Reforge can never be the blow that ends the match. It redirects; it does
+   not execute. Broken squares are not destinations, so the check is made
+   against the board as it actually stands rather than the empty one. */
+function versusReforgeOptions(match, who, target) {
+  const them = sideOf(match, foeOf(who));
+  const at = target === undefined ? reforgeSquare(match, who) : target;
+  if (!(at >= 0 && at < them.size * them.size)) return [];
+  if (them.states[at] === SQ_BROKEN) return [];
+  const cfg = CONFIG.versus.difficulties[match.difficulty];
+  const pool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
+  const T = tableFor(match.size);
+  return pool.filter(function (p) {
+    if (p === them.pieces[at]) return false;
+    const moves = T[p].list[at];
+    for (let k = 0; k < moves.length; k++) {
+      if (them.states[moves[k]] !== SQ_BROKEN) return true;   // somewhere left to go
+    }
+    return false;
+  });
+}
+
+/* Symbols on my board that Master Repair would actually be worth buying
+   for: the ones standing on at least one damaged square. */
+function versusRepairPieces(match, who) {
+  const me = sideOf(match, who);
+  const out = [];
+  for (let i = 0; i < me.size * me.size; i++) {
+    if (!isDamaged(me.states[i])) continue;
+    const p = me.pieces[i];
+    if (out.indexOf(p) < 0) out.push(p);
+  }
+  return out;
+}
+
+/* Every damaged square wearing that symbol. */
+function versusRepairSquares(match, who, piece) {
+  const me = sideOf(match, who);
+  const out = [];
+  for (let i = 0; i < me.size * me.size; i++) {
+    if (isDamaged(me.states[i]) && me.pieces[i] === piece) out.push(i);
+  }
+  return out;
+}
+
+function versusUpgradeCheck(match, who, id, targets, choice) {
   if (matchOver(match) || match.turn !== who) return { ok: false, why: 'not your turn' };
   if (match.upgradeUsed) return { ok: false, why: 'already used this turn' };
   const def = upgradeById(id);
@@ -3164,92 +3316,84 @@ function versusUpgradeCheck(match, who, id, target) {
   const me = sideOf(match, who), them = sideOf(match, foeOf(who));
   if (me.points < def.cost) return { ok: false, why: 'not enough points' };
   const n = match.size * match.size;
+  const picks = targetList(targets);
+  const onBoard = function (i) { return Number.isInteger(i) && i >= 0 && i < n; };
 
-  if (id === 'repair') {
-    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick one of your squares' };
-    const st = me.states[target];
-    if (st !== SQ_CRACKED && st !== SQ_ARMED) return { ok: false, why: 'that square is not cracked' };
-    return { ok: true, def: def };
+  if (def.target === 'ownSquare') {
+    if (picks.length !== def.picks) return { ok: false, why: 'pick one of your damaged squares' };
+    if (!onBoard(picks[0])) return { ok: false, why: 'pick one of your squares' };
+    if (!isDamaged(me.states[picks[0]])) return { ok: false, why: 'that square is not damaged' };
+    return { ok: true, def: def, picks: picks };
   }
-  if (id === 'shatter') {
-    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick an enemy square' };
-    if (them.states[target] !== SQ_INTACT) return { ok: false, why: 'that square is already damaged' };
-    return { ok: true, def: def };
+
+  if (def.target === 'ownPiece') {
+    // the symbol may be named outright, or pointed at by tapping a square
+    // that wears it - both mean the same thing
+    let piece = choice;
+    if (!piece && onBoard(picks[0])) piece = me.pieces[picks[0]];
+    if (!piece) return { ok: false, why: 'choose a symbol to repair' };
+    const hit = versusRepairSquares(match, who, piece);
+    if (!hit.length) return { ok: false, why: 'no ' + (PIECES[piece] ? PIECES[piece].name : piece) +
+      ' square of yours is damaged' };
+    return { ok: true, def: def, picks: hit, piece: piece };
   }
-  if (id === 'reforge') {
-    if (!(target >= 0 && target < n)) return { ok: false, why: 'pick an enemy square' };
-    if (them.states[target] === SQ_BROKEN) return { ok: false, why: 'that square is broken' };
-    if (versusReforgeOptions(match, who, target).length === 0) return { ok: false, why: 'nothing to change it to' };
-    return { ok: true, def: def };
-  }
-  if (id === 'shuffle') {
-    if (!(target >= 0 && target < match.size)) return { ok: false, why: 'pick an enemy row' };
-    const cells = versusRowCells(them, target);
-    if (cells.length < 2) return { ok: false, why: 'too few squares left in that row' };
-    const symbols = cells.map(function (i) { return them.pieces[i]; });
-    if (symbols.every(function (x) { return x === symbols[0]; })) {
-      return { ok: false, why: 'that row is all one symbol' };
+
+  if (def.target === 'enemySquare') {
+    if (picks.length !== def.picks) {
+      return { ok: false, why: 'choose ' + def.picks + (def.picks === 1 ? ' square' : ' squares') };
     }
-    return { ok: true, def: def };
+    for (let k = 0; k < picks.length; k++) {
+      if (!onBoard(picks[k])) return { ok: false, why: 'pick a square on the rival board' };
+      if (picks.indexOf(picks[k]) !== k) return { ok: false, why: 'pick a different square' };
+      if (them.states[picks[k]] !== SQ_INTACT) return { ok: false, why: 'that square is already damaged' };
+    }
+    return { ok: true, def: def, picks: picks };
   }
+
+  if (def.target === 'enemyCurrent') {
+    const at = reforgeSquare(match, who);
+    if (at < 0) return { ok: false, why: 'the rival has not struck yet' };
+    const options = versusReforgeOptions(match, who, at);
+    if (!options.length) return { ok: false, why: 'no symbol would leave them a move' };
+    if (choice !== undefined && choice !== null && options.indexOf(choice) < 0) {
+      return { ok: false, why: 'that symbol would leave them nowhere to go' };
+    }
+    return { ok: true, def: def, picks: [at], options: options };
+  }
+
   return { ok: false, why: 'no such upgrade' };
 }
 
-function versusRowCells(side, row) {
-  const out = [];
-  for (let c = 0; c < side.size; c++) {
-    const i = row * side.size + c;
-    if (side.states[i] !== SQ_BROKEN) out.push(i);
-  }
-  return out;
-}
-
-/* Symbols this square could legitimately be changed to. */
-function versusReforgeOptions(match, who, target) {
-  const them = sideOf(match, foeOf(who));
-  const cfg = CONFIG.versus.difficulties[match.difficulty];
-  const pool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
-  const T = tableFor(match.size);
-  return pool.filter(function (p) {
-    if (p === them.pieces[target]) return false;
-    return T[p].list[target].length > 0;        // never forge a symbol that cannot move
-  });
-}
-
-function versusBuy(match, who, id, target, choice) {
-  const check = versusUpgradeCheck(match, who, id, target);
+function versusBuy(match, who, id, targets, choice) {
+  const check = versusUpgradeCheck(match, who, id, targets, choice);
   if (!check.ok) return { ok: false, why: check.why };
   const me = sideOf(match, who), them = sideOf(match, foeOf(who));
   const def = check.def;
   let detail = null;
 
-  if (id === 'repair') {
-    me.states[target] = SQ_INTACT;
-    detail = { square: target };
-  } else if (id === 'shatter') {
-    them.states[target] = SQ_CRACKED;
-    detail = { square: target };
-  } else if (id === 'reforge') {
-    const options = versusReforgeOptions(match, who, target);
+  if (def.target === 'ownSquare') {
+    me.states[check.picks[0]] = SQ_INTACT;
+    detail = { squares: check.picks.slice(), square: check.picks[0] };
+  } else if (def.target === 'ownPiece') {
+    for (const i of check.picks) me.states[i] = SQ_INTACT;
+    detail = { squares: check.picks.slice(), piece: check.piece, count: check.picks.length };
+  } else if (def.target === 'enemySquare') {
+    for (const i of check.picks) them.states[i] = SQ_CRACKED;
+    detail = { squares: check.picks.slice(), square: check.picks[0], count: check.picks.length };
+  } else if (def.target === 'enemyCurrent') {
+    const at = check.picks[0];
+    const options = check.options;
     const pick = options.indexOf(choice) !== -1 ? choice : options[Math.floor(match.rnd() * options.length)];
-    detail = { square: target, from: them.pieces[target], to: pick };
-    them.pieces[target] = pick;                 // coordinates, damage and history are untouched
-  } else if (id === 'shuffle') {
-    const cells = versusRowCells(them, target);
-    const before = cells.map(function (i) { return them.pieces[i]; });
-    let after = before, tries = 0;
-    do { after = shuffled(before, match.rnd); tries++; }
-    while (tries < 24 && after.join('') === before.join(''));
-    if (after.join('') === before.join('')) return { ok: false, why: 'that row cannot be rearranged' };
-    cells.forEach(function (i, k) { them.pieces[i] = after[k]; });
-    detail = { row: target, cells: cells.slice() };
+    detail = { squares: [at], square: at, from: them.pieces[at], to: pick };
+    them.pieces[at] = pick;                 // coordinates, damage and history are untouched
   }
 
   me.points -= def.cost;
   match.upgradeUsed = true;
-
-  // An upgrade can win outright: if it leaves either side with no move,
-  // the match ends there and no strike is required.
+  // A power can still win outright: Shatter that takes the last square a
+  // side could reach ends the match there, with no strike required. Reforge
+  // is the exception and cannot, because its options never include a symbol
+  // that would leave the rival stranded - it redirects, never executes.
   let trapped = null;
   if (versusTargets(match, foeOf(who)).length === 0 && sideOf(match, foeOf(who)).current >= 0) {
     trapped = foeOf(who);
@@ -3461,6 +3605,19 @@ function versusChooseStrike(match, who) {
 /* Upgrades: every difficulty uses them. Novice buys something affordable
    now and then; the rest weigh each legal purchase by the position it
    leaves behind, and take it only if it genuinely helps. */
+/* Which power the rival buys, if any.
+
+   Every option is judged the same way: clone the match, buy it there, and
+   see how much better the position got. A power that does not pay for
+   itself is not bought at all.
+
+   The multi-square powers are chosen greedily rather than by trying every
+   pair and triple - on a 6x6 board that would be 630 pairs and 7,140
+   triples, each needing a clone and an evaluation, which is far past the
+   AI's time budget. Greedy picks the best single square, then the best
+   second given the first, and so on: not optimal, but it reliably finds the
+   squares that matter and leaves the budget for the strike search, which
+   is where thinking actually wins matches. */
 function versusChooseUpgrade(match, who) {
   const cfg = CONFIG.versus.difficulties[match.difficulty];
   const me = sideOf(match, who), them = sideOf(match, foeOf(who));
@@ -3471,15 +3628,22 @@ function versusChooseUpgrade(match, who) {
     if (me.points < def.cost) continue;
     if (def.target === 'ownSquare') {
       for (let i = 0; i < n; i++) {
-        if (versusUpgradeCheck(match, who, def.id, i).ok) legal.push({ id: def.id, target: i });
+        if (versusUpgradeCheck(match, who, def.id, i).ok) legal.push({ id: def.id, target: [i] });
+      }
+    } else if (def.target === 'ownPiece') {
+      for (const piece of versusRepairPieces(match, who)) {
+        if (versusUpgradeCheck(match, who, def.id, null, piece).ok) {
+          legal.push({ id: def.id, target: null, choice: piece });
+        }
       }
     } else if (def.target === 'enemySquare') {
-      for (let i = 0; i < n; i++) {
-        if (versusUpgradeCheck(match, who, def.id, i).ok) legal.push({ id: def.id, target: i });
-      }
-    } else if (def.target === 'enemyRow') {
-      for (let r = 0; r < match.size; r++) {
-        if (versusUpgradeCheck(match, who, def.id, r).ok) legal.push({ id: def.id, target: r });
+      const set = greedySquares(match, who, def, cfg);
+      if (set) legal.push({ id: def.id, target: set });
+    } else if (def.target === 'enemyCurrent') {
+      for (const piece of versusReforgeOptions(match, who)) {
+        if (versusUpgradeCheck(match, who, def.id, null, piece).ok) {
+          legal.push({ id: def.id, target: null, choice: piece });
+        }
       }
     }
   }
@@ -3491,28 +3655,67 @@ function versusChooseUpgrade(match, who) {
   }
 
   const base = versusEvaluate(match, who);
-  let best = null, bestGain = 0.5;               // must actually be worth the points
-  for (const option of legal) {
-    if (option.id === 'shuffle') {
-      // A shuffle's result is random and must not be foreseen. Judge it
-      // only by how much of the opponent's position that row touches.
-      const cells = versusRowCells(them, option.target);
-      const theirs = new Set(versusTargets(match, foeOf(who)));
-      let touch = 0;
-      for (const c of cells) if (theirs.has(c) || c === them.current) touch++;
-      const gain = touch * 1.5 - 1;
-      if (gain > bestGain) { bestGain = gain; best = option; }
-      continue;
-    }
+  const worth = function (option) {
     const probe = cloneMatch(match);
-    const res = versusBuy(probe, who, option.id, option.target);
-    if (!res.ok) continue;
-    const gain = matchOver(probe)
+    probe.upgradeUsed = false;
+    sideOf(probe, who).points = Math.max(sideOf(probe, who).points, upgradeById(option.id).cost);
+    const res = versusBuy(probe, who, option.id, option.target, option.choice);
+    if (!res.ok) return null;
+    return matchOver(probe)
       ? (probe.winner === who ? VS_WIN : -VS_WIN)
       : versusEvaluate(probe, who) - base;
+  };
+
+  /* A power has to be worth a turn's whole allowance, not merely be better
+     than nothing.
+
+     versusEvaluate already counts points, so a gain here is what the power
+     does to the position AFTER paying for itself - measured at about +0.9
+     for one crack, +1.4 for two and +1.5 for three, and far more for a
+     well-aimed Reforge. The bar matters because a rival that buys anything
+     positive fires a 40-point Shatter every single turn and so never has
+     the 80 for a Reforge or the 150 for a Triple. Set just above what an
+     ordinary Shatter returns, it passes over the marginal ones, points
+     accumulate on their own, and the dear powers come within reach without
+     any hoarding rule to stall the match. */
+  let best = null, bestGain = CONFIG.versus.ai.minGain;
+  for (const option of legal) {
+    const gain = worth(option);
+    if (gain === null) continue;
     if (gain > bestGain) { bestGain = gain; best = option; }
   }
+
   return best;
+}
+
+/* Build a Shatter's set of squares one at a time, each chosen against the
+   board as the earlier picks have already left it. Returns null when the
+   board cannot supply that many intact squares. */
+function greedySquares(match, who, def, cfg) {
+  const n = match.size * match.size;
+  const chosen = [];
+  let stage = match;
+  for (let pick = 0; pick < def.picks; pick++) {
+    let bestAt = -1, bestGain = -Infinity;
+    const base = versusEvaluate(stage, who);
+    for (let i = 0; i < n; i++) {
+      if (chosen.indexOf(i) >= 0) continue;
+      if (sideOf(stage, foeOf(who)).states[i] !== SQ_INTACT) continue;
+      if (cfg.depth === 0) { bestAt = i; break; }          // a novice does not weigh it
+      // score the crack on its own, by what it costs them, with the cost of
+      // the power itself left out until the whole set is judged above
+      const probe = cloneMatch(stage);
+      sideOf(probe, foeOf(who)).states[i] = SQ_CRACKED;
+      const gain = versusEvaluate(probe, who) - base;
+      if (gain > bestGain) { bestGain = gain; bestAt = i; }
+    }
+    if (bestAt < 0) return null;                            // not enough intact squares
+    chosen.push(bestAt);
+    const next = cloneMatch(stage);
+    sideOf(next, foeOf(who)).states[bestAt] = SQ_CRACKED;
+    stage = next;
+  }
+  return chosen;
 }
 
 
@@ -4749,7 +4952,8 @@ const CHECKSMITH_CORE = {
   versusMobility: versusMobility, createMatch: createMatch, sideOf: sideOf, foeOf: foeOf,
   matchOver: matchOver, versusTargets: versusTargets, versusCanStrike: versusCanStrike,
   versusStrike: versusStrike, versusBuy: versusBuy, versusUpgradeCheck: versusUpgradeCheck,
-  versusReforgeOptions: versusReforgeOptions, versusRowCells: versusRowCells,
+  versusReforgeOptions: versusReforgeOptions, versusRepairPieces: versusRepairPieces,
+  versusRepairSquares: versusRepairSquares, isDamaged: isDamaged, reforgeSquare: reforgeSquare,
   versusConcede: versusConcede, upgradeById: upgradeById,
   versusChooseStrike: versusChooseStrike, versusChooseUpgrade: versusChooseUpgrade,
   versusEvaluate: versusEvaluate, versusCombo: versusCombo,
@@ -5964,7 +6168,10 @@ function buyUpgrade(id) {
    reach into the next one. */
 const VS = {
   tiles: { you: [], foe: [] },
-  targeting: null,        // { id, stage, square } while choosing an upgrade target
+  // { id, def, stage, square, picks } while a power is armed. `picks` holds
+  // the squares chosen so far by a power that wants more than one.
+  targeting: null,
+  bannerTimer: null,
   focus: 'none'
 };
 
@@ -6005,6 +6212,12 @@ function vsRenderBoard(who) {
   const mine = who === 'you';
   const legal = new Set(m.turn === who && !matchOver(m) ? versusTargets(m, who) : []);
   const targeting = VS.targeting;
+  // the board a power is being aimed at dims everything it cannot touch
+  const host = $(mine ? 'youBoard' : 'foeBoard');
+  const aimingHere = !!targeting && (targeting.stage === 'square'
+    ? ((targeting.def.target === 'ownSquare' || targeting.def.target === 'ownPiece') === mine)
+    : (targeting.stage === 'piece' && !mine));
+  if (host) host.dataset.aiming = aimingHere ? '1' : '0';
 
   for (let i = 0; i < size * size; i++) {
     const el = VS.tiles[who][i];
@@ -6026,17 +6239,27 @@ function vsRenderBoard(who) {
     el.dataset.current = isCurrent ? '1' : '0';
     el.dataset.legal = isLegal && !targeting ? '1' : '0';
 
-    // a square that can be picked as this upgrade's target
-    let isTarget = false;
+    // A square this power could still be pointed at. Everything else on the
+    // board dims, so what is and is not a target needs no explaining.
+    let isTarget = false, isChosen = false;
     if (targeting && targeting.stage === 'square') {
       const wants = targeting.def.target;
-      if ((wants === 'ownSquare' && mine) || (wants === 'enemySquare' && !mine)) {
-        isTarget = versusUpgradeCheck(m, 'you', targeting.id, i).ok;
+      if ((wants === 'ownSquare' || wants === 'ownPiece') && mine) {
+        isTarget = isDamaged(state);
+      } else if (wants === 'enemySquare' && !mine) {
+        isTarget = state === SQ_INTACT;
       }
-    } else if (targeting && targeting.stage === 'row' && !mine) {
-      isTarget = versusUpgradeCheck(m, 'you', targeting.id, Math.floor(i / size)).ok;
+      // a pick is an index, and both boards have that index - so it only
+      // counts on the board this power is actually aimed at
+      const aimedHere = (targeting.def.target === 'ownSquare' ||
+        targeting.def.target === 'ownPiece') === mine;
+      isChosen = aimedHere && (targeting.picks || []).indexOf(i) >= 0;
+    } else if (targeting && targeting.stage === 'piece' && !mine) {
+      // Reforge: the square it will reshape is lit, and nothing else is
+      isTarget = i === targeting.square;
     }
-    el.dataset.target = isTarget ? '1' : '0';
+    el.dataset.target = isTarget || isChosen ? '1' : '0';
+    el.dataset.chosen = isChosen ? '1' : '0';
 
     el.firstChild.textContent = broken ? '' : PIECES[piece].glyph;
     const marks = el.children[1];
@@ -6119,11 +6342,24 @@ function vsRenderMatch() {
   $('vsBoards').dataset.focus = VS.focus;
 
   if (t) {
-    $('vsPromptText').textContent = t.stage === 'piece'
-      ? 'Choose the new symbol for that square.'
-      : (t.def.target === 'enemyRow' ? 'Choose a row on the rival’s board.'
-        : (t.def.target === 'ownSquare' ? 'Choose a cracked square on your board.'
-          : 'Choose a square on the rival’s board.'));
+    const left = t.def.picks - (t.picks || []).length;
+    if (t.stage === 'piece') {
+      $('vsPromptText').textContent =
+        'Reshape the square the rival is standing on. Only symbols that leave ' +
+        'them a move are offered.';
+    } else if (t.def.target === 'ownPiece') {
+      $('vsPromptText').textContent =
+        'Tap a damaged square. Every damaged square of that symbol is mended.';
+    } else if (t.def.picks > 1) {
+      $('vsPromptText').textContent = (left === t.def.picks
+        ? 'Select ' + t.def.picks + ' squares'
+        : (left === 1 ? '1 square remaining' : left + ' squares remaining')) +
+        ' on the rival’s board. Tap one again to take it back.';
+    } else if (t.def.target === 'ownSquare') {
+      $('vsPromptText').textContent = 'Choose a damaged square on your board.';
+    } else {
+      $('vsPromptText').textContent = 'Choose an intact square on the rival’s board.';
+    }
   } else if (matchOver(m)) {
     $('vsPromptText').textContent = m.winner === 'you'
       ? 'The rival has nowhere left to strike.'
@@ -6139,7 +6375,8 @@ function vsRenderMatch() {
   vsRenderPieceChoices();
 }
 
-/* Reforge asks for a square and then a symbol. */
+/* Reforge chooses a symbol, never a square: it always lands on wherever
+   the rival is standing. */
 function vsRenderPieceChoices() {
   let host = $('vsPieceChoices');
   const t = VS.targeting;
@@ -6158,9 +6395,49 @@ function vsRenderPieceChoices() {
     b.innerHTML = '<b></b><small></small>';
     b.firstChild.textContent = PIECES[p].glyph + ' ' + PIECES[p].name;
     b.lastChild.textContent = PIECES[p].move;
-    b.addEventListener('click', () => vsCommitUpgrade(t.id, t.square, p));
+    b.addEventListener('click', () => vsCommitUpgrade(t.id, null, p));
     host.appendChild(b);
   }
+}
+
+/* ---------- the power banner ----------
+   Both sides announce through this, because the one thing a player must
+   never miss is the rival doing something to their board. */
+function vsBanner(side, word, note) {
+  const el = $('vsBanner');
+  if (!el) return;
+  el.dataset.side = side;
+  $('vsBannerWord').textContent = word;
+  $('vsBannerNote').textContent = note || '';
+  el.hidden = true;
+  // restart the animation rather than let a second banner inherit the tail
+  void el.offsetWidth;
+  el.hidden = false;
+  if (VS.bannerTimer) clearTimeout(VS.bannerTimer);
+  VS.bannerTimer = setTimeout(function () {
+    VS.bannerTimer = null;
+    el.hidden = true;
+  }, FX.reduced ? 900 : 1500);
+}
+
+/* What the banner says about a power that has just landed. */
+function vsPowerWords(side, id, detail) {
+  const def = upgradeById(id);
+  const mine = side === 'you';
+  const word = (mine ? '' : 'Rival: ') + def.name;
+  let note = '';
+  if (def.target === 'enemyCurrent' && detail && detail.to) {
+    note = PIECES[detail.from].name + ' → ' + PIECES[detail.to].name;
+  } else if (def.target === 'ownPiece' && detail) {
+    note = detail.count + (detail.count === 1 ? ' square' : ' squares') + ' of ' +
+      PIECES[detail.piece].name + ' mended';
+  } else if (def.target === 'enemySquare' && detail) {
+    note = detail.count + (detail.count === 1 ? ' square cracked' : ' squares cracked');
+  } else if (def.target === 'ownSquare') {
+    note = 'one square mended';
+  }
+  if (!mine) note = note ? note + ' — on your board' : 'against you';
+  return { word: word, note: note };
 }
 
 /* ---------- targeting ---------- */
@@ -6170,17 +6447,75 @@ function vsStartTargeting(id) {
   const def = upgradeById(id);
   if (!def || vsSide('you').points < def.cost) return;
   if (VS.targeting && VS.targeting.id === id) { vsCancelTargeting(); return; }
-  VS.targeting = { id: id, def: def, stage: def.target === 'enemyRow' ? 'row' : 'square', square: -1 };
+
+  // Reforge has no square to choose: it acts on wherever the rival stands,
+  // so it opens straight onto the symbols that would still leave them a move.
+  if (def.target === 'enemyCurrent') {
+    const check = versusUpgradeCheck(m, 'you', id);
+    if (!check.ok) { SOUNDS.invalid(); announce(check.why + '. Nothing was spent.'); return; }
+    VS.targeting = { id: id, def: def, stage: 'piece', square: check.picks[0], picks: [] };
+  } else if (def.target === 'ownPiece') {
+    VS.targeting = { id: id, def: def, stage: 'square', square: -1, picks: [] };
+  } else {
+    VS.targeting = { id: id, def: def, stage: 'square', square: -1, picks: [] };
+  }
   Sound.unlock();
   vsRenderMatch();
   announce(def.name + '. ' + $('vsPromptText').textContent);
 }
 
 function vsCancelTargeting() {
-  // Cancelling spends nothing and does not use up the turn's allowance.
+  // Cancelling spends nothing and does not use up the turn's allowance:
+  // squares already tapped for a multi-square power are simply forgotten.
   VS.targeting = null;
   vsRenderMatch();
   announce('Targeting cancelled. Nothing was spent.');
+}
+
+/* A tap on a square while a power is armed. Multi-square powers collect
+   picks until they have enough, and nothing is charged until the last one
+   lands - so backing out halfway costs nothing at all. */
+function vsTakePick(idx) {
+  const t = VS.targeting;
+  if (!t || t.stage !== 'square') return false;
+  const def = t.def;
+
+  if (def.target === 'ownPiece') {
+    const me = vsSide('you');
+    const piece = me.pieces[idx];
+    if (!isDamaged(me.states[idx])) { SOUNDS.invalid(); return true; }
+    vsCommitUpgrade(t.id, null, piece);
+    return true;
+  }
+
+  // Each tap is judged on its own; the whole set is checked again by the
+  // purchase itself, which is the only thing that ever spends points.
+  const usable = def.target === 'ownSquare'
+    ? isDamaged(vsSide('you').states[idx])
+    : vsSide('foe').states[idx] === SQ_INTACT;
+  const picks = t.picks.slice();
+  const held = picks.indexOf(idx);
+  if (held >= 0) {                                // tapping a chosen square takes it back
+    picks.splice(held, 1);
+    t.picks = picks;
+    SOUNDS.shape();
+    vsRenderMatch();
+    announce(def.picks - picks.length === 1
+      ? '1 square remaining.' : (def.picks - picks.length) + ' squares remaining.');
+    return true;
+  }
+  if (!usable) { SOUNDS.invalid(); return true; }
+  picks.push(idx);
+  if (picks.length < def.picks) {
+    t.picks = picks;
+    SOUNDS.shape();
+    vsRenderMatch();
+    announce(def.picks - picks.length === 1
+      ? '1 square remaining.' : (def.picks - picks.length) + ' squares remaining.');
+    return true;
+  }
+  vsCommitUpgrade(t.id, picks);
+  return true;
 }
 
 function vsCommitUpgrade(id, target, choice) {
@@ -6192,10 +6527,15 @@ function vsCommitUpgrade(id, target, choice) {
   }
   VS.targeting = null;
   SOUNDS.morph();
-  if (id === 'shatter' || id === 'reforge') FX.morph(VS.tiles.foe[target] || VS.tiles.foe[0]);
-  if (id === 'repair') FX.morph(VS.tiles.you[target]);
+  // every square the power touched gets the spark, whichever board it is on
+  const def = upgradeById(id);
+  const mine = def.target === 'ownSquare' || def.target === 'ownPiece';
+  const host = mine ? VS.tiles.you : VS.tiles.foe;
+  for (const i of (res.detail && res.detail.squares) || []) if (host[i]) FX.morph(host[i]);
+  const said = vsPowerWords('you', id, res.detail);
+  vsBanner('you', said.word, said.note);
   vsRenderMatch();
-  announce(upgradeById(id).name + ' bought for ' + res.cost + ' points.');
+  announce(def.name + ' bought for ' + res.cost + ' points. ' + said.note);
   if (res.over) { vsFinish(); return; }
   if (App.match.turn !== 'you') vsScheduleAi();
 }
@@ -6207,22 +6547,12 @@ function vsTapTile(who, idx) {
   const t = VS.targeting;
 
   if (t) {
-    // A tap while targeting never strikes the square.
-    if (t.stage === 'row') {
-      if (who !== 'foe') { SOUNDS.invalid(); return; }
-      vsCommitUpgrade(t.id, Math.floor(idx / m.size));
-      return;
-    }
-    const wantsOwn = t.def.target === 'ownSquare';
+    // A tap while targeting never strikes the square. Reforge is already
+    // past this stage - it chooses a symbol, not a square.
+    if (t.stage !== 'square') { SOUNDS.invalid(); return; }
+    const wantsOwn = t.def.target === 'ownSquare' || t.def.target === 'ownPiece';
     if ((wantsOwn && who !== 'you') || (!wantsOwn && who !== 'foe')) { SOUNDS.invalid(); return; }
-    const check = versusUpgradeCheck(m, 'you', t.id, idx);
-    if (!check.ok) {
-      SOUNDS.invalid();
-      announce('Not a valid target: ' + check.why + '. Nothing was spent.');
-      return;
-    }
-    if (t.id === 'reforge') { t.square = idx; t.stage = 'piece'; vsRenderMatch(); return; }
-    vsCommitUpgrade(t.id, idx);
+    vsTakePick(idx);
     return;
   }
 
@@ -6319,14 +6649,24 @@ function vsScheduleAi() {
     try {
       const pick = versusChooseUpgrade(match, 'foe');
       if (pick) {
-        const res = versusBuy(match, 'foe', pick.id, pick.target);
-        if (res.ok) bought = pick.id;
+        const res = versusBuy(match, 'foe', pick.id, pick.target, pick.choice);
+        if (res.ok) bought = { id: pick.id, detail: res.detail };
       }
     } catch (err) { bought = null; }
     if (bought) {
       SOUNDS.morph();
+      // the rival's powers land on the player's board, so they are the one
+      // thing in the match that must never go by unnoticed
+      const def = upgradeById(bought.id);
+      const onMine = def.target === 'ownSquare' || def.target === 'ownPiece';
+      const host = onMine ? VS.tiles.foe : VS.tiles.you;
+      for (const i of (bought.detail && bought.detail.squares) || []) {
+        if (host[i]) FX.morph(host[i]);
+      }
+      const said = vsPowerWords('foe', bought.id, bought.detail);
+      vsBanner('foe', said.word, said.note);
       vsRenderMatch();
-      announce('The rival used ' + upgradeById(bought).name + '.');
+      announce('The rival used ' + def.name + '. ' + said.note);
     }
     if (matchOver(match)) { App.busy = false; vsFinish(); return; }
     let move = -1;
@@ -9084,6 +9424,7 @@ else boot();
 // exposed for the automated test harness
 window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOUNDS, music: Music, fx: FX, tap: tapSquare,
   vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
+  vsBanner: vsBanner, vsPowerWords: vsPowerWords, vsStart: vsStartMatch,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   shopStartForge: shopStartForge, shopReturn: shopReturn,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,

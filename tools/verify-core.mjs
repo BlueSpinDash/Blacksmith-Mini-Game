@@ -1169,55 +1169,386 @@ section('Versus: Repair');
   })());
 }
 
-section('Versus: Reforge and Row Shuffle');
+/* Reforge lands on whatever square the rival is standing on, and the one
+   thing it must never do is end the match on the spot. */
+section('Versus: Reforge redirects, it never executes');
 {
-  const mk = () => {
-    const b = { size: 4, difficulty: 'journeyman',
-      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+  const mk = (size, diff) => {
+    const n = (size || 4) * (size || 4);
+    const b = { size: size || 4, difficulty: diff || 'journeyman',
+      ai: new Array(n).fill('R'), you: new Array(n).fill('R') };
     const m = C.createMatch(b, { rnd: C.mulberry32(12) });
     m.you.points = 1000; m.foe.points = 1000;
     return m;
   };
+  const standing = (m, at) => { m.turn = 'foe'; C.versusStrike(m, 'foe', at); m.turn = 'you'; };
+
+  ok('Reforge has nothing to act on before the rival has struck',
+    C.versusUpgradeCheck(mk(), 'you', 'reforge').ok === false);
+
   const m = mk();
+  standing(m, 6);
   m.foe.strikes[6] = 3; m.foe.states[6] = C.SQ_CRACKED;
   const before = m.foe.pieces[6];
-  const res = C.versusBuy(m, 'you', 'reforge', 6, 'B');
-  ok('Reforge changes the symbol', res.ok && m.foe.pieces[6] !== before);
-  ok('it keeps the square\\u2019s damage and strike history',
+  const res = C.versusBuy(m, 'you', 'reforge', null, 'B');
+  ok('Reforge reshapes the square the rival is standing on',
+    res.ok && m.foe.pieces[6] === 'B' && before !== 'B', JSON.stringify(res));
+  ok('it reports what it changed, for the banner to read',
+    res.detail.from === before && res.detail.to === 'B' && res.detail.square === 6);
+  ok('it keeps the square’s damage and strike history',
     m.foe.states[6] === C.SQ_CRACKED && m.foe.strikes[6] === 3);
-  ok('it never offers a symbol that could not move there',
-    C.versusReforgeOptions(m, 'you', 6).every((p) => C.tableFor(4)[p].list[6].length > 0));
   ok('it never offers the symbol already there',
-    !C.versusReforgeOptions(m, 'you', 6).includes(m.foe.pieces[6]));
-  ok('Reforge can change the square the rival is standing on', (() => {
+    !C.versusReforgeOptions(mk(), 'you', 6).includes('R'));
+
+  ok('the rival’s moves are recalculated from the new symbol', (() => {
     const g = mk();
-    g.turn = 'foe'; C.versusStrike(g, 'foe', 5);
-    g.turn = 'you';
-    const r = C.versusBuy(g, 'you', 'reforge', 5, 'K');
+    standing(g, 5);
+    const r = C.versusBuy(g, 'you', 'reforge', null, 'K');
     g.turn = 'foe';
-    const moves = C.versusTargets(g, 'foe');
+    const moves = C.versusTargets(g, 'foe').slice().sort((a, b) => a - b);
     return r.ok && g.foe.pieces[5] === 'K' &&
-      moves.slice().sort().join(',') === C.tableFor(4).K.list[5].slice().sort().join(',');
+      moves.join(',') === C.tableFor(4).K.list[5].slice().sort((a, b) => a - b).join(',');
   })());
 
-  const g = mk();
-  g.foe.pieces[4] = 'K'; g.foe.pieces[5] = 'R'; g.foe.pieces[6] = 'B'; g.foe.pieces[7] = 'N';
-  g.foe.states[6] = C.SQ_BROKEN; g.foe.broken = 1;
-  g.foe.strikes[5] = 2;
-  g.foe.current = 4;
-  const beforeRow = g.foe.pieces.slice();
-  const shuffle = C.versusBuy(g, 'you', 'shuffle', 1);
-  ok('Row Shuffle rearranges a row', shuffle.ok &&
-    g.foe.pieces.slice(4, 8).join('') !== beforeRow.slice(4, 8).join(''));
-  ok('it leaves broken squares alone', g.foe.pieces[6] === 'B' && g.foe.states[6] === C.SQ_BROKEN);
-  ok('it keeps damage, strike counts and the hammer where they were',
-    g.foe.strikes[5] === 2 && g.foe.current === 4 && g.foe.broken === 1);
-  ok('a row of one repeated symbol is refused, and costs nothing', (() => {
+  /* the safety rule, from both directions */
+  ok('a symbol that would strand the rival is never offered', (() => {
+    const g = mk();
+    standing(g, 0);
+    // wall the corner in: only the diagonal neighbour survives, so a Rook
+    // there would have nowhere to go and must not be on the menu
+    g.foe.states[1] = C.SQ_BROKEN; g.foe.states[4] = C.SQ_BROKEN;
+    for (let i = 2; i < 16; i++) if (i !== 5) g.foe.states[i] = C.SQ_BROKEN;
+    const options = C.versusReforgeOptions(g, 'you', 0);
+    if (options.indexOf('R') >= 0) return false;            // rook: row and column are gone
+    return options.indexOf('B') >= 0 && options.indexOf('K') >= 0;   // both still reach 5
+  })());
+
+  ok('and buying one anyway is refused outright', (() => {
+    const g = mk();
+    standing(g, 0);
+    for (let i = 1; i < 16; i++) if (i !== 5) g.foe.states[i] = C.SQ_BROKEN;
+    const points = g.you.points;
+    const r = C.versusBuy(g, 'you', 'reforge', null, 'R');
+    return r.ok === false && g.you.points === points && g.upgradeUsed === false;
+  })());
+
+  ok('Reforge can never be the blow that ends the match', (() => {
+    // every board, every square the rival could stand on, every offered
+    // symbol: none of them may leave the rival with no move
+    for (let seed = 1; seed <= 40; seed++) {
+      const g = mk(4, 'master');
+      g.rnd = C.mulberry32(seed);
+      for (let i = 0; i < 16; i++) {
+        g.foe.pieces[i] = ['K', 'R', 'B', 'N', 'Q'][Math.floor(C.mulberry32(seed * 31 + i)() * 5)];
+        if (C.mulberry32(seed * 17 + i)() < 0.45) g.foe.states[i] = C.SQ_BROKEN;
+      }
+      const at = g.foe.states.findIndex((st) => st !== C.SQ_BROKEN);
+      if (at < 0) continue;
+      g.foe.states[at] = C.SQ_INTACT;
+      g.foe.current = at;
+      g.turn = 'you';
+      for (const p of C.versusReforgeOptions(g, 'you', at)) {
+        const probe = C.cloneMatch(g);
+        probe.turn = 'you';
+        const r = C.versusBuy(probe, 'you', 'reforge', null, p);
+        if (!r.ok) return false;
+        if (r.trapped === 'foe') return false;              // the thing that must not happen
+        probe.turn = 'foe';
+        if (C.versusTargets(probe, 'foe').length === 0) return false;
+      }
+    }
+    return true;
+  })());
+
+  ok('the old Row Shuffle is gone, and nothing answers to it',
+    C.upgradeById('shuffle') === null &&
+    C.versusUpgradeCheck(mk(), 'you', 'shuffle', 1).ok === false &&
+    !src.includes("versusRowCells"));
+}
+
+/* Shatter in one, two and three squares at a time, and the two repairs. */
+section('Versus: shatter, double, triple, and the repairs');
+{
+  const mk = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(21) });
+    m.you.points = 2000; m.foe.points = 2000;
+    return m;
+  };
+  const cracked = (side) => side.states.filter((st) => st === C.SQ_CRACKED).length;
+
+  ok('the six powers are the ones on offer, cheapest first', (() => {
+    const ids = C.CONFIG.versus.upgrades.map((u) => u.id);
+    const costs = C.CONFIG.versus.upgrades.map((u) => u.cost);
+    return ids.join(',') === 'shatter,repair,doubleShatter,reforge,masterRepair,tripleShatter' &&
+      costs.every((c, k) => k === 0 || c >= costs[k - 1]);
+  })());
+
+  ok('Repair is the cheapest way to mend and dearer than Shatter',
+    C.upgradeById('repair').cost > C.upgradeById('shatter').cost &&
+    C.upgradeById('repair').cost < C.upgradeById('masterRepair').cost);
+  ok('Master Repair costs a good deal more than Repair',
+    C.upgradeById('masterRepair').cost >= C.upgradeById('repair').cost * 2);
+  ok('each extra square costs more than the one before',
+    C.upgradeById('doubleShatter').cost > C.upgradeById('shatter').cost &&
+    C.upgradeById('tripleShatter').cost > C.upgradeById('doubleShatter').cost);
+  ok('and a multi-square power costs more than buying the single one twice over',
+    C.upgradeById('doubleShatter').cost > C.upgradeById('shatter').cost * 2 &&
+    C.upgradeById('tripleShatter').cost > C.upgradeById('shatter').cost * 3);
+
+  ok('Shatter cracks one square and leaves it usable', (() => {
+    const g = mk();
+    const r = C.versusBuy(g, 'you', 'shatter', 5);
+    return r.ok && g.foe.states[5] === C.SQ_CRACKED && cracked(g.foe) === 1 &&
+      C.versusTargets(g, 'foe').length >= 0 && r.detail.count === 1;
+  })());
+
+  ok('Double Shatter cracks exactly two, and Triple three', (() => {
+    const g = mk();
+    const two = C.versusBuy(g, 'you', 'doubleShatter', [1, 2]);
+    if (!two.ok || cracked(g.foe) !== 2) return false;
     const h = mk();
-    h.foe.pieces[8] = 'R'; h.foe.pieces[9] = 'R'; h.foe.pieces[10] = 'R'; h.foe.pieces[11] = 'R';
-    const points = h.you.points;
-    const r = C.versusBuy(h, 'you', 'shuffle', 2);
-    return r.ok === false && h.you.points === points && h.upgradeUsed === false;
+    const three = C.versusBuy(h, 'you', 'tripleShatter', [1, 2, 3]);
+    return three.ok && cracked(h.foe) === 3 && three.detail.count === 3;
+  })());
+
+  ok('the wrong number of squares is refused, and costs nothing', (() => {
+    const g = mk();
+    const points = g.you.points;
+    const one = C.versusBuy(g, 'you', 'doubleShatter', [1]);
+    const three = C.versusBuy(g, 'you', 'doubleShatter', [1, 2, 3]);
+    return !one.ok && !three.ok && g.you.points === points && g.upgradeUsed === false;
+  })());
+
+  ok('the same square cannot be chosen twice', (() => {
+    const g = mk();
+    const points = g.you.points;
+    const r = C.versusBuy(g, 'you', 'doubleShatter', [5, 5]);
+    return r.ok === false && g.you.points === points && cracked(g.foe) === 0;
+  })());
+
+  ok('an already-damaged square is not a valid Shatter target', (() => {
+    const g = mk();
+    g.foe.states[5] = C.SQ_CRACKED;
+    const a = C.versusUpgradeCheck(g, 'you', 'shatter', 5).ok;
+    g.foe.states[6] = C.SQ_ARMED;
+    const b = C.versusUpgradeCheck(g, 'you', 'shatter', 6).ok;
+    g.foe.states[7] = C.SQ_BROKEN;
+    const c = C.versusUpgradeCheck(g, 'you', 'shatter', 7).ok;
+    return a === false && b === false && c === false;
+  })());
+
+  ok('and one bad square in a set refuses the whole set', (() => {
+    const g = mk();
+    g.foe.states[2] = C.SQ_CRACKED;
+    const points = g.you.points;
+    const r = C.versusBuy(g, 'you', 'tripleShatter', [1, 2, 3]);
+    return r.ok === false && g.you.points === points && cracked(g.foe) === 1;
+  })());
+
+  ok('a shattered square still works until the hammer leaves it', (() => {
+    const g = mk();
+    C.versusBuy(g, 'you', 'shatter', 5);
+    g.turn = 'foe';
+    C.versusStrike(g, 'foe', 5);                 // landing on it arms it, not breaks it
+    if (g.foe.states[5] !== C.SQ_ARMED) return false;
+    g.turn = 'foe';
+    const away = C.versusTargets(g, 'foe').find((t) => t !== 5);
+    C.versusStrike(g, 'foe', away);
+    return g.foe.states[5] === C.SQ_BROKEN;
+  })());
+
+  ok('Repair mends one damaged square, armed or merely cracked', (() => {
+    const g = mk();
+    g.you.states[3] = C.SQ_ARMED;
+    const r = C.versusBuy(g, 'you', 'repair', 3);
+    return r.ok && g.you.states[3] === C.SQ_INTACT;
+  })());
+
+  ok('neither repair can bring a broken square back', (() => {
+    const g = mk();
+    g.you.states[3] = C.SQ_BROKEN;
+    const one = C.versusUpgradeCheck(g, 'you', 'repair', 3).ok;
+    const all = C.versusUpgradeCheck(g, 'you', 'masterRepair', null, 'R').ok;
+    return one === false && all === false;
+  })());
+
+  ok('Master Repair mends every damaged square of the chosen symbol', (() => {
+    const g = mk();
+    g.you.pieces[1] = 'B'; g.you.pieces[2] = 'B'; g.you.pieces[3] = 'K';
+    g.you.states[1] = C.SQ_CRACKED; g.you.states[2] = C.SQ_ARMED;
+    g.you.states[3] = C.SQ_CRACKED; g.you.states[9] = C.SQ_CRACKED;   // a rook, untouched
+    const r = C.versusBuy(g, 'you', 'masterRepair', null, 'B');
+    return r.ok && g.you.states[1] === C.SQ_INTACT && g.you.states[2] === C.SQ_INTACT &&
+      g.you.states[3] === C.SQ_CRACKED && g.you.states[9] === C.SQ_CRACKED &&
+      r.detail.count === 2 && r.detail.piece === 'B';
+  })());
+
+  ok('and leaves a broken square of that symbol broken', (() => {
+    const g = mk();
+    g.you.pieces[1] = 'B'; g.you.pieces[2] = 'B';
+    g.you.states[1] = C.SQ_CRACKED; g.you.states[2] = C.SQ_BROKEN;
+    const r = C.versusBuy(g, 'you', 'masterRepair', null, 'B');
+    return r.ok && g.you.states[1] === C.SQ_INTACT && g.you.states[2] === C.SQ_BROKEN;
+  })());
+
+  ok('a symbol with nothing damaged is refused, and costs nothing', (() => {
+    const g = mk();
+    const points = g.you.points;
+    const r = C.versusBuy(g, 'you', 'masterRepair', null, 'B');
+    return r.ok === false && g.you.points === points && g.upgradeUsed === false;
+  })());
+
+  ok('the symbols it offers are only those standing on damage', (() => {
+    const g = mk();
+    g.you.pieces[1] = 'B';
+    g.you.states[1] = C.SQ_CRACKED;
+    g.you.states[2] = C.SQ_BROKEN;             // a rook, past saving
+    return C.versusRepairPieces(g, 'you').join(',') === 'B';
+  })());
+
+  ok('powers reach the right board and no other', (() => {
+    const g = mk();
+    g.you.states[3] = C.SQ_CRACKED;
+    g.foe.states[3] = C.SQ_CRACKED;
+    // repairing mine must not touch theirs, and shattering theirs not mine
+    C.versusBuy(g, 'you', 'repair', 3);
+    if (g.you.states[3] !== C.SQ_INTACT || g.foe.states[3] !== C.SQ_CRACKED) return false;
+    const h = mk();
+    C.versusBuy(h, 'you', 'shatter', 4);
+    return h.foe.states[4] === C.SQ_CRACKED && h.you.states[4] === C.SQ_INTACT;
+  })());
+
+  ok('every power still spends the turn’s one allowance', (() => {
+    for (const def of C.CONFIG.versus.upgrades) {
+      const g = mk();
+      g.you.states[1] = C.SQ_CRACKED;
+      g.turn = 'foe'; C.versusStrike(g, 'foe', 6); g.turn = 'you';
+      let r;
+      if (def.target === 'ownSquare') r = C.versusBuy(g, 'you', def.id, 1);
+      else if (def.target === 'ownPiece') r = C.versusBuy(g, 'you', def.id, null, g.you.pieces[1]);
+      else if (def.target === 'enemyCurrent') r = C.versusBuy(g, 'you', def.id, null);
+      else r = C.versusBuy(g, 'you', def.id, [10, 11, 12].slice(0, def.picks));
+      if (!r.ok) return false;
+      if (g.upgradeUsed !== true) return false;
+      if (g.you.points !== 2000 - def.cost) return false;
+      if (C.versusUpgradeCheck(g, 'you', 'shatter', 14).ok) return false;
+    }
+    return true;
+  })());
+}
+
+/* The rival has to actually reach for these, and reach for them for a
+   reason. Measured over real self-played matches rather than asserted. */
+section('Versus: the rival uses the powers, and uses them sensibly');
+{
+  const play = (diff, seeds) => {
+    const used = {};
+    let ended = 0, matches = 0, illegal = 0;
+    for (let seed = 1; seed <= seeds; seed++) {
+      const boards = C.makeVersusBoards(5, diff, C.mulberry32(seed * 7));
+      if (!boards) continue;
+      const m = C.createMatch(boards, { rnd: C.mulberry32(seed * 13) });
+      matches++;
+      for (let t = 0; t < 400 && !C.matchOver(m); t++) {
+        const who = m.turn;
+        const buy = C.versusChooseUpgrade(m, who);
+        if (buy) {
+          const r = C.versusBuy(m, who, buy.id, buy.target, buy.choice);
+          if (r.ok) used[buy.id] = (used[buy.id] || 0) + 1; else illegal++;
+        }
+        if (C.matchOver(m)) break;
+        const mv = C.versusChooseStrike(m, who);
+        if (mv < 0) break;
+        if (!C.versusStrike(m, who, mv)) { illegal++; break; }
+      }
+      if (C.matchOver(m)) ended++;
+    }
+    return { used: used, ended: ended, matches: matches, illegal: illegal };
+  };
+
+  const thinking = play('journeyman', 10);
+  ok('a thinking rival never proposes a power it cannot buy', thinking.illegal === 0);
+  ok('and every match it plays still reaches an end',
+    thinking.ended === thinking.matches, thinking.ended + '/' + thinking.matches);
+  ok('it spends on more than one kind of power',
+    Object.keys(thinking.used).length >= 3, JSON.stringify(thinking.used));
+  ok('it reaches the dearer ones rather than only the cheapest',
+    (thinking.used.reforge || 0) + (thinking.used.doubleShatter || 0) > 0,
+    JSON.stringify(thinking.used));
+
+  const novice = play('novice', 10);
+  ok('a novice rival plays on too, buying at random',
+    novice.illegal === 0 && novice.ended === novice.matches,
+    novice.ended + '/' + novice.matches);
+
+  /* Each power picked for the right kind of reason. */
+  ok('it repairs the damage on its own board when there is some', (() => {
+    const b = { size: 4, difficulty: 'master',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(5) });
+    m.turn = 'foe'; m.foe.points = 60; m.you.points = 0;
+    m.foe.current = 0;
+    // wall it in but for one square, and crack the square it needs
+    for (let i = 1; i < 16; i++) m.foe.states[i] = C.SQ_BROKEN;
+    m.foe.states[4] = C.SQ_ARMED;
+    const pick = C.versusChooseUpgrade(m, 'foe');
+    return !!pick && pick.id === 'repair', pick && pick.id;
+  })());
+
+  ok('it aims Shatter at squares the player can actually reach', (() => {
+    const b = { size: 4, difficulty: 'master',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    const m = C.createMatch(b, { rnd: C.mulberry32(6) });
+    m.turn = 'foe'; m.foe.points = 60;
+    m.you.current = 0;                         // a rook in the corner: row 0 and column 0
+    const pick = C.versusChooseUpgrade(m, 'foe');
+    if (!pick || pick.id !== 'shatter') return true;   // it chose something else; fine
+    const reach = C.versusTargets(m, 'you');
+    return reach.indexOf(pick.target[0]) >= 0;
+  })());
+
+  ok('every power it names can be replayed by the caller exactly', (() => {
+    // the option it returns must carry everything versusBuy needs
+    for (let seed = 1; seed <= 30; seed++) {
+      const boards = C.makeVersusBoards(4, 'master', C.mulberry32(seed * 3));
+      if (!boards) continue;
+      const m = C.createMatch(boards, { rnd: C.mulberry32(seed) });
+      m.foe.points = 4000; m.you.points = 4000;
+      for (let t = 0; t < 30 && !C.matchOver(m); t++) {
+        const who = m.turn;
+        const buy = C.versusChooseUpgrade(m, who);
+        if (buy && !C.versusBuy(m, who, buy.id, buy.target, buy.choice).ok) return false;
+        if (C.matchOver(m)) break;
+        const mv = C.versusChooseStrike(m, who);
+        if (mv < 0) break;
+        C.versusStrike(m, who, mv);
+      }
+    }
+    return true;
+  })());
+
+  ok('and it never reforges the player into a corner with no move', (() => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const boards = C.makeVersusBoards(4, 'master', C.mulberry32(seed * 11));
+      if (!boards) continue;
+      const m = C.createMatch(boards, { rnd: C.mulberry32(seed) });
+      m.foe.points = 4000; m.you.points = 4000;
+      for (let t = 0; t < 40 && !C.matchOver(m); t++) {
+        const who = m.turn;
+        const buy = C.versusChooseUpgrade(m, who);
+        if (buy) {
+          const r = C.versusBuy(m, who, buy.id, buy.target, buy.choice);
+          if (r.ok && buy.id === 'reforge' && r.trapped) return false;
+        }
+        if (C.matchOver(m)) break;
+        const mv = C.versusChooseStrike(m, who);
+        if (mv < 0) break;
+        C.versusStrike(m, who, mv);
+      }
+    }
+    return true;
   })());
 }
 
@@ -1397,7 +1728,7 @@ section('Versus: the rival plays by the same rules');
         const t0 = Date.now();
         const buy = C.versusChooseUpgrade(m, who);
         if (buy) {
-          const r = C.versusBuy(m, who, buy.id, buy.target);
+          const r = C.versusBuy(m, who, buy.id, buy.target, buy.choice);
           if (r.ok) usedUpgrades++; else illegal++;
         }
         if (C.matchOver(m)) break;
