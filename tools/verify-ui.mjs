@@ -374,6 +374,50 @@ async function run() {
   ok('volume is remembered', await page.evaluate(
     () => Math.abs(JSON.parse(localStorage.getItem('checksmith:v1')).volume - 0.3) < 0.001));
 
+  // The forge floor has a voice of its own. Each one is counted by how many
+  // nodes it puts on the graph, which is the only externally visible thing a
+  // synthesised effect does - and every one must obey the mute button.
+  const shopSounds = ['shelve', 'coins', 'doorbell', 'walkout', 'chime', 'prosper', 'ruin'];
+  const voiced = await page.evaluate((names) => {
+    const S = window.CHECKSMITH.sounds, snd = window.CHECKSMITH.sound;
+    snd.setMuted(false);
+    const ctx = snd.ctx;
+    const out = {};
+    const realOsc = ctx.createOscillator.bind(ctx);
+    const realBuf = ctx.createBufferSource.bind(ctx);
+    for (const name of names) {
+      let n = 0;
+      ctx.createOscillator = () => { n++; return realOsc(); };
+      ctx.createBufferSource = () => { n++; return realBuf(); };
+      try { S[name](1, true); } catch (err) { out[name] = 'threw: ' + err; continue; }
+      out[name] = n;
+    }
+    ctx.createOscillator = realOsc;
+    ctx.createBufferSource = realBuf;
+    return out;
+  }, shopSounds);
+  ok('every shop sound actually makes one',
+    shopSounds.every((n) => typeof voiced[n] === 'number' && voiced[n] > 0),
+    JSON.stringify(voiced));
+
+  const mutedNodes = await page.evaluate((names) => {
+    const S = window.CHECKSMITH.sounds, snd = window.CHECKSMITH.sound;
+    snd.setMuted(true);
+    const ctx = snd.ctx;
+    let n = 0;
+    const realOsc = ctx.createOscillator.bind(ctx);
+    const realBuf = ctx.createBufferSource.bind(ctx);
+    ctx.createOscillator = () => { n++; return realOsc(); };
+    ctx.createBufferSource = () => { n++; return realBuf(); };
+    for (const name of names) { try { S[name](1, true); } catch (err) { /* counted below */ } }
+    ctx.createOscillator = realOsc;
+    ctx.createBufferSource = realBuf;
+    snd.setMuted(false);
+    return n;
+  }, shopSounds);
+  ok('and none of them is made while muted', mutedNodes === 0, String(mutedNodes));
+  ok('the shop sounds raise no errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+
   section('Accessibility');
   const label = await page.getAttribute('.tile[data-i="0"]', 'aria-label');
   ok('tiles are named with position, piece, strikes and reachability',
@@ -1438,16 +1482,83 @@ async function run() {
     nextDay.day === '2' && nextDay.storage > 0, JSON.stringify(nextDay));
   ok('and lands in storage, never straight onto the shelf', nextDay.shelf === 0);
 
+  // the shelf is a row of boxes now: tap an empty one, pick a piece for it.
+  // Top up storage first so there is more than one piece to place box by box.
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    C.addStorage(F.app.shop, C.lineKey('buckler', 'bronze'), 5, 86);
+    F.shopRender();
+  });
   await page.click('#shActions [data-act="stock"]');
   await page.waitForSelector('#shopSheet:not([hidden])');
-  await page.evaluate(() => {
-    const inp = document.querySelector('#shopSheetBody [data-num]');
-    inp.value = inp.max;
-    inp.dispatchEvent(new Event('change', { bubbles: true }));
+  const grid = await page.evaluate(() => ({
+    boxes: document.querySelectorAll('#shopSheetBody .shelf-box').length,
+    empty: document.querySelectorAll('#shopSheetBody .shelf-box.empty').length,
+    cap: window.CHECKSMITH.core.shelfCapacity(window.CHECKSMITH.app.shop),
+    confirmOff: document.querySelector('#shopSheetActions button').disabled
+  }));
+  ok('stocking opens on one box for every space the shelves hold',
+    grid.boxes === grid.cap && grid.empty === grid.cap, JSON.stringify(grid));
+  ok('and nothing can be carried out until a box is filled', grid.confirmOff === true);
+
+  await page.click('#shopSheetBody .shelf-box.empty');
+  await page.waitForTimeout(100);
+  const picker = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    lines: document.querySelectorAll('#shopSheetBody [data-take]').length
+  }));
+  ok('tapping a box asks what goes in it, from storage',
+    /What goes here/.test(picker.title) && picker.lines > 0, JSON.stringify(picker));
+
+  await page.click('#shopSheetBody [data-take]');
+  await page.waitForTimeout(100);
+  const oneIn = await page.evaluate(() => ({
+    picked: document.querySelectorAll('#shopSheetBody .shelf-box.pick').length,
+    confirmOff: document.querySelector('#shopSheetActions button').disabled,
+    shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
+  }));
+  ok('picking one fills exactly one box, and nothing has moved yet',
+    oneIn.picked === 1 && oneIn.confirmOff === false && oneIn.shelf === 0,
+    JSON.stringify(oneIn));
+
+  // a filled box can be emptied again before anything is committed
+  await page.click('#shopSheetBody .shelf-box.pick');
+  await page.waitForTimeout(100);
+  ok('and tapping it again takes it back off',
+    (await page.evaluate(() => document.querySelectorAll('#shopSheetBody .shelf-box.pick').length)) === 0);
+
+  // fill several, one box at a time, while storage has anything left
+  for (let i = 0; i < 4; i++) {
+    const left = await page.evaluate(() => {
+      const sh = window.CHECKSMITH.app.shop;
+      let total = 0;
+      for (const k in sh.storage) total += sh.storage[k].qty;
+      return total - (window.CHECKSMITH.shopUi.picks || []).length;
+    });
+    if (left <= 0) break;
+    await page.click('#shopSheetBody .shelf-box.empty:not(:disabled)');
+    await page.waitForTimeout(80);
+    await page.click('#shopSheetBody [data-take]');
+    await page.waitForTimeout(80);
+  }
+  const filled = await page.evaluate(() =>
+    document.querySelectorAll('#shopSheetBody .shelf-box.pick').length);
+  ok('boxes are filled one at a time', filled >= 3, String(filled));
+  const takenOut = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    let total = 0;
+    for (const k in sh.storage) total += sh.storage[k].qty;
+    return total;
   });
-  await page.waitForTimeout(80);
   await page.click('#shopSheetActions button');
   await page.waitForTimeout(300);
+  ok('and only what was picked leaves storage', await page.evaluate((was) => {
+    const sh = window.CHECKSMITH.app.shop;
+    let total = 0;
+    for (const k in sh.storage) total += sh.storage[k].qty;
+    return total === was - window.CHECKSMITH.core.countShelf(sh);
+  }, takenOut));
+
   const stocked = await page.evaluate(() => {
     const F = window.CHECKSMITH, sh = F.app.shop;
     const key = Object.keys(sh.shelf)[0];
@@ -1458,6 +1569,17 @@ async function run() {
   });
   ok('stocking moves goods onto the shop floor', stocked.shelf > 0, JSON.stringify(stocked));
   ok('a fresh line starts at its recommended price', stocked.price === stocked.rec);
+  const floor = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { full: document.querySelectorAll('#shPanel .shelf-box.full').length,
+      boxes: document.querySelectorAll('#shPanel .shelf-box').length,
+      cap: window.CHECKSMITH.core.shelfCapacity(sh),
+      onShelf: window.CHECKSMITH.core.countShelf(sh),
+      priced: document.querySelectorAll('#shPanel .shelf-box[data-price]').length };
+  });
+  ok('the shop tab shows one box per piece, empties and all',
+    floor.boxes === floor.cap && floor.full === floor.onShelf &&
+    floor.priced === floor.onShelf, JSON.stringify(floor));
 
   // the price is the player's to set
   await page.click('#shPanel [data-price]');
@@ -1879,15 +2001,31 @@ async function run() {
   });
   await page.waitForTimeout(200);
   const beforeSelling = await shopState();
-  await page.click('#shActions [data-act="tend"]');
-  await page.waitForTimeout(350);
-  for (let i = 0; i < 3 && (await page.isVisible('#shopSheet')); i++) {
-    if (/Sales Report/.test(await page.textContent('#shopSheetTitle'))) break;
-    await page.click('#shopSheetActions button:nth-child(1)');
-    await page.waitForTimeout(150);
+  // Who walks in is random, and an empty queue would prove nothing here, so
+  // the counter is reopened until somebody actually comes to it. Reopening
+  // does not spend the phase; only closing up does, and this never closes.
+  let midSale = { gold: beforeSelling.gold, open: false };
+  for (let attempt = 0; attempt < 8 && midSale.gold === beforeSelling.gold; attempt++) {
+    await page.click('#shActions [data-act="tend"]');
+    await page.waitForTimeout(350);
+    for (let i = 0; i < 3 && (await page.isVisible('#shopSheet')); i++) {
+      if (/Sales Report/.test(await page.textContent('#shopSheetTitle'))) break;
+      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.waitForTimeout(150);
+    }
+    midSale = await page.evaluate(() => ({ gold: window.CHECKSMITH.app.shop.gold,
+      open: !!window.CHECKSMITH.shopUi.session }));
+    if (midSale.gold === beforeSelling.gold) {
+      // nobody bought: drop this session on the floor and open up again
+      await page.evaluate(() => { window.CHECKSMITH.shopUi.session = null; });
+      await page.click('#shopSheetActions button:last-child');
+      await page.waitForTimeout(200);
+      if (await page.isVisible('#shopSheet')) await page.evaluate(() =>
+        document.getElementById('shopSheet').hidden = true);
+    }
   }
-  const midSale = await page.evaluate(() => ({ gold: window.CHECKSMITH.app.shop.gold,
-    open: !!window.CHECKSMITH.shopUi.session }));
+  ok('somebody came to the counter to be served', midSale.gold > beforeSelling.gold,
+    JSON.stringify([beforeSelling.gold, midSale]));
   await page.reload();
   await openShop();
   const afterSale = await shopState();
@@ -2292,6 +2430,45 @@ async function run() {
     scoreBack.on && scoreBack.track === 'title' && scoreBack.held === false, JSON.stringify(scoreBack));
   ok('and carries on from where it stood rather than starting over',
     scoreBack.at >= scoreAway.at, JSON.stringify([scoreAway.at, scoreBack.at]));
+
+  // Every real minimise fires more than one of these: the shell hook, the
+  // page's own visibilitychange, and pagehide. The second must not undo the
+  // first - that bug stopped the music coming back at all.
+  await page.evaluate(() => {
+    window.checksmithPause();
+    window.__away(true);
+    window.dispatchEvent(new Event('pagehide'));
+    window.checksmithPause();
+  });
+  await page.waitForTimeout(150);
+  const piledOn = await score();
+  ok('stopping twice over still leaves the track to come back to',
+    !piledOn.on && piledOn.held === true && piledOn.track === 'title', JSON.stringify(piledOn));
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  const cameBack = await score();
+  ok('and it does come back, once', cameBack.on && cameBack.track === 'title',
+    JSON.stringify(cameBack));
+
+  // the same, over and over, because this is what a phone actually does
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => { window.checksmithPause(); window.__away(true); });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__away(false); window.checksmithResume(); });
+    await page.waitForTimeout(350);
+  }
+  const stillGoing = await score();
+  ok('minimising three times running still leaves the music playing',
+    stillGoing.on && stillGoing.track === 'title', JSON.stringify(stillGoing));
+
+  // and a pause the system took on its own, without telling the page
+  await page.evaluate(() => { window.CHECKSMITH.music.el.pause(); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  const healed = await score();
+  ok('a track the system stopped behind our back is picked up again',
+    healed.on && healed.track === 'title', JSON.stringify(healed));
 
   // the hooks the two native shells call, since a WebView need not report
   // being sent away as a visibility change at all

@@ -649,6 +649,66 @@ input[type=range]{
 .shop-row button:disabled{opacity:.4;cursor:not-allowed;}
 .shop-cap{margin:0 0 7px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
+/* ---------- the shop floor, drawn as boxes ----------
+   One box to a piece, empties included, so the room the premises have is
+   something you look at rather than work out. The grid fills to whatever
+   width it is given, which is how the same markup serves a phone screen
+   and the dialog sheet inside it. */
+.shelf-grid{
+  display:grid;gap:6px;
+  grid-template-columns:repeat(auto-fill,minmax(68px,1fr));
+}
+.shelf-box{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:76px;padding:7px 4px;border-radius:10px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+  font:inherit;text-align:center;overflow:hidden;
+}
+.shelf-box .sprite{width:26px;height:26px;}
+.shelf-box .sb-name{
+  font-size:9.5px;line-height:1.2;color:var(--muted);letter-spacing:.02em;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.shelf-box .sb-metal{
+  font-size:8.5px;line-height:1;letter-spacing:.08em;text-transform:uppercase;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.shelf-box .sb-price{
+  font-size:11.5px;color:var(--brass);font-variant-numeric:tabular-nums;
+}
+.shelf-box.over .sb-price{color:var(--ember);}
+.shelf-box .sb-tag{
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+}
+.shelf-box .sb-tag.new{color:var(--gold);}
+.shelf-box.full{border-color:var(--edge-soft);}
+.shelf-box.full:hover{border-color:var(--brass);}
+/* already carried out: there, but not yours to move this phase */
+.shelf-box.done{opacity:.5;cursor:default;}
+/* chosen in this draft, not yet on the floor */
+.shelf-box.pick{
+  background:linear-gradient(180deg,#3a2415,#241a12);border-color:var(--ember);
+  box-shadow:inset 0 0 0 1px rgba(255,138,61,.25);
+}
+.shelf-box.pick .sb-name{color:var(--gold);}
+.shelf-box.empty{
+  background:transparent;border-style:dashed;border-color:var(--edge-soft);color:var(--muted);
+}
+.shelf-box.empty:hover:not(:disabled){border-color:var(--ember);color:var(--ember);}
+.shelf-box.empty:disabled{opacity:.3;cursor:default;}
+.shelf-box .sb-plus{font-size:19px;line-height:1;}
+
+/* a line in the storage picker: the whole row is the button */
+.pick-line{
+  display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;
+  padding:9px 10px;border-radius:9px;cursor:pointer;font:inherit;text-align:left;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+}
+.pick-line:hover{border-color:var(--ember);}
+.pick-line .nm{display:flex;align-items:center;gap:7px;font-size:13px;}
+.pick-line .cnt{font-size:11.5px;color:var(--brass);font-variant-numeric:tabular-nums;}
+.pick-line .sub{font-size:10.5px;color:var(--muted);grid-column:1/-1;}
+
 /* number steppers used by the buy and stock sheets */
 .step{display:flex;align-items:center;gap:5px;}
 .step button{
@@ -4599,6 +4659,178 @@ const SOUNDS = {
       });
     } catch (err) { /* ignore */ }
   },
+  /* ---------- the forge floor ----------------------------------------
+     Open Your Forge is a shop, not an anvil, so its voice is money, wood
+     and a doorbell rather than struck steel. Everything here goes through
+     the same master gain, so the mute button and the slider own it too. */
+
+  // a piece set down on the shelf: wood, not metal, and over in a blink
+  shelve() {
+    metalHit({ partials: [[196, 0.22, 0.09], [131, 0.16, 0.11]], wave: 'sine',
+      decay: 0.1, gain: 0.34, lowpass: 900,
+      noiseGain: 0.3, noiseFreq: 520, noiseQ: 0.7, noiseDecay: 0.05 });
+  },
+
+  /* Coins. `weight` is how much is changing hands - a handful of small
+     chinks for a sale, a heavier scatter for a week's rent. `up` is which
+     way it is going: money in rings bright, money out lands flat. */
+  coins(weight, up) {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.01;
+      const n = Math.max(3, Math.min(9, Math.round(3 + (weight || 1) * 3)));
+      const base = up === false ? 900 : 1500;
+      for (let i = 0; i < n; i++) {
+        const t = t0 + i * (0.035 + Math.random() * 0.04);
+        const f = base * (0.8 + Math.random() * 0.9);
+        const out = ctx.createGain();
+        out.gain.value = 0.3;
+        out.connect(Sound.master);
+        // two inharmonic partials is all a struck coin really is
+        [[f, 0.5], [f * 2.76, 0.22]].forEach((pr) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(pr[0], t);
+          const env = ctx.createGain();
+          env.gain.setValueAtTime(0.0001, t);
+          env.gain.exponentialRampToValueAtTime(pr[1] * (up === false ? 0.5 : 0.8), t + 0.004);
+          env.gain.exponentialRampToValueAtTime(0.0001, t + (up === false ? 0.09 : 0.2));
+          osc.connect(env); env.connect(out);
+          osc.start(t); osc.stop(t + 0.3);
+        });
+      }
+    } catch (err) { /* ignore */ }
+  },
+
+  // the door: somebody has come in
+  doorbell() {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.01;
+      [0, 0.11].forEach((delay, strike) => {
+        const t = t0 + delay;
+        const out = ctx.createGain();
+        out.gain.value = strike ? 0.2 : 0.3;
+        out.connect(Sound.master);
+        [[1568, 0.5, 0.7], [2093, 0.3, 0.55], [3136, 0.12, 0.35]].forEach((pr) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(pr[0], t);
+          const env = ctx.createGain();
+          env.gain.setValueAtTime(0.0001, t);
+          env.gain.exponentialRampToValueAtTime(pr[1], t + 0.006);
+          env.gain.exponentialRampToValueAtTime(0.0001, t + pr[2]);
+          osc.connect(env); env.connect(out);
+          osc.start(t); osc.stop(t + pr[2] + 0.05);
+        });
+      });
+    } catch (err) { /* ignore */ }
+  },
+
+  // they thought better of it and left
+  walkout() {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.01;
+      [[311.1, 0], [233.1, 0.13]].forEach((pair) => {
+        const t = t0 + pair[1];
+        const out = ctx.createGain();
+        out.gain.value = 0.26;
+        out.connect(Sound.master);
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(pair[0], t);
+        osc.frequency.exponentialRampToValueAtTime(pair[0] * 0.94, t + 0.3);
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(0.32, t + 0.015);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+        osc.connect(env); env.connect(out);
+        osc.start(t); osc.stop(t + 0.4);
+      });
+      // the door shutting behind them
+      metalHit({ partials: [[98, 0.3, 0.12]], wave: 'sine', decay: 0.12, gain: 0.3,
+        lowpass: 400, noiseGain: 0.22, noiseFreq: 240, noiseQ: 0.6, noiseDecay: 0.09 });
+    } catch (err) { /* ignore */ }
+  },
+
+  // the phase turns over: one mellow stroke, nothing triumphant
+  chime() {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t = ctx.currentTime + 0.01;
+      const out = ctx.createGain();
+      out.gain.value = 0.26;
+      out.connect(Sound.master);
+      [[523.25, 0.45, 1.1], [1046.5, 0.16, 0.8], [1567.98, 0.06, 0.5]].forEach((pr) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(pr[0], t);
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(pr[1], t + 0.008);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + pr[2]);
+        osc.connect(env); env.connect(out);
+        osc.start(t); osc.stop(t + pr[2] + 0.05);
+      });
+    } catch (err) { /* ignore */ }
+  },
+
+  /* A rising figure for anything that makes the business bigger: a hand
+     taken on, a premises bought, an upgrade paid for. */
+  prosper(grand) {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.01;
+      const notes = grand ? [392, 523.25, 659.25, 880] : [523.25, 659.25];
+      notes.forEach((f, i) => {
+        const t = t0 + i * 0.09;
+        const out = ctx.createGain();
+        out.gain.value = 0.26;
+        out.connect(Sound.master);
+        [[f, 0.42, 0.65], [f * 2, 0.14, 0.45]].forEach((pr) => {
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(pr[0], t);
+          const env = ctx.createGain();
+          env.gain.setValueAtTime(0.0001, t);
+          env.gain.exponentialRampToValueAtTime(pr[1], t + 0.01);
+          env.gain.exponentialRampToValueAtTime(0.0001, t + pr[2]);
+          osc.connect(env); env.connect(out);
+          osc.start(t); osc.stop(t + pr[2] + 0.05);
+        });
+      });
+    } catch (err) { /* ignore */ }
+  },
+
+  // the landlord takes the keys
+  ruin() {
+    if (!Sound.ready()) return;
+    try {
+      const ctx = Sound.ctx, t0 = ctx.currentTime + 0.02;
+      [196, 155.6, 123.5, 98].forEach((f, i) => {
+        const t = t0 + i * 0.2;
+        const out = ctx.createGain();
+        out.gain.value = 0.3;
+        out.connect(Sound.master);
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(f, t);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.93, t + 0.9);
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(900, t);
+        lp.frequency.exponentialRampToValueAtTime(220, t + 0.9);
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(0.3, t + 0.02);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+        osc.connect(lp); lp.connect(env); env.connect(out);
+        osc.start(t); osc.stop(t + 1.0);
+      });
+    } catch (err) { /* ignore */ }
+  },
+
   complete(masterwork) {
     if (!Sound.ready()) return;
     try {
@@ -5874,7 +6106,9 @@ const SHOPUI = {
   tab: 'shelf',
   session: null,      // a selling phase in progress at the counter
   order: null,        // the batch being worked at the anvil
-  draft: {}           // scratch numbers for whichever dialog is open
+  draft: {},          // scratch numbers for whichever dialog is open
+  ringed: null,       // the customer the doorbell has already rung for
+  slot: null          // the shelf box being filled, while the picker is open
 };
 
 function shop() { return App.shop; }
@@ -6168,29 +6402,30 @@ function shopRenderPanel() {
   let html = '';
 
   if (SHOPUI.tab === 'shelf') {
-    const keys = Object.keys(sh.shelf);
-    html += '<p class="shop-cap">Shelves ' + countShelf(sh) + ' / ' + shelfCapacity(sh) +
-      ' · tap a price to change it</p>';
-    if (!keys.length) {
-      html += '<p class="shop-empty">The shop floor is bare. Stock it from storage and customers will come.</p>';
-    } else {
-      html += '<div class="shop-list">';
-      for (const key of keys) {
-        const line = sh.shelf[key], p = splitKey(key);
+    // The floor itself: one box to a piece, empties included, so what the
+    // premises hold is something the player can see rather than work out.
+    const cap = shelfCapacity(sh);
+    const out = shelfBoxes(sh);
+    html += '<p class="shop-cap">Shelves ' + out.length + ' / ' + cap +
+      (out.length ? ' · tap a piece to price it' : '') + '</p>';
+    if (!out.length) {
+      html += '<p class="shop-empty">The shop floor is bare. Fill a space from storage and ' +
+        'customers will come.</p>';
+    }
+    html += '<div class="shelf-grid">';
+    for (let i = 0; i < cap; i++) {
+      if (i < out.length) {
+        const key = out[i], line = sh.shelf[key], p = splitKey(key);
         const rec = recommendedPrice(p.item, p.material, line.quality);
         const over = line.price > rec;
-        html += '<div class="shop-row">' +
-          '<span class="nm">' + lineSprite(key) + ' ' + esc(lineName(key)) +
-          ' &times;' + line.qty + '</span>' +
-          '<button data-price="' + esc(key) + '">' + coin(line.price) + 'g</button>' +
-          '<span class="sub">Recommended ' + coin(rec) + 'g' +
-          (over ? ' · <span style="color:var(--ember)">asking ' +
-            Math.round((line.price / rec - 1) * 100) + '% over</span>' : '') +
-          ' · quality ' + Math.round(line.quality) + '</span>' +
-          '</div>';
+        html += boxHtml(key, 'full' + (over ? ' over' : ''), 'data-price="' + esc(key) + '"',
+          lineName(key) + ', ' + coin(line.price) + ' gold, tap to change the price',
+          '<span class="sb-price">' + coin(line.price) + 'g</span>');
+      } else {
+        html += emptyBox('data-stock="' + i + '"', 'Empty shelf space, tap to stock it');
       }
-      html += '</div>';
     }
+    html += '</div>';
   } else if (SHOPUI.tab === 'storage') {
     const keys = Object.keys(sh.storage);
     html += '<p class="shop-cap">Storage ' + countStorage(sh) + ' / ' + storageCapacity(sh) + '</p>';
@@ -6408,6 +6643,7 @@ function shopConfirmBuy(runner) {
   }
   const res = shopBuyMaterials(sh, SHOPUI.draft);
   if (!res.ok) { shopToast(res.why); return; }
+  SOUNDS.coins(Math.min(3, res.spent / 120), false);
   shopSheetClose();
   shopSpendPhase('Bought ' + res.ingots + ' ingots for ' + coin(res.spent) + 'g.');
 }
@@ -6507,50 +6743,132 @@ function shopGiveSmithOrder(smith) {
 }
 
 /* ---------- stock the shelves ---------- */
-function shopStockBody(hand) {
-  const sh = shop();
-  const keys = Object.keys(sh.storage);
-  if (!keys.length) return '<p class="shop-empty">Storage is empty.</p>';
-  const room = shelfCapacity(sh) - countShelf(sh);
-  let html = '<p class="shop-cap">Shelf room left: ' + room + '</p><div class="shop-list">';
+/* ---------- the shelf as a shelf ------------------------------------
+   The shop floor holds so many pieces and no more, so it is drawn as that
+   many boxes - one to a piece, empties and all. Stocking is filling them
+   in, one box at a time, rather than typing numbers into a list. */
+function shelfBoxes(sh) {
+  const out = [];
+  for (const key in sh.shelf) {
+    const line = sh.shelf[key];
+    for (let i = 0; i < line.qty; i++) out.push(key);
+  }
+  return out;
+}
+
+/* What the draft has claimed out of storage so far, line by line. */
+function stockPicked() {
+  const counts = {};
+  for (const key of SHOPUI.picks || []) counts[key] = (counts[key] || 0) + 1;
+  return counts;
+}
+
+function boxHtml(key, cls, attr, label, tail) {
+  const p = splitKey(key);
+  const item = shopItem(p.item);
+  const mt = shopMaterial(p.material);
+  // Two longswords in different metals are different goods at different
+  // prices, so the metal is named on the box and not left to the tint alone.
+  return '<button class="shelf-box ' + cls + '" type="button" ' + attr +
+    ' aria-label="' + esc(label) + '">' + lineSprite(key, 'lg') +
+    (mt ? '<span class="sb-metal" style="color:' + mt.tint + '">' + esc(mt.name) + '</span>' : '') +
+    '<span class="sb-name">' + esc(item ? item.name : p.item) + '</span>' + (tail || '') +
+    '</button>';
+}
+
+function emptyBox(attr, label) {
+  return '<button class="shelf-box empty" type="button" ' + attr +
+    ' aria-label="' + esc(label) + '"><span class="sb-plus">+</span>' +
+    '<span class="sb-name">Empty</span></button>';
+}
+
+/* The picker: everything in storage that could go into the box just tapped. */
+function shopStockPicker(sh) {
+  const counts = stockPicked();
+  const keys = Object.keys(sh.storage).filter(function (k) {
+    return (sh.storage[k].qty - (counts[k] || 0)) > 0;
+  });
+  if (!keys.length) return '<p class="shop-empty">Nothing left in storage to put out.</p>';
+  let html = '<p class="shop-cap">Pick one piece for this space</p><div class="shop-list">';
   for (const key of keys) {
     const lot = sh.storage[key];
-    const qty = SHOPUI.draft[key] || 0;
-    html += '<div class="shop-row">' +
+    const left = lot.qty - (counts[key] || 0);
+    const p = splitKey(key);
+    html += '<button class="pick-line" type="button" data-take="' + esc(key) + '">' +
       '<span class="nm">' + lineSprite(key) + ' ' + esc(lineName(key)) + '</span>' +
-      stepper(key, qty, 0, lot.qty) +
-      '<span class="sub">' + lot.qty + ' in storage · quality ' + Math.round(lot.quality) +
-      ' · sells around ' +
-      coin(recommendedPrice(splitKey(key).item, splitKey(key).material, lot.quality)) + 'g</span>' +
-      '</div>';
+      '<span class="cnt">' + left + ' left</span>' +
+      '<span class="sub">quality ' + Math.round(lot.quality) + ' · sells around ' +
+      coin(recommendedPrice(p.item, p.material, lot.quality)) + 'g</span>' +
+      '</button>';
+  }
+  return html + '</div>';
+}
+
+function shopStockBody(hand) {
+  const sh = shop();
+  if (SHOPUI.slot !== null) return shopStockPicker(sh);
+
+  const cap = shelfCapacity(sh);
+  const out = shelfBoxes(sh);
+  const picks = SHOPUI.picks || [];
+  const room = cap - out.length;
+  const carry = hand ? Math.min(room, 4 + hand.power * 2) : room;
+
+  if (!Object.keys(sh.storage).length && !picks.length) {
+    return '<p class="shop-empty">Storage is empty. Forge something first.</p>';
+  }
+
+  let html = '<p class="shop-cap">Shelves ' + (out.length + picks.length) + ' / ' + cap +
+    ' · tap an empty space to fill it</p><div class="shelf-grid">';
+  for (let i = 0; i < cap; i++) {
+    if (i < out.length) {
+      html += boxHtml(out[i], 'full done', 'disabled',
+        lineName(out[i]) + ', already on the shelf', '<span class="sb-tag">out</span>');
+    } else if (i - out.length < picks.length) {
+      const key = picks[i - out.length];
+      html += boxHtml(key, 'full pick', 'data-unpick="' + (i - out.length) + '"',
+        'Take the ' + lineName(key) + ' back off the shelf', '<span class="sb-tag new">new</span>');
+    } else if (picks.length < carry) {
+      html += emptyBox('data-box="' + i + '"', 'Empty shelf space, tap to fill it');
+    } else {
+      html += emptyBox('disabled', 'Empty shelf space');
+    }
   }
   html += '</div>';
-  let picked = 0;
-  for (const k in SHOPUI.draft) picked += SHOPUI.draft[k] || 0;
-  html += '<div class="sheet-total' + (picked > room ? ' short' : '') +
-    '"><span>To the shop floor</span><b>' + picked + '</b></div>';
+
+  html += '<div class="sheet-total"><span>' +
+    (hand ? esc(hand.name) + ' will carry out' : 'To the shop floor') +
+    '</span><b>' + picks.length + '</b></div>';
   if (hand) {
     html += '<p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">' + esc(hand.name) +
       ' can carry ' + (4 + hand.power * 2) + ' pieces this phase, starting with what you pick ' +
       'here and filling any space left with whatever else is waiting.</p>';
+  } else if (carry > 0 && picks.length >= carry) {
+    html += '<p style="margin:8px 0 0;font-size:11.5px;color:var(--ember)">Every space is spoken ' +
+      'for. Sell something, or move into bigger premises.</p>';
   }
   return html;
 }
 
 function shopOpenStock(hand) {
   SHOPUI.draft = {};
+  SHOPUI.picks = [];
+  SHOPUI.slot = null;
   const redraw = function () {
-    const sh = shop();
-    const room = shelfCapacity(sh) - countShelf(sh);
-    let picked = 0;
-    for (const k in SHOPUI.draft) picked += SHOPUI.draft[k] || 0;
-    shopSheet(hand ? 'Send ' + hand.name + ' to the floor' : 'Stock Shelves', shopStockBody(hand),
-      [
-        { label: hand ? 'Set them to it' : 'Carry them out', primary: true,
-          disabled: picked <= 0 || (!hand && picked > room),
-          onClick: function () { shopConfirmStock(hand); } },
-        { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
+    const picking = SHOPUI.slot !== null;
+    const picks = SHOPUI.picks || [];
+    shopSheet(picking ? 'What goes here?'
+      : hand ? 'Send ' + hand.name + ' to the floor' : 'Stock Shelves',
+      shopStockBody(hand),
+      picking
+        ? [{ label: 'Back', ghost: true,
+            onClick: function () { SHOPUI.slot = null; redraw(); } }]
+        : [
+          { label: hand ? 'Set them to it' : 'Carry them out', primary: true,
+            disabled: picks.length <= 0,
+            onClick: function () { shopConfirmStock(hand); } },
+          { label: 'Back', ghost: true, onClick: shopSheetClose }
+        ]);
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -6558,20 +6876,20 @@ function shopOpenStock(hand) {
 
 function shopConfirmStock(hand) {
   const sh = shop();
+  const counts = stockPicked();
   if (hand) {
-    const keys = Object.keys(SHOPUI.draft).filter(function (k) { return SHOPUI.draft[k] > 0; });
+    const keys = Object.keys(counts);
     const res = shopAssign(sh, hand.id, { order: { keys: keys } });
     if (!res.ok) { shopToast(res.why); return; }
+    SOUNDS.shelve();
     shopSheetClose();
     shopRender();
     announce(hand.name + ' will stock the shelves.');
     return;
   }
   let moved = 0;
-  for (const key in SHOPUI.draft) {
-    const want = SHOPUI.draft[key] || 0;
-    if (want > 0) moved += shopMoveToShelf(sh, key, want).moved;
-  }
+  for (const key in counts) moved += shopMoveToShelf(sh, key, counts[key]).moved;
+  if (moved > 0) SOUNDS.shelve();
   shopSheetClose();
   shopSpendPhase(moved > 0
     ? 'Carried ' + moved + ' piece' + (moved === 1 ? '' : 's') + ' out to the shelves.'
@@ -6675,6 +6993,8 @@ function shopCounterStep() {
   if (event.kind === 'sale') { shopCounterOutcome(event); return; }
 
   const p = event;
+  // the door, but only for somebody new - a haggle redraws this same screen
+  if (SHOPUI.ringed !== p) { SHOPUI.ringed = p; SOUNDS.doorbell(); }
   const under = p.price - p.offer;
   const buttons = [
     { label: 'Accept ' + coin(p.offer) + 'g', primary: true,
@@ -6769,6 +7089,9 @@ function shopCounterOutcome(event) {
   }
   const more = session.at < session.queue.length;
   const sold = event.kind === 'sale';
+  // the stamp is the moment the player reads, so the sound lands with it
+  if (sold) SOUNDS.coins(Math.min(3, event.price / 60));
+  else SOUNDS.walkout();
   const body = custLine(session) +
     '<div class="stamp' + (sold ? '' : ' lost') + '">' +
     (sold ? lineSprite(event.key, 'xl') : portrait(event.type)) +
@@ -6898,6 +7221,7 @@ function shopToast(text) {
    reports are read, and the shop moves on. */
 function shopSpendPhase(note) {
   const sh = shop();
+  SOUNDS.chime();
   if (note) shopToast(note);
   const result = shopAdvancePhase(sh);
   shopRender();
@@ -6927,6 +7251,8 @@ function shopDayBreak(result) {
   }
   const bill = result.bill;
   if (bill) {
+    // the week's reckoning: the money leaving is the sound of it
+    if (bill.paid) SOUNDS.coins(3, false);
     html += '<div class="report"><dl>' +
       '<dt>Rent</dt><dd>' + coin(bill.rent) + 'g</dd>' +
       '<dt>Wages</dt><dd>' + coin(bill.wages) + 'g</dd>' +
@@ -6943,6 +7269,7 @@ function shopDayBreak(result) {
   if (!html) html = '<p class="shop-empty">A quiet night. Nothing came off the anvil.</p>';
 
   if (sh.closed) {
+    SOUNDS.ruin();
     shopSheet('The forge closes', html + '<p style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">' +
       'You lasted ' + (sh.day - 1) + ' days and paid ' + sh.rentPaid +
       (sh.rentPaid === 1 ? ' week' : ' weeks') + ' of rent.</p>',
@@ -7170,11 +7497,20 @@ function wireShop() {
     if (!t) return;
     const price = t.closest('[data-price]');
     if (price) { shopOpenPrice(price.dataset.price); return; }
+    // an empty space on the floor is the shortest way to the stock dialog
+    const fill = t.closest('[data-stock]');
+    if (fill) {
+      const why = shopActionState('stock');
+      if (why) { SOUNDS.invalid(); shopToast(why); return; }
+      shopAct('stock');
+      return;
+    }
     const fire = t.closest('[data-fire]');
     if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
     const up = t.closest('[data-upgrade]');
     if (up && !up.disabled) {
       const res = shopBuyUpgrade(shop(), up.dataset.upgrade);
+      if (res.ok) SOUNDS.prosper(false); else SOUNDS.invalid();
       shopToast(res.ok ? shopUpgradeDef(up.dataset.upgrade).name + ' installed.' : res.why);
       shopRender();
       return;
@@ -7184,6 +7520,7 @@ function wireShop() {
     const ex = t.closest('[data-expand]');
     if (ex && !ex.disabled) {
       const res = shopExpand(shop());
+      if (res.ok) SOUNDS.prosper(true); else SOUNDS.invalid();
       shopToast(res.ok ? 'You move into the ' + res.tier.name + '. Rent rises to ' +
         coin(res.tier.rent) + 'g.' : res.why);
       shopRender();
@@ -7229,10 +7566,32 @@ function wireShop() {
     const hire = e.target.closest ? e.target.closest('[data-hire]') : null;
     if (hire && !hire.disabled) {
       const res = shopHire(shop(), Number(hire.dataset.hire));
-      if (!res.ok) { shopToast(res.why); return; }
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
       shopSheetClose();
       shopSpendPhase('Hired ' + res.staff.name + ', ' + res.staff.rank + '-rank ' +
         shopRole(res.staff.role).name + ', at ' + coin(res.staff.wage) + 'g a week.');
+      return;
+    }
+    // the shelf grid: an empty box opens the picker, a picked one goes back
+    const box = e.target.closest ? e.target.closest('[data-box]') : null;
+    if (box && !box.disabled) {
+      SHOPUI.slot = Number(box.dataset.box);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const unpick = e.target.closest ? e.target.closest('[data-unpick]') : null;
+    if (unpick) {
+      SHOPUI.picks.splice(Number(unpick.dataset.unpick), 1);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const take = e.target.closest ? e.target.closest('[data-take]') : null;
+    if (take) {
+      SHOPUI.picks.push(take.dataset.take);
+      SHOPUI.slot = null;
+      SOUNDS.shelve();
+      if (SHOPUI.redraw) SHOPUI.redraw();
       return;
     }
     const send = e.target.closest ? e.target.closest('[data-send]') : null;
@@ -7794,26 +8153,22 @@ const Music = {
      complaint. The track is remembered rather than cleared, so coming back
      picks the song up where it stood instead of starting it over. */
   suspend() {
-    if (!this.el || this.el.paused) { this.held = false; return; }
+    if (!this.el || this.el.paused) return;   // already quiet; leave `held` alone
     if (this.ramp) { clearInterval(this.ramp); this.ramp = null; }
-    const carry = !!this.track;
     this.el.pause();
-    if (carry) {
-      this.el.volume = this.level();
-    } else {
-      // A fade-out was in flight; let it end here rather than resume.
-      try { this.el.currentTime = 0; } catch (err) { /* not seekable yet */ }
-      this.el.volume = this.level();
-    }
-    this.held = carry;
+    // nothing to come back to: a fade-out was in flight, so let it end here
+    if (!this.track) { try { this.el.currentTime = 0; } catch (err) { /* not seekable */ } }
+    this.el.volume = this.level();
+    this.held = !!this.track;
   },
 
-  /* Back in front. Only a track this pair parked is restarted, so a player
-     who muted, or a screen that has no music of its own, stays silent. */
+  /* Back in front. `track` is the record of what belongs on this screen, so
+     anything paused with one still set is picked up again - whether this
+     pair parked it or the system stopped it behind our back. A screen with
+     no music of its own has no track, and stays silent. */
   resume() {
-    if (!this.el || !this.held) { this.held = false; return; }
     this.held = false;
-    if (!this.track) return;
+    if (!this.el || !this.track || !this.el.paused) return;
     this.sync();
     const attempt = this.el.play();
     if (attempt && attempt.catch) attempt.catch(() => {});
@@ -8181,7 +8536,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else boot();
 
 // exposed for the automated test harness
-window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, music: Music, fx: FX, tap: tapSquare,
+window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOUNDS, music: Music, fx: FX, tap: tapSquare,
   vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,

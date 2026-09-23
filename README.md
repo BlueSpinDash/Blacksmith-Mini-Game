@@ -55,15 +55,21 @@ that reason: music plays there, so the controls have to be reachable there.
 outright rather than fading, because a fade needs the timers the system is
 about to take away, and half a second of music leaking out of a pocket is the
 whole complaint. The track name is kept, so coming back picks the song up where
-it stood instead of restarting it — and only a track that pair parked is
-restarted, so a muted player, or a Forge board with no music of its own, comes
-back to the same silence it left. The page listens on `visibilitychange` and
+it stood instead of restarting it. The page listens on `visibilitychange` and
 `pagehide`; the Android shell also calls `window.checksmithPause()` and
 `window.checksmithResume()` from `onPause`/`onResume`, because a WebView is not
 obliged to report being sent away as a visibility change and `WebView.onPause()`
 alone does not reliably stop HTML5 audio. The pause call goes in first, while
 the page's scripts still run; the resume call goes in last, once the timers are
 back.
+
+**A real minimise fires several of those at once**, so `suspend` has to be
+idempotent: a second one landing on an already-paused element must not undo the
+first. It used to, which meant the music stopped and never came back. `resume`
+no longer keys off a "we parked it" flag at all — `track` is the record of what
+belongs on this screen, so anything paused with one still set is picked up
+again, whether this pair parked it or the system stopped it behind our back. A
+screen with no music of its own has no track, and stays silent.
 
 **The assets are embedded like everything else**, so the file is still the whole
 game — and that is what takes `index.html` from about 370 KB to **12.6 MB**. The
@@ -454,6 +460,25 @@ becomes the goods' quality, which sets what they are worth.
 Finished work lands in **storage** the next morning. It never goes straight to
 the shelves — moving it there costs a phase (or a Store Hand).
 
+### The shelf is drawn as a shelf
+
+The shop floor holds so many pieces and no more, so it is drawn as exactly that
+many boxes — **one to a piece**, empties included. What the premises hold is
+something to look at rather than work out.
+
+Stocking is filling boxes in, one at a time: tap an empty one, and the picker
+lists what is in storage with what is left of each line after the draft; tap a
+piece and it drops into that box. Tap a filled box to take it back off. Nothing
+moves until *Carry them out*, and the whole lot still costs a single phase, so
+placing pieces one by one is free. A Store Hand sent to the floor picks from the
+same grid, capped by what they can carry.
+
+On the Shop tab the same grid is the shop floor: each piece shows its metal, its
+name and its price, and tapping one opens the price sheet. Tapping an empty box
+is the short way to the stocking dialog. Two longswords in different metals are
+different goods at different prices, so the metal is named on the box rather
+than left to the sprite's tint alone.
+
 ### Pricing and customers
 
 Every line has a recommended price and starts there; the player may ask
@@ -559,6 +584,28 @@ Adding art for a new item is a `<symbol id="it-<itemid>">`; the id matches the
 item's id in `SHOP.items` and nothing else needs to know. A browser check
 asserts every item, customer type and material is covered, so a new row in the
 table without a sprite fails the suite rather than rendering an empty box.
+
+### The forge floor has a voice
+
+Open Your Forge is a shop, not an anvil, so its sounds are money, wood and a
+doorbell rather than struck steel. They are synthesised the same way the hammer
+is — no samples, nothing to download — and they go through the same master gain,
+so the mute button and the volume slider own them too.
+
+| Moment | Sound |
+| --- | --- |
+| A customer steps up to the counter | `doorbell` — two strokes of a shop bell |
+| A sale lands | `coins` — a handful of chinks, scaled by the price |
+| They walk out | `walkout` — two falling notes and the door |
+| Buying ingots, and the week's rent | `coins`, pitched down and dulled — money going the other way |
+| A piece set on the shelf | `shelve` — wood, not metal, over in a blink |
+| A phase turns over | `chime` — one mellow stroke, nothing triumphant |
+| A hand hired, an upgrade, new premises | `prosper` — a rising figure, longer for premises |
+| The landlord takes the keys | `ruin` — four sawtooth notes falling through a closing filter |
+
+The doorbell rings for a *new* customer only: haggling redraws the same screen,
+and a bell on every redraw would be the most annoying sound in the game.
+`SHOPUI.ringed` holds whoever it last rang for.
 
 ### Several forges, each with a name
 
