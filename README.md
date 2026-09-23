@@ -414,6 +414,50 @@ The board-size picker is Forge's alone. It is not offered in Open Your Forge at
 all — changing it at the anvil would deal a different board out from under the
 batch being worked.
 
+#### One ladder, shared by every mode
+
+A square climbs the metals as it is worked: **one blow, one rung.** The shop's
+list is built so the metal that wants *n* strikes sits *n*th on it, which is
+what makes that true.
+
+| Ordered | Blows | The square walks |
+| --- | --- | --- |
+| Bronze | 1 | Bronze |
+| Silver | 2 | Bronze → Silver |
+| Gold | 3 | Bronze → Silver → Gold |
+| Mithril | 4 | Bronze → Silver → Gold → Mithril |
+| Adamantine | 5 | Bronze → Silver → Gold → Mithril → Adamantine |
+
+Reaching the ordered metal is the **finished** state — the tile wears that
+metal's colour and takes the finishing ring. Only the blow *after* it cracks the
+square and counts as an overstrike. `forgeBoardSpec` has always set `perfect` to
+the metal's own strike count and `spent` to one more, so the rules were right;
+what was wrong was the tile art, which counted to the plain forge's
+two-and-three and so drew a finished Gold square as a ruined one.
+
+Three functions in the core settle it for every mode, and nothing draws a worked
+square without going through them:
+
+- `advanceMaterialTier(strikes, ladder)` — one blow, one rung.
+- `squareMetalTier(game, idx)` — which rung *this* square should show. Endless
+  is the one exception and says so: there a whole board is worked in the
+  round's metal, so every struck square shows the round's rung rather than its
+  own count. A blueprint board walks its own ladder. The plain forge keeps its
+  hot-metal art and takes no rung.
+- `strikeState(game, idx)` — 0 cold, 1 worked, 2 finished, 3 ruined, read off
+  the board's own thresholds rather than a hardcoded two-and-three.
+
+**A rung is resolved by name, not by position.** The two ladders are different
+lengths: endless climbs six (it has Platinum), the shop works five (it does
+not). Mithril is the fourth metal a smith can buy but the fifth colour on the
+palette, and a Mithril blade has to come off the anvil looking like Mithril.
+`METAL_PALETTE` is the order the tile art is written in and
+`metalPaletteIndex` maps a name onto it.
+
+Fifty-eight core checks and forty-five browser checks walk every blueprint metal
+rung by rung, on real tiles, and assert the plain forge and endless still count
+exactly as they did.
+
 Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
 
 | Batch | Tier | Symbols |

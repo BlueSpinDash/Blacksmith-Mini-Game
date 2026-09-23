@@ -126,6 +126,105 @@ section('Strike states, spent squares and completion');
   ok('completed game offers no targets', C.legalTargets(g).length === 0);
 }
 
+/* One ladder, shared. This is the bug that put it here: an Open Your Forge
+   board wanting three blows showed the third one as a ruined square, because
+   the tile art counted to the plain forge's two-and-three rather than the
+   board's own. Every rung below is checked against the material tables the
+   game already ships, never against a number written out here twice. */
+section('The material ladder is one ladder');
+{
+  const shop = { tier: 1, upgrades: {}, staff: [] };
+  const flat = { size: 2, difficulty: 'test', pieces: ['Q', 'Q', 'Q', 'Q'], route: [] };
+  const boardFor = (materialId) => {
+    const spec = C.forgeBoardSpec(shop, 'shortsword', materialId, 1);
+    return { spec: spec, game: C.createGame(flat,
+      { mode: 'forge', perfect: spec.perfect, spent: spec.spent, ladder: spec.ladder }) };
+  };
+  const rungAt = (g, n) => { g.strikes[0] = n; return C.squareMetalTier(g, 0); };
+  const stateAt = (g, n) => { g.strikes[0] = n; return C.strikeState(g, 0); };
+  const named = (g, n) => { const r = rungAt(g, n); return r < 0 ? null : C.METAL_PALETTE[r]; };
+
+  ok('the shop works its own metals, in the order their blows fall',
+    C.shopLadder().join(',') === C.SHOP.materials.slice()
+      .sort((a, b) => a.strikes - b.strikes).map((m) => m.name).join(','));
+  ok('and the metal that wants n blows sits nth on it',
+    C.shopLadder().every((name, at) =>
+      C.SHOP.materials.find((m) => m.name === name).strikes === at + 1));
+
+  // a rung is resolved by name: the shop has no Platinum, so its fourth metal
+  // is the palette's fifth colour, and a Mithril blade must look like Mithril
+  ok('a rung is the metal’s own colour, not its place in the list',
+    C.metalPaletteIndex('Mithril') === 4 && C.shopLadder().indexOf('Mithril') === 3);
+  ok('an unknown metal falls back rather than throwing',
+    C.metalPaletteIndex('Orichalcum') === 0 && C.advanceMaterialTier(0) === -1);
+
+  // every blueprint the shop can sell, rung by rung
+  for (const m of C.SHOP.materials) {
+    const { spec, game } = boardFor(m.id);
+    const need = spec.perfect;
+    ok(m.name + ': the blueprint asks for one blow per rung',
+      need === m.strikes && spec.spent === m.strikes + 1 && spec.visits === m.strikes);
+
+    // 1. one rung a blow, all the way up
+    const walk = [];
+    for (let n = 1; n <= need; n++) walk.push(named(game, n));
+    ok(m.name + ': each blow advances the square exactly one metal',
+      walk.join(',') === C.shopLadder().slice(0, need).join(','), walk.join(','));
+
+    // 2. the target metal is the last rung, and it is its own colour
+    ok(m.name + ': the finished square shows ' + m.name,
+      named(game, need) === m.name, String(named(game, need)));
+
+    // 3. reaching the target is correct, not over-hit
+    ok(m.name + ': the finishing blow reads finished, not ruined',
+      stateAt(game, need) === 2);
+    for (let n = 1; n < need; n++) {
+      ok(m.name + ': blow ' + n + ' of ' + need + ' is still being worked',
+        stateAt(game, n) === 1);
+    }
+
+    // 4. nothing is called ruined early
+    ok(m.name + ': no blow up to ' + need + ' is ever marked ruined',
+      [...Array(need)].every((_, k) => stateAt(game, k + 1) !== 3));
+    ok(m.name + ': and none of them counts as an overstrike', (() => {
+      game.strikes = [need, need, need, need];
+      return C.gameStats(game).overstrikes === 0 && C.gameStats(game).perfect === 4;
+    })());
+
+    // 5. only a blow past the target is
+    ok(m.name + ': the blow after the target ruins it',
+      stateAt(game, need + 1) === 3 && rungAt(game, need + 1) === -1);
+    ok(m.name + ': and only that one is penalised', (() => {
+      game.strikes = [need + 1, need, need, need];
+      return C.gameStats(game).overstrikes === 1 && C.gameStats(game).spent === 1;
+    })());
+  }
+
+  // 6. the reference implementations are untouched
+  const plain = C.createGame(flat, { mode: 'forge' });
+  ok('the plain forge still counts to two and ruins on three',
+    [0, 1, 2, 3, 4].map((n) => stateAt(plain, n)).join(',') === '0,1,2,3,3');
+  ok('and still takes no rung of its own',
+    [1, 2, 3].every((n) => rungAt(plain, n) === -1));
+
+  const run = C.createGame({ size: 2, difficulty: 'test', pieces: ['Q', 'Q', 'Q', 'Q'], route: [] },
+    { mode: 'endless' });
+  ok('endless still works a whole board in the round’s metal', (() => {
+    for (const round of [1, 2, 3, 4, 5, 6, 12]) {
+      run.round = round;
+      run.strikes = [1, 1, 2, 5];
+      const want = C.materialFor(round).tier;
+      // every struck square shows the round, whatever its own count
+      if (![0, 2, 3].every((i) => C.squareMetalTier(run, i) === want)) return false;
+      run.strikes[1] = 0;
+      if (C.squareMetalTier(run, 1) !== -1) return false;
+    }
+    return true;
+  })());
+  ok('versus walks the palette a blow at a time, as it always did',
+    [1, 2, 3, 4, 5, 6, 9].map((n) => C.advanceMaterialTier(n)).join(',') === '0,1,2,3,4,5,5');
+}
+
 section('Being stranded');
 {
   // A knight in a corner of a 3x3 has exactly two destinations. Spend both

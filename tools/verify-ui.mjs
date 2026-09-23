@@ -1426,6 +1426,108 @@ async function run() {
     return soundAtOne && stillSoundAtTwo && C.isSpent(g, idx) === true;
   }));
 
+  /* The reported bug: a Gold board showed its third blow - the one that
+     finished the square - as a ruined square, because the tile art counted to
+     the plain forge's two-and-three. Every blueprint metal is walked here on a
+     real board, reading the real tiles. */
+  section('Open Your Forge: every metal climbs its own ladder');
+  const PALETTE = await page.evaluate(() => window.CHECKSMITH.core.METAL_PALETTE);
+  const metals = await page.evaluate(() =>
+    window.CHECKSMITH.core.SHOP.materials.map((m) => ({ id: m.id, name: m.name, strikes: m.strikes })));
+  for (const metal of metals) {
+    // put the board on the anvil directly: what is under test is the tile, not
+    // the dialog, and the order sheet is covered elsewhere
+    const opened = await page.evaluate((id) => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.materials[id] = 20;
+      F.shopUi.draft = { item: 'shortsword', material: id, qty: 1 };
+      F.shopStartForge();
+      return C.forgeBoardSpec(sh, 'shortsword', id, 1).perfect;
+    }, metal.id);
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+    await page.waitForTimeout(120);
+    ok(metal.name + ': the anvil asks for ' + metal.strikes + ' blows a square',
+      opened === metal.strikes && (await page.evaluate(() =>
+        window.CHECKSMITH.core.perfectOf(window.CHECKSMITH.app.game))) === metal.strikes);
+
+    // drive the strike count straight and read what the tile says
+    const walk = await page.evaluate((need) => {
+      const F = window.CHECKSMITH;
+      const out = [];
+      for (let n = 0; n <= need + 1; n++) {
+        F.app.game.strikes[0] = n;
+        F.render();
+        // #board, not any tile: the versus boards are still in the document
+        const el = document.querySelector('#board .tile[data-i="0"]');
+        const bg = getComputedStyle(el).backgroundImage;
+        out.push({ n: n, metal: el.getAttribute('data-metal'), s: el.dataset.s,
+          spent: el.dataset.spent, label: el.getAttribute('aria-label'),
+          edge: getComputedStyle(el).borderTopColor, bg: bg.slice(0, 60) });
+      }
+      F.app.game.strikes[0] = 0;
+      F.render();
+      return out;
+    }, metal.strikes);
+
+    const ladder = await page.evaluate(() => window.CHECKSMITH.core.shopLadder());
+    const want = ladder.slice(0, metal.strikes).map((n) => String(PALETTE.indexOf(n)));
+    const got = walk.slice(1, metal.strikes + 1).map((w) => w.metal);
+    ok(metal.name + ': each blow moves the tile exactly one metal',
+      got.join(',') === want.join(','),
+      'got ' + got.join(',') + ' want ' + want.join(','));
+    ok(metal.name + ': the finished tile wears ' + metal.name + '’s own colour',
+      got[got.length - 1] === String(PALETTE.indexOf(metal.name)),
+      got[got.length - 1] + ' vs ' + PALETTE.indexOf(metal.name));
+
+    const done = walk[metal.strikes], over = walk[metal.strikes + 1];
+    ok(metal.name + ': reaching ' + metal.name + ' is finished, never cracked',
+      done.s === '2' && done.spent === '0' && done.metal !== null,
+      JSON.stringify(done));
+    ok(metal.name + ': no earlier blow is drawn as cracked either',
+      walk.slice(1, metal.strikes + 1).every((w) => w.s !== '3' && w.spent === '0'),
+      JSON.stringify(walk.map((w) => w.n + ':s' + w.s)));
+    ok(metal.name + ': only the blow past ' + metal.name + ' cracks it',
+      over.s === '3' && over.spent === '1' && over.metal === null, JSON.stringify(over));
+    ok(metal.name + ': the tile names the metal it has reached',
+      new RegExp(metal.name.toLowerCase()).test(done.label), done.label);
+    // colour is not the only signal: each rung paints a different tile
+    const edges = walk.slice(1, metal.strikes + 1).map((w) => w.edge);
+    ok(metal.name + ': every rung looks different from the one below',
+      new Set(edges).size === edges.length, edges.join(' | '));
+
+    // the metal palette must not swallow the chrome painted over it: the
+    // hammer's own square keeps its ring, and a ruined square keeps its crack
+    const onTop = await page.evaluate((need) => {
+      const F = window.CHECKSMITH;
+      F.app.game.strikes[0] = need;
+      F.app.game.current = 0;
+      F.render();
+      const el = document.querySelector('#board .tile[data-i="0"]');
+      const mark = getComputedStyle(el, '::after');
+      return { metal: el.getAttribute('data-metal'), current: el.dataset.current,
+        ring: mark.content !== 'none' && parseFloat(mark.width) > 0 };
+    }, metal.strikes);
+    ok(metal.name + ': the hammer\'s ring still shows over worked metal',
+      onTop.metal !== null && onTop.current === '1' && onTop.ring === true,
+      JSON.stringify(onTop));
+
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  }
+
+  // put back the silver stiletto the section before this one was working, so
+  // the walk below still starts from the board it expects
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.materials.silver = 6;
+    F.shopUi.draft = { item: 'stiletto', material: 'silver', qty: 1 };
+    F.shopStartForge();
+  });
+  await page.waitForFunction(
+    () => { const g = window.CHECKSMITH.app.game; return g && g.perfect === 2 && g.board.size === 4; },
+    null, { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
+
   section('Open Your Forge: a batch is one puzzle');
   const batch = await page.evaluate(async () => {
     const F = window.CHECKSMITH, g = F.app.game;

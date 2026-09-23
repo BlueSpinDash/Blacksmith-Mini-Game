@@ -1629,6 +1629,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        <b>2</b>, Gold <b>3</b>, Mithril <b>4</b>, Adamantine <b>5</b> &mdash; and one strike past
        that ruins the square. You may leave a square half-finished and come back to it; what you
        must not do is over-strike one that is already done.</p>
+    <p><b>The square climbs as you work it.</b> One blow, one metal: Bronze, then Silver, Gold,
+       Mithril, Adamantine, and the square wears the colour of whichever it has reached. When it
+       reaches the metal you ordered it is <i>done</i> &mdash; a Gold square is meant to take three
+       blows and look like gold on the third. Only a blow past that cracks it.</p>
     <p><b>One puzzle is one batch.</b> Five swords take one board, not five. Finish it and the
        ingots are spent and the batch goes on the anvil overnight; ruin it and you lose the phase
        but keep the metal. How well you worked the board is the quality of the goods, and quality
@@ -2540,6 +2544,8 @@ function createGame(board, options) {
     // material being worked, which is the whole of what a material means.
     perfect: opts.perfect || CONFIG.rules.perfect,
     spent: opts.spent || (opts.perfect ? opts.perfect + 1 : CONFIG.rules.spent),
+    // the metals this board climbs, when it was ordered in one
+    ladder: Array.isArray(opts.ladder) && opts.ladder.length ? opts.ladder.slice() : null,
     rnd: opts.rnd || Math.random
   };
 }
@@ -2559,6 +2565,68 @@ function isSpent(game, idx) {
 }
 /* endless only: a square already struck this round is closed until the next. */
 function isHit(game, idx) { return game.strikes[idx] > 0; }
+
+/* ---------- the material ladder --------------------------------------
+   Every mode that colours a square by how far it has been worked reads the
+   ladder from here, so none of them can drift away from the others.
+
+   `METAL_PALETTE` is the order the tile art is written in, and the two
+   ladders in the game are both drawn from it: endless climbs all six a
+   round at a time, while the shop works its own five - it has no Platinum -
+   a blow at a time. The shop's list is built so that the metal wanting `n`
+   strikes sits `n`th on it, which is what makes one blow one rung.
+
+   Because the two lists are not the same length, a rung is resolved by
+   NAME rather than by position. Mithril is the fourth metal a smith can
+   buy but the fifth colour on the palette, and a Mithril blade has to come
+   off the anvil looking like Mithril. */
+const METAL_PALETTE = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Mithril', 'Adamantine'];
+
+function metalPaletteIndex(name) {
+  const at = METAL_PALETTE.indexOf(String(name));
+  return at < 0 ? 0 : at;
+}
+
+/* One blow, one rung. `ladder` is the list of metal names the mode works
+   through; past the top of it the square simply stays at the top rung. */
+function advanceMaterialTier(strikes, ladder) {
+  const n = Math.floor(Number(strikes) || 0);
+  if (n <= 0) return -1;                       // untouched: no metal yet
+  const list = ladder && ladder.length ? ladder : METAL_PALETTE;
+  return metalPaletteIndex(list[Math.min(n, list.length) - 1]);
+}
+
+/* What rung a square in this game should be showing, or -1 for none.
+
+   Endless works a whole board in the round's metal, so every struck square
+   there shows the round's rung rather than its own count - that is the one
+   place the ladder is not per-square, and it is deliberate. A board with a
+   blueprint walks its own ladder, blow by blow, up to the metal it was
+   ordered in. The plain forge keeps its own hot-metal art and takes no
+   rung at all. */
+function squareMetalTier(game, idx) {
+  const strikes = game.strikes[idx];
+  if (!(strikes > 0)) return -1;
+  if (isEndless(game)) return materialFor(game.round).tier;
+  if (!game.ladder) return -1;
+  // ruined metal is not a rung: the crack is the state worth showing
+  if (strikes >= spentOf(game)) return -1;
+  return advanceMaterialTier(strikes, game.ladder);
+}
+
+/* How far along a square is, as the tile art counts it: 0 cold, 1 worked,
+   2 finished, 3 ruined. The thresholds come from the board and never from a
+   hardcoded two-and-three, because a blueprint asking for more blows than
+   the plain forge does would otherwise look ruined the moment it passed the
+   forge's own count - a Gold square looking cracked on the very strike that
+   finished it. */
+function strikeState(game, idx) {
+  const n = game.strikes[idx];
+  if (!(n > 0)) return 0;
+  if (n >= spentOf(game)) return 3;
+  if (n >= perfectOf(game)) return 2;
+  return 1;
+}
 
 function blocked(game, idx) {
   return isEndless(game) ? isHit(game, idx) : isSpent(game, idx);
@@ -3916,11 +3984,23 @@ function batchDifficulty(qty) {
 /* The board an order is worked on: the item chooses its size, the batch size
    chooses the symbols, and the material chooses how many times each square
    must be struck. Three independent levers, all of them the player's. */
+/* The metals a smith can work, in the order their blows fall: the one that
+   wants n strikes is the nth rung. The board carries this so the anvil walks
+   the same ladder the order was written in. */
+function shopLadder() {
+  return SHOP.materials.slice()
+    .sort(function (a, b) { return a.strikes - b.strikes; })
+    .map(function (m) { return m.name; });
+}
+
 function forgeBoardSpec(shop, itemId, materialId, qty) {
   const it = shopItem(itemId), mt = shopMaterial(materialId);
   if (!it || !mt) return null;
+  // `perfect` is the ordered metal's own strike count, so a Gold blade is
+  // finished on its third blow and ruined only on its fourth. Nothing here
+  // knows the plain forge's two-and-three.
   return { size: it.size, difficulty: batchDifficulty(qty || 1), visits: mt.strikes,
-    perfect: mt.strikes, spent: mt.strikes + 1 };
+    perfect: mt.strikes, spent: mt.strikes + 1, ladder: shopLadder() };
 }
 
 /* Materials are spent only when the puzzle is actually won; a ruined board
@@ -4441,6 +4521,9 @@ const CHECKSMITH_CORE = {
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
   isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
   perfectOf: perfectOf, spentOf: spentOf,
+  METAL_PALETTE: METAL_PALETTE, metalPaletteIndex: metalPaletteIndex,
+  advanceMaterialTier: advanceMaterialTier, squareMetalTier: squareMetalTier,
+  strikeState: strikeState, shopLadder: shopLadder,
   materialFor: materialFor, romanFor: romanFor, beginRound: beginRound, roundTier: roundTier,
   SQ_INTACT: SQ_INTACT, SQ_CRACKED: SQ_CRACKED, SQ_ARMED: SQ_ARMED, SQ_BROKEN: SQ_BROKEN, SQ_WORDS: SQ_WORDS,
   makeVersusBoards: makeVersusBoards, versusBag: versusBag, versusLayoutOk: versusLayoutOk,
@@ -5228,17 +5311,23 @@ function render() {
     const spent = !endless && strikes >= spentOf(g);
     const blank = piece === null || piece === undefined;
     const hit = endless && strikes > 0;
+    const rung = squareMetalTier(g, i);
 
-    const shown = endless ? Math.min(strikes, 1) : Math.min(strikes, 3);
+    // How worked the square looks is read off the board's own thresholds, so
+    // a blueprint wanting more blows than the plain forge does is finished,
+    // not ruined, on the strike that completes it.
+    const shown = endless ? Math.min(strikes, 1) : strikeState(g, i);
     if (el.dataset.s !== String(shown)) el.dataset.s = String(shown);
     el.dataset.current = isCurrent ? '1' : '0';
     el.dataset.legal = isLegal ? '1' : '0';
     el.dataset.void = blank ? '1' : '0';
     el.dataset.spent = spent && !blank ? '1' : '0';
     el.dataset.hit = hit ? '1' : '0';
-    // endless works the whole board up in one metal a round; the forge has its
-    // own strike colours and takes none
-    if (hit) el.dataset.metal = String(Math.min(tier, 5));
+    // Endless works the whole board up in one metal a round; a blueprint board
+    // walks its square up the shop's ladder a blow at a time; the plain forge
+    // keeps its own strike colours and takes no rung. squareMetalTier is the
+    // one place that decides which of those applies.
+    if (rung >= 0 && !blank) el.dataset.metal = String(rung);
     else el.removeAttribute('data-metal');
 
     const glyph = el.firstChild;
@@ -5246,13 +5335,16 @@ function render() {
     if (glyph.textContent !== wantGlyph) glyph.textContent = wantGlyph;
 
     const marks = el.children[1];
-    const wanted = blank ? 0 : (endless ? (hit ? 1 : 0) : Math.min(strikes, 2));
+    // notches stop at what the square needed; three is all that fits on a tile
+    const wanted = blank ? 0
+      : (endless ? (hit ? 1 : 0) : Math.min(strikes, perfectOf(g), 3));
     if (marks.childElementCount !== wanted) {
       marks.textContent = '';
       for (let k = 0; k < wanted; k++) marks.appendChild(document.createElement('i'));
     }
     let badge = el.querySelector('.count');
-    if (!endless && strikes >= 3 && !blank) {
+    // the number is for blows the square did not need, not for any third one
+    if (!endless && !blank && (strikes > perfectOf(g) || strikes > 3)) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'count';
@@ -5272,7 +5364,8 @@ function render() {
       else if (!isCurrent) label += ', not reachable from here';
     } else {
       label += PIECES[piece].name + ', ' + strikes +
-        (strikes === 1 ? ' strike, ' : ' strikes, ') + STATE_WORD[Math.min(strikes, 3)];
+        (strikes === 1 ? ' strike, ' : ' strikes, ') + STATE_WORD[shown];
+      if (rung >= 0) label += ', ' + CHECKSMITH_CORE.METAL_PALETTE[rung].toLowerCase();
       if (spent) label += ', crumbling, one move left';
       if (isCurrent) label += ', hammer is here';
       if (opening) label += ', legal opening square';
@@ -5421,11 +5514,14 @@ function impact(i) {
   if (!res) return;                           // exactly one state change, or none
 
   const el = App.tiles[i];
+  // the finishing ring belongs to the blow that finishes the square, which is
+  // the board's own count and not always the plain forge's second
   if (res.spent) SOUNDS.crack();
-  else if (endless || res.count === 2) SOUNDS.finish();
+  else if (endless || res.count >= perfectOf(g)) SOUNDS.finish();
   else SOUNDS.shape();
 
-  FX.impact(el, endless ? 2 : res.count);
+  // 1 worked, 2 the finishing flash, 3 the ruin: the same three the tile uses
+  FX.impact(el, endless ? 2 : strikeState(g, i));
   if (!FX.reduced) {
     el.classList.remove('impact');
     void el.offsetWidth;
@@ -5698,8 +5794,9 @@ function vsRenderBoard(who) {
     el.dataset.s = broken ? '0' : String(Math.min(side.strikes[i], 2));
     // Squares here take strike after strike with no cap, so each one walks up
     // the material ladder on its own count: one strike Bronze, two Silver, and
-    // on to Adamantine. A worked square is worth spotting across two boards.
-    if (!broken && side.strikes[i] > 0) el.dataset.metal = String(Math.min(side.strikes[i] - 1, 5));
+    // on to Adamantine. Same rung-per-blow rule as the anvil, same function.
+    const rung = broken ? -1 : advanceMaterialTier(side.strikes[i]);
+    if (rung >= 0) el.dataset.metal = String(rung);
     else el.removeAttribute('data-metal');
     el.dataset.vs = SQ_WORDS[state];
     el.dataset.void = broken ? '1' : '0';
@@ -6231,8 +6328,13 @@ function resumeAnvil(snap) {
   const board = { size: size, difficulty: snap.board.difficulty,
     pieces: snap.board.pieces.slice(), route: snap.board.route.slice(),
     visits: snap.board.visits };
-  App.game = createGame(board, { mode: 'forge', perfect: snap.perfect, spent: snap.spent,
-    morphChance: snap.morphChance, rnd: App.rnd });
+  // The ordered metal is the authority on how many blows a square wants, so
+  // the thresholds are taken from it rather than from whatever the save
+  // happened to carry. A board put down before this was settled comes back
+  // counting correctly.
+  const want = shopMaterial(snap.order.material).strikes;
+  App.game = createGame(board, { mode: 'forge', perfect: want, spent: want + 1,
+    ladder: shopLadder(), morphChance: snap.morphChance, rnd: App.rnd });
   App.game.pieces = snap.pieces.slice();
   App.game.strikes = snap.strikes.slice();
   App.game.current = Number.isInteger(snap.current) ? snap.current : -1;
@@ -7317,7 +7419,7 @@ function shopStartForge() {
       return;
     }
     App.lastLayout = board.pieces.join('');
-    startGame(board, { perfect: spec.perfect, spent: spec.spent });
+    startGame(board, { perfect: spec.perfect, spent: spec.spent, ladder: spec.ladder });
     buildLegend();
     announce(d.qty + ' ' + shopMaterial(d.material).name + ' ' + shopItem(d.item).name +
       '. ' + CONFIG.difficulties[spec.difficulty].label + ' board. Every square needs ' +
@@ -8539,6 +8641,7 @@ else boot();
 window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOUNDS, music: Music, fx: FX, tap: tapSquare,
   vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
+  shopStartForge: shopStartForge, shopReturn: shopReturn,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,
   intro: INTRO, introSkip: introSkip, music: Music, musicFor: musicFor };
 </script>
