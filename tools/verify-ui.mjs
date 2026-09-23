@@ -1290,6 +1290,100 @@ async function run() {
   /* The six powers, driven through the real board: targeting, the running
      count for the multi-square ones, the banners, and Reforge's promise
      that it can never be the blow that ends the match. */
+  /* Fresh metal pays in full; worked ground pays half and hands the other
+     half across. The board has to say which is which while you choose. */
+  section('Versus: fresh metal is lit apart from worked ground');
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+    window.CHECKSMITH.app.vsSize = 5;
+    window.CHECKSMITH.app.vsFoe = 'journeyman';
+    window.CHECKSMITH.vsStart();
+  });
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.match, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
+
+  const freshLook = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.turn = 'you';
+    m.you.current = 0;
+    m.you.strikes = m.you.strikes.map(() => 0);
+    const legal = C.versusTargets(m, 'you');
+    m.you.strikes[legal[0]] = 2;                     // worked ground
+    F.vsRender();
+    const q = (i) => document.querySelector(`#youBoard .tile[data-i="${i}"]`);
+    return { worked: q(legal[0]).dataset.fresh, workedLegal: q(legal[0]).dataset.legal,
+      fresh: q(legal[1]).dataset.fresh, freshLegal: q(legal[1]).dataset.legal,
+      workedRing: getComputedStyle(q(legal[0]), '::after').borderStyle,
+      freshRing: getComputedStyle(q(legal[1]), '::after').borderStyle,
+      badge: !!q(legal[0]).querySelector('.count'),
+      noBadge: !q(legal[1]).querySelector('.count') };
+  });
+  ok('an unstruck legal square is marked fresh, a worked one is not',
+    freshLook.fresh === '1' && freshLook.worked === '0' &&
+    freshLook.freshLegal === '1' && freshLook.workedLegal === '1', JSON.stringify(freshLook));
+  ok('and the two are told apart by shape, not colour alone',
+    freshLook.freshRing === 'solid' && freshLook.workedRing === 'dashed',
+    JSON.stringify([freshLook.freshRing, freshLook.workedRing]));
+  ok('the strike count still says how worked a square is',
+    freshLook.badge === true && freshLook.noBadge === true, JSON.stringify(freshLook));
+
+  // every check below strikes for real, which can decide the match, so each
+  // one puts the board back on its feet first
+  const resetVs = (worked) => page.evaluate((w) => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.status = 'playing'; m.winner = null; m.reason = null; m.upgradeUsed = false;
+    m.turn = 'you';
+    m.you.current = 0;
+    m.you.states = m.you.states.map(() => 0);
+    m.you.strikes = m.you.strikes.map(() => w);
+    m.you.points = 0; m.foe.points = 0;
+    m.you.chain = []; m.you.chainPieces = []; m.you.lockedPairs = [];
+    F.app.busy = false;
+    F.vsRender();
+  }, worked);
+
+  await resetVs(0);
+  const paid = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    const first = C.versusStrike(m, 'you', legal[0]);      // fresh
+    const mineAfterFresh = m.you.points, theirsAfterFresh = m.foe.points;
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', legal[0] === m.you.current ? legal[1] : legal[0]);
+    return { first: first, mineAfterFresh: mineAfterFresh, theirsAfterFresh: theirsAfterFresh,
+      back: back, mine: m.you.points, theirs: m.foe.points };
+  });
+  ok('a fresh strike pays the striker in full and the rival nothing',
+    paid.first.fresh === true && paid.first.gift === 0 &&
+    paid.mineAfterFresh === paid.first.points && paid.theirsAfterFresh === 0,
+    JSON.stringify(paid.first));
+
+  await resetVs(1);                                       // all worked ground
+  ok('worked ground splits the blow between the two boards', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    if (!legal.length) return false;
+    const r = C.versusStrike(m, 'you', legal[0]);
+    return r.fresh === false && r.gift > 0 &&
+      m.you.points === r.points && m.foe.points === r.gift &&
+      r.points + r.gift === r.full;
+  }));
+
+  await resetVs(1);
+  ok('and the screen reader is told where the other half went', await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    if (!legal.length) return false;
+    F.vsImpact('you', legal[0]);
+    // read it at once: announce is synchronous, and the rival's own turn is
+    // scheduled milliseconds later and would overwrite the region
+    const said = document.getElementById('live').textContent;
+    F.app.token++;                                   // and cancel that turn
+    return /other smith/.test(said);
+  }));
+
   section('Versus: the powers on the board');
   // the section above plays its match out, so this one needs a board of its own
   await page.evaluate(() => {

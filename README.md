@@ -250,6 +250,33 @@ like, and none of them is ever "finished".
 A turn is **at most one upgrade, then exactly one strike**. The upgrade is
 optional, the strike is not. **Concede** ends the match.
 
+### Fresh metal pays; worked ground pays the rival
+
+A square you have never struck pays in full. Striking ground you have already
+worked pays you `restrikeKeep` of the blow and hands `restrikeGift` of it to the
+rival — shipping at **half and half**.
+
+It is a **transfer, not a burn**, and that is deliberate. Keeping 0 and gifting
+0.5 is the harsher version and was measured: it starves the thing that actually
+ends matches, since fewer points buy fewer Shatters and fewer squares break.
+Self-play went from **42 of 42** matches reaching an end to **39 of 42**, running
+a fifth longer. Both shares are one number each in `CONFIG.versus.scoring`, so
+the harsher rule is a one-character change if that trade is wanted.
+
+The board carries the message rather than a banner: a legal square you have never
+struck is ringed **solid pale gold**, a worked one keeps the ordinary dashed
+ember, and the small red number says how many times it has been struck. Four
+strikes in five land on worked ground, so a banner that often would be
+wallpaper — the distinction belongs at the moment you are choosing, not after.
+
+**What this does and does not move.** A fresh square is reachable on about 77% of
+turns, so the incentive is live rather than theoretical. But the rival is a
+positional player: `versusChooseStrike` searches for a move that stalls the other
+smith, not one that banks points, so its own restrike rate barely shifts. The
+rule is aimed at a human, who watches the score and wants the powers it buys.
+Measured at the shipping settings: 42/42 matches decided, 80% of strikes on
+worked ground.
+
 ### Points and the route bonus
 
 | Award | Value |

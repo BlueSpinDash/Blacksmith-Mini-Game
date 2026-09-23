@@ -1031,7 +1031,8 @@ section('Versus: route chain and patterns');
     Math.abs(a.multiplier - 1) < 1e-9 && Math.abs(d.multiplier - 1.3) < 1e-9);
   ok('revisiting a square resets the chain to that square alone',
     e.reset === true && e.chain === 1 && Math.abs(e.multiplier - 1) < 1e-9);
-  ok('the resetting strike earns no pattern bonus', e.points === S.strike);
+  ok('the resetting strike earns no pattern bonus', e.full === S.strike,
+    JSON.stringify({ full: e.full, points: e.points }));
 
   ok('three matching symbols pay the Three of a Kind, not a Pair', (() => {
     const g = rooks(4);
@@ -1171,6 +1172,121 @@ section('Versus: Repair');
 
 /* Reforge lands on whatever square the rival is standing on, and the one
    thing it must never do is end the match on the spot. */
+/* Ground you have already worked pays half, and hands the other half to the
+   rival - so going back over your own board is not merely worth less, it
+   arms the other smith. */
+section('Versus: fresh metal pays, worked metal pays the rival');
+{
+  const mk = () => {
+    const b = { size: 4, difficulty: 'journeyman',
+      ai: new Array(16).fill('R'), you: new Array(16).fill('R') };
+    return C.createMatch(b, { rnd: C.mulberry32(31) });
+  };
+  const S = C.CONFIG.versus.scoring;
+
+  ok('a first strike on a square pays in full, and pays the rival nothing', (() => {
+    const m = mk();
+    const r = C.versusStrike(m, 'you', 0);
+    return r.fresh === true && r.points === r.full && r.gift === 0 &&
+      m.you.points === r.full && m.foe.points === 0;
+  })());
+
+  ok('striking it again pays you the keep share', (() => {
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);          // worked ground
+    return back.fresh === false &&
+      back.points === Math.floor(back.full * S.restrikeKeep);
+  })());
+
+  ok('and hands the gift share straight to the rival', (() => {
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    const theirs = m.foe.points;
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);
+    return back.gift === Math.floor(back.full * S.restrikeGift) &&
+      m.foe.points === theirs + back.gift && back.gift > 0;
+  })());
+
+  ok('the gift counts towards what the rival has earned, not just spent', (() => {
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    const earned = m.foe.earned;
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);
+    return m.foe.earned === earned + back.gift;
+  })());
+
+  ok('a straight split conserves the points in the match', (() => {
+    // what the striker loses is exactly what the rival gains
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);
+    return S.restrikeKeep + S.restrikeGift === 1 &&
+      back.points + back.gift === back.full;
+  })());
+
+  ok('a square struck many times keeps paying the same reduced rate', (() => {
+    const m = mk();
+    const seen = [];
+    for (let k = 0; k < 4; k++) {
+      m.turn = 'you';
+      C.versusStrike(m, 'you', k % 2 === 0 ? 0 : 1);
+    }
+    m.turn = 'you';
+    const again = C.versusStrike(m, 'you', 0);
+    seen.push(again.points, Math.floor(again.full * S.restrikeKeep));
+    return seen[0] === seen[1];
+  })());
+
+  ok('the rule reads off the strike count, not the route chain', (() => {
+    // square 0 left the current chain long ago but is still worked ground
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    for (const i of [1, 2, 3]) { m.turn = 'you'; C.versusStrike(m, 'you', i); }
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);
+    return back.fresh === false && back.gift > 0;
+  })());
+
+  ok('both of the rule’s shares are one number each, and tunable', (() => {
+    const keep = S.restrikeKeep, gift = S.restrikeGift;
+    S.restrikeKeep = 0; S.restrikeGift = 0.5;          // the harsher version
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', 0);
+    const harsh = back.points === 0 && back.gift === Math.floor(back.full * 0.5);
+    S.restrikeKeep = keep; S.restrikeGift = gift;
+    return harsh;
+  })());
+
+  ok('a gift never arrives while the striker is trapped out of the match', (() => {
+    // the rival still banks it: the blow was struck and paid for
+    const m = mk();
+    C.versusStrike(m, 'you', 0);
+    m.turn = 'you';
+    C.versusStrike(m, 'you', 1);
+    m.turn = 'you';
+    const before = m.foe.points;
+    const r = C.versusStrike(m, 'you', 0);
+    return m.foe.points === before + r.gift;
+  })());
+}
+
 section('Versus: Reforge redirects, it never executes');
 {
   const mk = (size, diff) => {

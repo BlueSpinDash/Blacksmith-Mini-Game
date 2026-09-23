@@ -388,6 +388,18 @@ input[type=range]{
   border-color:rgba(255,138,61,.85);
   box-shadow:0 0 0 2px rgba(255,138,61,.55), inset 0 0 10px rgba(255,138,61,.20);
 }
+/* Versus only: a legal square you have never struck pays in full, so it is
+   lit brighter and ringed solid rather than dashed. Worked ground stays the
+   ordinary ember; the difference is what the rule is asking you to see. */
+.tile[data-fresh="1"]{
+  border-color:rgba(243,215,145,.95);
+  box-shadow:0 0 0 2px rgba(243,215,145,.7), 0 0 14px rgba(243,215,145,.4),
+    inset 0 0 12px rgba(243,215,145,.22);
+}
+.tile[data-fresh="1"]::after{
+  border-style:solid !important;
+  border-color:rgba(255,238,190,.95) !important;
+}
 .tile[data-legal="1"]::after{
   content:"";position:absolute;z-index:4;
   left:50%;top:50%;width:64%;height:64%;
@@ -1715,6 +1727,11 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        and visiting the whole board neither wins nor resets anything.<br>
        <b>3.</b> A turn is <b>at most one upgrade, then exactly one strike</b>. You may skip the upgrade,
        never the strike. <b>Concede</b> ends the match if you would rather not play it out.</p>
+    <p><b>Fresh metal pays; worked ground pays the rival.</b> A square you have never struck pays you
+       in full, and it is ringed in pale gold to say so. Striking ground you have already worked pays
+       you only <b>half</b> &mdash; and hands the other half straight to the rival, who spends it on
+       Shatters aimed at your board. The small number on a square is how many times it has been
+       struck.</p>
     <p><b>Points and the route bonus.</b> Every strike is worth <b>10</b>. Keep extending a fresh route
        and the multiplier climbs by <b>0.1 for each square in it</b>. The symbols you pass through pay a
        bonus on top: <b>Pair +5</b> for two of the same in a row, <b>Three of a Kind +10</b> for three,
@@ -1947,7 +1964,20 @@ const CONFIG = {
       pair: 5,            // two consecutive matching symbols
       trio: 10,           // three consecutive matching symbols
       variety: 8,         // three consecutive different symbols
-      chainStep: 0.1      // multiplier = 1 + chainStep * (chainLength - 1)
+      chainStep: 0.1,     // multiplier = 1 + chainStep * (chainLength - 1)
+      /* Working ground you have already worked pays half, and hands the
+         other half to the rival. `restrikeKeep` is the share of the blow you
+         still take, `restrikeGift` the share that crosses over.
+
+         A straight split is deliberate: it is a TRANSFER, so the points in
+         the match are conserved. Keeping 0 and gifting 0.5 burns the other
+         half instead, and that starves the thing that ends matches - fewer
+         points buy fewer Shatters, fewer squares break, and self-play went
+         from 42 of 42 matches reaching an end to 39 of 42, running a fifth
+         longer. Set restrikeKeep to 0 for the harsher version if that trade
+         is wanted; the rule is one number either way. */
+      restrikeKeep: 0.5,
+      restrikeGift: 0.5
     },
     /* Six powers, and every one of them moves metal on a board. `picks` is
        how many squares the power asks for; `target` is whose board and what
@@ -3163,6 +3193,7 @@ function versusStrike(match, who, idx) {
 
   const from = side.current;
   const piece = side.pieces[idx];               // the symbol seen at this strike
+  const fresh = side.strikes[idx] === 0;        // asked before the blow lands
 
   // 1-2: land the blow and move the marker
   side.strikes[idx] += 1;
@@ -3208,9 +3239,22 @@ function versusStrike(match, who, idx) {
     }
   }
   const multiplier = 1 + S.chainStep * (side.chain.length - 1);
-  const points = Math.floor((S.strike + pattern.bonus) * multiplier);
+  const full = Math.floor((S.strike + pattern.bonus) * multiplier);
+
+  /* Fresh metal pays in full. Metal you have already struck pays you only
+     `restrikeKeep` of that and hands the rival `restrikeGift` of it, so
+     going back over your own work is not merely worth less - it arms the
+     other smith. The points they are handed are real points: they spend
+     them on Shatters aimed at this very board. */
+  const points = fresh ? full : Math.floor(full * S.restrikeKeep);
+  const gift = fresh ? 0 : Math.floor(full * S.restrikeGift);
   side.points += points;
   side.earned += points;
+  if (gift > 0) {
+    const them = sideOf(match, foeOf(who));
+    them.points += gift;
+    them.earned += gift;
+  }
   if (lockKey) side.lockedPairs.push(lockKey);
 
   // 6: the defeat check runs AFTER the vacated square has broken
@@ -3227,6 +3271,7 @@ function versusStrike(match, who, idx) {
 
   return {
     side: who, index: idx, from: from, piece: piece, points: points,
+    fresh: fresh, full: full, gift: gift,
     multiplier: multiplier, pattern: pattern.name, armed: armed,
     broke: brokeAt, reset: reset, chain: side.chain.length,
     over: matchOver(match), winner: match.winner
@@ -6238,6 +6283,10 @@ function vsRenderBoard(who) {
     el.dataset.void = broken ? '1' : '0';
     el.dataset.current = isCurrent ? '1' : '0';
     el.dataset.legal = isLegal && !targeting ? '1' : '0';
+    // Untouched metal pays in full; worked ground pays half and hands the
+    // other half to the rival. So a legal square you have never struck is
+    // worth telling apart from one you have, at the moment you are choosing.
+    el.dataset.fresh = (isLegal && !targeting && side.strikes[i] === 0) ? '1' : '0';
 
     // A square this power could still be pointed at. Everything else on the
     // board dims, so what is and is not a target needs no explaining.
@@ -6621,8 +6670,12 @@ function vsImpact(who, idx) {
   }
   vsRenderMatch();
 
+  // No banner here: four strikes in five land on worked ground, and a banner
+  // that often is wallpaper. The board carries the message instead - fresh
+  // squares are lit differently while you are choosing one.
   let said = (who === 'you' ? 'You: ' : 'Rival: ') + squareName(idx, m.size) +
     '. +' + res.points + ' points';
+  if (res.gift > 0) said += ', and ' + res.gift + ' to the other smith for worked ground';
   if (res.pattern) said += ', ' + res.pattern;
   if (res.reset) said += '. Route reset';
   if (res.armed) said += '. That square is armed';
@@ -9424,7 +9477,7 @@ else boot();
 // exposed for the automated test harness
 window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOUNDS, music: Music, fx: FX, tap: tapSquare,
   vs: VS, render: render, renderShop: renderShop, vsRender: vsRenderMatch,
-  vsBanner: vsBanner, vsPowerWords: vsPowerWords, vsStart: vsStartMatch,
+  vsBanner: vsBanner, vsPowerWords: vsPowerWords, vsStart: vsStartMatch, vsImpact: vsImpact,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   shopStartForge: shopStartForge, shopReturn: shopReturn,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,
