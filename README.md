@@ -462,10 +462,52 @@ Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
 
 | Batch | Tier | Symbols |
 | --- | --- | --- |
-| 1–3 | Novice | King, Rook |
-| 4–6 | Apprentice | + Bishop |
+| 1–3 | Novice | King, Rook, Bishop |
+| 4–6 | Apprentice | the same three |
 | 7–9 | Journeyman | + Knight |
 | 10+ | Master | + the occasional Queen |
+
+**And the metal raises it.** From `SHOP.hardenFrom` (Gold) up, an order is
+worked `SHOP.hardenBy` (1) difficulty steps harder than the batch alone would
+ask for. Bronze and Silver are worked at whatever the batch asked; Gold,
+Mithril and Adamantine are a tier above it; nothing goes past Master.
+
+| Batch | Bronze / Silver | Gold / Mithril / Adamantine |
+| --- | --- | --- |
+| 1–3 | Novice | **Apprentice** |
+| 4–6 | Apprentice | **Journeyman** |
+| 7–9 | Journeyman | **Master** |
+| 10+ | Master | Master |
+
+So Gold is the point where the shop stops being a formality: a single Gold
+piece is an Apprentice board, and nine of them is a Master one.
+
+**What the step actually buys, tier by tier.** The board *size* never moves —
+the item owns that — so a raised tier changes the symbol pool and the reshape
+chance, nothing else. Since Bishop joined Novice, Novice and Apprentice now draw
+from the same three symbols, so the first step up (Novice → Apprentice) is
+purely **reshaping turning on, 0% → 15%**. That is the mechanic the game itself
+calls the risky one: it voids the verified-route guarantee, so a Gold order can
+no longer be walked from a route worked out before the first blow. From there
+the steps add symbols as well: Journeyman brings the Knight and 25%, Master the
+occasional Queen and 35%.
+
+| Step | Pool | Reshape |
+| --- | --- | --- |
+| Novice → Apprentice | unchanged (K, R, B) | 0% → 15% |
+| Apprentice → Journeyman | + Knight | 15% → 25% |
+| Journeyman → Master | + occasional Queen | 25% → 35% |
+
+The piece-movement legend reads the **board's** difficulty rather than the
+player's setting, because in Open Your Forge those are not the same thing — the
+order sets the tier, and a legend keyed off the mode would name the wrong pieces
+on every board the metal had raised. The threshold is
+a rung on the shop's own ladder rather than a name — `materialDifficultyStep`
+compares ladder positions, so a metal slotted in above or below Gold later takes
+its place without another edit. `harderDifficulty` walks `CONFIG.order` and
+stops at the top, and `forgeDifficulty(material, qty)` is the single answer the
+order sheet and the anvil both read, so the sheet can never name a tier the
+anvil does not deal.
 
 That makes a large batch the efficient choice and the dangerous one at the same
 time: more goods from a single puzzle, on a board much more likely to strand
@@ -711,7 +753,7 @@ price, so per-item layouts and demand profiles are a field away.
 
 | Difficulty | Board | Piece pool | Strikes for perfection | Reshape chance |
 | --- | --- | --- | --- | --- |
-| Novice | 3 × 3 | King, Rook | 18 | 0% |
+| Novice | 3 × 3 | King, Rook, Bishop | 18 | 0% |
 | Apprentice | 4 × 4 | King, Rook, Bishop | 32 | 15% |
 | Journeyman | 5 × 5 | King, Rook, Bishop, Knight | 50 | 25% |
 | Master | 6 × 6 | King, Rook, Bishop, Knight, occasional Queens | 72 | 35% |

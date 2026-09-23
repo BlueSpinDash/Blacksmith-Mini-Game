@@ -1426,6 +1426,167 @@ async function run() {
     return soundAtOne && stillSoundAtTwo && C.isSpent(g, idx) === true;
   }));
 
+  /* Gold is where the work starts to bite: that rung and every one above it is
+     worked a full difficulty step harder than the batch alone would ask for.
+     Read off the real order sheet and the real board it deals. */
+  section('Open Your Forge: Gold and above are worked a tier harder');
+  // the section before this leaves a board on the anvil; go back to the floor
+  await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  const tiers = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const out = [];
+    for (const m of C.SHOP.materials) {
+      for (const qty of [1, 4, 7, 10]) {
+        out.push({ metal: m.name, id: m.id, qty: qty,
+          batch: C.batchDifficulty(qty), forge: C.forgeDifficulty(m.id, qty),
+          step: C.materialDifficultyStep(m.id) });
+      }
+    }
+    return out;
+  });
+  const soft = tiers.filter((t) => t.step === 0), hard = tiers.filter((t) => t.step > 0);
+  ok('Bronze and Silver are still worked at whatever the batch asked',
+    soft.length === 8 && soft.every((t) => t.forge === t.batch) &&
+    ['Bronze', 'Silver'].every((n) => soft.some((t) => t.metal === n)),
+    JSON.stringify(soft.slice(0, 2)));
+  ok('Gold, Mithril and Adamantine are each a tier above the batch',
+    hard.length === 12 && hard.every((t) => {
+      const order = ['novice', 'apprentice', 'journeyman', 'master'];
+      return t.forge === order[Math.min(order.indexOf(t.batch) + 1, 3)];
+    }), JSON.stringify(hard.filter((t) => t.qty === 1)));
+  ok('and nothing is ever worked above Master',
+    tiers.filter((t) => t.qty === 10).every((t) => t.forge === 'master'));
+
+  // the order sheet has to name the tier the anvil will actually deal
+  for (const metal of ['bronze', 'gold']) {
+    await page.evaluate((id) => {
+      const F = window.CHECKSMITH;
+      F.app.shop.materials[id] = 20;
+      F.shopRender();
+    }, metal);
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    await page.selectOption('#shopSheetBody [data-sel="item"]', 'shortsword');
+    await page.waitForTimeout(100);
+    await page.selectOption('#shopSheetBody [data-sel="material"]', metal);
+    await page.waitForTimeout(150);
+    const sheet = await page.evaluate(() => document.getElementById('shopSheetBody').innerText);
+    if (metal === 'bronze') {
+      ok('a batch of one in Bronze is offered as a Novice board',
+        /Novice/.test(sheet) && !/worked a tier harder/.test(sheet), sheet.slice(0, 260));
+    } else {
+      ok('the same batch in Gold is offered as an Apprentice board',
+        /Apprentice/.test(sheet) && !/Novice/.test(sheet), sheet.slice(0, 260));
+      ok('and the sheet says the metal is what raised it',
+        /Gold is worked a tier harder/.test(sheet), sheet.slice(0, 260));
+    }
+    // and the board it actually deals matches what it just promised
+    await page.click('#shopSheetActions button:not([disabled])');
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+    const dealt = await page.evaluate(() => window.CHECKSMITH.app.game.board.difficulty);
+    ok('the anvil deals the ' + metal + ' board at the tier the sheet named',
+      dealt === (metal === 'bronze' ? 'novice' : 'apprentice'), dealt);
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  }
+
+  /* The bishop joined the Novice pool. On a real 3x3 board it must be drawn,
+     named and highlighted like any other piece - no special case. */
+  section('Novice boards carry bishops');
+  {
+    const bishopBoard = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core;
+      F.app.shop.materials.bronze = 40;
+      // a 3x3 item in a soft metal is a Novice board; deal until one has a bishop
+      for (let tries = 0; tries < 30; tries++) {
+        F.shopUi.draft = { item: 'dagger', material: 'bronze', qty: 1 };
+        F.shopStartForge();
+        await new Promise((r) => setTimeout(r, 90));
+        const g = F.app.game;
+        if (!g) continue;
+        if (g.board.size === 3 && g.board.difficulty === 'novice' && g.pieces.includes('B')) {
+          const at = g.pieces.indexOf('B');
+          return { size: g.board.size, difficulty: g.board.difficulty, at: at,
+            pool: C.CONFIG.difficulties.novice.pool.slice(),
+            glyph: document.querySelector('#board .tile[data-i="' + at + '"] .glyph').textContent,
+            label: document.querySelector('#board .tile[data-i="' + at + '"]').getAttribute('aria-label'),
+            // a closed <details>, so textContent is the only honest read
+            legend: document.getElementById('legendBody').textContent };
+        }
+        F.shopUi.order = null; F.shopReturn();
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      return null;
+    });
+    ok('a 3x3 Novice board is dealt with a bishop on it', !!bishopBoard,
+      JSON.stringify(bishopBoard));
+    if (bishopBoard) {
+      ok('the bishop is drawn with its own symbol', bishopBoard.glyph === '♗',
+        bishopBoard.glyph);
+      ok('and named as a bishop to a screen reader',
+        /Bishop/.test(bishopBoard.label), bishopBoard.label);
+      ok('the legend lists it alongside the rest of the pool',
+        /Bishop/.test(bishopBoard.legend) && /King/.test(bishopBoard.legend) &&
+        /Rook/.test(bishopBoard.legend) && !/Knight/.test(bishopBoard.legend),
+        JSON.stringify(bishopBoard.legend));
+
+
+      // the highlighting has to agree with the rule, square by square
+      const moves = await page.evaluate((at) => {
+        const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+        g.current = at;
+        g.status = 'playing';
+        g.strikes[at] = 1;
+        F.render();
+        const lit = [], want = C.movesFrom('B', at, 3);
+        for (let i = 0; i < 9; i++) {
+          if (document.querySelector('#board .tile[data-i="' + i + '"]').dataset.legal === '1') lit.push(i);
+        }
+        return { lit: lit, want: want.slice().sort((a, b) => a - b) };
+      }, bishopBoard.at);
+      ok('standing on it lights exactly its diagonals, and nothing else',
+        moves.lit.join(',') === moves.want.join(','), JSON.stringify(moves));
+
+      const tapped = await page.evaluate(async (at) => {
+        const F = window.CHECKSMITH, C = F.core;
+        const legal = C.movesFrom('B', at, 3)[0];
+        const illegal = [...Array(9).keys()].find((i) =>
+          i !== at && !C.movesFrom('B', at, 3).includes(i));
+        const before = F.app.game.strikes.slice();
+        F.tap(illegal);
+        await new Promise((r) => setTimeout(r, 220));
+        const afterBad = F.app.game.strikes.slice();
+        F.tap(legal);
+        await new Promise((r) => setTimeout(r, 400));
+        return { illegal: illegal, legal: legal,
+          refused: afterBad.join(',') === before.join(','),
+          took: F.app.game.strikes[legal] > before[legal] };
+      }, bishopBoard.at);
+      ok('an off-diagonal tap is refused', tapped.refused, JSON.stringify(tapped));
+      ok('and a diagonal one lands', tapped.took, JSON.stringify(tapped));
+
+      // last, because it deals a different board: the legend follows the board
+      // the anvil dealt, not the mode. A Gold order is raised a tier, so its
+      // legend must name that tier's pieces rather than the player's setting.
+      ok('the legend follows the board the anvil dealt, not the mode', await page.evaluate(async () => {
+        const F = window.CHECKSMITH;
+        F.shopUi.order = null; F.shopReturn();
+        F.app.difficulty = 'novice';
+        F.app.shop.materials.gold = 20;
+        F.shopUi.draft = { item: 'dagger', material: 'gold', qty: 1 };
+        F.shopStartForge();
+        await new Promise((r) => setTimeout(r, 300));
+        const g = F.app.game;
+        const text = document.getElementById('legendBody').textContent;
+        return !!g && g.board.difficulty === 'apprentice' &&
+          /Bishop/.test(text) && !/Knight/.test(text);
+      }));
+    }
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  }
+
   /* The reported bug: a Gold board showed its third blow - the one that
      finished the square - as a ruined square, because the tile art counted to
      the plain forge's two-and-three. Every blueprint metal is walked here on a

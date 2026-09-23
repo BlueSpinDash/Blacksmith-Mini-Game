@@ -1637,12 +1637,15 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        ingots are spent and the batch goes on the anvil overnight; ruin it and you lose the phase
        but keep the metal. How well you worked the board is the quality of the goods, and quality
        is what they are worth.</p>
-    <p><b>The size of the order is the difficulty.</b> There is nothing to pick: <b>every three
-       pieces in a batch</b> is another tier of symbols on the board. One to three is a Novice
-       board of kings and rooks; four to six adds bishops; seven to nine adds knights; ten or more
-       brings in the occasional queen. So a big batch is the efficient thing and the risky thing at
-       once &mdash; more goods off one puzzle, on a board far more likely to strand you. The order
-       sheet names the tier before you commit to it.</p>
+    <p><b>The order is the difficulty.</b> There is nothing to pick. <b>Every three pieces in a
+       batch</b> is another tier of symbols on the board: one to three is a Novice board of kings,
+       rooks and bishops; four to six is Apprentice; seven to nine adds knights; ten or more brings
+       in the occasional queen. So a big batch is the efficient thing and the risky thing at once
+       &mdash; more goods off one puzzle, on a board far more likely to strand you.</p>
+    <p><b>And the metal raises it.</b> <b>Gold and above are worked a full tier harder</b> than the
+       batch alone would ask for &mdash; a single Gold piece is an Apprentice board, not a Novice
+       one. Bronze and Silver are worked at whatever the batch asked. Nothing goes above Master.
+       The order sheet names the tier, and says when the metal has raised it, before you commit.</p>
     <p><b>Nothing sells itself.</b> Finished work lands in <b>storage</b> the next morning and sits
        there until you spend a phase carrying it out to the shelves. Every line starts at its
        recommended price and you may ask whatever you like &mdash; tap the price to change it.
@@ -1738,8 +1741,9 @@ const CONFIG = {
   order: ['novice', 'apprentice', 'journeyman', 'master'],
   difficulties: {
     // morphChance: odds that a square's symbol is reshaped by its first strike.
-    // Novice stays at zero so it remains a pure route-planning puzzle.
-    novice:     { label: 'Novice',     size: 3, pool: ['K', 'R'],           maxQueens: 0, morphChance: 0 },
+    // Novice stays at zero so it remains a pure route-planning puzzle - the
+    // bishop in its pool is there for variety, not to add hot-metal surprise.
+    novice:     { label: 'Novice',     size: 3, pool: ['K', 'R', 'B'],      maxQueens: 0, morphChance: 0 },
     apprentice: { label: 'Apprentice', size: 4, pool: ['K', 'R', 'B'],      maxQueens: 0, morphChance: 0.15 },
     journeyman: { label: 'Journeyman', size: 5, pool: ['K', 'R', 'B', 'N'], maxQueens: 0, morphChance: 0.25 },
     master:     { label: 'Master',     size: 6, pool: ['K', 'R', 'B', 'N'], maxQueens: 2, morphChance: 0.35 }
@@ -3443,6 +3447,12 @@ const SHOP = {
   phaseName: { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' },
   weekLength: 7,               // rent falls due at the end of every 7th day
   batchPerTier: 3,             // pieces in a batch per step up the difficulty tiers
+  // Gold is where the work starts to bite. This rung and every one above it
+  // is worked `hardenBy` difficulty steps harder than the batch alone would
+  // ask for. Named once, as a rung on the ladder the game already has, so
+  // nothing downstream ever asks "is this gold?".
+  hardenFrom: 'gold',
+  hardenBy: 1,
   startGold: 260,
   startStock: { bronze: 10 },
   reputationStart: 12,         // 0-100, shown as 1-5 stars: a new shop is a one-star shop
@@ -3981,6 +3991,32 @@ function batchDifficulty(qty) {
   return CONFIG.order[Math.min(step, CONFIG.order.length - 1)];
 }
 
+/* One difficulty ladder, walked upward and stopping at the top. There is
+   nothing above Master, so asking for more simply gives Master. */
+function harderDifficulty(key, steps) {
+  const at = CONFIG.order.indexOf(key);
+  if (at < 0) return key;
+  return CONFIG.order[Math.min(at + Math.max(0, steps || 0), CONFIG.order.length - 1)];
+}
+
+/* How many steps the ordered metal adds on top of what the batch asked for.
+   The threshold is a rung on the shop's own ladder, so a metal inserted
+   above or below Gold later takes its place in this without another edit. */
+function materialDifficultyStep(materialId) {
+  const ladder = shopLadder();
+  const mt = shopMaterial(materialId), from = shopMaterial(SHOP.hardenFrom);
+  if (!mt || !from) return 0;
+  const at = ladder.indexOf(mt.name), bites = ladder.indexOf(from.name);
+  if (at < 0 || bites < 0) return 0;
+  return at >= bites ? SHOP.hardenBy : 0;
+}
+
+/* The difficulty an order is actually worked at: what the batch asks for,
+   raised by what the metal asks for. */
+function forgeDifficulty(materialId, qty) {
+  return harderDifficulty(batchDifficulty(qty), materialDifficultyStep(materialId));
+}
+
 /* The board an order is worked on: the item chooses its size, the batch size
    chooses the symbols, and the material chooses how many times each square
    must be struck. Three independent levers, all of them the player's. */
@@ -3999,7 +4035,7 @@ function forgeBoardSpec(shop, itemId, materialId, qty) {
   // `perfect` is the ordered metal's own strike count, so a Gold blade is
   // finished on its third blow and ruined only on its fourth. Nothing here
   // knows the plain forge's two-and-three.
-  return { size: it.size, difficulty: batchDifficulty(qty || 1), visits: mt.strikes,
+  return { size: it.size, difficulty: forgeDifficulty(materialId, qty || 1), visits: mt.strikes,
     perfect: mt.strikes, spent: mt.strikes + 1, ladder: shopLadder() };
 }
 
@@ -4560,7 +4596,8 @@ const CHECKSMITH_CORE = {
   knownLine: knownLine,
   shopMoveToShelf: shopMoveToShelf, shopPullFromShelf: shopPullFromShelf, shopSetPrice: shopSetPrice,
   purchaseCost: purchaseCost, shopBuyMaterials: shopBuyMaterials, forgeCheck: forgeCheck,
-  batchDifficulty: batchDifficulty,
+  batchDifficulty: batchDifficulty, harderDifficulty: harderDifficulty,
+  materialDifficultyStep: materialDifficultyStep, forgeDifficulty: forgeDifficulty,
   forgeBoardSpec: forgeBoardSpec, shopFinishForge: shopFinishForge, trafficFor: trafficFor,
   customerWeights: customerWeights, pickWeighted: pickWeighted, openCounter: openCounter,
   chooseGoods: chooseGoods, counterNext: counterNext, counterRespond: counterRespond,
@@ -6776,14 +6813,20 @@ function shopForgeBody(smith) {
   html += '</select></div>';
 
   const qty = d.qty || 1;
-  const tier = batchDifficulty(qty);
+  // What the board will actually be worked at: the batch, raised by the metal
+  // if it is one of the hard ones. The dialog must say the same number the
+  // anvil will deal, or choosing an order is choosing blind.
+  const mtNow = shopMaterial(d.material);
+  const tier = forgeDifficulty(d.material, qty);
+  const bumped = tier !== batchDifficulty(qty);
   const tierCfg = CONFIG.difficulties[tier];
   const nextAt = (Math.floor((qty - 1) / SHOP.batchPerTier) + 1) * SHOP.batchPerTier + 1;
   html += '<div class="pick-row"><label>Batch</label>' + stepper('qty', qty, 1, cap) +
     '<span style="font-size:11.5px;color:var(--muted)">Up to ' + cap +
     ' from one board. You work the puzzle once, however many you make.</span></div>';
   if (!smith) {
-    // The batch IS the difficulty here, so it has to be visible while choosing.
+    // The batch and the metal between them are the difficulty here, so it has
+    // to be visible while choosing - neither lever is picked anywhere else.
     html += '<div class="shop-row" style="margin:0 0 10px">' +
       '<span class="nm">Board difficulty</span>' +
       '<span class="amt">' + esc(tierCfg.label) + '</span>' +
@@ -6791,7 +6834,9 @@ function shopForgeBody(smith) {
       ' pieces in a batch is another tier of symbols \u00b7 ' +
       esc(tierCfg.pool.map(function (k) { return PIECES[k].name; }).join(', ')) +
       (tierCfg.maxQueens > 0 ? ' and the odd Queen' : '') +
-      (nextAt <= cap && batchDifficulty(nextAt) !== tier
+      (bumped ? ' \u00b7 <span style="color:var(--ember)">' + esc(mtNow ? mtNow.name : 'this metal') +
+        ' is worked a tier harder</span>' : '') +
+      (nextAt <= cap && forgeDifficulty(d.material, nextAt) !== tier
         ? ' \u00b7 a batch of ' + nextAt + ' steps up again' : '') +
       '</span></div>';
   }
@@ -8098,7 +8143,13 @@ function buildLegend() {
   const body = $('legendBody');
   // Symbols can be reshaped mid-run, so list the whole pool this difficulty
   // draws from rather than only what is on the board right now.
-  const cfg = CONFIG.difficulties[App.difficulty];
+  //
+  // The board's own difficulty comes first, because it is not always the one
+  // the player picked: an Open Your Forge order sets its tier from the batch
+  // and the metal, so reading App.difficulty here would name the wrong pieces
+  // on every anvil board that the metal had raised.
+  const key = (App.game && App.game.board && App.game.board.difficulty) || App.difficulty;
+  const cfg = CONFIG.difficulties[key];
   const used = cfg ? cfg.pool.slice() : [];
   if (cfg && cfg.maxQueens > 0) used.push('Q');
   const order = ['K', 'R', 'B', 'N', 'Q'].filter((p) => used.indexOf(p) !== -1);

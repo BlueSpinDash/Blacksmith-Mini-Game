@@ -40,6 +40,107 @@ section('Movement rules');
   ok('isLegalMove rejects from === to', !C.isLegalMove('R', 6, 6, 5));
 }
 
+/* The bishop joined the Novice pool, so the smallest board it can land on is
+   now 3x3. It gets no special case there and must not want one. */
+section('The bishop on a Novice board');
+{
+  const idx = (r, c, n) => r * n + c;
+  const has = (piece, from, to, n) => C.movesFrom(piece, from, n).includes(to);
+
+  ok('Novice offers the bishop, and still offers what it always did',
+    C.CONFIG.difficulties.novice.pool.includes('B') &&
+    ['K', 'R'].every((k) => C.CONFIG.difficulties.novice.pool.includes(k)),
+    C.CONFIG.difficulties.novice.pool.join(','));
+
+  // the same diagonal rule, at the small size, with nothing bolted on
+  ok('a bishop in the middle of a 3x3 reaches all four corners',
+    C.movesFrom('B', idx(1, 1, 3), 3).length === 4 &&
+    [[0, 0], [0, 2], [2, 0], [2, 2]].every((rc) => has('B', idx(1, 1, 3), idx(rc[0], rc[1], 3), 3)));
+  ok('a bishop on a 3x3 corner reaches the middle and the far corner',
+    C.movesFrom('B', idx(0, 0, 3), 3).length === 2 &&
+    has('B', idx(0, 0, 3), idx(1, 1, 3), 3) && has('B', idx(0, 0, 3), idx(2, 2, 3), 3));
+  ok('a bishop on a 3x3 edge keeps to its own colour',
+    C.movesFrom('B', idx(0, 1, 3), 3).length === 2 &&
+    has('B', idx(0, 1, 3), idx(1, 0, 3), 3) && has('B', idx(0, 1, 3), idx(1, 2, 3), 3));
+  ok('it still refuses every orthogonal on a 3x3',
+    !has('B', idx(1, 1, 3), idx(0, 1, 3), 3) && !has('B', idx(1, 1, 3), idx(1, 0, 3), 3) &&
+    !has('B', idx(0, 0, 3), idx(0, 1, 3), 3) && !has('B', idx(0, 0, 3), idx(1, 0, 3), 3));
+  ok('and it never stands still or steps off the board', (() => {
+    for (let n = 3; n <= 6; n++) {
+      for (let i = 0; i < n * n; i++) {
+        const to = C.movesFrom('B', i, n);
+        if (to.includes(i)) return false;
+        if (to.some((d) => d < 0 || d >= n * n)) return false;
+        // every destination really is on a diagonal
+        for (const d of to) {
+          if (Math.abs(Math.floor(d / n) - Math.floor(i / n)) !== Math.abs((d % n) - (i % n))) return false;
+        }
+      }
+    }
+    return true;
+  })());
+  ok('isLegalMove agrees with movesFrom for the bishop everywhere on a 3x3', (() => {
+    for (let a = 0; a < 9; a++) {
+      for (let b = 0; b < 9; b++) {
+        if (C.isLegalMove('B', a, b, 3) !== C.movesFrom('B', a, 3).includes(b)) return false;
+      }
+    }
+    return true;
+  })());
+
+  // generation: the pool is only useful if boards carrying it still solve
+  ok('Novice boards are generated with bishops on them', (() => {
+    let withB = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const b = C.makeBoard('novice', C.mulberry32(seed * 13));
+      if (!b || !C.validateBoard(b)) return false;
+      if (b.pieces.includes('B')) withB++;
+    }
+    return withB >= 20;                      // the great majority, not a fluke
+  })());
+  ok('and every one of them is a solvable, verified board', (() => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const b = C.makeBoard('novice', C.mulberry32(seed * 29));
+      if (!b || !C.validateBoard(b)) return false;
+      if (!b.pieces.every((p) => C.CONFIG.difficulties.novice.pool.includes(p))) return false;
+    }
+    return true;
+  })());
+  ok('the shop can work every strike count on a Novice board too', (() => {
+    for (const visits of [1, 2, 3, 4, 5]) {
+      for (let seed = 1; seed <= 12; seed++) {
+        const b = C.makeShopBoard(3, 'novice', visits, C.mulberry32(seed * 7 + visits));
+        if (!b || !C.validateBoard(b)) return false;
+        if (b.route.length !== visits * 9) return false;
+      }
+    }
+    return true;
+  })());
+  ok('the stored route on a bishop board replays legally', (() => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const b = C.makeBoard('novice', C.mulberry32(seed * 101));
+      if (!b || !b.pieces.includes('B')) continue;
+      const g = C.createGame(b, { morphChance: 0 });
+      for (const i of b.route) if (C.applyStrike(g, i) === null) return false;
+      if (g.status !== 'complete') return false;
+    }
+    return true;
+  })());
+
+  // the other modes keep their own tables and must not have moved
+  ok('versus still starts its rivals on kings and rooks alone',
+    C.CONFIG.versus.difficulties.novice.pool.join(',') === 'K,R');
+  ok('endless still draws from every symbol, as it always did',
+    C.CONFIG.endless.pool.join(',') === 'K,R,B,N,Q');
+  ok('the higher forge pools are untouched',
+    C.CONFIG.difficulties.apprentice.pool.join(',') === 'K,R,B' &&
+    C.CONFIG.difficulties.journeyman.pool.join(',') === 'K,R,B,N' &&
+    C.CONFIG.difficulties.master.pool.join(',') === 'K,R,B,N' &&
+    C.CONFIG.difficulties.master.maxQueens === 2);
+  ok('and so are the board sizes',
+    [3, 4, 5, 6].every((n, i) => C.CONFIG.difficulties[C.CONFIG.order[i]].size === n));
+}
+
 /* ---------- departure piece decides, symbols never block ---------- */
 section('Departure piece decides the move');
 {
@@ -1377,11 +1478,77 @@ section('Open Your Forge: material sets the strikes, not the difficulty');
 
   ok('the item picks the size, the material the strikes, the batch the symbols', (() => {
     const shop = C.createShop({ rnd: C.mulberry32(3) });
-    const small = C.forgeBoardSpec(shop, 'plate', 'adamantine', 1);
-    const big = C.forgeBoardSpec(shop, 'plate', 'adamantine', 10);
-    return small.size === 6 && small.visits === 5 && small.perfect === 5 && small.spent === 6 &&
+    // a soft metal, so the batch alone is deciding the symbols here
+    const small = C.forgeBoardSpec(shop, 'plate', 'bronze', 1);
+    const big = C.forgeBoardSpec(shop, 'plate', 'bronze', 10);
+    return small.size === 6 && small.visits === 1 && small.perfect === 1 && small.spent === 2 &&
       big.size === small.size && big.visits === small.visits &&
       small.difficulty === 'novice' && big.difficulty === 'master';
+  })());
+
+  /* Gold is where it bites: that rung and every one above is worked a full
+     difficulty step harder than the batch alone would ask for. The threshold
+     is a rung on the shop's own ladder, so nothing below names a metal. */
+  ok('the soft metals are worked at exactly what the batch asked for', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(4) });
+    const soft = C.shopLadder().slice(0, C.shopLadder().indexOf(C.shopMaterial(C.SHOP.hardenFrom).name));
+    for (const name of soft) {
+      const m = C.SHOP.materials.find((x) => x.name === name);
+      for (const qty of [1, 3, 4, 6, 7, 9, 10, 20]) {
+        if (C.forgeBoardSpec(shop, 'shortsword', m.id, qty).difficulty !== C.batchDifficulty(qty)) return false;
+        if (C.materialDifficultyStep(m.id) !== 0) return false;
+      }
+    }
+    return soft.length === 2;   // Bronze and Silver, as the brief has it
+  })());
+
+  ok('Gold and everything above it is worked one step harder', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(5) });
+    const ladder = C.shopLadder();
+    const bites = ladder.indexOf(C.shopMaterial(C.SHOP.hardenFrom).name);
+    const hard = ladder.slice(bites);
+    for (const name of hard) {
+      const m = C.SHOP.materials.find((x) => x.name === name);
+      if (C.materialDifficultyStep(m.id) !== C.SHOP.hardenBy) return false;
+      for (const qty of [1, 3, 4, 6, 7, 9]) {
+        const was = C.batchDifficulty(qty);
+        const now = C.forgeBoardSpec(shop, 'shortsword', m.id, qty).difficulty;
+        const want = C.CONFIG.order[C.CONFIG.order.indexOf(was) + C.SHOP.hardenBy];
+        if (now !== want) return false;
+      }
+    }
+    return hard.length === 3;   // Gold, Mithril, Adamantine
+  })());
+
+  ok('nothing is ever worked above Master', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(6) });
+    const top = C.CONFIG.order[C.CONFIG.order.length - 1];
+    for (const m of C.SHOP.materials) {
+      for (const qty of [10, 12, 40, 400]) {
+        if (C.forgeBoardSpec(shop, 'shortsword', m.id, qty).difficulty !== top) return false;
+      }
+    }
+    return C.harderDifficulty(top, 9) === top && C.harderDifficulty('novice', 99) === top;
+  })());
+
+  ok('the step is read off the ladder, not off a name', (() => {
+    // the threshold moved down a rung: everything from Silver up should bite
+    const was = C.SHOP.hardenFrom;
+    C.SHOP.hardenFrom = 'silver';
+    const bitesNow = C.SHOP.materials.filter((m) => C.materialDifficultyStep(m.id) > 0).length;
+    C.SHOP.hardenFrom = was;
+    const bitesBack = C.SHOP.materials.filter((m) => C.materialDifficultyStep(m.id) > 0).length;
+    return bitesNow === 4 && bitesBack === 3;
+  })());
+
+  ok('a harder board is a board that still generates', (() => {
+    const shop = C.createShop({ rnd: C.mulberry32(7) });
+    for (const m of C.SHOP.materials) {
+      const spec = C.forgeBoardSpec(shop, 'shortsword', m.id, 1);
+      const b = C.makeShopBoard(spec.size, spec.difficulty, spec.visits, C.mulberry32(m.strikes * 31));
+      if (!b || !C.validateBoard(b)) return false;
+    }
+    return true;
   })());
 
   ok('every three pieces in a batch is another tier', (() => {
