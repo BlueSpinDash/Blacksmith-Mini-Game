@@ -2033,6 +2033,27 @@ async function run() {
   await page.evaluate(() => document.getElementById('menuBtn').click());
   if (await page.isVisible('#confirm')) await page.click('#confirmYes');
   await page.waitForTimeout(1200);
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await page.waitForTimeout(1400);
+  const atShop = await playing();
+  ok('the forge floor has a track of its own', atShop.track === 'shop' && atShop.on,
+    JSON.stringify(atShop));
+
+  // the anvil is part of the same day, so the track must not cut out for it
+  await page.click('#shActions [data-act="forge"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions button:not([disabled])');
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+  await page.waitForTimeout(900);
+  const atAnvil = await playing();
+  ok('and it carries on when a batch goes on the anvil',
+    atAnvil.track === 'shop' && atAnvil.on, JSON.stringify(atAnvil));
+
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1200);
   ok('the mute button can be reached while the menu is up', await page.evaluate(() => {
     const r = document.getElementById('muteBtn').getBoundingClientRect();
     const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);

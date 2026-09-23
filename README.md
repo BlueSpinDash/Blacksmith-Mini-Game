@@ -40,15 +40,34 @@ the title theme does not cut off mid-bar when a run begins:
 | --- | --- |
 | Title screen, and under the opening | Title theme |
 | An Endless run | Endless theme |
-| Forge, Versus, Open Your Forge | silence |
+| Open Your Forge, **the anvil included** | Forge theme |
+| Forge, Versus | silence |
 
-Both obey the mute button and the volume slider — the score is the game's sound
-as much as the hammer is. The top bar sits **above** the title screen for that
-reason: music plays there, so the controls have to be reachable there.
+The shop's track runs the whole day rather than dropping out each time a batch
+goes on the anvil: the forge floor is one place, and the silence would be the
+loudest thing about it.
+
+All three obey the mute button and the volume slider — the score is the game's
+sound as much as the hammer is. The top bar sits **above** the title screen for
+that reason: music plays there, so the controls have to be reachable there.
+
+**Sending the app away stops the music.** `Music.suspend()` pauses the element
+outright rather than fading, because a fade needs the timers the system is
+about to take away, and half a second of music leaking out of a pocket is the
+whole complaint. The track name is kept, so coming back picks the song up where
+it stood instead of restarting it — and only a track that pair parked is
+restarted, so a muted player, or a Forge board with no music of its own, comes
+back to the same silence it left. The page listens on `visibilitychange` and
+`pagehide`; the Android shell also calls `window.checksmithPause()` and
+`window.checksmithResume()` from `onPause`/`onResume`, because a WebView is not
+obliged to report being sent away as a visibility change and `WebView.onPause()`
+alone does not reliably stop HTML5 audio. The pause call goes in first, while
+the page's scripts still run; the resume call goes in last, once the timers are
+back.
 
 **The assets are embedded like everything else**, so the file is still the whole
-game — and that is what takes `index.html` from about 370 KB to **9.7 MB**. The
-opening's artwork is WebP at 1100px (270 KB together); the two tracks are the
+game — and that is what takes `index.html` from about 370 KB to **12.6 MB**. The
+opening's artwork is WebP at 1100px (270 KB together); the three tracks are the
 supplied 256 kbps masters carried at **112 kbps**, 3.3 MB each. Those two
 numbers are essentially the whole file, and they are the single thing to change
 if the size matters more than the fidelity or the other way round —
