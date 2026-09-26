@@ -480,7 +480,7 @@ outranked `.tile[data-current="1"]` and buried the ring on every struck square.
 ## Open Your Forge
 
 A shop-management mode built on the Forge puzzle. You own a smithy: buy metal,
-forge the stock yourself, put it on the shelves, price it, serve the customers,
+forge the stock yourself, stand it on a display, price it, serve the customers,
 and have the rent on the table at the end of every seventh day. Fall short and
 the shop closes. Forge, Endless and Versus are untouched — this mode *uses* the
 Forge puzzle, it does not change it.
@@ -488,11 +488,13 @@ Forge puzzle, it does not change it.
 ### The day
 
 Three phases — morning, afternoon, evening — and the player personally takes
-**one** action in each: Forge, Tend the Store, Purchase Materials, Stock
-Shelves, or Search for Employees. **The three phases never increase.** What
+**one** action in each: Forge, Tend the Store, Purchase Materials, Checksmith
+Almanac, or Search for Employees. **The three phases never increase.** What
 grows is how much happens inside them, because employees work alongside you.
+Stocking is reached from the floor itself — tap a stand — and costs the phase
+the same way; reading the Almanac costs nothing at all.
 
-Early on a day might be *buy metal → forge → stock shelves*, with no phase left
+Early on a day might be *buy metal → forge → stock a stand*, with no phase left
 to open the shop. Later the same day is *forge while the Runner buys and the
 Store Hand stocks*, then *forge again while a Salesperson serves*, then *serve
 the counter yourself*. That shift is the whole progression.
@@ -642,26 +644,56 @@ it and the phase is gone but **the metal is not**. The puzzle's quality score
 becomes the goods' quality, which sets what they are worth.
 
 Finished work lands in **storage** the next morning. It never goes straight to
-the shelves — moving it there costs a phase (or a Store Hand).
+the floor — moving it there costs a phase (or a Store Hand).
 
-### The shelf is drawn as a shelf
+### What the forge knows: the Checksmith Almanac
 
-The shop floor holds so many pieces and no more, so it is drawn as exactly that
-many boxes — **one to a piece**, empties included. What the premises hold is
-something to look at rather than work out.
+A forge opens knowing **eight** recipes out of eighty-two and learns the rest.
+`SHOP.items` is the whole catalogue — sixteen categories, each recipe carrying
+its board size, its bronze price, how deep in the tree it sits, the recipes that
+must come before it, and the customers who come looking for it. `recipeNeeds`
+turns that row into a requirement: the prerequisites that must have been
+*forged*, the reputation the shop must have made, and the premises it must be
+working out of. Nothing branches on a recipe id anywhere.
 
-Stocking is filling boxes in, one at a time: tap an empty one, and the picker
-lists what is in storage with what is left of each line after the draft; tap a
-piece and it drops into that box. Tap a filled box to take it back off. Nothing
-moves until *Carry them out*, and the whole lot still costs a single phase, so
-placing pieces one by one is free. A Store Hand sent to the floor picks from the
-same grid, capped by what they can carry.
+Two paths open a recipe. `discoverRecipes` runs at the turn of the day and
+learns everything the shop has worked its way up to, which is the quiet half of
+the mode's progression and is reported in the morning. `buySchematic` sells the
+rest of the way to anyone who has done the groundwork at the anvil: gold skips
+the waiting, never the anvil work. `shop.ledger` is the book of what the forge
+has actually made — how many, the best quality it ever reached, and every metal
+it has been worked in — and `forgeCheck` refuses anything the shop has no
+blueprint for.
 
-On the Shop tab the same grid is the shop floor: each piece shows its metal, its
-name and its price, and tapping one opens the price sheet. Tapping an empty box
-is the short way to the stocking dialog. Two longswords in different metals are
-different goods at different prices, so the metal is named on the box rather
-than left to the sprite's tint alone.
+The Almanac screen draws one page a category and the recipes on it as the tree
+they are, elbows and all, as nested lists rather than a laid-out canvas, so it
+reflows to any width. Known nodes carry their best quality, ready ones are
+ringed, and undiscovered ones show the shape of the thing in grey with what it
+would take written under it. Tapping one opens its page: category, best work,
+metals worked, who wants it, which stand it goes on, and either how it was
+learned or the checklist to learn it.
+
+### The floor is fixtures, not slots
+
+The premises say how many **display stands** will fit (`SHOP.tiers[].stands`,
+4/6/9/12); each stand is bought separately from the Grow tab and holds six
+pieces of a single line. `SHOP.stands` names the six kinds, and which categories
+each takes is read off the category table (`standCategories`), so a stand can
+never be offered something it was not made for. Moving into bigger premises buys
+*room* — it never fills that room.
+
+A stand is the stock line: `shop.stands` is the only record of what is on the
+floor, and `shelfLine(shop, key)` is how the counter asks about it. Tapping a
+stand opens its panel — what it is, what it holds, what it will take, stock it,
+price it, clear it, change what it is while it is empty, or sell it back for
+half. Stocking opens straight on that stand with only the compatible lines
+listed, and still costs the one phase however many stands are filled. A Store
+Hand does the same through `shopMoveToShelf`, which places a line on the stand
+already holding it or an empty one that will take it.
+
+Saves from before there were stands carry a `shelf` map; `restoreShop` gives
+each line a stand of the right kind up to what the premises hold and puts the
+overflow into storage rather than dropping it.
 
 ### Pricing and customers
 
@@ -669,12 +701,22 @@ Every line has a recommended price and starts there; the player may ask
 anything. Overpricing makes a piece hard to shift, never unsellable —
 `priceAppeal` decays smoothly and never reaches zero.
 
-Who comes through the door is decided by **what is on the shelves**. Each
-customer type weights each category, and the same table is read backwards to
-pick the queue: a shop full of plate and shields draws knights and soldiers; one
-full of daggers and boots draws rogues, scouts and travellers. Weights, not
-rules — a rogue will still buy the only mace in an otherwise empty shop. The
-player never declares a specialism; the shop acquires one.
+Who comes through the door is decided by **what is on the stands**. Each
+customer type weights each category, and those weights are not written by hand:
+`deriveCustomerLikes` computes them from the recipes' own `tags`, so adding a
+recipe a farmer wants makes farmers care about its category with no second table
+to keep in step. The same weights are read backwards to pick the queue: a shop
+full of plate and shields draws knights and soldiers; one full of daggers and
+boots draws rogues, scouts and travellers; one full of ploughshares and picks
+draws farmers, miners and labourers. Weights, not rules — a rogue will still buy
+the only mace in an otherwise empty shop. The player never declares a
+specialism; the shop acquires one.
+
+A customer's `purse` is a soft ceiling on what they could stretch to at all: a
+labourer does not buy plate at any price and a collector will buy nearly
+anything, so `purseAppeal` decays past the limit rather than stopping. A shop
+with a name draws people who can spend more, which is the other half of what
+reputation buys.
 
 ### The counter is played one customer at a time
 
@@ -698,9 +740,25 @@ A counter that fails is not the end of them: they either walk out or give their
 seller may still take. One counter per customer, so a phase cannot be ground
 down indefinitely.
 
+### Offering something else
+
+A customer who came in for a longsword can be steered to the arming sword
+standing beside it. **Offer Alternative** lists everything on the floor but the
+thing already on the table, sorted by how well it suits them, and says so in
+words before the offer is made — "Just their sort of thing" down to "They would
+only be insulted". `alternativeOdds` is their taste for that category, the price
+against what this one will bear, their purse and the seller's skill; a guard
+will look twice at another blade and nobody ever came to a forge for a frying
+pan.
+
+One such offer a customer. Taking it sells *that* item instead; waving it away
+leaves the original offer exactly where it was, so the swap is a move rather
+than a gamble on the whole sale.
+
 An employee at the counter runs the identical queue, with `autoRespond` and
 `autoCounterPrice` standing in for the player's judgement and nerve — one code
-path, so the two cannot drift apart.
+path, so the two cannot drift apart. A good hand reaches for an alternative
+rather than send away a customer standing there with money in their hand.
 
 ### Staff take work, not stat lines
 
@@ -757,7 +815,7 @@ to do, and — while it is still upcoming — *Change orders*, *Change employee*
 actually chosen**; backing out of the picker leaves the original booking alone.
 
 The task controls are the player's own. A Runner's shopping list is the buy
-dialog, a Smith's order is the forge dialog, a Store Hand's picks are the shelf
+dialog, a Smith's order is the forge dialog, a Store Hand's picks are the stand
 grid — the same screens, not copies of them. `rosterBook` is the one way a job
 reaches the roster from any of them.
 
@@ -840,7 +898,7 @@ so the mute button and the volume slider own them too.
 | A sale lands | `coins` — a handful of chinks, scaled by the price |
 | They walk out | `walkout` — two falling notes and the door |
 | Buying ingots, and the week's rent | `coins`, pitched down and dulled — money going the other way |
-| A piece set on the shelf | `shelve` — wood, not metal, over in a blink |
+| A piece set on a stand | `shelve` — wood, not metal, over in a blink |
 | A phase turns over | `chime` — one mellow stroke, nothing triumphant |
 | A hand hired, an upgrade, new premises | `prosper` — a rising figure, longer for premises |
 | The landlord takes the keys | `ruin` — four sawtooth notes falling through a closing filter |
@@ -991,10 +1049,14 @@ CONFIG.versus.ai.comboWeight            // how hard the rival plays for combos
 CONFIG.versus.ai                       // rival node, time and think budgets
 CONFIG.versus.generation               // attempts and mobility tolerance for board pairs
 SHOP.materials                         // strikes per square, ingot cost and value
-SHOP.items                             // board size and base price per product
-SHOP.customers                         // who shops here, and what pulls them in
+SHOP.categories                        // the sixteen shelves of the catalogue
+SHOP.items                             // every recipe: size, price, tree depth, needs, tags
+SHOP.startingRecipes / SHOP.unlock     // what a forge opens knowing, and what the rest cost
+SHOP.stands / SHOP.standHold           // the six fixtures, and how much one holds
+SHOP.customers                         // who shops here; `likes` is derived, never written
+SHOP.purseBase                         // what a middling customer thinks twice at
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
-SHOP.tiers                             // premises: rent, staff, shelf, storage, batch
+SHOP.tiers                             // premises: rent, staff, stands, storage, batch
 SHOP.upgrades                          // the upgrade framework
 SHOP.batchPerTier                      // pieces per step up the difficulty tiers
 SHOP.weekLength / SHOP.startGold       // how long a week is, and what you start with

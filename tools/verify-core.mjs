@@ -2086,12 +2086,230 @@ section('Open Your Forge: the day and the week');
   })());
 }
 
+/* Puts a line straight onto a stand, making one if the shop has none of the
+   right kind. Tests need shelves far deeper than a real shop would hold, so
+   this bypasses what a stand will take rather than stocking it properly. */
+function stock(shop, key, qty, quality, price) {
+  const type = C.standForItem(C.splitKey(key).item);
+  let stand = shop.stands.find((st) => st.key === key);
+  if (!stand) stand = shop.stands.find((st) => !st.key && st.type === type);
+  if (!stand) {
+    stand = { id: shop.nextId++, type: type || 'goods', key: null, qty: 0, quality: 100, price: 0 };
+    shop.stands.push(stand);
+  }
+  stand.key = key;
+  stand.qty = qty;
+  stand.quality = quality == null ? 100 : quality;
+  stand.price = price == null
+    ? C.recommendedPrice(C.splitKey(key).item, C.splitKey(key).material, stand.quality)
+    : price;
+  return stand;
+}
+
+section('Open Your Forge: the Almanac and what the forge knows');
+{
+  ok('a new forge knows the starting recipes and nothing else', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(400) });
+    return s.known.length === C.SHOP.startingRecipes.length &&
+      C.SHOP.startingRecipes.every((id) => C.recipeKnown(s, id)) &&
+      !C.recipeKnown(s, 'longsword');
+  })());
+
+  ok('every starting recipe is a real one that needs nothing first', (() =>
+    C.SHOP.startingRecipes.every((id) => {
+      const it = C.shopItem(id);
+      return it && it.tier === 0 && (it.needs || []).length === 0;
+    })));
+
+  ok('every recipe names prerequisites that exist', (() =>
+    C.SHOP.items.every((it) => (it.needs || []).every((n) => !!C.shopItem(n)))));
+
+  ok('no recipe is its own ancestor', (() => {
+    const seen = {};
+    const walk = (id, trail) => {
+      if (trail.indexOf(id) >= 0) return false;
+      const it = C.shopItem(id);
+      return (it.needs || []).every((n) => walk(n, trail.concat([id])));
+    };
+    return C.SHOP.items.every((it) => walk(it.id, []));
+  })());
+
+  ok('the forge will not work a recipe it has never been shown', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(401) });
+    s.materials.bronze = 20;
+    const res = C.shopFinishForge(s, 'longsword', 'bronze', 2, 90, 'you');
+    return !res.ok && s.orders.length === 0 && s.materials.bronze === 20;
+  })());
+
+  ok('forging writes the book: what was made, the best of it and the metal', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(402) });
+    s.materials.bronze = 20;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 70, 'you');
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 94, 'you');
+    const rec = C.forgeRecord(s, 'shortsword');
+    return rec.made === 3 && rec.best === 94 && rec.metals.bronze === 3;
+  })());
+
+  ok('a recipe stays locked until its prerequisite has been forged, not just known', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(403) });
+    s.reputation = 90; s.tier = 4;
+    const before = C.recipeStatus(s, 'longsword');
+    s.materials.bronze = 20;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    const after = C.recipeStatus(s, 'longsword');
+    return !before.ready && after.ready;
+  })());
+
+  ok('reputation and premises gate the deeper recipes', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(404) });
+    s.materials.bronze = 60;
+    for (const id of ['shortsword']) C.shopFinishForge(s, id, 'bronze', 1, 80, 'you');
+    C.learnRecipe(s, 'longsword', 'study');
+    C.shopFinishForge(s, 'longsword', 'bronze', 1, 80, 'you');
+    s.reputation = 0; s.tier = 1;
+    const cold = C.recipeStatus(s, 'greatsword');
+    s.reputation = 100; s.tier = 4;
+    const warm = C.recipeStatus(s, 'greatsword');
+    return !cold.ready && warm.ready &&
+      cold.blockers.some((b) => b.kind === 'rep') &&
+      cold.blockers.some((b) => b.kind === 'store');
+  })());
+
+  ok('the turn of the day is when new blueprints arrive', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(405) });
+    s.reputation = 100; s.tier = 4; s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    const known = s.known.length;
+    const day = C.shopEndDay(s);
+    return s.known.length > known && C.recipeKnown(s, 'longsword') &&
+      day.learned.indexOf('longsword') >= 0;
+  })());
+
+  ok('a schematic buys past the name and the premises, never past the anvil', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(406) });
+    s.gold = 100000; s.reputation = 0; s.tier = 1;
+    const cold = C.buySchematic(s, 'longsword');
+    s.materials.bronze = 10;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    const warm = C.buySchematic(s, 'longsword');
+    return !cold.ok && warm.ok && C.recipeKnown(s, 'longsword') && s.gold === 100000 - warm.spent;
+  })());
+
+  ok('a schematic nobody can afford is refused and costs nothing', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(407) });
+    s.gold = 0; s.materials.bronze = 10;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    const res = C.buySchematic(s, 'longsword');
+    return !res.ok && !C.recipeKnown(s, 'longsword') && s.gold === 0;
+  })());
+
+  ok('what the forge knows survives being put down', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(408) });
+    s.materials.bronze = 10;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 88, 'you');
+    C.learnRecipe(s, 'longsword', 'schematic');
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return C.recipeKnown(back, 'longsword') && C.forgeRecord(back, 'shortsword').best === 88 &&
+      C.forgeRecord(back, 'shortsword').made === 2 &&
+      back.learned.some((l) => l.id === 'longsword' && l.how === 'schematic');
+  })());
+
+  ok('a forge saved before there were stands has its shelf put onto stands', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(420) });
+    const data = C.serializeShop(s);
+    data.v = 2;
+    delete data.stands;
+    delete data.known;
+    data.shelf = {};
+    data.shelf[C.lineKey('longsword', 'bronze')] = { qty: 3, quality: 88, price: 61 };
+    data.shelf[C.lineKey('plate', 'bronze')] = { qty: 2, quality: 77, price: 200 };
+    data.shelf[C.lineKey('kite', 'bronze')] = { qty: 1, quality: 95, price: 80 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    if (!back) return false;
+    const blade = C.shelfLine(back, C.lineKey('longsword', 'bronze'));
+    const mail = C.shelfLine(back, C.lineKey('plate', 'bronze'));
+    return back.stands.length === 3 && C.countShelf(back) === 6 &&
+      !!blade && blade.qty === 3 && blade.price === 61 &&
+      !!mail && C.standById(back, mail.id).type === 'armor' &&
+      back.stands.every((st) => !st.key || C.standTakes(st.type, C.splitKey(st.key).item));
+  })());
+
+  ok('a shelf too deep for the floor goes into storage rather than vanishing', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(421) });
+    const data = C.serializeShop(s);
+    data.v = 2;
+    delete data.stands;
+    data.shelf = {};
+    data.shelf[C.lineKey('longsword', 'bronze')] = { qty: 40, quality: 90, price: 61 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return !!back && C.countShelf(back) === C.standHold() &&
+      C.countStorage(back) === 40 - C.standHold();
+  })());
+
+  ok('a save whose stands are rubbish still leaves a forge that can trade', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(422) });
+    const data = C.serializeShop(s);
+    data.stands = [{ type: 'trebuchet-rack' }, null, 17,
+      { type: 'weapon', key: 'plate|bronze', qty: 4, quality: 50, price: 9 },
+      { type: 'shield', key: 'kite|bronze', qty: 900, quality: 50, price: 9 }];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    if (!back) return false;
+    const rack = back.stands.find((st) => st.type === 'weapon');
+    const shield = back.stands.find((st) => st.type === 'shield');
+    return back.stands.length === 2 && !!rack && rack.qty === 0 && rack.key === null &&
+      !!shield && shield.qty === C.standHold() &&
+      back.stands.every((st) => !st.key || C.standTakes(st.type, C.splitKey(st.key).item));
+  })());
+
+  ok('a forge saved before recipes had to be learned keeps the catalogue it had', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(409) });
+    const data = C.serializeShop(s);
+    data.v = 2;
+    delete data.known; delete data.ledger; delete data.learned;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return !!back && C.SHOP.legacyRecipes.every((id) => C.recipeKnown(back, id)) &&
+      C.SHOP.startingRecipes.every((id) => C.recipeKnown(back, id));
+  })());
+
+  ok('a save whose recipe list is rubbish still leaves a forge that can work', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(410) });
+    const data = C.serializeShop(s);
+    data.known = ['not-a-recipe', 17, null];
+    data.ledger = { 'not-a-recipe': { made: 5 }, shortsword: { made: 'lots', best: 900 } };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return !!back && C.SHOP.startingRecipes.every((id) => C.recipeKnown(back, id)) &&
+      !C.recipeKnown(back, 'not-a-recipe') && !C.forgeRecord(back, 'not-a-recipe') &&
+      C.forgeRecord(back, 'shortsword').best === 100;
+  })());
+
+  ok('every recipe is reachable from one the forge starts with', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(411) });
+    s.gold = 1e9; s.reputation = 100; s.tier = 4;
+    for (const m of C.SHOP.materials) s.materials[m.id] = 1e6;
+    for (let round = 0; round < 12; round++) {
+      C.discoverRecipes(s);
+      for (const it of C.SHOP.items) {
+        if (!C.recipeKnown(s, it.id)) { C.buySchematic(s, it.id); continue; }
+        if (!C.forgedEver(s, it.id)) C.shopFinishForge(s, it.id, 'bronze', 1, 80, 'you');
+      }
+    }
+    return C.SHOP.items.every((it) => C.recipeKnown(s, it.id));
+  })());
+
+  ok('every recipe names customers who exist', (() =>
+    C.SHOP.items.every((it) => (it.tags || []).every((t) => !!C.shopCustomerType(t)))));
+
+  ok('the Almanac can name who wants a thing and what follows from it', (() =>
+    C.recipeCustomers('shortsword').length > 0 &&
+    C.recipeChildren('shortsword').some((it) => it.id === 'longsword')));
+}
+
 section('Open Your Forge: production and stock');
 {
   ok('one puzzle makes the whole batch', (() => {
     const s = C.createShop({ rnd: C.mulberry32(10) });
     s.materials.bronze = 10;
-    const res = C.shopFinishForge(s, 'longsword', 'bronze', 3, 90, 'you');
+    const res = C.shopFinishForge(s, 'shortsword', 'bronze', 3, 90, 'you');
     return res.ok && s.orders.length === 1 && s.orders[0].qty === 3;
   })());
 
@@ -2126,26 +2344,78 @@ section('Open Your Forge: production and stock');
 
   ok('stock has to be carried out before anyone can buy it', (() => {
     const s = C.createShop({ rnd: C.mulberry32(15) });
-    C.addStorage(s, C.lineKey('boots', 'bronze'), 3, 100);
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), 3, 100);
     const before = C.countShelf(s);
-    const moved = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 2);
+    const moved = C.shopMoveToShelf(s, C.lineKey('dagger', 'bronze'), 2);
     return before === 0 && moved.moved === 2 && C.countShelf(s) === 2 && C.countStorage(s) === 1;
   })());
 
-  ok('the shelves hold only what the shop has room for', (() => {
+  ok('a stand holds only so much, however much is waiting in storage', (() => {
     const s = C.createShop({ rnd: C.mulberry32(16) });
-    const cap = C.shelfCapacity(s);
-    C.addStorage(s, C.lineKey('dagger', 'bronze'), cap + 20, 100);
-    C.shopMoveToShelf(s, C.lineKey('dagger', 'bronze'), cap + 20);
-    return C.countShelf(s) === cap;
+    const hold = C.standHold();
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), hold + 20, 100);
+    C.shopMoveToShelf(s, C.lineKey('dagger', 'bronze'), hold + 20);
+    return C.countShelf(s) === hold && C.countStorage(s) === 20;
   })());
 
-  ok('a bigger shop holds more of everything', (() => {
+  ok('nothing goes out with no stand that will take it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(160) });
+    C.addStorage(s, C.lineKey('boots', 'bronze'), 3, 100);
+    const cold = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 3);
+    s.gold = 9999;
+    C.shopBuyStand(s, 'armor');
+    const warm = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 3);
+    return cold.moved === 0 && !!cold.why && warm.moved === 3;
+  })());
+
+  ok('a stand will not take what it was not made for', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(161) });
+    C.addStorage(s, C.lineKey('buckler', 'bronze'), 2, 100);
+    const rack = s.stands.find((st) => st.type === 'weapon');
+    const res = C.shopStockStand(s, rack.id, C.lineKey('buckler', 'bronze'), 2);
+    return res.moved === 0 && rack.qty === 0;
+  })());
+
+  ok('a stand is bought, kept inside the floor space, and sold back', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(162), gold: 100000 });
+    const start = s.stands.length;
+    while (s.stands.length < C.standCap(s)) {
+      if (!C.shopBuyStand(s, 'shield').ok) return false;
+    }
+    const over = C.shopBuyStand(s, 'shield');
+    const gold = s.gold;
+    const back = C.shopSellStand(s, s.stands[s.stands.length - 1].id);
+    return start < C.standCap(s) && !over.ok && back.ok && back.back > 0 &&
+      s.gold === gold + back.back && s.stands.length === C.standCap(s) - 1;
+  })());
+
+  ok('selling a stand puts what was on it back in storage', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(163) });
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), 4, 100);
+    C.shopMoveToShelf(s, C.lineKey('dagger', 'bronze'), 4);
+    const stand = s.stands.find((st) => st.qty > 0);
+    C.shopSellStand(s, stand.id);
+    return C.countShelf(s) === 0 && C.countStorage(s) === 4;
+  })());
+
+  ok('a stand can be re-purposed while it is empty and not once it is not', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(164) });
+    const stand = s.stands.find((st) => st.type === 'tool');
+    const easy = C.shopSetStandType(s, stand.id, 'shield');
+    C.addStorage(s, C.lineKey('buckler', 'bronze'), 2, 100);
+    C.shopMoveToShelf(s, C.lineKey('buckler', 'bronze'), 2);
+    const hard = C.shopSetStandType(s, stand.id, 'helmet');
+    return easy.ok && stand.type === 'shield' && !hard.ok && stand.type === 'shield';
+  })());
+
+  ok('bigger premises make room for more stands, and do not fill it', (() => {
     const s = C.createShop({ rnd: C.mulberry32(17), gold: 100000 });
-    const before = [C.shelfCapacity(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
+    const before = [C.standCap(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
+    const floor = C.countShelf(s), stands = s.stands.length;
     C.shopExpand(s);
-    const after = [C.shelfCapacity(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
-    return after.every((v, i) => v > before[i]) && C.rentDue(s) > C.SHOP.tiers[0].rent;
+    const after = [C.standCap(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
+    return after.every((v, i) => v > before[i]) && C.rentDue(s) > C.SHOP.tiers[0].rent &&
+      s.stands.length === stands && C.countShelf(s) === floor;
   })());
 }
 
@@ -2154,10 +2424,10 @@ section('Open Your Forge: the shop survives being put down');
   const build = () => {
     const sh = C.createShop({ rnd: C.mulberry32(41) });
     sh.day = 12; sh.phaseIndex = 2; sh.gold = 4321; sh.reputation = 57;
-    sh.tier = 2; sh.rentPaid = 1; sh.upgrades.displays = 2;
+    sh.tier = 2; sh.rentPaid = 1; sh.upgrades.racks = 2;
     sh.materials.silver = 9; sh.materials.mithril = 2;
     C.addStorage(sh, C.lineKey('plate', 'gold'), 3, 91);
-    sh.shelf[C.lineKey('longsword', 'bronze')] = { qty: 4, quality: 88, price: 61 };
+    stock(sh, C.lineKey('longsword', 'bronze'), 4, 88, 61);
     sh.staff.push({ id: 7, name: 'Mara', role: 'salesperson', rank: 'C', power: 3, wage: 32 });
     sh.orders.push({ id: 8, key: C.lineKey('mace', 'silver'), item: 'mace', material: 'silver',
       qty: 2, quality: 79, maker: 'you', dueDay: 13 });
@@ -2176,7 +2446,7 @@ section('Open Your Forge: the shop survives being put down');
 
   ok('prices the player set are not reset by the round trip', (() => {
     const b = trip(build());
-    return b.shelf[C.lineKey('longsword', 'bronze')].price === 61;
+    return C.shelfLine(b, C.lineKey('longsword', 'bronze')).price === 61;
   })());
 
   ok('an order still on the anvil comes back with it', (() => {
@@ -2200,8 +2470,8 @@ section('Open Your Forge: the shop survives being put down');
 
   ok('goods that no longer exist are dropped, not carried', (() => {
     const blob = C.serializeShop(build());
-    blob.shelf['trebuchet|bronze'] = { qty: 5, quality: 100, price: 10 };
-    blob.shelf['longsword|unobtainium'] = { qty: 5, quality: 100, price: 10 };
+    stock(blob, 'trebuchet|bronze', 5, 100, 10);
+    stock(blob, 'longsword|unobtainium', 5, 100, 10);
     blob.storage['nonsense'] = { qty: 3, quality: 100 };
     const b = C.restoreShop(blob, C.mulberry32(1));
     return C.countShelf(b) === 4 && C.countStorage(b) === 3;
@@ -2345,7 +2615,7 @@ section('Open Your Forge: pricing and customers');
 
   ok('more stars means more customers', (() => {
     const s = C.createShop({ rnd: C.mulberry32(19) });
-    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 10, quality: 100, price: 52 };
+    stock(s, C.lineKey('longsword', 'bronze'), 10, 100, 52);
     s.reputation = 5;
     const low = C.trafficFor(s);
     s.reputation = 95;
@@ -2354,23 +2624,23 @@ section('Open Your Forge: pricing and customers');
 
   ok('what is on the shelves decides who walks in', (() => {
     const blades = C.createShop({ rnd: C.mulberry32(20) });
-    blades.shelf[C.lineKey('plate', 'bronze')] = { qty: 10, quality: 100, price: 150 };
-    blades.shelf[C.lineKey('kite', 'bronze')] = { qty: 10, quality: 100, price: 78 };
+    stock(blades, C.lineKey('plate', 'bronze'), 10, 100, 150);
+    stock(blades, C.lineKey('kite', 'bronze'), 10, 100, 78);
     const heavy = C.customerWeights(blades);
 
     const light = C.createShop({ rnd: C.mulberry32(21) });
-    light.shelf[C.lineKey('dagger', 'bronze')] = { qty: 10, quality: 100, price: 22 };
-    light.shelf[C.lineKey('boots', 'bronze')] = { qty: 10, quality: 100, price: 26 };
+    stock(light, C.lineKey('stiletto', 'bronze'), 10, 100, 38);
+    stock(light, C.lineKey('buckler', 'bronze'), 10, 100, 32);
     const nimble = C.customerWeights(light);
 
-    // armour and shields pull knights; daggers and boots pull rogues
+    // plate and kite shields pull knights; stilettos and bucklers pull rogues
     return heavy.knight > nimble.knight && nimble.rogue > heavy.rogue &&
       heavy.knight > heavy.rogue && nimble.rogue > nimble.knight;
   })());
 
   ok('preferences are weights, not rules: anyone may still buy anything', (() => {
     const s = C.createShop({ rnd: C.mulberry32(22) });
-    s.shelf[C.lineKey('mace', 'bronze')] = { qty: 50, quality: 100, price: 34 };
+    stock(s, C.lineKey('mace', 'bronze'), 50, 100, 34);
     // a rogue rates maces at zero, yet the only thing in the shop is a mace
     let bought = 0;
     for (let i = 0; i < 40; i++) if (C.chooseGoods(s, 'rogue')) bought++;
@@ -2382,7 +2652,7 @@ section('Open Your Forge: the counter');
 {
   ok('a sale takes the item off the shelf and pays for it', (() => {
     const s = C.createShop({ rnd: C.mulberry32(23) });
-    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 4, quality: 100, price: 20 };
+    stock(s, C.lineKey('longsword', 'bronze'), 4, 100, 20);
     const gold = s.gold;
     const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
     return r.sold > 0 && s.gold === gold + r.revenue &&
@@ -2398,7 +2668,7 @@ section('Open Your Forge: the counter');
   ok('a wild price drives customers off without breaking the shop', (() => {
     const s = C.createShop({ rnd: C.mulberry32(25) });
     const rec = C.recommendedPrice('longsword', 'bronze', 100);
-    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 20, quality: 100, price: rec * 8 };
+    stock(s, C.lineKey('longsword', 'bronze'), 20, 100, rec * 8);
     let sold = 0, seen = 0;
     for (let i = 0; i < 30; i++) {
       const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
@@ -2409,7 +2679,7 @@ section('Open Your Forge: the counter');
 
   ok('the report accounts for everyone who came in', (() => {
     const s = C.createShop({ rnd: C.mulberry32(26) });
-    s.shelf[C.lineKey('mace', 'bronze')] = { qty: 30, quality: 90, price: 34 };
+    stock(s, C.lineKey('mace', 'bronze'), 30, 90, 34);
     const r = C.runCounter(s, { kind: 'player', power: 2, name: 'You' });
     return r.customers === r.sold + r.left && r.won <= r.haggles;
   })());
@@ -2417,7 +2687,7 @@ section('Open Your Forge: the counter');
   ok('accepting an offer sells at the offer, not the asking price', (() => {
     const s = C.createShop({ rnd: C.mulberry32(27) });
     for (let round = 0; round < 60; round++) {
-      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 60, quality: 100, price: 400 };
+      stock(s, C.lineKey('plate', 'bronze'), 60, 100, 400);
       const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
       let guard = 0;
       while (guard++ < 200) {
@@ -2437,7 +2707,7 @@ section('Open Your Forge: the counter');
   ok('every customer who wants something is put to the seller', (() => {
     // nothing may settle itself inside counterNext: each one has to surface
     const s = C.createShop({ rnd: C.mulberry32(60) });
-    s.shelf[C.lineKey('dagger', 'bronze')] = { qty: 99, quality: 100, price: 1 };
+    stock(s, C.lineKey('dagger', 'bronze'), 99, 100, 1);
     const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
     let offers = 0, guard = 0;
     while (guard++ < 200) {
@@ -2450,7 +2720,7 @@ section('Open Your Forge: the counter');
 
   ok('a customer happy with the price offers exactly that', (() => {
     const s = C.createShop({ rnd: C.mulberry32(61) });
-    s.shelf[C.lineKey('dagger', 'bronze')] = { qty: 99, quality: 100, price: 1 };
+    stock(s, C.lineKey('dagger', 'bronze'), 99, 100, 1);
     const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
     const e = C.counterNext(session, s);
     return e.kind === 'offer' && e.full === true && e.offer === 1;
@@ -2492,7 +2762,7 @@ section('Open Your Forge: the counter');
 
   ok('a counter that lands sells at the price you named', (() => {
     const s = C.createShop({ rnd: C.mulberry32(65) });
-    s.shelf[C.lineKey('plate', 'bronze')] = { qty: 200, quality: 100, price: 400 };
+    stock(s, C.lineKey('plate', 'bronze'), 200, 100, 400);
     for (let round = 0; round < 80; round++) {
       const session = C.openCounter(s, { kind: 'player', power: 6, name: 'You' });
       let guard = 0;
@@ -2518,7 +2788,7 @@ section('Open Your Forge: the counter');
     const s = C.createShop({ rnd: C.mulberry32(66) });
     let walked = 0, held = 0, sold = 0, tries = 0;
     for (let round = 0; round < 200 && tries < 40; round++) {
-      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 400 };
+      stock(s, C.lineKey('plate', 'bronze'), 400, 100, 400);
       const session = C.openCounter(s, { kind: 'player', power: 1, name: 'You' });
       let guard = 0;
       while (guard++ < 200) {
@@ -2542,7 +2812,7 @@ section('Open Your Forge: the counter');
   ok('their last word is their own offer, taken as it stands', (() => {
     const s = C.createShop({ rnd: C.mulberry32(67) });
     for (let round = 0; round < 200; round++) {
-      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 400 };
+      stock(s, C.lineKey('plate', 'bronze'), 400, 100, 400);
       const session = C.openCounter(s, { kind: 'player', power: 1, name: 'You' });
       let guard = 0;
       while (guard++ < 200) {
@@ -2566,7 +2836,9 @@ section('Open Your Forge: the counter');
   ok('a better haggler wins more of them', (() => {
     const run = (power) => {
       const s = C.createShop({ rnd: C.mulberry32(500) });
-      s.shelf[C.lineKey('plate', 'bronze')] = { qty: 400, quality: 100, price: 320 };
+      // a longsword is wanted broadly, so the queue is full of people who
+      // actually haggle - full plate draws only the three richest, who barely do
+      stock(s, C.lineKey('longsword', 'bronze'), 400, 100, 160);
       let won = 0, tried = 0;
       for (let i = 0; i < 60; i++) {
         const session = C.openCounter(s, { kind: 'staff', power: power, name: 'X' });
@@ -2586,6 +2858,123 @@ section('Open Your Forge: the counter');
 
 /* The whole day is planned from one screen, so the rules behind it have to
    hold across phases rather than only for the one in progress. */
+section('Open Your Forge: offering something else');
+{
+  /* A customer standing at the counter wanting one named thing. Which of the
+     stocked lines catches their eye is a weighted roll, so the seed is walked
+     until it lands on the one the check is about. */
+  const atCounter = (seed, stockLines, typeId, want) => {
+    const wantKey = C.lineKey(want, 'bronze');
+    for (let n = 0; n < 400; n++) {
+      const s = C.createShop({ rnd: C.mulberry32(seed + n * 7) });
+      s.gold = 9999;
+      for (const line of stockLines) stock(s, C.lineKey(line[0], 'bronze'), 6, 100, line[1]);
+      const session = C.openCounter(s, null);
+      session.queue = [typeId];
+      session.at = 0;
+      const event = C.counterNext(session, s);
+      if (event && event.kind === 'offer' && event.key === wantKey) {
+        return { s, session, event };
+      }
+    }
+    return { s: null, session: null, event: null };
+  };
+
+  ok('the floor is offered, minus what is already on the table', (() => {
+    const { s, session, event } = atCounter(500,
+      [['longsword', 52], ['shortsword', 30], ['hammer', 18]], 'guard', 'longsword');
+    if (!event || event.kind !== 'offer') return false;
+    const offers = C.alternativeOffers(s, session);
+    return offers.length === 2 && offers.every((o) => o.key !== event.key);
+  })());
+
+  ok('a guard looks harder at another blade than at a frying pan', (() => {
+    const { s, session } = atCounter(501,
+      [['longsword', 52], ['shortsword', 8], ['pan', 6]], 'guard', 'longsword');
+    const blade = C.alternativeOdds(s, session, C.lineKey('shortsword', 'bronze'));
+    const pan = C.alternativeOdds(s, session, C.lineKey('pan', 'bronze'));
+    return blade > pan && pan < 0.25 && blade > 0.25;
+  })());
+
+  ok('an alternative they want is taken, and it is that item that is sold', (() => {
+    let sales = 0, pans = 0;
+    for (let n = 0; n < 60; n++) {
+      const blade = atCounter(502 + n * 3,
+        [['longsword', 52], ['shortsword', 4]], 'guard', 'longsword');
+      if (!blade.s) continue;
+      const key = C.lineKey('shortsword', 'bronze');
+      const before = C.shelfLine(blade.s, key).qty, gold = blade.s.gold;
+      const res = C.counterOfferAlternative(blade.session, blade.s, key);
+      if (res && res.kind === 'sale') {
+        sales++;
+        if (res.key !== key || C.shelfLine(blade.s, key).qty !== before - 1 ||
+            blade.s.gold !== gold + 4) return false;
+      }
+      const junk = atCounter(700 + n * 3, [['longsword', 52], ['pan', 4]], 'guard', 'longsword');
+      if (!junk.s) continue;
+      const bad = C.counterOfferAlternative(junk.session, junk.s, C.lineKey('pan', 'bronze'));
+      if (bad && bad.kind === 'sale') pans++;
+    }
+    // a blade goes often, a frying pan almost never
+    return sales > 8 && pans * 2 < sales;
+  })());
+
+  ok('one offer a customer, and a refusal leaves them where they stood', (() => {
+    const { s, session } = atCounter(503,
+      [['longsword', 52], ['pan', 9999]], 'guard', 'longsword');
+    const key = C.lineKey('pan', 'bronze');
+    const first = C.counterOfferAlternative(session, s, key);
+    const again = C.counterOfferAlternative(session, s, key);
+    return first.kind === 'refused' && !!session.pending &&
+      session.pending.key === C.lineKey('longsword', 'bronze') &&
+      again === null && C.alternativeOffers(s, session).length === 0;
+  })());
+
+  ok('nothing is offered that is not actually on the floor', (() => {
+    const { s, session } = atCounter(504, [['longsword', 52]], 'guard', 'longsword');
+    return C.alternativeOffers(s, session).length === 0 &&
+      C.counterOfferAlternative(session, s, C.lineKey('plate', 'bronze')) === null;
+  })());
+
+  ok('a purse is a ceiling that bends: a labourer baulks where a collector does not', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(505) });
+    const poor = C.shopCustomerType('laborer'), rich = C.shopCustomerType('collector');
+    return C.purseLimit(s, rich) > C.purseLimit(s, poor) &&
+      C.purseAppeal(s, poor, 900) < C.purseAppeal(s, rich, 900) &&
+      C.purseAppeal(s, poor, 10) === 1;
+  })());
+
+  ok('a salesperson puts something else up rather than send them away', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(506) });
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 100, 52);
+    stock(s, C.lineKey('shortsword', 'bronze'), 6, 100, 12);
+    const session = C.openCounter(s, { kind: 'staff', power: 5, name: 'Hand' });
+    // an offer far under what the work is worth: a poor hand argues, a good
+    // one reaches for something else first, and only then gives up
+    const poor = { kind: 'offer', type: 'guard', name: 'Town Guard',
+      key: C.lineKey('longsword', 'bronze'), price: 52, offer: 26, budget: 30,
+      recommended: 52, spread: 1, full: false };
+    session.pending = poor;
+    const first = C.autoRespond(session, s);
+    session.pending = Object.assign({}, poor, { offered: true });
+    const after = C.autoRespond(session, s);
+    session.seller = { kind: 'player', power: 0, name: 'You' };
+    session.pending = poor;
+    const alone = C.autoRespond(session, s);
+    return first === 'offer' && after === 'reject' && alone !== 'offer';
+  })());
+
+  ok('a hand never offers what the floor does not hold', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(507) });
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 100, 52);
+    const session = C.openCounter(s, { kind: 'staff', power: 5, name: 'Hand' });
+    session.pending = { kind: 'offer', type: 'guard', name: 'Town Guard',
+      key: C.lineKey('longsword', 'bronze'), price: 52, offer: 26, budget: 30,
+      recommended: 52, spread: 1, full: false };
+    return C.alternativeOffers(s, session).length === 0;
+  })());
+}
+
 section('Open Your Forge: the day’s roster');
 {
   const build = (roles) => {
@@ -2692,7 +3081,7 @@ section('Open Your Forge: the day’s roster');
   ok('a rostered job runs in its phase and only then', (() => {
     const s = build(['salesperson']);
     s.reputation = 70;
-    s.shelf[C.lineKey('longsword', 'bronze')] = { qty: 20, quality: 95, price: 60 };
+    stock(s, C.lineKey('longsword', 'bronze'), 20, 95, 60);
     C.shopAssign(s, 1, {}, phases[2]);
     const first = C.shopAdvancePhase(s);          // morning closes
     if (first.reports.some((r) => r.who === 'Hand 1')) return false;
@@ -2874,7 +3263,7 @@ section('Open Your Forge: employees do the work, not the maths');
     const s = C.createShop({ rnd: C.mulberry32(35) });
     s.materials.bronze = 20;
     const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
-    const r = C.runSmith(s, e, { item: 'longsword', material: 'bronze', qty: 3 });
+    const r = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 3 });
     return r.ok && s.orders.length === 1 && s.materials.bronze === 17 && r.quality > 0;
   })());
 
@@ -2897,16 +3286,16 @@ section('Open Your Forge: employees do the work, not the maths');
 
   ok('a store hand carries stock out for you', (() => {
     const s = C.createShop({ rnd: C.mulberry32(37) });
-    C.addStorage(s, C.lineKey('boots', 'bronze'), 8, 100);
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), 8, 100);
     const e = { id: 1, name: 'Hand', role: 'storehand', rank: 'C', power: 3, wage: 30 };
-    const r = C.runStoreHand(s, e, { keys: [C.lineKey('boots', 'bronze')] });
+    const r = C.runStoreHand(s, e, { keys: [C.lineKey('dagger', 'bronze')] });
     return r.ok && r.moved > 0 && C.countShelf(s) === r.moved;
   })());
 
   ok('assigned staff all work when the phase closes', (() => {
     const s = C.createShop({ rnd: C.mulberry32(38), gold: 5000 });
     s.materials.bronze = 20;
-    C.addStorage(s, C.lineKey('boots', 'bronze'), 6, 100);
+    C.addStorage(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
     s.staff.push({ id: 2, name: 'H', role: 'storehand', rank: 'C', power: 3, wage: 30 });
     C.shopAssign(s, 1, { order: { silver: 2 } });

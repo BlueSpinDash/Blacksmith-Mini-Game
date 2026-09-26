@@ -3,9 +3,34 @@
 import { loadCore } from './load-core.mjs';
 const C = loadCore();
 
+/* What this plain shopkeeper works. It is whatever the forge knows that is
+   worth the most, so the run follows the blueprint tree upward as the shop
+   learns rather than staying on one recipe forever. */
 function bestSeller(shop) {
-  // whichever line the shelves are thinnest on, preferring what we can afford
-  return 'longsword';
+  let best = null;
+  for (const it of C.knownRecipes(shop)) {
+    if (!best || it.price > best.price) best = it;
+  }
+  return best ? best.id : 'shortsword';
+}
+
+/* A shopkeeper who notices the floor is full buys another stand for it, which
+   is the choice the mode now turns on. */
+function buyFloorSpace(shop) {
+  if (shop.stands.length >= C.standCap(shop)) return;
+  const want = {};
+  for (const key of Object.keys(shop.storage)) {
+    const type = C.standForItem(C.splitKey(key).item);
+    if (type) want[type] = (want[type] || 0) + shop.storage[key].qty;
+  }
+  const order = Object.keys(want).sort((a, b) => want[b] - want[a]);
+  for (const type of order) {
+    const def = C.shopStandDef(type);
+    const room = shop.stands.some((st) => st.type === type &&
+      (!st.key || st.qty < C.standHold()));
+    if (room) continue;
+    if (shop.gold > def.cost * 2) { C.shopBuyStand(shop, type); return; }
+  }
 }
 
 function playWeeks(seed, weeks, opts = {}) {
@@ -27,13 +52,15 @@ function playWeeks(seed, weeks, opts = {}) {
       } else if (mat.bronze >= need) {
         // forge a full batch at a plausible player quality
         const q = opts.quality ?? 88;
-        C.shopFinishForge(shop, 'longsword', 'bronze', need, q, 'you');
+        C.shopFinishForge(shop, bestSeller(shop), 'bronze', need, q, 'you');
       }
     } else if (phase === 'afternoon') {
       if (store > 0) {
+        buyFloorSpace(shop);
         for (const key of Object.keys(shop.storage)) C.shopMoveToShelf(shop, key, 99);
       } else if (mat.bronze >= C.batchCapacity(shop)) {
-        C.shopFinishForge(shop, 'longsword', 'bronze', C.batchCapacity(shop), opts.quality ?? 88, 'you');
+        C.shopFinishForge(shop, bestSeller(shop), 'bronze', C.batchCapacity(shop),
+          opts.quality ?? 88, 'you');
       }
     } else {
       if (shelf > 0) {
@@ -52,6 +79,7 @@ function playWeeks(seed, weeks, opts = {}) {
   const customers = trace.reduce((a, t) => a + t.customers, 0);
   return { seed, closed: shop.closed, day: shop.day, gold: shop.gold,
     weeksPaid: shop.rentPaid, stars: C.shopStars(shop),
+    known: shop.known.length, stands: shop.stands.length,
     customers, sold, revenue, sellPhases: trace.length,
     afterWeek: weekly.map((w) => w.gold).join(' / ') };
 }
