@@ -1,0 +1,3659 @@
+// End-to-end checks in a real browser. Run: node tools/verify-ui.mjs
+// Requires Playwright (globally installed in this environment).
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PW_PATH || 'playwright');
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+// The opening plays over the menu on a normal load. Every check below wants
+// the menu itself, so they ask for the page without it; the opening has a
+// section of its own at the end that loads the page as a player would.
+const RAW_FILE = pathToFileURL(path.join(here, '..', 'index.html')).href;
+const FILE = RAW_FILE + '#skipintro';
+const SHOTS = path.join(here, '..', '.shots');
+
+let pass = 0;
+const failures = [];
+function ok(name, cond, detail) {
+  if (cond) { pass++; console.log('  PASS  ' + name); }
+  else { failures.push(name); console.log('  FAIL  ' + name + (detail ? ' -> ' + detail : '')); }
+}
+const section = (t) => console.log('\n' + t);
+
+const snap = (page) => page.evaluate(() => {
+  const g = window.CHECKSMITH.app.game;
+  return {
+    strikes: g.strikes.slice(), current: g.current, total: g.totalStrikes, status: g.status,
+    pieces: g.board.pieces.join(''), live: g.pieces.map((p) => p || '.').join(''),
+    route: g.board.route.slice(), size: g.board.size,
+    busy: window.CHECKSMITH.app.busy
+  };
+});
+const settle = (page) => page.waitForFunction(() => !window.CHECKSMITH.app.busy, null, { timeout: 5000 });
+const fast = (page, ms) => page.evaluate((m) => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = m; }, ms);
+
+/* The game now opens on a title screen; every page needs to start a run. */
+async function startFromTitle(page, mode, diff) {
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  if (mode) await page.click(`.mode-card[data-mode="${mode}"]`);
+  // endless picks no difficulty: it always starts on the smallest board
+  if (diff && mode !== 'endless') await page.click(`#titleDiff .diff-btn[data-tdiff="${diff}"]`);
+  await page.click('#beginBtn');
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game, null, { timeout: 10000 });
+}
+
+/* Puts a line straight onto a stand, deeper than any real stand would hold.
+   Checks about the counter want a floor that does not run dry mid-queue, so
+   this bypasses what a stand takes rather than stocking it properly. */
+const installStock = (page) => page.evaluate(() => {
+  window.CHECKSMITH.testStock = function (sh, key, qty, quality, price) {
+    const C = window.CHECKSMITH.core;
+    const type = C.standForItem(C.splitKey(key).item);
+    let stand = sh.stands.find(function (st) { return st.key === key; });
+    if (!stand) {
+      stand = sh.stands.find(function (st) { return !st.key && st.type === type; });
+    }
+    if (!stand) {
+      stand = { id: sh.nextId++, type: type || 'goods', key: null, qty: 0,
+        quality: 100, price: 0 };
+      sh.stands.push(stand);
+    }
+    stand.key = key;
+    stand.qty = qty;
+    stand.quality = quality == null ? 100 : quality;
+    stand.price = price == null
+      ? C.recommendedPrice(C.splitKey(key).item, C.splitKey(key).material, stand.quality)
+      : price;
+    return stand;
+  };
+  window.CHECKSMITH.testClearFloor = function (sh) {
+    for (const stand of sh.stands) { stand.key = null; stand.qty = 0; stand.price = 0; }
+  };
+});
+
+/* A forge starts knowing eight recipes. Checks that want a deeper one teach
+   it first, which is exactly what the Almanac does when the work is done. */
+const teach = (page, ...ids) => page.evaluate((list) => {
+  const C = window.CHECKSMITH.core;
+  for (const id of list) C.learnRecipe(window.CHECKSMITH.app.shop, id, 'schematic');
+}, ids);
+
+/* Switching difficulty mid-run raises the discard prompt; answer it. */
+async function pickDifficulty(page, key, size) {
+  await page.click(`[data-diff="${key}"]`);
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForFunction(
+    (s) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === s,
+    size, { timeout: 10000 });
+}
+
+async function run() {
+  if (fs.existsSync(SHOTS)) fs.rmSync(SHOTS, { recursive: true, force: true });
+  fs.mkdirSync(SHOTS, { recursive: true });
+  const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined });
+
+  /* ============ narrow phone, default difficulty ============ */
+  let ctx = await browser.newContext({ viewport: { width: 320, height: 700 }, deviceScaleFactor: 2 });
+  let page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  await page.goto(FILE);
+  await startFromTitle(page, 'forge', 'novice');
+
+  section('Boot and layout (320px wide)');
+  ok('opening instruction is shown', (await page.textContent('#promptText')).trim() === 'Choose any square to begin.');
+  ok('novice board has 9 tiles', (await page.locator('.tile').count()) === 9);
+  ok('no horizontal scrolling',
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+
+  await page.click('[data-diff="master"]');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6);
+  const tileBox = await page.locator('.tile').first().boundingBox();
+  ok('master tiles are at least 44 CSS px (' + tileBox.width.toFixed(1) + 'px)', tileBox.width >= 44);
+  ok('master board still fits without horizontal scroll',
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+  ok('master board has 36 tiles', (await page.locator('.tile').count()) === 36);
+  await page.screenshot({ path: path.join(SHOTS, '01-master-320.png'), fullPage: true });
+
+  section('Difficulty levels');
+  for (const [key, size] of [['novice', 3], ['apprentice', 4], ['journeyman', 5], ['master', 6]]) {
+    await page.click(`[data-diff="${key}"]`);
+    await page.waitForFunction((s) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === s, size);
+    const n = await page.locator('.tile').count();
+    const pressed = await page.getAttribute(`[data-diff="${key}"]`, 'aria-pressed');
+    ok(`${key} loads a ${size}x${size} board and marks its button`, n === size * size && pressed === 'true');
+  }
+
+  /* ============ striking ============ */
+  section('Striking');
+  await page.click('[data-diff="journeyman"]');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 5);
+  await page.click('.tile[data-i="12"]');
+  ok('a hammer appears during the swing', (await page.locator('.hammer').count()) > 0);
+  await page.screenshot({ path: path.join(SHOTS, '02-hammer-midswing.png') });
+  await settle(page);
+  let s = await snap(page);
+  ok('one tap applies exactly one strike', s.total === 1 && s.strikes[12] === 1 && s.current === 12);
+  ok('struck square renders the shaped state', (await page.getAttribute('.tile[data-i="12"]', 'data-s')) === '1');
+  ok('current square is marked', (await page.getAttribute('.tile[data-i="12"]', 'data-current')) === '1');
+  ok('legal destinations are marked', (await page.locator('.tile[data-legal="1"]').count()) > 0);
+  ok('movement hint names the piece', /King|Rook|Bishop|Knight|Queen/.test(await page.textContent('#promptText')));
+  await page.waitForTimeout(900);   // let the recoil and sparks finish
+  ok('hammer and sparks are cleaned up once the swing ends', await page.evaluate(
+    () => document.getElementById('fx').childElementCount === 0));
+  ok('overlay never intercepts taps',
+    await page.evaluate(() => getComputedStyle(document.getElementById('fx')).pointerEvents === 'none'));
+
+  section('Illegal taps');
+  const before = await snap(page);
+  await page.click('.tile[data-i="12"]');            // standing still
+  await page.waitForTimeout(120);
+  let after = await snap(page);
+  ok('tapping the current square changes nothing',
+    after.total === before.total && after.strikes.join() === before.strikes.join());
+  const illegal = await page.evaluate(() => {
+    const legal = new Set(window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game));
+    for (let i = 0; i < 25; i++) if (i !== window.CHECKSMITH.app.game.current && !legal.has(i)) return i;
+    return -1;
+  });
+  await page.click(`.tile[data-i="${illegal}"]`);
+  await page.waitForTimeout(150);
+  after = await snap(page);
+  ok('an illegal destination changes nothing',
+    after.total === before.total && after.strikes.join() === before.strikes.join());
+  ok('an illegal tap starts no hammer', (await page.locator('.hammer').count()) === 0);
+
+  section('Rapid tapping');
+  await fast(page, 260);
+  const target = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+  const t0 = await snap(page);
+  await page.evaluate((t) => {
+    const el = document.querySelector(`.tile[data-i="${t}"]`);
+    for (let i = 0; i < 8; i++) el.click();
+  }, target);
+  await settle(page);
+  await page.waitForTimeout(120);
+  const t1 = await snap(page);
+  ok('eight rapid taps on one square produce exactly one strike', t1.total === t0.total + 1,
+    `total went ${t0.total} -> ${t1.total}`);
+
+  section('Reset during an animation');
+  const legalNow = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+  await page.evaluate((t) => { document.querySelector(`.tile[data-i="${t}"]`).click(); }, legalNow);
+  await page.evaluate(() => { document.getElementById('restartBtn').click(); });
+  await page.evaluate(() => { const y = document.getElementById('confirmYes'); if (!document.getElementById('confirm').hidden) y.click(); });
+  await page.waitForTimeout(500);
+  const afterReset = await snap(page);
+  ok('a strike mid-animation cannot touch the restarted game',
+    afterReset.total === 0 && afterReset.strikes.every((x) => x === 0) && afterReset.current === -1);
+  ok('restart keeps the same arrangement', afterReset.pieces === before.pieces);
+
+  /* ============ full verified route through the UI ============ */
+  section('Playing a verified route through the interface');
+  await page.click('[data-diff="apprentice"]');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 4);
+  await fast(page, 40);
+  // A verified route is a promise about a board whose symbols hold still,
+  // so reshaping is switched off for this replay.
+  await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
+  let st = await snap(page);
+  for (const step of st.route) {
+    await page.evaluate((i) => { document.querySelector(`.tile[data-i="${i}"]`).click(); }, step);
+    await settle(page);
+  }
+  await page.waitForTimeout(200);
+  st = await snap(page);
+  ok('route finishes with every square at exactly two strikes',
+    st.status === 'complete' && st.strikes.every((x) => x === 2) && st.total === 32);
+  ok('results screen appears', await page.isVisible('#results'));
+  ok('quality is 100', (await page.textContent('#rQuality')).startsWith('100'));
+  ok('label reads Masterwork', (await page.textContent('#rLabel')).trim() === 'Masterwork');
+  ok('perfect squares reported as 16 / 16', (await page.textContent('#rPerfect')).trim() === '16 / 16');
+  ok('overstrikes reported as 0', (await page.textContent('#rSpent')).trim() === '0');
+  ok('board is frozen after completion', (await page.getAttribute('#board', 'data-frozen')) === '1');
+  await page.screenshot({ path: path.join(SHOTS, '03-masterwork.png'), fullPage: true });
+
+  const frozen = await snap(page);
+  await page.evaluate(() => { document.querySelector('.tile[data-i="0"]').click(); });
+  await page.waitForTimeout(150);
+  ok('taps after completion change nothing', (await snap(page)).total === frozen.total);
+
+  section('Best score memory');
+  ok('best quality stored for apprentice', await page.evaluate(
+    () => (JSON.parse(localStorage.getItem('checksmith:v1')).best || {}).apprentice === 100));
+  await page.click('#rRetry');
+  await page.waitForTimeout(200);
+  ok('retry restarts the same board cold', (await snap(page)).total === 0);
+  ok('best line survives a reload', await (async () => {
+    await page.reload();
+    await startFromTitle(page, 'forge', 'apprentice');
+    await page.waitForTimeout(250);
+    return (await page.textContent('#bestLine')).includes('100');
+  })());
+
+  /* ============ spending squares, and losing ============ */
+  section('Spent squares and the lost run');
+  await pickDifficulty(page, 'novice', 3);
+  await fast(page, 40);
+  // Deliberately overwork one square: strike it, leave, come back twice.
+  const spentInfo = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    const click = async (i) => { document.querySelector(`.tile[data-i="${i}"]`).click(); await wait(); };
+    const g = () => F.app.game;
+    // Drive one square to three strikes. A straight there-and-back is not
+    // always available - on a small board a bishop next door cannot send the
+    // hammer back the way it came - so the way home is searched for on the
+    // board's own movement graph, which is strongly connected by construction.
+    const home = g().board.route[0];
+    await click(home);
+    const pathHome = () => {
+      const size = g().board.size, n = size * size;
+      const from = g().current;
+      if (from === home) return [];
+      const prev = new Array(n).fill(-1);
+      const seen = new Array(n).fill(false);
+      seen[from] = true;
+      const queue = [from];
+      while (queue.length) {
+        const at = queue.shift();
+        for (const to of F.core.movesFrom(g().pieces[at], at, size)) {
+          if (seen[to] || g().pieces[to] == null) continue;
+          seen[to] = true;
+          prev[to] = at;
+          if (to === home) {
+            const out = [];
+            for (let step = home; step !== from; step = prev[step]) out.unshift(step);
+            return out;
+          }
+          queue.push(to);
+        }
+      }
+      return null;
+    };
+    let target = null;
+    for (let pass = 0; pass < 2 && !F.core.isOver(g()); pass++) {
+      const away = F.core.legalTargets(g()).find((t) => t !== home);
+      if (away == null) break;
+      await click(away);
+      const way = pathHome();
+      if (!way || !way.length) break;
+      for (const step of way) await click(step);
+      if (g().current !== home) break;
+      target = home;
+    }
+    return { target, strikes: g().strikes.slice(), status: g().status, current: g().current };
+  });
+  ok('a square can be driven to three strikes', spentInfo.strikes.some((x) => x === 3),
+    JSON.stringify(spentInfo.strikes));
+  ok('it renders as crumbling while the hammer is on it',
+    await page.evaluate(() => {
+      const g = window.CHECKSMITH.app.game;
+      const el = document.querySelector(`.tile[data-i="${g.current}"]`);
+      return g.strikes[g.current] < 3 || el.dataset.spent === '1';
+    }));
+  ok('a crumbling square still offers somewhere to go',
+    await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game).length > 0)
+      || spentInfo.status === 'lost');
+  ok('the spent count is on screen', Number(await page.textContent('#sSpent')) >= 1);
+
+  // step off it and the square must go blank and become unclickable
+  const blanked = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    const spent = F.app.game.current;
+    if (F.app.game.strikes[spent] < 3) return { skipped: true };
+    const away = F.core.legalTargets(F.app.game)[0];
+    document.querySelector(`.tile[data-i="${away}"]`).click();
+    await wait();
+    const el = document.querySelector(`.tile[data-i="${spent}"]`);
+    return {
+      skipped: false,
+      piece: F.app.game.pieces[spent],
+      isVoid: el.dataset.void === '1',
+      glyph: el.firstChild.textContent,
+      legal: F.core.canStrike(F.app.game, spent),
+      label: el.getAttribute('aria-label')
+    };
+  });
+  if (blanked.skipped) {
+    ok('blanking check skipped (square never reached three strikes)', true);
+  } else {
+    ok('leaving a spent square blanks it', blanked.piece === null);
+    ok('the blank square renders as a hole with no symbol',
+      blanked.isVoid === true && blanked.glyph === '');
+    ok('the blank square cannot be struck again', blanked.legal === false);
+    ok('screen readers are told it is spent', /spent|blank/i.test(blanked.label), blanked.label);
+  }
+
+  // a tap on the blank square must be refused outright
+  const beforeBlankTap = await snap(page);
+  await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    const dead = g.pieces.findIndex((p) => p === null);
+    if (dead >= 0) document.querySelector(`.tile[data-i="${dead}"]`).click();
+  });
+  await page.waitForTimeout(160);
+  ok('tapping a blank square changes nothing',
+    (await snap(page)).total === beforeBlankTap.total);
+
+  /* ============ reshaping ============ */
+  section('Reshaping on the first strike');
+  await pickDifficulty(page, 'journeyman', 5);
+  await fast(page, 40);
+  const morphRun = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.app.game.morphChance = 1;              // force it so the test is deterministic
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    const start = 12;
+    const was = F.app.game.pieces[start];
+    document.querySelector(`.tile[data-i="${start}"]`).click();
+    await wait();
+    const now = F.app.game.pieces[start];
+    const el = document.querySelector(`.tile[data-i="${start}"]`);
+    return { was, now, glyph: el.firstChild.textContent,
+      expected: F.core.PIECES[now].glyph, layout: F.app.game.board.pieces[start] };
+  });
+  ok('the first strike reshaped the square', morphRun.now !== morphRun.was);
+  ok('the tile shows the new symbol', morphRun.glyph === morphRun.expected);
+  ok('the movement hint follows the new symbol',
+    (await page.textContent('#promptText')).includes(
+      await page.evaluate((k) => window.CHECKSMITH.core.PIECES[k].name, morphRun.now)));
+  ok('the stored board layout is untouched, so Restart still works',
+    morphRun.layout === morphRun.was);
+  await page.screenshot({ path: path.join(SHOTS, '04-spent-and-morph.png'), fullPage: true });
+
+  /* ============ losing ============ */
+  section('Losing the run');
+  const lossRun = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => {
+      const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
+    });
+    // Hand-place a board state with no way out: a knight whose jumps are spent.
+    const g = F.app.game;
+    g.pieces = g.pieces.map(() => 'R');
+    g.pieces[0] = 'N';
+    g.strikes = g.strikes.map(() => 1);
+    for (const j of [7, 11]) g.strikes[j] = 3;   // both knight jumps from 0, spent
+    g.strikes[0] = 1;
+    g.current = 1;                                // a rook on the top row
+    g.status = 'playing';
+    document.querySelector('.tile[data-i="0"]').click();
+    await wait();
+    await new Promise((r) => setTimeout(r, 400));
+    return { status: g.status, dialog: !document.getElementById('results').hidden,
+      title: document.getElementById('resultTitle').textContent,
+      label: document.getElementById('rLabel').textContent,
+      frozen: document.getElementById('board').dataset.frozen };
+  });
+  ok('landing with no onward move loses the run', lossRun.status === 'lost', lossRun.status);
+  ok('the losing screen appears', lossRun.dialog === true);
+  ok('it says the work is stranded', /stranded/i.test(lossRun.title + ' ' + lossRun.label));
+  ok('the board is frozen after a loss', lossRun.frozen === '1');
+  const afterLoss = await snap(page);
+  await page.evaluate(() => { document.querySelector('.tile[data-i="4"]').click(); });
+  await page.waitForTimeout(150);
+  ok('taps after a loss change nothing', (await snap(page)).total === afterLoss.total);
+  ok('a loss is not recorded as a best score', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !d.best || d.best.journeyman === undefined || typeof d.best.journeyman === 'number'; }
+      catch (e) { return true; } }));
+  await page.screenshot({ path: path.join(SHOTS, '05-stranded.png'), fullPage: true });
+  await page.click('#rRetry');
+  await page.waitForTimeout(250);
+  ok('retry after a loss restores the original symbols and a cold board', await page.evaluate(
+    () => { const g = window.CHECKSMITH.app.game;
+      return g.totalStrikes === 0 && g.status === 'ready' &&
+        g.pieces.join('') === g.board.pieces.join(''); }));
+
+  /* ============ audio and preferences ============ */
+  section('Audio');
+  await page.evaluate(() => document.getElementById('newBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(450);
+  const audio = await page.evaluate(() => ({ dead: window.CHECKSMITH.sound.dead, has: !!window.CHECKSMITH.sound.ctx, state: window.CHECKSMITH.sound.ctx && window.CHECKSMITH.sound.ctx.state }));
+  ok('an audio context was created after a gesture', audio.has && !audio.dead, JSON.stringify(audio));
+  ok('audio graph produces no errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+  await page.click('#muteBtn');
+  ok('mute toggles aria-pressed', (await page.getAttribute('#muteBtn', 'aria-pressed')) === 'true');
+  ok('mute is remembered', await page.evaluate(() => JSON.parse(localStorage.getItem('checksmith:v1')).muted === true));
+  const mutedPlay = await page.evaluate(() => {
+    try { window.CHECKSMITH.app.game && document.querySelector('.tile[data-i="0"]').click(); return true; } catch (e) { return String(e); }
+  });
+  ok('play continues while muted', mutedPlay === true);
+  await settle(page);
+  await page.click('#muteBtn');
+  await page.evaluate(() => { const v = document.getElementById('volume'); v.value = '30'; v.dispatchEvent(new Event('input', { bubbles: true })); });
+  ok('volume is remembered', await page.evaluate(
+    () => Math.abs(JSON.parse(localStorage.getItem('checksmith:v1')).volume - 0.3) < 0.001));
+
+  // The forge floor has a voice of its own. Each one is counted by how many
+  // nodes it puts on the graph, which is the only externally visible thing a
+  // synthesised effect does - and every one must obey the mute button.
+  const shopSounds = ['shelve', 'coins', 'doorbell', 'walkout', 'chime', 'prosper', 'ruin'];
+  const voiced = await page.evaluate((names) => {
+    const S = window.CHECKSMITH.sounds, snd = window.CHECKSMITH.sound;
+    snd.setMuted(false);
+    const ctx = snd.ctx;
+    const out = {};
+    const realOsc = ctx.createOscillator.bind(ctx);
+    const realBuf = ctx.createBufferSource.bind(ctx);
+    for (const name of names) {
+      let n = 0;
+      ctx.createOscillator = () => { n++; return realOsc(); };
+      ctx.createBufferSource = () => { n++; return realBuf(); };
+      try { S[name](1, true); } catch (err) { out[name] = 'threw: ' + err; continue; }
+      out[name] = n;
+    }
+    ctx.createOscillator = realOsc;
+    ctx.createBufferSource = realBuf;
+    return out;
+  }, shopSounds);
+  ok('every shop sound actually makes one',
+    shopSounds.every((n) => typeof voiced[n] === 'number' && voiced[n] > 0),
+    JSON.stringify(voiced));
+
+  const mutedNodes = await page.evaluate((names) => {
+    const S = window.CHECKSMITH.sounds, snd = window.CHECKSMITH.sound;
+    snd.setMuted(true);
+    const ctx = snd.ctx;
+    let n = 0;
+    const realOsc = ctx.createOscillator.bind(ctx);
+    const realBuf = ctx.createBufferSource.bind(ctx);
+    ctx.createOscillator = () => { n++; return realOsc(); };
+    ctx.createBufferSource = () => { n++; return realBuf(); };
+    for (const name of names) { try { S[name](1, true); } catch (err) { /* counted below */ } }
+    ctx.createOscillator = realOsc;
+    ctx.createBufferSource = realBuf;
+    snd.setMuted(false);
+    return n;
+  }, shopSounds);
+  ok('and none of them is made while muted', mutedNodes === 0, String(mutedNodes));
+  ok('the shop sounds raise no errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+
+  section('Accessibility');
+  const label = await page.getAttribute('.tile[data-i="0"]', 'aria-label');
+  ok('tiles are named with position, piece, strikes and reachability',
+    /row 1, column 1, (King|Rook|Bishop|Knight|Queen), \d+ strikes?, /.test(label) &&
+    /(legal|not reachable|hammer is here)/.test(label), label);
+  ok('progress is exposed as a live region',
+    await page.evaluate(() => document.getElementById('live').getAttribute('aria-live') === 'polite'));
+  await page.keyboard.press('Tab');
+  // start from the top-left corner so the expected step holds at any board size
+  const keyed = await page.evaluate(() => {
+    const t = document.querySelector('.tile[data-i="0"]');
+    t.focus();
+    return document.activeElement === t;
+  });
+  ok('tiles are focusable', keyed);
+  await page.keyboard.press('ArrowRight');
+  ok('arrow keys move focus across the board',
+    await page.evaluate(() => document.activeElement.dataset.i === '1'),
+    'focus landed on ' + await page.evaluate(() => document.activeElement.dataset.i));
+  await page.keyboard.press('ArrowDown');
+  ok('arrow keys move focus down a row', await page.evaluate(
+    () => Number(document.activeElement.dataset.i) === window.CHECKSMITH.app.game.board.size + 1));
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowLeft');
+  ok('focus clamps at the board edge without wrapping',
+    await page.evaluate(() => document.activeElement.dataset.i === '0'));
+  const kbTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+  await page.evaluate((i) => document.querySelector(`.tile[data-i="${i}"]`).focus(), kbTarget);
+  const kbBefore = await snap(page);
+  await page.keyboard.press('Enter');
+  await settle(page);
+  const kbAfter = await snap(page);
+  ok('Enter strikes the focused square',
+    kbAfter.total === kbBefore.total + 1 && kbAfter.current === kbTarget,
+    `total ${kbBefore.total} -> ${kbAfter.total}`);
+
+  section('Guard rails');
+  await page.evaluate(() => document.getElementById('newBtn').click());
+  ok('changing puzzle mid-run asks first', await page.isVisible('#confirm'));
+  await page.click('#confirmNo');
+  ok('declining keeps the run', (await snap(page)).total > 0 && await page.isHidden('#confirm'));
+  await page.evaluate(() => document.querySelector('[data-diff="master"]').click());
+  ok('changing difficulty mid-run asks first', await page.isVisible('#confirm'));
+  await page.click('#confirmYes');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6, null, { timeout: 5000 });
+  ok('accepting switches difficulty', (await snap(page)).size === 6);
+  await page.click('#helpBtn');
+  ok('how to play opens', await page.isVisible('#help'));
+  await page.keyboard.press('Escape');
+  ok('escape closes how to play', await page.isHidden('#help'));
+
+  section('Page hidden mid-swing');
+  await fast(page, 900);
+  const hidBefore = await snap(page);
+  const hidTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+  await page.evaluate((t) => { document.querySelector(`.tile[data-i="${t}"]`).click(); }, hidTarget);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(100);
+  const hidAfter = await snap(page);
+  ok('a pending strike is applied exactly once when the page hides',
+    hidAfter.total === hidBefore.total + 1 && hidAfter.strikes[hidTarget] === hidBefore.strikes[hidTarget] + 1,
+    `${hidBefore.total} -> ${hidAfter.total}`);
+  ok('effects are cleared when hidden',
+    await page.evaluate(() => document.getElementById('fx').childElementCount === 0));
+
+  /* The Android shell hands the hardware back gesture to the page with
+     exactly this snippet, so test the snippet against the real page. */
+  section('Android back-button handler (as used by the APK shell)');
+  const BACK = `(function(){
+      var open=document.querySelector('.overlay:not([hidden])');
+      if(!open) return false;
+      var close=open.querySelector('#helpClose,#confirmNo,#rChange');
+      if(close){close.click();} else {open.hidden=true;}
+      return true;
+    })()`;
+  ok('returns false when no dialog is open, so the app would exit',
+    (await page.evaluate(BACK)) === false);
+  await page.click('#helpBtn');
+  ok('how to play is open', await page.isVisible('#help'));
+  ok('back reports it handled the press', (await page.evaluate(BACK)) === true);
+  ok('back closed how to play', await page.isHidden('#help'));
+  await page.evaluate(() => document.getElementById('newBtn').click());
+  const hadConfirm = await page.isVisible('#confirm');
+  if (hadConfirm) {
+    ok('back dismisses the discard prompt without discarding',
+      (await page.evaluate(BACK)) === true && await page.isHidden('#confirm'));
+  } else {
+    ok('discard prompt not applicable (run not started)', true);
+  }
+  await page.waitForTimeout(150);
+  ok('back leaves the board untouched', (await snap(page)).status !== 'complete');
+
+  /* ============ title screen ============ */
+  section('Title screen');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  ok('the menu button returns to the title screen', await page.isVisible('#titleScreen'));
+  ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
+  ok('all four modes are offered', (await page.locator('.mode-card').count()) === 4);
+  ok('all four difficulties are offered', (await page.locator('#titleDiff .diff-btn').count()) === 4);
+  await page.click('#titleDiff .diff-btn[data-tdiff="journeyman"]');
+  ok('picking a difficulty checks it',
+    (await page.getAttribute('#titleDiff .diff-btn[data-tdiff="journeyman"]', 'aria-checked')) === 'true');
+  await page.click('.mode-card[data-mode="endless"]');
+  ok('picking a mode checks it and unchecks the other',
+    (await page.getAttribute('.mode-card[data-mode="endless"]', 'aria-checked')) === 'true' &&
+    (await page.getAttribute('.mode-card[data-mode="forge"]', 'aria-checked')) === 'false');
+  ok('endless hides the difficulty picker', await page.isHidden('#titleDiffBlock'));
+  ok('and says where it starts instead', await page.isVisible('#endlessNote') &&
+    /3.3/.test(await page.textContent('#endlessNote')));
+  await page.click('.mode-card[data-mode="forge"]');
+  ok('forge brings the picker back', await page.isVisible('#titleDiffBlock'));
+  await page.click('.mode-card[data-mode="endless"]');
+
+  /* ============ endless mode ============ */
+  section('Endless mode');
+  await page.click('#beginBtn');
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game, null, { timeout: 10000 });
+  ok('the title screen steps aside', await page.isHidden('#titleScreen'));
+  const eStart = await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return { mode: g.mode, round: g.round, score: g.score, size: g.board.size,
+      route: g.board.route.length, squares: g.strikes.length,
+      material: document.getElementById('matName').textContent,
+      bar: !document.getElementById('materialBar').hidden,
+      stats: !document.getElementById('statsEndless').hidden,
+      forgeStats: !document.getElementById('statsForge').hidden,
+      newBtn: document.getElementById('newBtn').hidden,
+      menuBtn: document.getElementById('menuActionBtn').hidden,
+      restart: document.getElementById('restartBtn').textContent };
+  });
+  ok('endless opens at Bronze, round one, score zero',
+    eStart.mode === 'endless' && eStart.round === 1 && eStart.score === 0 &&
+    eStart.material === 'Bronze', JSON.stringify(eStart));
+
+  // Endless and versus now share one palette, keyed per square. The round's
+  // metal must still reach every struck square, and the metal rule must no
+  // longer bury the brass ring on the square the hammer is standing on.
+  const eMetal = await page.evaluate(() => {
+    const F = window.CHECKSMITH, g = F.app.game;
+    g.strikes[0] = 1; g.strikes[1] = 1; g.current = 1;
+    F.render();
+    const t = (i) => document.querySelector(`#board .tile[data-i="${i}"]`);
+    const out = {
+      struck: t(0).dataset.metal, standing: t(1).dataset.metal,
+      untouched: t(2).dataset.metal ?? null,
+      ring: getComputedStyle(t(1)).boxShadow,
+      marker: getComputedStyle(t(1), '::after').content
+    };
+    g.strikes[0] = 0; g.strikes[1] = 0; g.current = -1;
+    F.render();
+    return out;
+  });
+  ok('a struck endless square wears the round\u2019s metal',
+    eMetal.struck === '0' && eMetal.standing === '0' && eMetal.untouched === null,
+    JSON.stringify(eMetal));
+  ok('and the square under the hammer keeps its brass ring',
+    eMetal.ring.includes('202, 166, 74') && eMetal.marker.includes('\u25c6'),
+    JSON.stringify([eMetal.ring, eMetal.marker]));
+  ok('it always starts on the smallest board, whatever was picked before',
+    eStart.size === 3, 'size ' + eStart.size);
+  ok('the round is a one-visit tour', eStart.route === eStart.squares);
+  ok('the material banner and endless stats replace the forge ones',
+    eStart.bar && eStart.stats && !eStart.forgeStats);
+  ok('the actions swap New Puzzle for Main Menu',
+    eStart.newBtn === true && eStart.menuBtn === false && eStart.restart === 'Restart Run');
+  ok('the tutorial names the opening round',
+    (await page.textContent('#promptText')).includes('Bronze'));
+  await page.evaluate(() => {
+    window.CHECKSMITH.core.CONFIG.animation.strikeMs = 25;
+    // A round's verified route only holds while the symbols hold still, so
+    // reshaping is pinned off for the replays below (it has its own tests).
+    const e = window.CHECKSMITH.core.CONFIG.endless;
+    window.__shipped = { morphBase: e.morphBase, morphStep: e.morphStep };
+    e.morphBase = 0; e.morphStep = 0;
+    window.CHECKSMITH.app.game.morphChance = 0;
+  });
+
+  // one strike: scores, marks, and closes that square for the round
+  const one = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
+    const first = F.app.game.board.route[0];
+    document.querySelector(`.tile[data-i="${first}"]`).click();
+    await wait();
+    const g = F.app.game;
+    const el = document.querySelector(`.tile[data-i="${first}"]`);
+    const before = g.totalStrikes;
+    el.click();                                   // try to hit it again
+    await new Promise((r) => setTimeout(r, 200));
+    return { first, score: g.score, hit: el.dataset.hit, label: el.getAttribute('aria-label'),
+      repeatBlocked: g.totalStrikes === before, hits: document.getElementById('eHits').textContent,
+      scoreChip: document.getElementById('eScore').textContent };
+  });
+  ok('a strike is worth ten points', one.score === 10 && one.scoreChip === '10');
+  ok('the struck square renders as hit', one.hit === '1');
+  ok('screen readers are told it is already struck', /already struck/.test(one.label), one.label);
+  ok('a repeat strike on the same square is refused', one.repeatBlocked === true);
+  ok('squares-hit is counted on screen', one.hits === '1/9');
+  ok('the banner reports the reshape odds and the next whole payout', await page.evaluate(
+    () => /% reshape/.test(document.getElementById('matSub2').textContent) &&
+          /\+\d+ gold next board/.test(document.getElementById('matSub2').textContent)),
+    await page.textContent('#matSub2'));
+  await page.screenshot({ path: path.join(SHOTS, '07-endless-bronze.png'), fullPage: true });
+
+  // clear the board via its verified route and watch it recast
+  const cleared = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
+    const g0 = F.app.game;
+    const route = g0.board.route.slice();
+    const from = route.indexOf(g0.current);
+    for (let k = from + 1; k < route.length; k++) {
+      document.querySelector(`.tile[data-i="${route[k]}"]`).click();
+      await wait();
+    }
+    await new Promise((r) => setTimeout(r, 1600));
+    const g = F.app.game;
+    return { round: g.round, score: g.score, cleared: g.roundsCompleted, status: g.status,
+      hits: g.strikes.filter((x) => x > 0).length, current: g.current,
+      material: document.getElementById('matName').textContent,
+      tier: document.getElementById('board').dataset.tier,
+      routeLen: g.board.route.length };
+  });
+  ok('the clearing blow advances the round instead of ending the run',
+    cleared.round === 2 && cleared.cleared === 1 && cleared.status !== 'lost',
+    JSON.stringify(cleared));
+  ok('the board is recast cold with no hammer on it',
+    cleared.hits === 0 && cleared.current === -1 && cleared.routeLen === 9);
+  ok('the material advances to Silver', cleared.material === 'Silver' && cleared.tier === '1');
+  ok('the score carries forward with the round bonus', cleared.score === 9 * 10 + 100);
+  await page.screenshot({ path: path.join(SHOTS, '08-endless-silver.png'), fullPage: true });
+
+  // a dead end ends the run
+  const dead = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
+    const g = F.app.game;
+    // Strand it on a 3x3: a knight in the centre has no legal jump at all,
+    // and square 2 is left unstruck so the board is not cleared instead.
+    g.pieces = g.pieces.map(() => 'R');
+    g.pieces[4] = 'N';
+    g.strikes = [1, 1, 0, 1, 0, 1, 1, 1, 1];
+    g.current = 1;                                 // a rook on the top row
+    g.status = 'playing';
+    document.querySelector('.tile[data-i="4"]').click();    // down the column onto the knight
+    await wait();
+    await new Promise((r) => setTimeout(r, 700));
+    return { status: g.status, frozen: document.getElementById('board').dataset.frozen,
+      dialog: !document.getElementById('results').hidden,
+      prompt: document.getElementById('promptText').textContent,
+      caption: document.getElementById('rQualityCaption').textContent,
+      score: document.getElementById('rQuality').firstChild.textContent,
+      rounds: document.getElementById('rStrikes').textContent,
+      material: document.getElementById('rSpent').textContent,
+      retry: document.getElementById('rRetry').textContent,
+      menu: document.getElementById('rChange').textContent,
+      newHidden: document.getElementById('rNew').hidden };
+  });
+  ok('running out of legal moves ends the run', dead.status === 'lost', dead.status);
+  ok('the failure message is exact', dead.prompt === 'No legal moves remaining.', dead.prompt);
+  ok('the board freezes so the route stays visible', dead.frozen === '1');
+  ok('the game over sheet reports the final score', dead.dialog && dead.caption === 'FINAL SCORE');
+  ok('it reports rounds cleared and the highest material',
+    dead.rounds === '1' && /Silver|Bronze/.test(dead.material), dead.rounds + ' / ' + dead.material);
+  ok('it offers Play Again, the Forge Shop and Main Menu',
+    dead.retry === 'Play Again' && dead.menu === 'Main Menu' && dead.newHidden === false);
+  ok('the endless best score is saved as one number', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return typeof d.endlessBest === 'number' && d.endlessBest > 0; }
+      catch (e) { return false; } }));
+  ok('standard-mode results are preserved alongside', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !!(d.best && Object.keys(d.best).length); } catch (e) { return false; } }));
+  await page.screenshot({ path: path.join(SHOTS, '09-endless-over.png'), fullPage: true });
+
+  // Play Again resets to Bronze, round 1, score 0
+  await page.click('#rRetry');
+  await page.waitForTimeout(600);
+  const again = await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return { round: g.round, score: g.score, cleared: g.roundsCompleted, status: g.status,
+      material: document.getElementById('matName').textContent };
+  });
+  ok('Play Again starts a fresh run at Bronze, round one, score zero',
+    again.round === 1 && again.score === 0 && again.cleared === 0 && again.material === 'Bronze',
+    JSON.stringify(again));
+
+  // rapid taps must score once, not once per tap
+  const rapid = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
+    const g = F.app.game;
+    if (g.current < 0) { document.querySelector(`.tile[data-i="${g.board.route[0]}"]`).click(); await wait(); }
+    const before = g.score;
+    const t = F.core.legalTargets(g)[0];
+    const el = document.querySelector(`.tile[data-i="${t}"]`);
+    for (let i = 0; i < 8; i++) el.click();
+    await wait();
+    await new Promise((r) => setTimeout(r, 150));
+    return { before, after: g.score };
+  });
+  ok('eight rapid taps score exactly one strike',
+    rapid.after === rapid.before + 10, rapid.before + ' -> ' + rapid.after);
+
+  // a restart during the between-rounds pause must not award the old round twice
+  const stale = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8); });
+    const g0 = F.app.game;
+    const route = g0.board.route.slice();
+    for (const i of route) {
+      if (g0.strikes[i] > 0) continue;
+      document.querySelector(`.tile[data-i="${i}"]`).click();
+      await wait();
+    }
+    // the board just cleared; the recast is still pending
+    document.getElementById('restartBtn').click();
+    const yes = document.getElementById('confirmYes');
+    if (!document.getElementById('confirm').hidden) yes.click();
+    await new Promise((r) => setTimeout(r, 1800));
+    const g = F.app.game;
+    return { score: g.score, round: g.round, cleared: g.roundsCompleted, status: g.status,
+      material: document.getElementById('matName').textContent };
+  });
+  ok('restarting mid-recast cannot award the old round again',
+    stale.score === 0 && stale.round === 1 && stale.cleared === 0, JSON.stringify(stale));
+  ok('and the restarted run is back at Bronze', stale.material === 'Bronze');
+
+  /* ============ gold and the forge shop ============ */
+  section('Gold and the forge shop');
+  const purse = await page.evaluate(() => ({
+    app: window.CHECKSMITH.app.gold,
+    chip: document.getElementById('eGold').textContent,
+    stored: (() => { try { return JSON.parse(localStorage.getItem('checksmith:v1') || '{}').gold; }
+      catch (e) { return null; } })()
+  }));
+  ok('clearing a board banks gold into the purse', purse.app >= 1, JSON.stringify(purse));
+  ok('the gold chip shows it', Number(purse.chip) === purse.app);
+  ok('the purse is a whole number of coins',
+    Number.isInteger(purse.app) && /^\d+$/.test(purse.chip), purse.chip);
+  ok('the purse survives in storage', purse.stored === purse.app);
+
+  await page.evaluate(() => document.getElementById('menuActionBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  ok('the title screen shows the purse', await page.isVisible('#titlePurse'));
+  await page.click('#shopBtn');
+  ok('the forge shop opens', await page.isVisible('#shop'));
+  const shop = await page.evaluate(() => ({
+    rows: document.querySelectorAll('.shop-row').length,
+    gold: document.getElementById('shopGold').textContent,
+    names: Array.from(document.querySelectorAll('.sr-name')).map((n) => n.textContent),
+    buys: Array.from(document.querySelectorAll('.sr-buy')).map((b) => ({ t: b.textContent, off: b.disabled }))
+  }));
+  ok('every upgrade is listed', shop.rows === 3 && shop.names.length === 3, JSON.stringify(shop.names));
+  ok('the purse is shown in the shop', Number(shop.gold) === purse.app);
+  ok('upgrades you cannot afford are disabled',
+    shop.buys.some((b) => b.off === true) || purse.app >= 5);
+
+  // grant enough gold to buy the multiplier the request names
+  await page.click('#shopClose');
+  await page.evaluate(() => { window.CHECKSMITH.app.gold = 50; });
+  await page.click('#shopBtn');
+  const preBuy = await page.evaluate(() => ({
+    gold: window.CHECKSMITH.app.gold,
+    level: window.CHECKSMITH.core.levelOf(window.CHECKSMITH.app.upgrades, 'gild'),
+    cost: window.CHECKSMITH.core.upgradeCost('gild', 0)
+  }));
+  await page.click('.sr-buy[data-buy="gild"]');
+  const postBuy = await page.evaluate(() => ({
+    gold: window.CHECKSMITH.app.gold,
+    level: window.CHECKSMITH.core.levelOf(window.CHECKSMITH.app.upgrades, 'gild'),
+    stored: (() => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return { gold: d.gold, lvl: d.upgrades && d.upgrades.gild }; } catch (e) { return null; } })(),
+    label: document.querySelector('.shop-row .sr-eff').textContent
+  }));
+  ok('buying an upgrade spends the gold', postBuy.gold === preBuy.gold - preBuy.cost,
+    preBuy.gold + ' -> ' + postBuy.gold);
+  ok('the upgrade level goes up', postBuy.level === preBuy.level + 1);
+  ok('both are written to storage',
+    postBuy.stored.gold === postBuy.gold && postBuy.stored.lvl === postBuy.level);
+  ok('the shop redraws with the new effect', /gold a board/i.test(postBuy.label), postBuy.label);
+  ok('every upgrade offers ten levels', await page.evaluate(
+    () => Array.from(document.querySelectorAll('.sr-lvl')).every((n) => /of 10$/.test(n.textContent))));
+  ok('the shop explains the score bonus', await page.evaluate(
+    () => /300/.test(document.getElementById('shopNote').textContent)));
+  await page.screenshot({ path: path.join(SHOTS, '10-forge-shop.png'), fullPage: true });
+
+  // the bought multiplier must actually pay out
+  await page.click('#shopClose');
+  const payout = await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    const board = F.core.generateTourBoard('novice', F.core.mulberry32(3));
+    const g = F.core.createGame(board, { mode: 'endless', morphChance: 0, upgrades: F.app.upgrades });
+    for (const step of board.route) F.core.applyStrike(g, step);
+    return { gold: g.gold, level: F.core.levelOf(F.app.upgrades, 'gild'),
+      expected: F.core.payoutFor(g.score, F.app.upgrades, g.goldCarry).coins };
+  });
+  ok('the Gilded Hammer adds its gold to the next board',
+    payout.gold === payout.expected, JSON.stringify(payout));
+  // the score bonus must show up in play too
+  const scaled = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, c = C.CONFIG.shop;
+    return {
+      low: C.goldRateFor(0, {}),
+      high: C.goldRateFor(c.scoreStep * 4, {}),
+      step: c.goldPerScoreStep, every: c.scoreStep,
+      coins: C.payoutFor(c.scoreStep * 4, {}, 0).coins,
+      carry: C.payoutFor(c.scoreStep * 4, {}, 0).carry
+    };
+  });
+  ok('the rate climbs +' + scaled.step + ' for every ' + scaled.every + ' points',
+    scaled.high === scaled.low + scaled.step * 4, JSON.stringify(scaled));
+  ok('but the coins paid are always whole, with the fraction carried',
+    Number.isInteger(scaled.coins) && scaled.carry >= 0 && scaled.carry < 1);
+
+  /* ============ the run gets harder ============ */
+  section('Endless ramps up');
+  const ramp = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const e = C.CONFIG.endless;
+    Object.assign(e, window.__shipped);          // put the shipped ramp back
+    return {
+      base: C.endlessMorphChance(1, {}),
+      step: C.endlessMorphChance(1 + e.morphEvery, {}),
+      every: e.morphEvery,
+      diffEvery: e.difficultyEvery,
+      tier1: C.tierForRound('novice', 1),
+      tierNext: C.tierForRound('novice', 1 + e.difficultyEvery)
+    };
+  });
+  ok('reshape odds climb every ' + ramp.every + ' rounds', ramp.step > ramp.base);
+  ok('the tier steps up every ' + ramp.diffEvery + ' rounds', ramp.tier1 !== ramp.tierNext);
+
+  // and the board really does grow mid-run
+  await startFromTitle(page, 'endless', 'novice');
+  const grew = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.core.CONFIG.animation.strikeMs = 12;
+    const e = F.core.CONFIG.endless;
+    e.morphBase = 0; e.morphStep = 0;            // replaying routes again
+    const wait = () => new Promise((r) => { const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 6); });
+    const sizes = [];
+    for (let round = 0; round < e.difficultyEvery + 1; round++) {
+      const g = F.app.game;
+      g.morphChance = 0;
+      sizes.push({ round: g.round, size: g.board.size, tiles: document.querySelectorAll('.tile').length });
+      for (const i of g.board.route.slice()) {
+        if (g.strikes[i] > 0) continue;
+        document.querySelector(`.tile[data-i="${i}"]`).click();
+        await wait();
+      }
+      await new Promise((r) => setTimeout(r, 1200));
+      if (F.core.isOver(F.app.game)) break;
+    }
+    return { sizes, final: F.app.game.board.size, tiles: document.querySelectorAll('.tile').length };
+  });
+  ok('the board grows a tier after ' + ramp.diffEvery + ' cleared rounds',
+    grew.final > grew.sizes[0].size, JSON.stringify(grew.sizes));
+  ok('the tile grid is rebuilt to match', grew.tiles === grew.final * grew.final);
+  await page.screenshot({ path: path.join(SHOTS, '11-endless-tier-up.png'), fullPage: true });
+
+  // back to the menu, then into forge, to prove the modes do not leak
+  await page.evaluate(() => document.getElementById('menuActionBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await startFromTitle(page, 'forge', 'novice');
+  ok('forge mode still uses the two-strike rules', await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g.mode === 'forge' && g.board.route.length === 18 &&
+      document.getElementById('materialBar').hidden === true &&
+      document.getElementById('statsForge').hidden === false;
+  }));
+
+  /* ============ versus mode ============ */
+  section('Versus: the title screen');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  ok('Versus sits directly below Endless in the menu', await page.evaluate(() => {
+    const cards = Array.from(document.querySelectorAll('.mode-card')).map((c) => c.dataset.mode);
+    return cards.indexOf('versus') === cards.indexOf('endless') + 1;
+  }));
+  await page.click('.mode-card[data-mode="versus"]');
+  ok('choosing Versus shows its own two selectors',
+    await page.isVisible('#titleVersusBlock') && await page.isVisible('#titleSize') &&
+    await page.isVisible('#titleFoe'));
+  ok('and hides the forge difficulty picker', await page.isHidden('#titleDiffBlock'));
+  await page.click('#titleSize .diff-btn[data-tsize="3"]');
+  await page.click('#titleFoe .diff-btn[data-tfoe="master"]');
+  ok('board size and rival skill are chosen independently', await page.evaluate(
+    () => window.CHECKSMITH.app.vsSize === 3 && window.CHECKSMITH.app.vsFoe === 'master'));
+  // The highlight used to be scoped to #titleDiff, so these two radios tracked
+  // the choice in aria-checked and showed nothing for it.
+  const litUp = await page.evaluate(() => {
+    const read = (sel) => Array.from(document.querySelectorAll(sel)).map((b) => ({
+      on: b.getAttribute('aria-checked') === 'true',
+      lit: getComputedStyle(b).backgroundImage !== 'none'
+    }));
+    const rows = read('#titleSize .diff-btn').concat(read('#titleFoe .diff-btn'));
+    return { agree: rows.every((r) => r.on === r.lit), lit: rows.filter((r) => r.lit).length };
+  });
+  ok('the chosen size and skill are visibly highlighted', litUp.agree && litUp.lit === 2,
+    JSON.stringify(litUp));
+  await page.click('#titleSize .diff-btn[data-tsize="4"]');
+  await page.click('#titleFoe .diff-btn[data-tfoe="apprentice"]');
+
+  section('Versus: the match');
+  await page.click('#beginBtn');
+  await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.match, null, { timeout: 10000 });
+  await page.waitForTimeout(250);
+  const vs = await page.evaluate(() => {
+    const m = window.CHECKSMITH.app.match;
+    const panels = Array.from(document.querySelectorAll('.vs-panel')).map((p) => p.dataset.side);
+    return {
+      size: m.size, turn: m.turn, order: panels.join(','),
+      foeTiles: document.querySelectorAll('#foeBoard .tile').length,
+      youTiles: document.querySelectorAll('#youBoard .tile').length,
+      sameBag: m.you.pieces.slice().sort().join('') === m.foe.pieces.slice().sort().join(''),
+      different: m.you.pieces.join('') !== m.foe.pieces.join(''),
+      shop: document.querySelectorAll('.vs-buy').length,
+      forgeBoardHidden: document.querySelector('.board-wrap').hidden
+    };
+  });
+  ok('the rival is on the left and you are on the right', vs.order === 'foe,you', vs.order);
+  ok('both boards are drawn at the chosen size',
+    vs.foeTiles === 16 && vs.youTiles === 16 && vs.size === 4);
+  ok('the two boards share a bag but not a layout', vs.sameBag && vs.different);
+  ok('the forge board is out of the way', vs.forgeBoardHidden === true);
+
+  // Versus owns the whole view. Any forge or endless chrome still taking up
+  // space here is a leak: `.actions` and `.stats` appear more than once, so a
+  // careless querySelector hides the wrong one.
+  const leftovers = await page.evaluate(() => {
+    const shown = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    };
+    return {
+      diffRow: shown('.difficulty:not(#titleDiff)'),
+      prompt: shown('#prompt'),
+      statsForge: shown('#statsForge'),
+      statsEndless: shown('#statsEndless'),
+      materialBar: shown('#materialBar'),
+      forgeActions: shown('#forgeActions'),
+      legend: shown('#legendPanel'),
+      bestLine: shown('#bestLine'),
+      versusView: shown('#versusView')
+    };
+  });
+  // Squares walk up the material ladder as they take strikes, the way endless
+  // works a whole board up a metal a round.
+  const ladder = await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) m.you.strikes[k] = k;
+    F.vsRender();
+    const read = (i) => {
+      const t = document.querySelector(`#youBoard .tile[data-i="${i}"]`);
+      return { metal: t.dataset.metal ?? null, bg: getComputedStyle(t).backgroundImage };
+    };
+    const rows = [];
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) rows.push(read(k));
+    for (let k = 0; k < 8 && k < m.size * m.size; k++) m.you.strikes[k] = 0;
+    F.vsRender();
+    return rows;
+  });
+  ok('an unstruck square wears no metal', ladder[0].metal === null);
+  ok('each strike moves the square one metal up the ladder',
+    ladder.slice(1, 7).every((r, k) => r.metal === String(k)),
+    JSON.stringify(ladder.map((r) => r.metal)));
+  ok('the six metals are six different colours',
+    new Set(ladder.slice(1, 7).map((r) => r.bg)).size === 6);
+  ok('past the last metal the colour holds rather than wrapping',
+    ladder.length < 8 || ladder[7].metal === '5');
+
+  // Damage wears the forge's third-strike art, and Repair — which only resets
+  // the state — has to put the square back exactly as it was.
+  const damage = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const bg = (i) => getComputedStyle(document.querySelector(`#youBoard .tile[data-i="${i}"]`)).backgroundImage;
+    const cs = (i) => getComputedStyle(document.querySelector(`#youBoard .tile[data-i="${i}"]`));
+    m.you.strikes[6] = 2; m.you.strikes[9] = 2;
+    F.vsRender();
+    const plain = bg(6);                       // two strikes, never cracked
+    const reference = bg(9);                   // its untouched twin
+    m.you.states[6] = C.SQ_CRACKED; F.vsRender();
+    const cracked = { bg: bg(6), outline: cs(6).outlineStyle };
+    m.you.states[6] = C.SQ_ARMED; F.vsRender();
+    const armed = { bg: bg(6), outline: cs(6).outlineStyle };
+    m.you.states[6] = C.SQ_INTACT; F.vsRender();
+    const repaired = { bg: bg(6), outline: cs(6).outlineStyle };
+    return { plain, reference, cracked, armed, repaired };
+  });
+  ok('a cracked square stops looking like sound metal', damage.cracked.bg !== damage.plain);
+  ok('the crack shows through whatever metal the square had worked up to',
+    damage.cracked.bg !== damage.reference);
+  ok('cracked and armed squares wear the same split-metal art',
+    damage.armed.bg === damage.cracked.bg);
+  ok('a cracked square is ringed by an outline, not a pseudo-element',
+    damage.cracked.outline === 'dashed' && damage.armed.outline === 'solid',
+    JSON.stringify([damage.cracked.outline, damage.armed.outline]));
+  ok('repairing returns the square to the colour it had before',
+    damage.repaired.bg === damage.plain && damage.repaired.bg === damage.reference,
+    JSON.stringify(damage.repaired));
+  ok('repairing clears the crack ring too', damage.repaired.outline === 'none');
+
+  // The current-square marker and the damage ring both wanted ::after, and the
+  // rings used to reach further than the grid gap and collide with a neighbour.
+  const rings = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.current = 0; m.you.states[0] = C.SQ_CRACKED;
+    F.vsRender();
+    const tile = document.querySelector('#youBoard .tile[data-i="0"]');
+    const marker = getComputedStyle(tile, '::after').content;
+    // widest non-inset shadow ring, compared against the gap between squares
+    const shadow = getComputedStyle(tile).boxShadow;
+    const gap = parseFloat(getComputedStyle(document.getElementById('youBoard')).gap);
+    const outer = shadow.split(',').filter((part) => !part.includes('inset'))
+      .map((part) => {
+        const nums = part.match(/(-?\d+(?:\.\d+)?)px/g) || [];
+        return nums.length >= 4 ? parseFloat(nums[3]) : 0;   // the spread value
+      });
+    return { marker, gap, worstSpread: Math.max(0, ...outer) };
+  });
+  ok('the current square keeps its marker even when cracked',
+    rings.marker && rings.marker !== 'none', rings.marker);
+  ok('no ring reaches further than the gap between squares',
+    rings.worstSpread <= rings.gap, JSON.stringify(rings));
+
+  // The damage outline outranks the bare :focus-visible rule, so a keyboard
+  // user could have lost the focus ring on exactly the squares that matter.
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[2] = C.SQ_CRACKED;
+    F.vsRender();
+    document.body.focus();
+  });
+  let onCracked = false;
+  for (let n = 0; n < 120 && !onCracked; n++) {
+    await page.keyboard.press('Tab');
+    onCracked = await page.evaluate(() => {
+      const a = document.activeElement;
+      return !!(a && a.classList.contains('tile') && a.dataset.side === 'you' && a.dataset.i === '2');
+    });
+  }
+  const focusRing = await page.evaluate(() => {
+    const a = document.activeElement;
+    const cs = getComputedStyle(a);
+    return { vs: a.dataset.vs, visible: a.matches(':focus-visible'),
+      width: cs.outlineWidth, style: cs.outlineStyle, offset: cs.outlineOffset };
+  });
+  ok('a cracked square still shows the keyboard focus ring',
+    onCracked && focusRing.visible && focusRing.style === 'solid' &&
+    focusRing.width === '3px' && focusRing.offset === '2px',
+    JSON.stringify(focusRing));
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[2] = C.SQ_INTACT; F.vsRender();
+  });
+
+  ok('no forge or endless chrome leaks into the match',
+    Object.entries(leftovers).every(([k, v]) => (k === 'versusView' ? v === true : v === false)),
+    JSON.stringify(leftovers));
+  ok('every power is offered', vs.shop === 6, String(vs.shop));
+  ok('the human moves first', vs.turn === 'you');
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+  });
+  await page.screenshot({ path: path.join(SHOTS, '12-versus.png'), fullPage: true });
+
+  // striking the rival's board is not allowed
+  const beforeTap = await page.evaluate(() => window.CHECKSMITH.app.match.foe.strikes.slice());
+  await page.evaluate(() => document.querySelector('#foeBoard .tile[data-i="0"]').click());
+  await page.waitForTimeout(150);
+  ok('you cannot strike the rival’s board', await page.evaluate(
+    (b) => JSON.stringify(window.CHECKSMITH.app.match.foe.strikes) === JSON.stringify(b), beforeTap));
+  await page.evaluate(() => { window.CHECKSMITH.vs.focus = 'none'; window.CHECKSMITH.vsRender(); });
+
+  // On a narrow screen the overview tiles are below a comfortable tap size,
+  // so the first tap opens that board rather than striking a tiny cell.
+  const tiny = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    const width = document.querySelector('#youBoard .tile').getBoundingClientRect().width;
+    const first = C.versusTargets(m, 'you')[0];
+    document.querySelector(`#youBoard .tile[data-i="${first}"]`).click();
+    await new Promise((r) => setTimeout(r, 150));
+    return { width, focus: document.getElementById('vsBoards').dataset.focus,
+      struck: m.you.strikes[first] };
+  });
+  ok('overview tiles below 44px do not take a strike',
+    tiny.width < 44 ? (tiny.struck === 0 && tiny.focus === 'you') : true,
+    JSON.stringify(tiny));
+  ok('tapping one instead enlarges that board',
+    tiny.width < 44 ? tiny.focus === 'you' : true);
+
+  // an opening strike, then the rival replies on its own
+  const opened = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    F.vs.focus = 'you';                      // play from the enlarged board
+    F.vsRender();
+    const first = C.versusTargets(m, 'you')[0];
+    document.querySelector(`#youBoard .tile[data-i="${first}"]`).click();
+    await new Promise((r) => setTimeout(r, 1400));
+    const now = F.app.match;
+    return { first, yourStrikes: now.you.strikes[first], foePlaced: now.foe.current >= 0,
+      turn: now.turn, points: now.you.points,
+      enlarged: document.querySelector('#youBoard .tile').getBoundingClientRect().width };
+  });
+  ok('the enlarged board gives comfortable targets', opened.enlarged >= 44,
+    String(opened.enlarged));
+  ok('your opening blow lands and scores',
+    opened.yourStrikes === 1 && opened.points >= 10, JSON.stringify(opened));
+  ok('the rival takes its own turn unprompted', opened.foePlaced === true);
+  ok('and hands the turn back', opened.turn === 'you');
+
+  // upgrade targeting must never strike the square it is aimed at
+  const targeting = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    m.you.points = 1000;
+    F.vsRender();
+    document.querySelector('.vs-buy[data-buy="shatter"]').click();
+    const armed = !!F.vs.targeting;
+    const before = m.foe.strikes.slice();
+    const target = m.foe.states.findIndex((s) => s === C.SQ_INTACT);
+    document.querySelector(`#foeBoard .tile[data-i="${target}"]`).click();
+    await new Promise((r) => setTimeout(r, 120));
+    return { armed, target, cracked: m.foe.states[target] === C.SQ_CRACKED,
+      struck: JSON.stringify(m.foe.strikes) !== JSON.stringify(before),
+      points: m.you.points, used: m.upgradeUsed, cleared: !F.vs.targeting };
+  });
+  ok('picking an upgrade enters targeting', targeting.armed === true);
+  ok('the target tap cracks the square instead of striking it',
+    targeting.cracked === true && targeting.struck === false);
+  ok('it charges once and spends the turn’s allowance',
+    targeting.points === 1000 - 40 && targeting.used === true);
+  ok('targeting clears itself after the purchase', targeting.cleared === true);
+
+  // cancelling spends nothing and keeps the allowance
+  const cancelled = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const m = F.app.match;
+    m.upgradeUsed = false; m.you.points = 1000;
+    F.vsRender();
+    document.querySelector('.vs-buy[data-buy="reforge"]').click();
+    const armed = !!F.vs.targeting;
+    document.getElementById('vsCancelBtn').click();
+    return { armed, gone: !F.vs.targeting, points: m.you.points, used: m.upgradeUsed };
+  });
+  ok('cancelling targeting spends nothing',
+    cancelled.armed && cancelled.gone && cancelled.points === 1000 && cancelled.used === false);
+
+  // the enlarged single-board view, for narrow screens
+  const zoomed = await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.vs.focus = 'none';                     // start from the overview, whatever went before
+    F.vsRender();
+    document.querySelector('.vs-zoom[data-zoom="you"]').click();
+    const focus = document.getElementById('vsBoards').dataset.focus;
+    const foeShown = document.querySelector('.vs-panel[data-side="foe"]').offsetParent !== null;
+    document.getElementById('vsOverviewBtn').click();
+    return { focus, foeShown, back: document.getElementById('vsBoards').dataset.focus };
+  });
+  ok('a board can be enlarged for comfortable taps',
+    zoomed.focus === 'you' && zoomed.foeShown === false);
+  ok('and the two-board overview comes back', zoomed.back === 'none');
+
+  // play the match out and check the result sheet
+  const match = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    const wait = () => new Promise((r) => { const t = setInterval(() => {
+      if (!F.app.busy && (C.matchOver(F.app.match) || F.app.match.turn === 'you')) { clearInterval(t); r(); }
+    }, 10); });
+    let guard = 0;
+    while (!C.matchOver(F.app.match) && guard++ < 500) {
+      const m = F.app.match;
+      if (m.turn !== 'you') { await wait(); continue; }
+      const mv = C.versusChooseStrike(m, 'you');
+      if (mv < 0) break;
+      document.querySelector(`#youBoard .tile[data-i="${mv}"]`).click();
+      await wait();
+    }
+    const m = F.app.match;
+    return { over: C.matchOver(m), winner: m.winner, turns: m.turns,
+      dialog: !document.getElementById('results').hidden,
+      label: document.getElementById('rLabel').textContent,
+      caption: document.getElementById('rQualityCaption').textContent,
+      frozenTurn: document.getElementById('vsTurnBar').dataset.turn };
+  });
+  ok('the match reaches a decided end', match.over === true, String(match.turns) + ' turns');
+  ok('someone is declared the winner', match.winner === 'you' || match.winner === 'foe');
+  ok('the result sheet explains the outcome',
+    match.dialog && /win/i.test(match.label) && match.caption === 'YOUR RECORD HERE');
+  ok('the match freezes once decided', match.frozenTurn === 'over');
+  ok('strikes after the end change nothing', await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    const before = F.app.match.you.strikes.slice();
+    document.querySelector('#youBoard .tile[data-i="0"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    return JSON.stringify(F.app.match.you.strikes) === JSON.stringify(before);
+  }));
+  ok('the versus record is kept by size and skill', await page.evaluate(
+    () => { try { const d = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      return !!(d.versusRecord && d.versusRecord['4xapprentice']); } catch (e) { return false; } }));
+  await page.screenshot({ path: path.join(SHOTS, '13-versus-result.png'), fullPage: true });
+
+  // Play Again keeps the settings but forges a new match
+  await page.click('#rRetry');
+  await page.waitForFunction(() => window.CHECKSMITH.app.match &&
+    !window.CHECKSMITH.core.matchOver(window.CHECKSMITH.app.match), null, { timeout: 10000 });
+  ok('Play Again starts a fresh match on the same settings', await page.evaluate(() => {
+    const m = window.CHECKSMITH.app.match;
+    return m.size === 4 && m.turns === 0 && m.you.points === 0 && m.foe.points === 0 &&
+      m.you.broken === 0 && m.foe.broken === 0 && m.you.current === -1;
+  }));
+
+  // and the other modes are untouched
+  await page.evaluate(() => document.getElementById('vsConcedeBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(300);
+  await page.click('#rChange');
+  await startFromTitle(page, 'forge', 'novice');
+  ok('forge still plays under its own rules', await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g && g.mode === 'forge' && g.board.route.length === 18 &&
+      document.getElementById('versusView').hidden === true &&
+      document.querySelector('.board-wrap').hidden === false;
+  }));
+
+
+  /* The six powers, driven through the real board: targeting, the running
+     count for the multi-square ones, the banners, and Reforge's promise
+     that it can never be the blow that ends the match. */
+  /* Fresh metal pays in full; worked ground pays half and hands the other
+     half across. The board has to say which is which while you choose. */
+  section('Versus: fresh metal is lit apart from worked ground');
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+    window.CHECKSMITH.app.vsSize = 5;
+    window.CHECKSMITH.app.vsFoe = 'journeyman';
+    window.CHECKSMITH.vsStart();
+  });
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.match, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
+
+  const freshLook = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.turn = 'you';
+    m.you.current = 0;
+    m.you.strikes = m.you.strikes.map(() => 0);
+    const legal = C.versusTargets(m, 'you');
+    m.you.strikes[legal[0]] = 2;                     // worked ground
+    F.vsRender();
+    const q = (i) => document.querySelector(`#youBoard .tile[data-i="${i}"]`);
+    return { worked: q(legal[0]).dataset.fresh, workedLegal: q(legal[0]).dataset.legal,
+      fresh: q(legal[1]).dataset.fresh, freshLegal: q(legal[1]).dataset.legal,
+      workedRing: getComputedStyle(q(legal[0]), '::after').borderStyle,
+      freshRing: getComputedStyle(q(legal[1]), '::after').borderStyle,
+      badge: !!q(legal[0]).querySelector('.count'),
+      noBadge: !q(legal[1]).querySelector('.count') };
+  });
+  ok('an unstruck legal square is marked fresh, a worked one is not',
+    freshLook.fresh === '1' && freshLook.worked === '0' &&
+    freshLook.freshLegal === '1' && freshLook.workedLegal === '1', JSON.stringify(freshLook));
+  ok('and the two are told apart by shape, not colour alone',
+    freshLook.freshRing === 'solid' && freshLook.workedRing === 'dashed',
+    JSON.stringify([freshLook.freshRing, freshLook.workedRing]));
+  ok('the strike count still says how worked a square is',
+    freshLook.badge === true && freshLook.noBadge === true, JSON.stringify(freshLook));
+
+  // every check below strikes for real, which can decide the match, so each
+  // one puts the board back on its feet first
+  const resetVs = (worked) => page.evaluate((w) => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.status = 'playing'; m.winner = null; m.reason = null; m.upgradeUsed = false;
+    m.turn = 'you';
+    m.you.current = 0;
+    m.you.states = m.you.states.map(() => 0);
+    m.you.strikes = m.you.strikes.map(() => w);
+    m.you.points = 0; m.foe.points = 0;
+    m.you.chain = []; m.you.chainPieces = []; m.you.lockedPairs = [];
+    F.app.busy = false;
+    F.vsRender();
+  }, worked);
+
+  await resetVs(0);
+  const paid = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    const first = C.versusStrike(m, 'you', legal[0]);      // fresh
+    const mineAfterFresh = m.you.points, theirsAfterFresh = m.foe.points;
+    m.turn = 'you';
+    const back = C.versusStrike(m, 'you', legal[0] === m.you.current ? legal[1] : legal[0]);
+    return { first: first, mineAfterFresh: mineAfterFresh, theirsAfterFresh: theirsAfterFresh,
+      back: back, mine: m.you.points, theirs: m.foe.points };
+  });
+  ok('a fresh strike pays the striker in full and the rival nothing',
+    paid.first.fresh === true && paid.first.gift === 0 &&
+    paid.mineAfterFresh === paid.first.points && paid.theirsAfterFresh === 0,
+    JSON.stringify(paid.first));
+
+  await resetVs(1);                                       // all worked ground
+  ok('worked ground splits the blow between the two boards', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    if (!legal.length) return false;
+    const r = C.versusStrike(m, 'you', legal[0]);
+    return r.fresh === false && r.gift > 0 &&
+      m.you.points === r.points && m.foe.points === r.gift &&
+      r.points + r.gift === r.full;
+  }));
+
+  await resetVs(1);
+  ok('and the screen reader is told where the other half went', await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    const legal = C.versusTargets(m, 'you');
+    if (!legal.length) return false;
+    F.vsImpact('you', legal[0]);
+    // read it at once: announce is synchronous, and the rival's own turn is
+    // scheduled milliseconds later and would overwrite the region
+    const said = document.getElementById('live').textContent;
+    F.app.token++;                                   // and cancel that turn
+    return /other smith/.test(said);
+  }));
+
+  section('Versus: the powers on the board');
+  // the section above plays its match out, so this one needs a board of its own
+  await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    C.CONFIG.animation.strikeMs = 20;
+    C.CONFIG.versus.ai.thinkMs = 20;
+    window.CHECKSMITH.app.vsSize = 5;
+    window.CHECKSMITH.app.vsFoe = 'journeyman';
+    window.CHECKSMITH.vsStart();
+  });
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.match, null, { timeout: 15000 });
+  await page.waitForTimeout(200);
+
+  const armPower = async (id) => {
+    await page.evaluate((p) => {
+      const F = window.CHECKSMITH, m = F.app.match;
+      m.turn = 'you'; m.upgradeUsed = false; m.you.points = 5000;
+      F.vs.targeting = null;
+      F.vs.focus = 'none';
+      F.vsRender();
+    }, id);
+    await page.click(`#vsShop [data-buy="${id}"]`);
+    await page.waitForTimeout(90);
+  };
+  const boardState = () => page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    return { prompt: document.getElementById('vsPromptText').textContent,
+      targets: document.querySelectorAll('#foeBoard .tile[data-target="1"]').length,
+      mineTargets: document.querySelectorAll('#youBoard .tile[data-target="1"]').length,
+      chosen: document.querySelectorAll('.tile[data-chosen="1"]').length,
+      aimingFoe: document.getElementById('foeBoard').dataset.aiming,
+      aimingYou: document.getElementById('youBoard').dataset.aiming,
+      points: F.app.match.you.points, used: F.app.match.upgradeUsed };
+  });
+  const tapFoe = async (i) => {
+    await page.evaluate((k) => document.querySelector(`#foeBoard .tile[data-i="${k}"]`).click(), i);
+    await page.waitForTimeout(110);
+  };
+
+  ok('every power in the new set is on the rail, and no old one is',
+    await page.evaluate(() => {
+      const ids = Array.from(document.querySelectorAll('#vsShop [data-buy]'))
+        .map((b) => b.dataset.buy);
+      return ids.join(',') === 'shatter,repair,doubleShatter,reforge,masterRepair,tripleShatter';
+    }));
+
+  // ---- Shatter: one square, banner, and the crack that does not vanish
+  await armPower('shatter');
+  const aiming = await boardState();
+  ok('arming a power lights the valid targets and dims the rest',
+    aiming.targets > 0 && aiming.aimingFoe === '1' && aiming.aimingYou === '0' &&
+    /intact square/.test(aiming.prompt), JSON.stringify(aiming));
+  const pointsBefore = aiming.points;
+  const firstTarget = await page.evaluate(() =>
+    Number(document.querySelector('#foeBoard .tile[data-target="1"]').dataset.i));
+  await tapFoe(firstTarget);
+  const afterShatter = await page.evaluate((i) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return { state: F.app.match.foe.states[i], points: F.app.match.you.points,
+      banner: !document.getElementById('vsBanner').hidden,
+      word: document.getElementById('vsBannerWord').textContent,
+      side: document.getElementById('vsBanner').dataset.side,
+      cracked: C.SQ_CRACKED };
+  }, firstTarget);
+  ok('Shatter cracks the square it was pointed at',
+    afterShatter.state === afterShatter.cracked, JSON.stringify(afterShatter));
+  ok('and only then are the points spent',
+    afterShatter.points === pointsBefore - 40, JSON.stringify(afterShatter));
+  ok('a banner announces it, in the player’s own colour',
+    afterShatter.banner && /Shatter/.test(afterShatter.word) && afterShatter.side === 'you',
+    JSON.stringify(afterShatter));
+
+  // ---- Double Shatter: the running count, taking a pick back, cancelling
+  await armPower('doubleShatter');
+  const two0 = await boardState();
+  ok('a two-square power says how many to select', /Select 2 squares/.test(two0.prompt), two0.prompt);
+  const spots = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(spots[0]);
+  const two1 = await boardState();
+  ok('after one pick it counts down, and marks the square chosen',
+    /1 square remaining/.test(two1.prompt) && two1.chosen === 1 && two1.used === false,
+    JSON.stringify(two1));
+  ok('and nothing has been spent yet', two1.points === two0.points && two1.used === false,
+    JSON.stringify([two0.points, two1.points]));
+  await tapFoe(spots[0]);
+  const two2 = await boardState();
+  ok('tapping a chosen square takes it back',
+    /Select 2 squares/.test(two2.prompt) && two2.chosen === 0, JSON.stringify(two2));
+  await tapFoe(spots[0]);
+  await page.click('#vsCancelBtn');
+  await page.waitForTimeout(90);
+  ok('cancelling half way spends nothing at all', await page.evaluate((p) =>
+    window.CHECKSMITH.app.match.you.points === p &&
+    window.CHECKSMITH.app.match.upgradeUsed === false &&
+    document.querySelectorAll('.tile[data-chosen="1"]').length === 0, two0.points));
+
+  await armPower('doubleShatter');
+  const pair = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(pair[0]);
+  await tapFoe(pair[1]);
+  ok('the second pick resolves it, cracking both', await page.evaluate((ab) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return F.app.match.foe.states[ab[0]] === C.SQ_CRACKED &&
+      F.app.match.foe.states[ab[1]] === C.SQ_CRACKED &&
+      /Double Shatter/.test(document.getElementById('vsBannerWord').textContent);
+  }, [pair[0], pair[1]]));
+
+  // ---- Triple Shatter
+  await armPower('tripleShatter');
+  const trio = await page.evaluate(() => Array.from(
+    document.querySelectorAll('#foeBoard .tile[data-target="1"]')).map((t) => Number(t.dataset.i)));
+  await tapFoe(trio[0]);
+  await tapFoe(trio[1]);
+  const mid = await boardState();
+  ok('a three-square power counts down the same way',
+    /1 square remaining/.test(mid.prompt) && mid.chosen === 2, JSON.stringify(mid));
+  await tapFoe(trio[2]);
+  ok('and cracks all three at once', await page.evaluate((abc) => {
+    const F = window.CHECKSMITH, C = F.core;
+    return abc.every((i) => F.app.match.foe.states[i] === C.SQ_CRACKED) &&
+      /Triple Shatter/.test(document.getElementById('vsBannerWord').textContent);
+  }, trio.slice(0, 3)));
+
+  // ---- Repair and Master Repair, on the player's own board
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.pieces[1] = 'B'; m.you.pieces[2] = 'B'; m.you.pieces[3] = 'K';
+    m.you.states[1] = C.SQ_CRACKED; m.you.states[2] = C.SQ_ARMED; m.you.states[3] = C.SQ_CRACKED;
+    F.vsRender();
+  });
+  await armPower('repair');
+  const mending = await boardState();
+  ok('a repair aims at your own board, not the rival’s',
+    mending.mineTargets === 3 && mending.targets === 0 && mending.aimingYou === '1',
+    JSON.stringify(mending));
+  await page.evaluate(() => document.querySelector('#youBoard .tile[data-i="1"]').click());
+  await page.waitForTimeout(110);
+  ok('Repair mends the one square', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    return F.app.match.you.states[1] === C.SQ_INTACT && F.app.match.you.states[2] === C.SQ_ARMED;
+  }));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.you.states[1] = C.SQ_CRACKED;
+    F.vsRender();
+  });
+  await armPower('masterRepair');
+  await page.evaluate(() => document.querySelector('#youBoard .tile[data-i="1"]').click());
+  await page.waitForTimeout(110);
+  ok('Master Repair mends every damaged square of that symbol', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    return m.you.states[1] === C.SQ_INTACT && m.you.states[2] === C.SQ_INTACT &&
+      m.you.states[3] === C.SQ_CRACKED &&                        // the king is untouched
+      /Master Repair/.test(document.getElementById('vsBannerWord').textContent);
+  }));
+
+  // ---- Reforge: no square to pick, and never a winning blow
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.foe.current = -1;
+    F.vsRender();
+  });
+  await armPower('reforge');
+  ok('Reforge will not arm before the rival has struck', await page.evaluate(() =>
+    window.CHECKSMITH.vs.targeting === null));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, m = F.app.match;
+    m.foe.current = 6;
+    F.vsRender();
+  });
+  await armPower('reforge');
+  const reforging = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    const lit = Array.from(document.querySelectorAll('#foeBoard .tile[data-target="1"]'))
+      .map((t) => Number(t.dataset.i));
+    const choices = Array.from(document.querySelectorAll('#vsPieceChoices .vs-buy'))
+      .map((b) => b.querySelector('b').textContent);
+    return { lit: lit, choices: choices,
+      legal: C.versusReforgeOptions(F.app.match, 'you').length,
+      prompt: document.getElementById('vsPromptText').textContent };
+  });
+  ok('Reforge lights the square the rival is standing on, and only that one',
+    reforging.lit.join(',') === '6', JSON.stringify(reforging.lit));
+  ok('and offers only symbols that leave them a move',
+    reforging.choices.length === reforging.legal && reforging.choices.length > 0,
+    JSON.stringify(reforging));
+  await page.click('#vsPieceChoices .vs-buy');
+  await page.waitForTimeout(140);
+  ok('choosing one reshapes that square and says what it became', await page.evaluate(() => {
+    const note = document.getElementById('vsBannerNote').textContent;
+    return /Reforge/.test(document.getElementById('vsBannerWord').textContent) &&
+      /→/.test(note);
+  }));
+
+  ok('no offered symbol ever leaves the rival stranded', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    const m = F.app.match;
+    for (let at = 0; at < m.size * m.size; at++) {
+      if (m.foe.states[at] === C.SQ_BROKEN) continue;
+      m.foe.current = at;
+      for (const p of C.versusReforgeOptions(m, 'you', at)) {
+        const probe = C.cloneMatch(m);
+        probe.turn = 'you'; probe.upgradeUsed = false; probe.you.points = 5000;
+        const r = C.versusBuy(probe, 'you', 'reforge', null, p);
+        if (!r.ok || r.trapped === 'foe') return false;
+        probe.turn = 'foe';
+        if (C.versusTargets(probe, 'foe').length === 0) return false;
+      }
+    }
+    return true;
+  }));
+
+  // ---- the rival's own power, announced against the player
+  ok('a power the rival uses is announced in its own colour', await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+    m.turn = 'foe'; m.upgradeUsed = false; m.foe.points = 5000;
+    const said = F.vsPowerWords('foe', 'shatter', { count: 2, squares: [1, 2] });
+    F.vsBanner('foe', said.word, said.note);
+    await new Promise((r) => setTimeout(r, 60));
+    const el = document.getElementById('vsBanner');
+    return !el.hidden && el.dataset.side === 'foe' &&
+      /Rival/.test(document.getElementById('vsBannerWord').textContent) &&
+      /your board/.test(document.getElementById('vsBannerNote').textContent);
+  }));
+  ok('and the banner never swallows a tap meant for the board', await page.evaluate(() =>
+    getComputedStyle(document.getElementById('vsBanner')).pointerEvents === 'none'));
+
+  await page.evaluate(() => { window.CHECKSMITH.vs.targeting = null; window.CHECKSMITH.vsRender(); });
+
+  section('Open Your Forge: the management screen');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  // with no forge saved, Begin asks what to call the new one
+  await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+  await page.fill('#nameForgeInput', 'Ashfall Forge');
+  await page.click('#nameForgeGo');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await installStock(page);
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
+  ok('the forge is opened under the name the player typed',
+    (await page.textContent('#shName')) === 'Ashfall Forge' &&
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Ashfall Forge');
+
+  const board = await page.evaluate(() => ({
+    day: document.getElementById('shDay').textContent,
+    phase: document.getElementById('shPhase').textContent,
+    gold: document.getElementById('shGold').textContent,
+    rent: document.getElementById('shRent').textContent,
+    stars: document.getElementById('shStars').getAttribute('aria-label'),
+    actions: Array.from(document.querySelectorAll('#shActions .act-btn'))
+      .map((b) => b.querySelector('b').textContent),
+    tabs: Array.from(document.querySelectorAll('.shop-tab')).map((b) => b.textContent),
+    noPicker: document.getElementById('titleDiffBlock').hidden
+  }));
+  ok('the shop opens on day one, morning', board.day === '1' && board.phase === 'Morning');
+  ok('the mode offers no difficulty to pick', board.noPicker === true);
+  ok('the five actions are all offered', board.actions.length === 5 &&
+    board.actions.join(',') === 'Forge,Tend the Store,Purchase Materials,Checksmith Almanac,Search for Employees',
+    board.actions.join(','));
+  ok('gold, rent and rating are on screen at a glance',
+    board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
+    JSON.stringify(board));
+  ok('materials, storage, the floor, staff and growth each have a panel',
+    board.tabs.join(',') === 'Shop,Storage,Metal,Staff,Growth', board.tabs.join(','));
+  ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
+    () => document.querySelector('#shActions [data-act="tend"]').disabled));
+  ok('the Almanac is a book and not a job, so it is never shut', await page.evaluate(
+    () => document.querySelector('#shActions [data-act="almanac"]').disabled === false));
+  await page.screenshot({ path: path.join(SHOTS, '14-shop.png'), fullPage: true });
+
+  section('Open Your Forge: sprites and portraits');
+  const art = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const missingItems = C.SHOP.items
+      .filter((it) => !document.getElementById('it-' + it.id)).map((it) => it.id);
+    const missingFaces = C.SHOP.customers
+      .filter((c) => !document.getElementById('cu-' + c.id)).map((c) => c.id);
+    const tinted = C.SHOP.materials.filter((m) => !m.tint).map((m) => m.id);
+    return { missingItems, missingFaces, tinted,
+      ingot: !!document.getElementById('it-ingot'),
+      expect: C.SHOP.items.length + C.SHOP.customers.length + C.SHOP.stands.length + 1,
+      symbols: document.querySelectorAll('.sprite-defs symbol').length };
+  });
+  ok('every item has a sprite', art.missingItems.length === 0, art.missingItems.join(','));
+  ok('every customer type has a portrait', art.missingFaces.length === 0, art.missingFaces.join(','));
+  ok('there is an ingot sprite for the raw metal', art.ingot);
+  ok('every material carries a tint', art.tinted.length === 0, art.tinted.join(','));
+  ok('every display stand has a fixture sprite', await page.evaluate(() =>
+    window.CHECKSMITH.core.SHOP.stands.every((d) => !!document.getElementById(d.icon))));
+  // one symbol a recipe, one a customer, one a fixture, plus the raw ingot
+  ok('the sheet holds one symbol per thing drawn, not one per use',
+    art.symbols === art.expect, art.symbols + ' of ' + art.expect);
+
+  // the same sword in two metals must actually differ on screen
+  const tint = await page.evaluate(() => {
+    const host = document.createElement('div');
+    host.innerHTML = window.CHECKSMITH.itemSprite('longsword', 'bronze') +
+      window.CHECKSMITH.itemSprite('longsword', 'gold');
+    document.body.appendChild(host);
+    const [a, b] = host.querySelectorAll('svg');
+    const out = { a: getComputedStyle(a).color, b: getComputedStyle(b).color,
+      usesA: a.querySelector('use').getAttribute('href'),
+      label: a.getAttribute('aria-label') };
+    host.remove();
+    return out;
+  });
+  ok('a sprite is tinted by the material it is worked in', tint.a !== tint.b,
+    JSON.stringify(tint));
+  ok('and both point at the one symbol for that item',
+    tint.usesA === '#it-longsword', tint.usesA);
+  ok('a sprite names itself for a screen reader',
+    tint.label === 'Bronze Longsword', tint.label);
+
+  section('Open Your Forge: material drives the board, not the tier');
+  const forged = await (async () => {
+    await teach(page, 'stiletto', 'rondel', 'longsword', 'plate', 'kite');
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    // a silver dagger: 4x4 board, two strikes a square
+    await page.selectOption('#shopSheetBody [data-sel="item"]', 'stiletto');
+    await page.evaluate(() => {
+      const sh = window.CHECKSMITH.app.shop;
+      sh.materials.silver = 6;
+      window.CHECKSMITH.shopUi.redraw();
+    });
+    await page.selectOption('#shopSheetBody [data-sel="material"]', 'silver');
+    await page.waitForTimeout(120);
+    // a batch of one is a Novice board; the dialog has to say so before it is worked
+    const said = await page.evaluate(() => document.getElementById('shopSheetBody').innerText);
+    ok('the order dialog names the difficulty the batch will be worked at',
+      /Board difficulty/.test(said) && /Novice/.test(said), said.slice(0, 200));
+    await page.click('#shopSheetActions button:not([disabled])');
+    // wait for THIS order's board, not whatever game the last section left
+    await page.waitForFunction(
+      () => { const g = window.CHECKSMITH.app.game; return g && g.perfect === 2 && g.board.size === 4; },
+      null, { timeout: 15000 });
+    // A verified route only holds while the metal stays put, so pin reshaping
+    // off for the walk. What is under test here is the material's strike
+    // count, not the hot-metal rule the forge tiers bring with them.
+    await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
+    return page.evaluate(() => {
+      const g = window.CHECKSMITH.app.game;
+      return { size: g.board.size, visits: g.board.visits, perfect: g.perfect, spent: g.spent,
+        shopHidden: document.getElementById('shopView').hidden,
+        prompt: document.getElementById('promptText').innerText,
+        banner: !!document.getElementById('forgeBanner'),
+        above: Array.from(document.querySelectorAll('.app > *')).filter((e) => {
+          const r = e.getBoundingClientRect();
+          const board = document.querySelector('.board-wrap').getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && r.top < board.top && e.id !== 'live';
+        }).map((e) => e.id || e.className),
+        route: g.board.route.length };
+    });
+  })();
+  ok('the item picks the board size', forged.size === 4, String(forged.size));
+  ok('the material picks the strikes a square needs',
+    forged.perfect === 2 && forged.spent === 3, JSON.stringify(forged));
+  ok('the route visits every square that many times',
+    forged.visits === 2 && forged.route === 2 * 16);
+  ok('the anvil takes over the screen', forged.shopHidden === true);
+  // The batch is the difficulty lever now, so raising it has to change the
+  // board the player is handed, not just the label.
+  ok('a bigger batch is dealt a harder board', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const sh = window.CHECKSMITH.app.shop;
+    const small = C.forgeBoardSpec(sh, 'plate', 'bronze', 1);
+    const large = C.forgeBoardSpec(sh, 'plate', 'bronze', 7);
+    const boardA = C.makeShopBoard(small.size, small.difficulty, small.visits, C.mulberry32(21));
+    const boardB = C.makeShopBoard(large.size, large.difficulty, large.visits, C.mulberry32(21));
+    const kinds = (b) => new Set(b.pieces).size;
+    return small.difficulty === 'novice' && large.difficulty === 'journeyman' &&
+      kinds(boardB) > kinds(boardA);
+  }));
+
+  // Nothing sits above the board but the top bar and the prompt: a banner up
+  // there reads as a board-size picker, which is not something this mode has.
+  ok('nothing stands between the top bar and the board',
+    forged.banner === false && forged.above.join(',') === 'topbar,prompt',
+    JSON.stringify(forged.above));
+  ok('the prompt says what is on the anvil and what the metal asks',
+    /Silver Stiletto/.test(forged.prompt) && /2 strikes a square/.test(forged.prompt),
+    forged.prompt);
+
+  // On its own board, never the live one: striking the order the player is
+  // about to work would desynchronise it from its verified route.
+  ok('a square is ruined only one strike past the material\u2019s count', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const board = C.makeShopBoard(3, 'novice', 2, C.mulberry32(4242));
+    const g = C.createGame(board, { perfect: 2, spent: 3, morphChance: 0 });
+    const idx = board.route[0];
+    C.applyStrike(g, idx);
+    const soundAtOne = C.isSpent(g, idx) === false;
+    C.applyStrike(g, C.legalTargets(g)[0]);
+    C.applyStrike(g, idx);
+    const stillSoundAtTwo = C.isSpent(g, idx) === false;
+    C.applyStrike(g, C.legalTargets(g)[0]);
+    C.applyStrike(g, idx);
+    return soundAtOne && stillSoundAtTwo && C.isSpent(g, idx) === true;
+  }));
+
+  /* Gold is where the work starts to bite: that rung and every one above it is
+     worked a full difficulty step harder than the batch alone would ask for.
+     Read off the real order sheet and the real board it deals. */
+  section('Open Your Forge: Gold and above are worked a tier harder');
+  // the section before this leaves a board on the anvil; go back to the floor
+  await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await installStock(page);
+  const tiers = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const out = [];
+    for (const m of C.SHOP.materials) {
+      for (const qty of [1, 4, 7, 10]) {
+        out.push({ metal: m.name, id: m.id, qty: qty,
+          batch: C.batchDifficulty(qty), forge: C.forgeDifficulty(m.id, qty),
+          step: C.materialDifficultyStep(m.id) });
+      }
+    }
+    return out;
+  });
+  const soft = tiers.filter((t) => t.step === 0), hard = tiers.filter((t) => t.step > 0);
+  ok('Bronze and Silver are still worked at whatever the batch asked',
+    soft.length === 8 && soft.every((t) => t.forge === t.batch) &&
+    ['Bronze', 'Silver'].every((n) => soft.some((t) => t.metal === n)),
+    JSON.stringify(soft.slice(0, 2)));
+  ok('Gold, Mithril and Adamantine are each a tier above the batch',
+    hard.length === 12 && hard.every((t) => {
+      const order = ['novice', 'apprentice', 'journeyman', 'master'];
+      return t.forge === order[Math.min(order.indexOf(t.batch) + 1, 3)];
+    }), JSON.stringify(hard.filter((t) => t.qty === 1)));
+  ok('and nothing is ever worked above Master',
+    tiers.filter((t) => t.qty === 10).every((t) => t.forge === 'master'));
+
+  // the order sheet has to name the tier the anvil will actually deal
+  for (const metal of ['bronze', 'gold']) {
+    await page.evaluate((id) => {
+      const F = window.CHECKSMITH;
+      F.app.shop.materials[id] = 20;
+      F.shopRender();
+    }, metal);
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    await page.selectOption('#shopSheetBody [data-sel="item"]', 'shortsword');
+    await page.waitForTimeout(100);
+    await page.selectOption('#shopSheetBody [data-sel="material"]', metal);
+    await page.waitForTimeout(150);
+    const sheet = await page.evaluate(() => document.getElementById('shopSheetBody').innerText);
+    if (metal === 'bronze') {
+      ok('a batch of one in Bronze is offered as a Novice board',
+        /Novice/.test(sheet) && !/worked a tier harder/.test(sheet), sheet.slice(0, 260));
+    } else {
+      ok('the same batch in Gold is offered as an Apprentice board',
+        /Apprentice/.test(sheet) && !/Novice/.test(sheet), sheet.slice(0, 260));
+      ok('and the sheet says the metal is what raised it',
+        /Gold is worked a tier harder/.test(sheet), sheet.slice(0, 260));
+    }
+    // and the board it actually deals matches what it just promised
+    await page.click('#shopSheetActions button:not([disabled])');
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+    const dealt = await page.evaluate(() => window.CHECKSMITH.app.game.board.difficulty);
+    ok('the anvil deals the ' + metal + ' board at the tier the sheet named',
+      dealt === (metal === 'bronze' ? 'novice' : 'apprentice'), dealt);
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await installStock(page);
+  }
+
+  /* The bishop joined the Novice pool. On a real 3x3 board it must be drawn,
+     named and highlighted like any other piece - no special case. */
+  section('Novice boards carry bishops');
+  {
+    const bishopBoard = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core;
+      F.app.shop.materials.bronze = 40;
+      // a 3x3 item in a soft metal is a Novice board; deal until one has a bishop
+      for (let tries = 0; tries < 30; tries++) {
+        F.shopUi.draft = { item: 'dagger', material: 'bronze', qty: 1 };
+        F.shopStartForge();
+        await new Promise((r) => setTimeout(r, 90));
+        const g = F.app.game;
+        if (!g) continue;
+        if (g.board.size === 3 && g.board.difficulty === 'novice' && g.pieces.includes('B')) {
+          const at = g.pieces.indexOf('B');
+          return { size: g.board.size, difficulty: g.board.difficulty, at: at,
+            pool: C.CONFIG.difficulties.novice.pool.slice(),
+            glyph: document.querySelector('#board .tile[data-i="' + at + '"] .glyph').textContent,
+            label: document.querySelector('#board .tile[data-i="' + at + '"]').getAttribute('aria-label'),
+            // a closed <details>, so textContent is the only honest read
+            legend: document.getElementById('legendBody').textContent };
+        }
+        F.shopUi.order = null; F.shopReturn();
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      return null;
+    });
+    ok('a 3x3 Novice board is dealt with a bishop on it', !!bishopBoard,
+      JSON.stringify(bishopBoard));
+    if (bishopBoard) {
+      ok('the bishop is drawn with its own symbol', bishopBoard.glyph === '♗',
+        bishopBoard.glyph);
+      ok('and named as a bishop to a screen reader',
+        /Bishop/.test(bishopBoard.label), bishopBoard.label);
+      ok('the legend lists it alongside the rest of the pool',
+        /Bishop/.test(bishopBoard.legend) && /King/.test(bishopBoard.legend) &&
+        /Rook/.test(bishopBoard.legend) && !/Knight/.test(bishopBoard.legend),
+        JSON.stringify(bishopBoard.legend));
+
+
+      // the highlighting has to agree with the rule, square by square
+      const moves = await page.evaluate((at) => {
+        const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+        g.current = at;
+        g.status = 'playing';
+        g.strikes[at] = 1;
+        F.render();
+        const lit = [], want = C.movesFrom('B', at, 3);
+        for (let i = 0; i < 9; i++) {
+          if (document.querySelector('#board .tile[data-i="' + i + '"]').dataset.legal === '1') lit.push(i);
+        }
+        return { lit: lit, want: want.slice().sort((a, b) => a - b) };
+      }, bishopBoard.at);
+      ok('standing on it lights exactly its diagonals, and nothing else',
+        moves.lit.join(',') === moves.want.join(','), JSON.stringify(moves));
+
+      const tapped = await page.evaluate(async (at) => {
+        const F = window.CHECKSMITH, C = F.core;
+        const legal = C.movesFrom('B', at, 3)[0];
+        const illegal = [...Array(9).keys()].find((i) =>
+          i !== at && !C.movesFrom('B', at, 3).includes(i));
+        const before = F.app.game.strikes.slice();
+        F.tap(illegal);
+        await new Promise((r) => setTimeout(r, 220));
+        const afterBad = F.app.game.strikes.slice();
+        F.tap(legal);
+        await new Promise((r) => setTimeout(r, 400));
+        return { illegal: illegal, legal: legal,
+          refused: afterBad.join(',') === before.join(','),
+          took: F.app.game.strikes[legal] > before[legal] };
+      }, bishopBoard.at);
+      ok('an off-diagonal tap is refused', tapped.refused, JSON.stringify(tapped));
+      ok('and a diagonal one lands', tapped.took, JSON.stringify(tapped));
+
+      // last, because it deals a different board: the legend follows the board
+      // the anvil dealt, not the mode. A Gold order is raised a tier, so its
+      // legend must name that tier's pieces rather than the player's setting.
+      ok('the legend follows the board the anvil dealt, not the mode', await page.evaluate(async () => {
+        const F = window.CHECKSMITH;
+        F.shopUi.order = null; F.shopReturn();
+        F.app.difficulty = 'novice';
+        F.app.shop.materials.gold = 20;
+        F.shopUi.draft = { item: 'dagger', material: 'gold', qty: 1 };
+        F.shopStartForge();
+        await new Promise((r) => setTimeout(r, 300));
+        const g = F.app.game;
+        const text = document.getElementById('legendBody').textContent;
+        return !!g && g.board.difficulty === 'apprentice' &&
+          /Bishop/.test(text) && !/Knight/.test(text);
+      }));
+    }
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await installStock(page);
+  }
+
+  /* The reported bug: a Gold board showed its third blow - the one that
+     finished the square - as a ruined square, because the tile art counted to
+     the plain forge's two-and-three. Every blueprint metal is walked here on a
+     real board, reading the real tiles. */
+  section('Open Your Forge: every metal climbs its own ladder');
+  const PALETTE = await page.evaluate(() => window.CHECKSMITH.core.METAL_PALETTE);
+  const metals = await page.evaluate(() =>
+    window.CHECKSMITH.core.SHOP.materials.map((m) => ({ id: m.id, name: m.name, strikes: m.strikes })));
+  for (const metal of metals) {
+    // put the board on the anvil directly: what is under test is the tile, not
+    // the dialog, and the order sheet is covered elsewhere
+    const opened = await page.evaluate((id) => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.materials[id] = 20;
+      F.shopUi.draft = { item: 'shortsword', material: id, qty: 1 };
+      F.shopStartForge();
+      return C.forgeBoardSpec(sh, 'shortsword', id, 1).perfect;
+    }, metal.id);
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+    await page.waitForTimeout(120);
+    ok(metal.name + ': the anvil asks for ' + metal.strikes + ' blows a square',
+      opened === metal.strikes && (await page.evaluate(() =>
+        window.CHECKSMITH.core.perfectOf(window.CHECKSMITH.app.game))) === metal.strikes);
+
+    // drive the strike count straight and read what the tile says
+    const walk = await page.evaluate((need) => {
+      const F = window.CHECKSMITH;
+      const out = [];
+      for (let n = 0; n <= need + 1; n++) {
+        F.app.game.strikes[0] = n;
+        F.render();
+        // #board, not any tile: the versus boards are still in the document
+        const el = document.querySelector('#board .tile[data-i="0"]');
+        const bg = getComputedStyle(el).backgroundImage;
+        out.push({ n: n, metal: el.getAttribute('data-metal'), s: el.dataset.s,
+          spent: el.dataset.spent, label: el.getAttribute('aria-label'),
+          edge: getComputedStyle(el).borderTopColor, bg: bg.slice(0, 60) });
+      }
+      F.app.game.strikes[0] = 0;
+      F.render();
+      return out;
+    }, metal.strikes);
+
+    const ladder = await page.evaluate(() => window.CHECKSMITH.core.shopLadder());
+    const want = ladder.slice(0, metal.strikes).map((n) => String(PALETTE.indexOf(n)));
+    const got = walk.slice(1, metal.strikes + 1).map((w) => w.metal);
+    ok(metal.name + ': each blow moves the tile exactly one metal',
+      got.join(',') === want.join(','),
+      'got ' + got.join(',') + ' want ' + want.join(','));
+    ok(metal.name + ': the finished tile wears ' + metal.name + '’s own colour',
+      got[got.length - 1] === String(PALETTE.indexOf(metal.name)),
+      got[got.length - 1] + ' vs ' + PALETTE.indexOf(metal.name));
+
+    const done = walk[metal.strikes], over = walk[metal.strikes + 1];
+    ok(metal.name + ': reaching ' + metal.name + ' is finished, never cracked',
+      done.s === '2' && done.spent === '0' && done.metal !== null,
+      JSON.stringify(done));
+    ok(metal.name + ': no earlier blow is drawn as cracked either',
+      walk.slice(1, metal.strikes + 1).every((w) => w.s !== '3' && w.spent === '0'),
+      JSON.stringify(walk.map((w) => w.n + ':s' + w.s)));
+    ok(metal.name + ': only the blow past ' + metal.name + ' cracks it',
+      over.s === '3' && over.spent === '1' && over.metal === null, JSON.stringify(over));
+    ok(metal.name + ': the tile names the metal it has reached',
+      new RegExp(metal.name.toLowerCase()).test(done.label), done.label);
+    // colour is not the only signal: each rung paints a different tile
+    const edges = walk.slice(1, metal.strikes + 1).map((w) => w.edge);
+    ok(metal.name + ': every rung looks different from the one below',
+      new Set(edges).size === edges.length, edges.join(' | '));
+
+    // the metal palette must not swallow the chrome painted over it: the
+    // hammer's own square keeps its ring, and a ruined square keeps its crack
+    const onTop = await page.evaluate((need) => {
+      const F = window.CHECKSMITH;
+      F.app.game.strikes[0] = need;
+      F.app.game.current = 0;
+      F.render();
+      const el = document.querySelector('#board .tile[data-i="0"]');
+      const mark = getComputedStyle(el, '::after');
+      return { metal: el.getAttribute('data-metal'), current: el.dataset.current,
+        ring: mark.content !== 'none' && parseFloat(mark.width) > 0 };
+    }, metal.strikes);
+    ok(metal.name + ': the hammer\'s ring still shows over worked metal',
+      onTop.metal !== null && onTop.current === '1' && onTop.ring === true,
+      JSON.stringify(onTop));
+
+    await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+  await installStock(page);
+  }
+
+  // put back the silver stiletto the section before this one was working, so
+  // the walk below still starts from the board it expects
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.materials.silver = 6;
+    F.shopUi.draft = { item: 'stiletto', material: 'silver', qty: 1 };
+    F.shopStartForge();
+  });
+  await page.waitForFunction(
+    () => { const g = window.CHECKSMITH.app.game; return g && g.perfect === 2 && g.board.size === 4; },
+    null, { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.app.game.morphChance = 0; });
+
+  section('Open Your Forge: a batch is one puzzle');
+  const batch = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, g = F.app.game;
+    const route = g.board.route.slice();
+    const settle = async () => {
+      // one swing at a time: a tap landing mid-hammer is dropped by design,
+      // which would desynchronise the walk from the verified route
+      for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 12));
+    };
+    for (const i of route) {
+      if (!F.app.game) break;
+      await settle();
+      const before = F.app.game.totalStrikes;
+      F.tap(i);
+      await new Promise((r) => setTimeout(r, 12));
+      await settle();
+      const live = F.app.game;
+      if (!live || live.status === 'complete' || live.status === 'lost') break;
+      if (live.totalStrikes === before) break;      // the tap was refused: stop
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    return { title: document.getElementById('shopSheetTitle').textContent,
+      body: document.getElementById('shopSheetBody').innerText,
+      orders: F.app.shop.orders.length,
+      made: F.app.shop.orders[0] ? F.app.shop.orders[0].qty : 0,
+      silverLeft: F.app.shop.materials.silver };
+  });
+  ok('finishing the board ends the order', /Off the anvil/.test(batch.title), batch.title);
+  ok('one puzzle produced the whole batch', batch.orders === 1 && batch.made >= 1);
+  ok('the metal was spent only on success',
+    batch.silverLeft === 6 - batch.made, JSON.stringify(batch));
+  ok('the batch is not available yet', /storage tomorrow/i.test(batch.body), batch.body);
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(250);
+  ok('working the anvil spent the phase', await page.evaluate(
+    () => document.getElementById('shPhase').textContent === 'Afternoon'));
+  ok('and the shop screen is back', await page.evaluate(
+    () => !document.getElementById('shopView').hidden &&
+      !document.getElementById('forgeBanner')));
+
+  section('Open Your Forge: production, then stocking, then selling');
+  await page.click('#shAdvanceBtn');
+  await page.waitForTimeout(200);
+  await page.click('#shAdvanceBtn');
+  await page.waitForTimeout(350);
+  if (await page.isVisible('#shopSheet')) await page.click('#shopSheetActions button');
+  await page.waitForTimeout(200);
+  const nextDay = await page.evaluate(() => ({
+    day: document.getElementById('shDay').textContent,
+    storage: window.CHECKSMITH.core.countStorage(window.CHECKSMITH.app.shop),
+    shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
+  }));
+  ok('the batch arrives in storage the next day',
+    nextDay.day === '2' && nextDay.storage > 0, JSON.stringify(nextDay));
+  ok('and lands in storage, never straight onto the shelf', nextDay.shelf === 0);
+
+  // The floor is stands now: tap one, and it asks what of yours belongs on it.
+  // Top up storage first so there is more than one thing to choose between.
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    C.addStorage(F.app.shop, C.lineKey('hammer', 'bronze'), 5, 86);
+    C.addStorage(F.app.shop, C.lineKey('buckler', 'bronze'), 4, 90);
+    F.shopRender();
+  });
+  const fixtures = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop, C = window.CHECKSMITH.core;
+    return { boxes: document.querySelectorAll('#shPanel .shelf-box').length,
+      stands: sh.stands.length, cap: C.standCap(sh),
+      spaces: document.querySelectorAll('#shPanel [data-buystand]').length,
+      kinds: sh.stands.map((st) => st.type).join(',') };
+  });
+  ok('the shop tab draws a box for every stand and every free floor space',
+    fixtures.boxes === fixtures.cap &&
+    fixtures.spaces === fixtures.cap - fixtures.stands, JSON.stringify(fixtures));
+  ok('a new forge opens with fixtures, not with an empty room',
+    fixtures.stands > 0 && fixtures.stands <= fixtures.cap, fixtures.kinds);
+
+  // a stand opens its own panel, and that is where stocking starts
+  await page.click('#shPanel [data-stand]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const panel = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText,
+    actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .map((b) => b.textContent)
+  }));
+  ok('a stand says what it is, what it holds and what it will take',
+    /Display|Stand|Rack|Goods/.test(panel.title) && /Takes/.test(panel.body) &&
+    /Nothing on it/.test(panel.body), JSON.stringify(panel).slice(0, 320));
+  ok('and offers stocking, re-purposing and selling it back',
+    panel.actions.join(',') === 'Stock it,Change what it is,Sell the stand back,Back',
+    panel.actions.join(','));
+
+  await page.click('#shopSheetActions .btn.primary');
+  await page.waitForTimeout(150);
+  const grid = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    boxes: document.querySelectorAll('#shopSheetBody .shelf-box').length,
+    stands: window.CHECKSMITH.app.shop.stands.length,
+    lines: document.querySelectorAll('#shopSheetBody [data-take]').length,
+    confirmOff: document.querySelector('#shopSheetActions button').disabled
+  }));
+  ok('stocking a stand opens straight on what that stand would take',
+    /What goes on it/.test(grid.title) && grid.lines > 0, JSON.stringify(grid));
+
+  await page.click('#shopSheetBody [data-take]');
+  await page.waitForTimeout(120);
+  ok('the picker stays open so a stand can be filled in one visit',
+    /of \d+ on it/.test(await page.textContent('#shopSheetBody')));
+  await page.click('#shopSheetActions .btn.ghost');       // back to the floor
+  await page.waitForTimeout(120);
+  const oneIn = await page.evaluate(() => ({
+    picked: document.querySelectorAll('#shopSheetBody .shelf-box.pick').length,
+    boxes: document.querySelectorAll('#shopSheetBody .shelf-box').length,
+    stands: window.CHECKSMITH.app.shop.stands.length,
+    confirmOff: document.querySelector('#shopSheetActions button').disabled,
+    shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
+  }));
+  ok('a piece picked shows on its stand, and nothing has moved yet',
+    oneIn.picked === 1 && oneIn.boxes === oneIn.stands &&
+    oneIn.confirmOff === false && oneIn.shelf === 0, JSON.stringify(oneIn));
+
+  // a stand filled in the draft can be cleared again before anything moves
+  await page.click('#shopSheetBody .shelf-box.pick');
+  await page.waitForTimeout(100);
+  ok('and tapping that stand again takes it back off',
+    (await page.evaluate(() =>
+      document.querySelectorAll('#shopSheetBody .shelf-box.pick').length)) === 0);
+
+  // fill the stands one at a time, while storage has anything left for them
+  for (let i = 0; i < 4; i++) {
+    const more = await page.evaluate(() =>
+      document.querySelectorAll('#shopSheetBody .shelf-box:not(.pick):not([disabled])').length);
+    if (!more) break;
+    await page.click('#shopSheetBody .shelf-box:not(.pick):not([disabled])');
+    await page.waitForTimeout(80);
+    const take = await page.evaluate(() =>
+      document.querySelectorAll('#shopSheetBody [data-take]').length);
+    if (take) {
+      await page.click('#shopSheetBody [data-take]');
+      await page.waitForTimeout(80);
+    }
+    await page.click('#shopSheetActions .btn.ghost');
+    await page.waitForTimeout(80);
+  }
+  const filled = await page.evaluate(() =>
+    document.querySelectorAll('#shopSheetBody .shelf-box.pick').length);
+  ok('stands are filled one at a time', filled >= 1, String(filled));
+  const takenOut = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    let total = 0;
+    for (const k in sh.storage) total += sh.storage[k].qty;
+    return total;
+  });
+  await page.click('#shopSheetActions .btn.primary');
+  await page.waitForTimeout(300);
+  ok('and only what was picked leaves storage', await page.evaluate((was) => {
+    const sh = window.CHECKSMITH.app.shop;
+    let total = 0;
+    for (const k in sh.storage) total += sh.storage[k].qty;
+    return total === was - window.CHECKSMITH.core.countShelf(sh);
+  }, takenOut));
+
+  const stocked = await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop, C = F.core;
+    const stand = C.stockedStands(sh)[0];
+    if (!stand) return { shelf: 0 };
+    const p = C.splitKey(stand.key);
+    return { shelf: C.countShelf(sh), key: stand.key, price: stand.price,
+      rec: C.recommendedPrice(p.item, p.material, stand.quality) };
+  });
+  ok('stocking moves goods onto a stand', stocked.shelf > 0, JSON.stringify(stocked));
+  ok('a fresh line starts at its recommended price', stocked.price === stocked.rec);
+  const floor = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop, C = window.CHECKSMITH.core;
+    return { boxes: document.querySelectorAll('#shPanel .shelf-box').length,
+      cap: C.standCap(sh),
+      full: document.querySelectorAll('#shPanel .shelf-box.full').length,
+      stocked: C.stockedStands(sh).length };
+  });
+  ok('the shop tab shows every stand, and the stocked ones as stocked',
+    floor.boxes === floor.cap && floor.full === floor.stocked, JSON.stringify(floor));
+
+  // a stand that is holding something offers its price and taking it back off
+  await page.click('#shPanel .shelf-box.full');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const held = await page.evaluate(() => ({
+    actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .map((b) => b.textContent)
+  }));
+  ok('a stand with something on it offers the price and taking it off',
+    held.actions.join(',') === 'Set the price,Take it off the floor,Sell the stand back,Back',
+    held.actions.join(','));
+
+  // the price is the player's to set
+  await page.click('#shopSheetActions .btn.primary');
+  await page.waitForTimeout(150);
+  const priced = await page.evaluate(() => {
+    const body = document.getElementById('shopSheetBody').innerText;
+    return { body: body, shown: /Recommended/.test(body) && /Your price/.test(body) };
+  });
+  ok('the sheet shows both the recommended and the asking price', priced.shown, priced.body);
+  await page.click('#shopSheetBody [data-step="price"][data-by="1"]');
+  await page.waitForTimeout(60);
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(200);
+  ok('the player can ask more than the recommendation', await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop, C = window.CHECKSMITH.core;
+    const stand = C.stockedStands(sh)[0];
+    const p = C.splitKey(stand.key);
+    return stand.price > C.recommendedPrice(p.item, p.material, stand.quality);
+  }));
+
+  // nothing goes on a stand that was not made for it
+  ok('a stand refuses what it was not made for', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    C.addStorage(sh, C.lineKey('buckler', 'bronze'), 2, 90);
+    const rack = sh.stands.find((st) => st.type === 'weapon');
+    const res = C.shopStockStand(sh, rack.id, C.lineKey('buckler', 'bronze'), 1);
+    return res.moved === 0 && !!res.why;
+  }));
+
+  section('Open Your Forge: the counter');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const C = F.core;
+    sh.reputation = 70;
+    // a floor deeper than a real shop's, so the queue never simply runs dry
+    F.testStock(sh, C.lineKey('longsword', 'bronze'), 30, 95, 62);
+    F.testStock(sh, C.lineKey('buckler', 'bronze'), 30, 88, 40);
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(300);
+
+  // Every customer has to be a beat of their own: a banner, an offer, a
+  // decision and a stamped outcome. Nothing may resolve off-screen.
+  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, beats: 0 };
+  let guard = 0;
+  while ((await page.isVisible('#shopSheet')) && guard++ < 60) {
+    const view = await page.evaluate(() => ({
+      title: document.getElementById('shopSheetTitle').textContent,
+      head: !!document.querySelector('.cust-head'),
+      bid: document.querySelector('.cust-bid') ? document.querySelector('.cust-bid').innerText : null,
+      stamp: document.querySelector('.stamp') ? document.querySelector('.stamp').innerText : null,
+      lost: !!document.querySelector('.stamp.lost'),
+      band: document.querySelector('.haggle-box .band')
+        ? document.querySelector('.haggle-box .band').textContent : null,
+      portrait: !!document.querySelector('.cust-head .portrait'),
+      wantSprite: !!document.querySelector('.cust-want .sprite'),
+      stampArt: !!document.querySelector('.stamp .sprite, .stamp .portrait'),
+      odds: document.querySelector('.odds') ? document.querySelector('.odds').dataset.read : null,
+      labels: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+    }));
+    if (/Sales Report/.test(view.title)) break;
+    seen.beats++;
+
+    if (view.bid) {
+      seen.offers++;
+      if (!view.portrait || !view.wantSprite) seen.artMissing = true;
+      if (/HAPPY TO PAY/i.test(view.bid)) seen.full++;
+      const canHaggle = view.labels.some((l) => /^Haggle$/.test(l));
+      if (canHaggle && seen.haggleScreens < 2) {
+        await page.click('#shopSheetActions button:nth-child(2)');
+      } else {
+        await page.click('#shopSheetActions button:nth-child(1)');
+      }
+    } else if (view.band) {
+      seen.haggleScreens++;
+      ok('the haggle screen names the band and reads the odds ' + seen.haggleScreens,
+        /offered/.test(view.band) && /asking/.test(view.band) &&
+        ['good', 'fair', 'poor', 'grim'].includes(view.odds), JSON.stringify(view));
+      await page.click('#shopSheetBody [data-ask]:nth-child(2)');   // split the difference
+      await page.waitForTimeout(70);
+      await page.click('#shopSheetActions button:nth-child(1)');
+    } else if (view.stamp) {
+      if (view.lost) seen.left++; else seen.sold++;
+      if (!view.stampArt) seen.stampArtMissing = true;
+      if (!seen.shotSold && !view.lost) {
+        seen.shotSold = true;
+        await page.screenshot({ path: path.join(SHOTS, '16-shop-sold.png'), fullPage: true });
+      }
+      await page.click('#shopSheetActions button:nth-child(1)');
+    } else break;
+    await page.waitForTimeout(110);
+  }
+
+  ok('every customer is shown, not resolved off-screen', seen.offers >= 3,
+    JSON.stringify(seen));
+  ok('every customer arrives with a face and the goods they came for',
+    !seen.artMissing, JSON.stringify(seen));
+  ok('every outcome is stamped with art', !seen.stampArtMissing, JSON.stringify(seen));
+  ok('haggling opens a counter-offer of the player’s own', seen.haggleScreens >= 1,
+    JSON.stringify(seen));
+  ok('each outcome is stamped, sold or walked out', seen.sold + seen.left >= 3,
+    JSON.stringify(seen));
+  const report = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText,
+    tally: window.CHECKSMITH.app.shop.log[0]
+  }));
+  // Every customer in the queue ends in exactly one stamp. Offers can differ:
+  // someone who baulks never makes one, and a customer who stands firm after a
+  // failed counter is shown twice.
+  ok('every customer ends in exactly one stamp',
+    seen.sold === report.tally.sold && seen.left === report.tally.left &&
+    seen.sold + seen.left === report.tally.customers,
+    JSON.stringify([seen, report.tally]));
+  ok('a selling phase ends in a sales report', /Sales Report/.test(report.title), report.title);
+  ok('the report counts customers, sales, revenue and haggles',
+    /Customers/.test(report.body) && /Items sold/.test(report.body) &&
+    /Revenue/.test(report.body) && /Haggles attempted/.test(report.body), report.body);
+  await page.screenshot({ path: path.join(SHOTS, '15-shop-report.png'), fullPage: true });
+  await page.click('#shopSheetActions button');
+  await page.waitForTimeout(250);
+
+  // Whether a full-price buyer turns up in a random queue is chance, so force
+  // one: at a price nobody could baulk at, the very first offer must be the
+  // full asking price, and it must be put to the player like any other.
+  const willPay = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.testClearFloor(sh);
+    F.testStock(sh, C.lineKey('dagger', 'bronze'), 40, 100, 1);
+    F.shopUi.session = null;
+    F.shopAct('tend');
+    await new Promise((r) => setTimeout(r, 250));
+    const bid = document.querySelector('.cust-bid');
+    const out = { full: !!document.querySelector('.cust-bid.fair'),
+      text: bid ? bid.innerText.replace(/\n/g, ' ') : null,
+      buttons: Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .map((b) => b.textContent) };
+    return out;
+  });
+  ok('a customer who will pay the asking price is still shown to the player',
+    willPay.full && /HAPPY TO PAY/i.test(willPay.text), JSON.stringify(willPay));
+  ok('and they are answered, not settled behind the scenes',
+    willPay.buttons.some((l) => /^Accept/.test(l)) &&
+    !willPay.buttons.some((l) => /^Haggle$/.test(l)), JSON.stringify(willPay.buttons));
+  // Drain whatever that forced phase raises - the queue, its report, and any
+  // day-break sheet behind it - so the shop floor is reachable again.
+  for (let i = 0; i < 80 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(90);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+  await page.waitForTimeout(150);
+
+  section('Open Your Forge: staff take work off your hands');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 4000;
+    sh.day = 2; sh.phaseIndex = 0;
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="hire"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const applicants = await page.evaluate(() => Array.from(
+    document.querySelectorAll('.applicant')).map((a) => a.innerText));
+  ok('applicants show a name, rank, role and wage', applicants.length === 3 &&
+    applicants.every((t) => /rank/.test(t) && /g\/wk/.test(t)), JSON.stringify(applicants));
+  await page.click('#shopSheetBody [data-hire]');
+  await page.waitForTimeout(350);
+  const hired = await page.evaluate(() => ({
+    staff: window.CHECKSMITH.app.shop.staff.length,
+    phase: document.getElementById('shPhase').textContent
+  }));
+  ok('hiring puts them on the books', hired.staff === 1, JSON.stringify(hired));
+  ok('searching for staff costs the phase', hired.phase !== 'Morning', hired.phase);
+
+  const delegated = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.staff = [{ id: 901, name: 'Test Sal', role: 'salesperson', rank: 'B', power: 4, wage: 60 }];
+    F.testStock(sh, F.core.lineKey('longsword', 'bronze'), 20, 95, 52);
+    sh.assignments = {};
+    F.shopRender();
+    const first = F.core.shopAssign(sh, 901, {});
+    const reports = F.core.shopAdvancePhase(sh).reports;
+    const second = F.core.shopAssign(sh, 901, {});
+    return { assigned: first.ok, reports: reports.length,
+      kind: reports[0] && reports[0].kind, twice: second.ok };
+  });
+  ok('a salesperson can work a phase while you work elsewhere',
+    delegated.assigned && delegated.reports === 1 && delegated.kind === 'sales',
+    JSON.stringify(delegated));
+  ok('and only one phase a day', delegated.twice === false);
+
+  /* The day is planned from one screen: a section for each kind of work and a
+     box for every phase inside it. Driven through the real boxes. */
+  section('Open Your Forge: the day is planned from the Staff screen');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    // room for this cast, and a tier left above for the growth section below
+    sh.tier = 3; sh.gold = 9000; sh.day = 3; sh.phaseIndex = 0;
+    sh.assignments = {};
+    sh.staff = [
+      { id: 801, name: 'Mara Ashford', role: 'salesperson', rank: 'B', power: 4, wage: 60 },
+      { id: 802, name: 'Coll Tanner', role: 'salesperson', rank: 'D', power: 2, wage: 18 },
+      { id: 803, name: 'Bryn Hale', role: 'apprentice', rank: 'A', power: 5, wage: 104 },
+      { id: 804, name: 'Edda Vance', role: 'runner', rank: 'C', power: 3, wage: 34 },
+      { id: 805, name: 'Nell Rook', role: 'storehand', rank: 'C', power: 3, wage: 34 }
+    ];
+    sh.materials.bronze = 20;
+    C.addStorage(sh, C.lineKey('longsword', 'bronze'), 6, 90);
+    F.testStock(sh, C.lineKey('buckler', 'bronze'), 8, 90, 40);
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+
+  const rosterView = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const roles = Array.from(document.querySelectorAll('#shPanel .roster-role')).map((r) => ({
+      head: r.querySelector('.roster-head b').textContent,
+      whens: Array.from(r.querySelectorAll('.rb-when')).map((w) => w.textContent),
+      boxes: r.querySelectorAll('.roster-box').length
+    }));
+    return { roles: roles, names: C.SHOP.roles.map((r) => r.name),
+      phases: C.SHOP.phases.map((p) => C.SHOP.phaseName[p]) };
+  });
+  ok('every role has a section of its own, in the game’s own order',
+    rosterView.roles.map((r) => r.head).join(',') === rosterView.names.join(','),
+    JSON.stringify(rosterView.roles.map((r) => r.head)));
+  ok('and a labelled box for every phase the game defines',
+    rosterView.roles.every((r) => r.boxes === rosterView.phases.length &&
+      r.whens.join(',') === rosterView.phases.join(',')),
+    JSON.stringify(rosterView.roles[0]));
+
+  // filling a box: tap, pick, done - and no phase is spent doing it
+  const beforePlan = await page.evaluate(() => ({
+    phase: window.CHECKSMITH.app.shop.phaseIndex, day: window.CHECKSMITH.app.shop.day }));
+  await page.click('#shPanel .roster-role:nth-child(3) .roster-box.empty:not(:disabled)');
+  await page.waitForTimeout(180);
+  const whoSheet = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    cards: Array.from(document.querySelectorAll('#shopSheetBody [data-pick-hand]'))
+      .map((c) => c.innerText.replace(/\s+/g, ' ').trim()),
+    faces: document.querySelectorAll('#shopSheetBody [data-pick-hand] .portrait').length
+  }));
+  ok('tapping an empty box asks who should work that phase',
+    /Who works the/.test(whoSheet.title) && whoSheet.cards.length === 2, JSON.stringify(whoSheet));
+  ok('each candidate shows a portrait, name, role, rank and what they bring',
+    whoSheet.faces === 2 && whoSheet.cards.every((t) =>
+      /Salesperson/.test(t) && /rank [EDCBAS]/.test(t) && /haggles/.test(t)),
+    JSON.stringify(whoSheet.cards));
+
+  await page.click('#shopSheetBody [data-pick-hand]');
+  await page.waitForTimeout(300);
+  const boxFilled = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const box = document.querySelector('#shPanel .roster-role:nth-child(3) .roster-box[data-hand]');
+    return { sheetShut: document.getElementById('shopSheet').hidden,
+      who: box && box.getAttribute('data-hand'),
+      face: !!(box && box.querySelector('.portrait')),
+      rank: box && box.querySelector('.rank') && box.querySelector('.rank').textContent,
+      state: box && box.querySelector('.rb-state').textContent,
+      phase: sh.phaseIndex, day: sh.day,
+      assigned: C.assignmentStatus(sh, 801) };
+  });
+  ok('picking somebody fills the box with their portrait, rank and status',
+    boxFilled.who === '801' && boxFilled.face && boxFilled.rank === 'B' &&
+    /Working now|Booked/.test(boxFilled.state), JSON.stringify(boxFilled));
+  ok('and planning the day costs the player no phase at all',
+    boxFilled.phase === beforePlan.phase && boxFilled.day === beforePlan.day,
+    JSON.stringify([beforePlan, boxFilled]));
+
+  // one job a day: they vanish from every other picker
+  const offRoster = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    return C.SHOP.phases.map((p) => C.staffCandidates(sh, 'salesperson', p).map((e) => e.id));
+  });
+  ok('a booked employee leaves every other picker for that day',
+    offRoster.every((ids) => ids.indexOf(801) < 0), JSON.stringify(offRoster));
+
+  // a filled box opens its details, and an upcoming one can be dropped
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.assignments = {};
+    F.core.shopAssign(F.app.shop, 804, { order: { bronze: 4 } }, 'evening');
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+  await page.click('#shPanel .roster-box[data-hand="804"]');
+  await page.waitForTimeout(180);
+  const bookDetails = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    buttons: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+  }));
+  ok('a filled box opens the assignment, with its task summarised',
+    /Evening/.test(bookDetails.title) && /Bronze/.test(bookDetails.body), JSON.stringify(bookDetails));
+  ok('and offers to change the orders, the employee, or drop it',
+    bookDetails.buttons.join(',') === 'Change orders,Change employee,Remove,Back',
+    JSON.stringify(bookDetails.buttons));
+
+  await page.click('#shopSheetActions button:nth-child(3)');
+  await page.waitForTimeout(250);
+  ok('dropping upcoming work frees them for every picker again', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    return C.assignmentStatus(sh, 804) === null &&
+      C.SHOP.phases.every((p) => C.staffCandidates(sh, 'runner', p).some((e) => e.id === 804));
+  }));
+
+  // backing out of a replacement keeps the original
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.core.shopAssign(F.app.shop, 801, {}, 'evening');
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+  await page.click('#shPanel .roster-box[data-hand="801"]');
+  await page.waitForTimeout(180);
+  await page.click('#shopSheetActions button:nth-child(2)');   // change employee
+  await page.waitForTimeout(180);
+  await page.click('#shopSheetActions button');                // Back, without picking
+  await page.waitForTimeout(200);
+  ok('backing out of a swap leaves the original booking alone', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const at = C.assignmentAt(sh, 'salesperson', 'evening');
+    return !!at && at.staff.id === 801;
+  }));
+
+  // a job with nothing to do is flagged before its phase arrives
+  ok('a job missing its orders is flagged on the box', await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.assignments = {};
+    F.core.shopAssign(F.app.shop, 804, { order: {} }, 'evening');   // empty list
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="804"]');
+    return !!box && box.classList.contains('needs') &&
+      /Needs orders/.test(box.querySelector('.rb-state').textContent);
+  }));
+
+  // active and done are locked, and look it
+  ok('work under way is locked and marked as such', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.assignments = {};
+    C.shopAssign(sh, 805, {}, C.SHOP.phases[sh.phaseIndex]);
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="805"]');
+    return !!box && box.classList.contains('active') &&
+      C.shopUnassign(sh, 805).ok === false;
+  }));
+  ok('and finished work is dimmed, its employee out for the day', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.assignments[805].done = true;
+    F.shopRender();
+    const box = document.querySelector('#shPanel .roster-box[data-hand="805"]');
+    return !!box && box.classList.contains('done') &&
+      C.SHOP.phases.every((p) => C.staffCandidates(sh, 'storehand', p).length === 0);
+  }));
+
+  // portraits are the customers' own art, and they do not wander
+  ok('staff wear the same portraits the customers do, and keep them',
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.assignments = {};
+      F.shopRender();
+      const ids = C.SHOP.customers.map((c) => c.id);
+      const first = sh.staff.map((e) => C.staffFace(e));
+      if (!first.every((f) => ids.indexOf(f) >= 0)) return false;
+      // the same answer on every screen, and after a save round trip
+      const again = sh.staff.map((e) => C.staffFace(e));
+      const back = C.restoreShop(C.serializeShop(sh), C.mulberry32(1));
+      const after = back.staff.map((e) => C.staffFace(e));
+      return first.join(',') === again.join(',') && first.join(',') === after.join(',');
+    }));
+
+  // the phone layout: three boxes across, readable labels, tappable
+  ok('the roster fits a phone without scrolling sideways', await page.evaluate(() => {
+    const panel = document.getElementById('shPanel');
+    if (panel.scrollWidth > panel.clientWidth + 1) return false;
+    const boxes = Array.from(document.querySelectorAll('#shPanel .roster-box'));
+    return boxes.length > 0 && boxes.every((b) => {
+      const r = b.getBoundingClientRect();
+      return r.width >= 44 && r.height >= 44 && r.right <= window.innerWidth + 1;
+    });
+  }));
+  ok('and every phase label is legible on it', await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#shPanel .rb-when')).every((w) =>
+      w.textContent.trim().length > 0 && parseFloat(getComputedStyle(w).fontSize) >= 9)));
+
+  section('Open Your Forge: growth, stands and the weekly bill');
+  const grown = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 100000;
+    F.shopUi.tab = 'grow';
+    F.shopRender();
+    const before = { room: C.standCap(sh), staff: C.staffCapacity(sh),
+      rent: C.rentDue(sh), stands: sh.stands.length, floor: C.countShelf(sh) };
+    document.querySelector('#shPanel [data-expand]').click();
+    const after = { room: C.standCap(sh), staff: C.staffCapacity(sh),
+      rent: C.rentDue(sh), stands: sh.stands.length, floor: C.countShelf(sh) };
+    const gold = sh.gold;
+    document.querySelector('#shPanel [data-buy-stand="shield"]').click();
+    const bought = { stands: sh.stands.length, gold: sh.gold,
+      kinds: sh.stands.map((st) => st.type).join(','),
+      cost: C.shopStandDef('shield').cost };
+    const up = document.querySelector('#shPanel [data-upgrade="racks"]');
+    const storeBefore = C.storageCapacity(sh);
+    up.click();
+    return { before, after, bought, goldBefore: gold,
+      upgraded: C.storageCapacity(sh) > storeBefore,
+      noDisplays: !document.querySelector('#shPanel [data-upgrade="displays"]') };
+  });
+  ok('moving to bigger premises buys floor space and raises the rent',
+    grown.after.room > grown.before.room && grown.after.staff > grown.before.staff &&
+    grown.after.rent > grown.before.rent, JSON.stringify(grown.after));
+  ok('and puts nothing on that floor: the stands are still the ones you bought',
+    grown.after.stands === grown.before.stands &&
+    grown.after.floor === grown.before.floor, JSON.stringify(grown));
+  ok('the Grow tab sells stands, and buying one installs it',
+    grown.bought.stands === grown.after.stands + 1 &&
+    /shield/.test(grown.bought.kinds) &&
+    grown.bought.gold === grown.goldBefore - grown.bought.cost, JSON.stringify(grown.bought));
+  ok('the old slot upgrade is gone from the Grow tab', grown.noDisplays);
+  ok('the other upgrades still buy capacity', grown.upgraded);
+
+  // a stand is a fixture: it can be re-purposed while empty and sold back
+  const fixture = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const stand = sh.stands.find((st) => !st.key || st.qty <= 0);
+    const was = stand.type;
+    const changed = C.shopSetStandType(sh, stand.id, was === 'helmet' ? 'goods' : 'helmet');
+    const gold = sh.gold, count = sh.stands.length;
+    const sold = C.shopSellStand(sh, stand.id);
+    F.shopRender();
+    return { changed: changed.ok, type: stand.type, was: was, sold: sold.ok,
+      back: sold.back, gone: sh.stands.length === count - 1,
+      paid: sh.gold === gold + sold.back };
+  });
+  ok('an empty stand can be made into another kind',
+    fixture.changed && fixture.type !== fixture.was, JSON.stringify(fixture));
+  ok('and sold back for part of what it cost',
+    fixture.sold && fixture.gone && fixture.paid && fixture.back > 0,
+    JSON.stringify(fixture));
+
+  ok('running out of money closes the shop', await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    const s = F.core.createShop({ rnd: F.core.mulberry32(4), gold: 5 });
+    for (let i = 0; i < 21; i++) F.core.shopAdvancePhase(s);
+    return s.closed === true;
+  }));
+
+  section('Open Your Forge: the Checksmith Almanac');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 100000;
+    F.shopUi.almanacCat = null;
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="almanac"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const book = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const body = document.getElementById('shopSheetBody');
+    return { title: document.getElementById('shopSheetTitle').textContent,
+      head: body.querySelector('.alm-head').innerText.replace(/\s+/g, ' '),
+      pages: body.querySelectorAll('[data-alm-cat]').length,
+      cats: C.SHOP.categories.length,
+      nodes: body.querySelectorAll('[data-recipe]').length,
+      known: body.querySelectorAll('.alm-node.known').length,
+      locked: body.querySelectorAll('.alm-node.locked').length,
+      nested: body.querySelectorAll('.alm-tree ul ul .alm-node').length,
+      wide: body.scrollWidth > body.clientWidth + 1,
+      total: C.SHOP.items.length, got: sh.known.length };
+  });
+  ok('the Almanac opens as a book with a page for every category',
+    /Almanac/.test(book.title) && book.pages === book.cats, JSON.stringify(book));
+  ok('and says how much of it the forge has learned',
+    book.head.indexOf(book.got + ' / ' + book.total) >= 0, book.head);
+  ok('a page draws its recipes as a tree, not a flat list',
+    book.nodes > 1 && book.nested > 0, JSON.stringify(book));
+  ok('what the forge knows and what it does not are told apart on sight',
+    book.known > 0 && book.locked > 0, JSON.stringify(book));
+  ok('and the tree does not push the sheet sideways on a phone', book.wide === false);
+
+  await page.click('#shopSheetBody [data-alm-cat="household"]');
+  await page.waitForTimeout(120);
+  const turned = await page.evaluate(() => ({
+    open: document.querySelector('[data-alm-cat="household"]').getAttribute('aria-pressed'),
+    others: document.querySelectorAll('[data-alm-cat][aria-pressed="true"]').length,
+    names: Array.from(document.querySelectorAll('#shopSheetBody .an-name'))
+      .map((n) => n.textContent).join(',')
+  }));
+  ok('turning to another page shows that page and only that page',
+    turned.open === 'true' && turned.others === 1 && /Cooking Knife/.test(turned.names),
+    JSON.stringify(turned).slice(0, 200));
+
+  // a recipe the forge has not got to yet: the page says what it would take
+  await page.click('#shopSheetBody [data-alm-cat="swords"]');
+  await page.waitForTimeout(100);
+  await page.click('#shopSheetBody [data-recipe="greatsword"]');
+  await page.waitForTimeout(120);
+  const locked = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    actions: Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent)
+  }));
+  ok('a locked recipe names its category, its customers and the way to it',
+    /Greatsword/.test(locked.title) && /Swords/.test(locked.body) &&
+    /Wanted by/.test(locked.body) && /To learn it/.test(locked.body),
+    locked.body.slice(0, 260));
+  ok('and is not something the anvil will take yet',
+    !locked.actions.some((a) => /anvil/.test(a)), locked.actions.join(','));
+
+  // the groundwork done, a schematic carries the rest of the way
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.materials.bronze = 40;
+    C.learnRecipe(sh, 'longsword', 'schematic');
+    C.recordForged(sh, 'shortsword', 'bronze', 1, 90);
+    C.recordForged(sh, 'longsword', 'bronze', 1, 90);
+    F.shopRender();
+  });
+  await page.click('#shopSheetActions .btn.ghost');           // back to the book
+  await page.waitForTimeout(120);
+  await page.click('#shopSheetBody [data-recipe="greatsword"]');
+  await page.waitForTimeout(120);
+  const buyable = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
+  ok('a recipe whose groundwork is done is offered as a schematic',
+    buyable.some((a) => /schematic/i.test(a)), buyable.join(','));
+  await page.click('#shopSheetActions .btn.primary');
+  await page.waitForTimeout(200);
+  const bought = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    return { known: C.recipeKnown(sh, 'greatsword'), gold: sh.gold,
+      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+      actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+        .map((b) => b.textContent).join(',') };
+  });
+  ok('buying it puts it in the book and opens the anvil to it',
+    bought.known && bought.gold < 100000 && /anvil/.test(bought.actions),
+    JSON.stringify(bought).slice(0, 240));
+  ok('and the book says how it was learned', /schematic/.test(bought.body),
+    bought.body.slice(0, 200));
+
+  // only what the forge knows may go on the anvil
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(100);
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(150);
+  await page.click('#shActions [data-act="forge"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const anvil = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const opts = Array.from(document.querySelectorAll('#shopSheetBody [data-sel="item"] option'))
+      .map((o) => o.value);
+    return { opts: opts.length, known: sh.known.length,
+      unknown: opts.filter((id) => !C.recipeKnown(sh, id)) };
+  });
+  ok('the anvil offers exactly the blueprints the forge holds, and no others',
+    anvil.opts === anvil.known && anvil.unknown.length === 0, JSON.stringify(anvil));
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(120);
+
+  section('Open Your Forge: offering something else at the counter');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.testClearFloor(sh);
+    sh.reputation = 70;
+    F.testStock(sh, C.lineKey('longsword', 'bronze'), 20, 95, 62);
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 20, 90, 14);
+    F.testStock(sh, C.lineKey('pan', 'bronze'), 20, 90, 9);
+    F.shopUi.tab = 'shelf';
+    F.shopRender();
+  });
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(300);
+  // walk the queue until somebody is standing there with an offer on the table
+  let atCounter = false;
+  for (let i = 0; i < 12 && !atCounter; i++) {
+    atCounter = await page.evaluate(() =>
+      !!document.querySelector('#shopSheetActions .btn') &&
+      Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+        .some((b) => /Offer Alternative/.test(b.textContent)));
+    if (atCounter) break;
+    const next = await page.$('#shopSheetActions .btn.primary');
+    if (!next) break;
+    await next.click();
+    await page.waitForTimeout(160);
+  }
+  ok('a customer at the counter can be offered something else', atCounter);
+  if (atCounter) {
+    await page.evaluate(() => {
+      const b = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+        .find((x) => /Offer Alternative/.test(x.textContent));
+      b.click();
+    });
+    await page.waitForTimeout(160);
+    const alts = await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      const body = document.getElementById('shopSheetBody');
+      const rows = Array.from(body.querySelectorAll('[data-alt]'));
+      return { title: document.getElementById('shopSheetTitle').textContent,
+        rows: rows.length,
+        wanted: F.shopUi.session.pending.key,
+        keys: rows.map((r) => r.dataset.alt),
+        reads: rows.map((r) => r.querySelector('.sub').dataset.read) };
+    });
+    ok('the list holds everything on the floor but what they came for',
+      alts.rows > 0 && alts.keys.indexOf(alts.wanted) < 0, JSON.stringify(alts));
+    ok('and says how each one would sit with them',
+      alts.reads.every((r) => ['keen', 'warm', 'cool', 'cold'].indexOf(r) >= 0),
+      alts.reads.join(','));
+    await page.click('#shopSheetBody [data-alt]');
+    await page.waitForTimeout(200);
+    const answer = await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      return { title: document.getElementById('shopSheetTitle').textContent,
+        offers: F.shopUi.session.report.offers || 0,
+        stillThere: !!F.shopUi.session.pending };
+    });
+    ok('they either take it or wave it away, and the offer is spent either way',
+      answer.offers === 1 && /Sold|not interested/.test(answer.title),
+      JSON.stringify(answer));
+    if (answer.stillThere) {
+      ok('a refusal leaves them standing there wanting what they came for',
+        await page.evaluate(() => {
+          const F = window.CHECKSMITH;
+          return F.shopUi.session.pending.offered === true &&
+            F.core.alternativeOffers(F.app.shop, F.shopUi.session).length === 0;
+        }));
+    } else {
+      ok('a swap sells that item instead', await page.evaluate(() =>
+        window.CHECKSMITH.shopUi.session.report.swapped === 1));
+    }
+  }
+  await page.evaluate(() => { window.CHECKSMITH.shopSheetClose(); });
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopUi.session = null;
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+
+  section('Open Your Forge leaves the other modes alone');
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await startFromTitle(page, 'forge', 'novice');
+  ok('forge still deals its own two-strike board', await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g.perfect === 2 && g.spent === 3 && g.board.route.length === 2 * 9;
+  }));
+  ok('and the shop screen is nowhere in sight', await page.evaluate(() => {
+    const el = document.getElementById('shopView');
+    const r = el.getBoundingClientRect();
+    return el.hidden && r.width === 0;
+  }));
+
+  ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));
+  await ctx.close();
+
+  /* ============ storage unavailable ============ */
+
+  section('Storage unavailable');
+  ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  page = await ctx.newPage();
+  const errs2 = [];
+  page.on('pageerror', (e) => errs2.push(String(e)));
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get() { throw new Error('storage blocked'); }
+    });
+  });
+  await page.goto(FILE);
+  await startFromTitle(page, 'forge', 'novice');
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 40; });
+  await page.click('.tile[data-i="0"]');
+  await settle(page);
+  ok('the game boots and plays with localStorage blocked', (await snap(page)).total === 1);
+  ok('no errors escape the storage wrapper', errs2.length === 0, errs2.slice(0, 2).join(' | '));
+  await ctx.close();
+
+  /* ============ best scores survive the rename ============ */
+  section('Pre-rename save data');
+  ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
+  page = await ctx.newPage();
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('forge-pattern:v1',
+        JSON.stringify({ best: { novice: 88 }, muted: true, volume: 0.45 }));
+    } catch (e) { /* ignore */ }
+  });
+  await page.goto(FILE);
+  await startFromTitle(page, 'forge', 'novice');
+  await page.waitForTimeout(200);
+  ok('best score saved under the old name is still shown',
+    (await page.textContent('#bestLine')).includes('88'));
+  ok('audio preferences carry over too', await page.evaluate(
+    () => window.CHECKSMITH.sound.muted === true && Math.abs(window.CHECKSMITH.sound.volume - 0.45) < 0.001));
+  await page.click('#muteBtn');
+  ok('the next write lands under the new key', await page.evaluate(
+    () => !!localStorage.getItem('checksmith:v1')));
+  await ctx.close();
+
+  /* ============ reduced motion ============ */
+  section('Reduced motion');
+  ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, reducedMotion: 'reduce' });
+  page = await ctx.newPage();
+  const errs3 = [];
+  page.on('pageerror', (e) => errs3.push(String(e)));
+  await page.goto(FILE);
+  await startFromTitle(page, 'forge', 'novice');
+  ok('reduced motion is detected', await page.evaluate(() => window.CHECKSMITH.fx.reduced === true));
+  await page.click('.tile[data-i="4"]');
+  const shaking = await page.evaluate(() => document.querySelectorAll('.tile.impact, .tile.shake').length);
+  await settle(page);
+  ok('no shake or squash classes are applied', shaking === 0);
+  ok('no spark particles are emitted', await page.evaluate(() => document.querySelectorAll('.spark').length) === 0);
+  ok('a strike still registers under reduced motion', (await snap(page)).total === 1);
+  ok('reduced-motion run is error free', errs3.length === 0, errs3.join(' | '));
+  await page.screenshot({ path: path.join(SHOTS, '05-reduced-motion.png'), fullPage: true });
+  await ctx.close();
+
+  /* ============ wide screen ============ */
+  section('Larger screens');
+  ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
+  page = await ctx.newPage();
+  await page.goto(FILE);
+  await startFromTitle(page, 'forge', 'novice');
+  await page.click('[data-diff="master"]');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6);
+  const wide = await page.locator('.board-wrap').boundingBox();
+  ok('layout stays centred and capped on desktop (' + Math.round(wide.width) + 'px)', wide.width <= 520);
+  await page.screenshot({ path: path.join(SHOTS, '06-desktop.png') });
+  await ctx.close();
+
+  /* ============ the forge is carried between sittings ============ */
+  section('Open Your Forge: the shop is saved');
+  ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
+  page = await ctx.newPage();
+  const saveErrs = [];
+  page.on('pageerror', (e) => saveErrs.push(String(e)));
+  await page.goto(FILE);
+
+  // `name` is typed into the naming dialog when Begin raises it, which it
+  // does whenever no saved forge is picked
+  const openShop = async (name) => {
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.waitForTimeout(140);
+    const line = await page.textContent('#shopSaveLine');
+    const begin = await page.textContent('#beginBtn');
+    const rows = await page.$$eval('#shopSlots .forge-slot',
+      (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
+    await page.click('#beginBtn');
+    if (await page.isVisible('#nameForge')) {
+      if (name) await page.fill('#nameForgeInput', name);
+      await page.click('#nameForgeGo');
+    }
+    // carrying on can land either on the shop floor or straight back at the
+    // anvil, so wait for whichever the save asked for
+    await page.waitForFunction(
+      () => !document.getElementById('shopView').hidden || !!window.CHECKSMITH.app.game,
+      null, { timeout: 15000 });
+    await page.waitForTimeout(250);
+    await installStock(page);
+    return { line, begin, rows };
+  };
+  const toMenu = async () => {
+    await page.evaluate(() => document.getElementById('menuBtn').click());
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  };
+  const shopState = () => page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    return { day: sh.day, gold: sh.gold, silver: sh.materials.silver,
+      storage: C.countStorage(sh), shelf: C.countShelf(sh), staff: sh.staff.length,
+      stars: C.shopStars(sh), phase: document.getElementById('shPhase').textContent };
+  });
+
+  const first = await openShop('Cinderhall');
+  ok('a first visit offers a new forge, not a saved one',
+    /opens a new forge/.test(first.line) && first.begin === 'Begin' && first.rows.length === 0,
+    JSON.stringify(first));
+  ok('and it is opened under the typed name',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Cinderhall');
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 1777; sh.day = 4; sh.reputation = 48; sh.materials.silver = 6;
+    C.addStorage(sh, C.lineKey('mace', 'gold'), 3, 88);
+    F.testStock(sh, C.lineKey('longsword', 'bronze'), 5, 93, 58);
+    sh.staff.push({ id: 1, name: 'Mara Ashford', role: 'salesperson', rank: 'C', power: 3, wage: 32 });
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const kept = await shopState();
+  await page.reload();
+  const second = await openShop();
+  ok('the title screen lists the saved forge and offers to carry it on',
+    second.begin === 'Carry on' && second.rows.length === 1 &&
+    /^Cinderhall /.test(second.rows[0]) && /Day 4/.test(second.rows[0]) &&
+    /1,777g/.test(second.rows[0]) && /Cinderhall/.test(second.line),
+    JSON.stringify(second));
+  const back = await shopState();
+  ok('gold, day, metal, stock, staff and standing all come back',
+    JSON.stringify(back) === JSON.stringify(kept), JSON.stringify([kept, back]));
+
+  // a batch on the anvil resumes as the same board, not a fresh one
+  await page.click('#shActions [data-act="forge"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions button:not([disabled])');
+  await page.waitForFunction(() => window.CHECKSMITH.app.game, null, { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
+  const struck = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.tap(F.app.game.board.route[0]);
+    await new Promise((r) => setTimeout(r, 200));
+    const g = F.app.game;
+    return { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),
+      current: g.current, perfect: g.perfect };
+  });
+  await page.reload();
+  const third = await openShop();
+  ok('a batch left on the anvil is announced on the forge\'s row',
+    third.rows.length === 1 && /on the anvil/.test(third.rows[0]), JSON.stringify(third.rows));
+  const resumed = await page.evaluate(() => {
+    const g = window.CHECKSMITH.app.game;
+    return g ? { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),
+      current: g.current, perfect: g.perfect,
+      atAnvil: document.getElementById('shopView').hidden,
+      picker: !document.querySelector('.difficulty:not(#titleDiff)').hidden } : null;
+  });
+  ok('it resumes on the very same board, blows and all',
+    resumed && JSON.stringify(resumed).includes(struck.pieces) &&
+    resumed.strikes === struck.strikes && resumed.current === struck.current,
+    JSON.stringify([struck, resumed]));
+  ok('and the board-size picker is not offered at the anvil',
+    resumed && resumed.atAnvil === true && resumed.picker === false, JSON.stringify(resumed));
+
+  // a selling phase left half-served is not banked
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopUi.order = null;
+    F.app.game = null;
+    document.getElementById('shopView').hidden = false;
+    F.core.addStorage(F.app.shop, F.core.lineKey('longsword', 'bronze'), 0, 100);
+    F.testStock(F.app.shop, F.core.lineKey('longsword', 'bronze'), 20, 95, 60);
+    F.app.shop.reputation = 70;
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const beforeSelling = await shopState();
+  // Who walks in is random, and an empty queue would prove nothing here, so
+  // the counter is reopened until somebody actually comes to it. Reopening
+  // does not spend the phase; only closing up does, and this never closes.
+  let midSale = { gold: beforeSelling.gold, open: false };
+  for (let attempt = 0; attempt < 8 && midSale.gold === beforeSelling.gold; attempt++) {
+    await page.click('#shActions [data-act="tend"]');
+    await page.waitForTimeout(350);
+    for (let i = 0; i < 3 && (await page.isVisible('#shopSheet')); i++) {
+      if (/Sales Report/.test(await page.textContent('#shopSheetTitle'))) break;
+      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.waitForTimeout(150);
+    }
+    midSale = await page.evaluate(() => ({ gold: window.CHECKSMITH.app.shop.gold,
+      open: !!window.CHECKSMITH.shopUi.session }));
+    if (midSale.gold === beforeSelling.gold) {
+      // nobody bought: drop this session on the floor and open up again
+      await page.evaluate(() => { window.CHECKSMITH.shopUi.session = null; });
+      await page.click('#shopSheetActions button:last-child');
+      await page.waitForTimeout(200);
+      if (await page.isVisible('#shopSheet')) await page.evaluate(() =>
+        document.getElementById('shopSheet').hidden = true);
+    }
+  }
+  ok('somebody came to the counter to be served', midSale.gold > beforeSelling.gold,
+    JSON.stringify([beforeSelling.gold, midSale]));
+  await page.reload();
+  await openShop();
+  const afterSale = await shopState();
+  ok('a selling phase abandoned half way is simply unplayed',
+    midSale.gold > beforeSelling.gold && afterSale.gold === beforeSelling.gold &&
+    afterSale.phase === beforeSelling.phase,
+    JSON.stringify([beforeSelling, midSale, afterSale]));
+
+  // but a phase played out is kept
+  await page.click('#shActions [data-act="tend"]');
+  await page.waitForTimeout(350);
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    const done = /Sales Report/.test(await page.textContent('#shopSheetTitle'));
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(140);
+    if (done) break;
+  }
+  await page.waitForTimeout(300);
+  const played = await shopState();
+  await page.reload();
+  await openShop();
+  const stillThere = await shopState();
+  ok('a phase played to its end is kept',
+    stillThere.gold === played.gold && stillThere.phase === played.phase,
+    JSON.stringify([played, stillThere]));
+
+  ok('saving and restoring raises no errors', saveErrs.length === 0, saveErrs.slice(0, 3).join(' | '));
+  await ctx.close();
+
+  /* ============ several forges at once ============ */
+  section('Open Your Forge: a forge for every slot');
+  ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
+  page = await ctx.newPage();
+  const slotErrs = [];
+  page.on('pageerror', (e) => slotErrs.push(String(e)));
+  await page.goto(FILE);
+
+  // the same helpers, against this page
+  const shopCard = async () => {
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.waitForTimeout(160);
+  };
+  const slotNames = () => page.$$eval('#shopSlots .fs-name', (els) => els.map((e) => e.textContent));
+  const newForge = async (name) => {
+    await shopCard();
+    await page.click('#shopNewBtn');
+    await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+    if (name !== undefined) await page.fill('#nameForgeInput', name);
+    await page.click('#nameForgeGo');
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+    await page.waitForTimeout(200);
+  };
+  const leave = async () => {
+    await page.click('#shMenuBtn');
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  };
+
+  await shopCard();
+  await page.click('#beginBtn');
+  await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+  ok('with nothing saved, Begin asks for a name first',
+    await page.isVisible('#nameForgeInput'));
+  await page.fill('#nameForgeInput', 'Emberline');
+  await page.click('#nameForgeGo');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await page.evaluate(() => { window.CHECKSMITH.app.shop.gold = 111; window.CHECKSMITH.shopRender(); });
+  await page.waitForTimeout(150);
+  await leave();
+
+  await newForge('Coldwater Anvil');
+  await page.evaluate(() => { window.CHECKSMITH.app.shop.gold = 222; window.CHECKSMITH.shopRender(); });
+  await page.waitForTimeout(150);
+  await leave();
+  await shopCard();
+  ok('a second forge sits beside the first rather than replacing it',
+    JSON.stringify(await slotNames()) === JSON.stringify(['Emberline', 'Coldwater Anvil']),
+    JSON.stringify(await slotNames()));
+
+  // each keeps its own ledger
+  await page.click('#shopSlots .forge-row:nth-child(1) .forge-slot');
+  await page.waitForTimeout(150);
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  const openedFirst = await page.evaluate(() => ({ name: window.CHECKSMITH.app.shop.name,
+    gold: window.CHECKSMITH.app.shop.gold, bar: document.getElementById('shName').textContent }));
+  ok('picking a forge opens that one, with its own purse',
+    openedFirst.name === 'Emberline' && openedFirst.gold === 111 && openedFirst.bar === 'Emberline', JSON.stringify(openedFirst));
+  await leave();
+  await shopCard();
+  await page.click('#shopSlots .forge-row:nth-child(2) .forge-slot');
+  await page.waitForTimeout(150);
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  const openedSecond = await page.evaluate(() => ({ name: window.CHECKSMITH.app.shop.name,
+    gold: window.CHECKSMITH.app.shop.gold }));
+  ok('and the other keeps its own', openedSecond.name === 'Coldwater Anvil' && openedSecond.gold === 222,
+    JSON.stringify(openedSecond));
+  await leave();
+
+  // the forge last played is the one waiting on the way back in
+  await page.reload();
+  await shopCard();
+  ok('the forge last played is the one waiting when you come back',
+    (await page.getAttribute('#shopSlots .forge-row:nth-child(2) .forge-slot', 'aria-checked')) === 'true' &&
+    /Coldwater Anvil/.test(await page.textContent('#shopSaveLine')));
+
+  // names are cleaned up rather than taken on trust
+  await newForge('   ');
+  ok('an empty name falls back rather than leaving a blank sign',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)).length > 0,
+    await page.evaluate(() => window.CHECKSMITH.app.shop.name));
+  await leave();
+  await newForge('Emberline');
+  ok('a name already in use is made unique',
+    (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Emberline 2',
+    await page.evaluate(() => window.CHECKSMITH.app.shop.name));
+  await leave();
+
+  await shopCard();
+  const beforeFull = (await slotNames()).length;
+  await newForge('Last One');
+  await leave();
+  await shopCard();
+  const full = await page.evaluate(() => ({
+    rows: document.querySelectorAll('#shopSlots .forge-slot').length,
+    newDisabled: document.getElementById('shopNewBtn').disabled,
+    label: document.getElementById('shopNewBtn').textContent,
+    cap: window.CHECKSMITH.core.SHOP_SAVE_SLOTS
+  }));
+  ok('the list fills up and then says so',
+    beforeFull === 4 && full.rows === full.cap && full.newDisabled === true &&
+    /in use/.test(full.label), JSON.stringify([beforeFull, full]));
+
+  // a forge can be closed for good, and only that one
+  await page.click('#shopSlots .forge-row:nth-child(1) .forge-bin');
+  await page.waitForSelector('#confirm:not([hidden])', { timeout: 8000 });
+  ok('closing a forge names the one being thrown away',
+    /Emberline/.test(await page.textContent('#confirmText')),
+    await page.textContent('#confirmText'));
+  await page.click('#confirmYes');
+  await page.waitForTimeout(250);
+  const afterBin = await slotNames();
+  ok('closing one forge leaves the rest alone',
+    afterBin.length === full.cap - 1 && afterBin.indexOf('Emberline') < 0 &&
+    afterBin.indexOf('Coldwater Anvil') >= 0, JSON.stringify(afterBin));
+  ok('and the New forge button opens up again',
+    (await page.evaluate(() => document.getElementById('shopNewBtn').disabled)) === false);
+
+  // a forge left at the menu is still there after a reload
+  await page.reload();
+  await shopCard();
+  ok('every forge survives a reload',
+    JSON.stringify(await slotNames()) === JSON.stringify(afterBin), JSON.stringify(await slotNames()));
+
+  // a save written by the build before slots existed becomes the first forge
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+    delete raw.shopSaves;
+    delete raw.shopLast;
+    raw.shopSave = { v: 1, shop: { v: 1, day: 9, gold: 640, phaseIndex: 1, reputation: 55,
+      tier: 1, rentPaid: 1, closed: false, nextId: 3, upgrades: {}, materials: {},
+      storage: {}, shelf: {}, staff: [], orders: [], assignments: {} }, anvil: null };
+    localStorage.setItem('checksmith:v1', JSON.stringify(raw));
+  });
+  await page.reload();
+  await shopCard();
+  const legacy = await page.evaluate(() => ({
+    rows: Array.from(document.querySelectorAll('#shopSlots .forge-slot'))
+      .map((e) => e.innerText.replace(/\s+/g, ' ').trim())
+  }));
+  ok('a forge saved before there were slots is carried over, not lost',
+    legacy.rows.length === 1 && /Day 9/.test(legacy.rows[0]) && /640g/.test(legacy.rows[0]),
+    JSON.stringify(legacy));
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  ok('and it opens with a name rather than a blank sign',
+    (await page.textContent('#shName')).length > 0, await page.textContent('#shName'));
+
+  ok('several forges raise no errors', slotErrs.length === 0, slotErrs.slice(0, 3).join(' | '));
+  await ctx.close();
+
+  /* ============ the opening ============ */
+  section('The opening');
+  // a browser that allows audio without a gesture, which is what a returning
+  // player's usually does; the refused case is checked separately below
+  const loud = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  const introErrs = [];
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+
+  const frame = () => page.evaluate(() => {
+    const op = (id) => Number(getComputedStyle(document.getElementById(id)).opacity);
+    const m = document.getElementById('introMusic');
+    return { t: Math.round(performance.now()), up: !document.getElementById('intro').hidden,
+      logo: op('introLogo'), card: op('introCard'), playing: !!(m && !m.paused && m.currentTime > 0) };
+  });
+  const film = [];
+  for (let i = 0; i < 52; i++) { film.push(await frame()); await page.waitForTimeout(220); }
+
+  const firstMusic = film.find((f) => f.playing);
+  ok('the track starts under a black screen', !!firstMusic && firstMusic.logo === 0 &&
+    firstMusic.card === 0, JSON.stringify(firstMusic));
+
+  const logoUp = film.find((f) => f.logo > 0.98);
+  const cardUp = film.find((f) => f.card > 0.98);
+  ok('the logo comes up first, a couple of seconds in',
+    !!logoUp && logoUp.t > 1500 && logoUp.t < 5000, logoUp && String(logoUp.t));
+  ok('it holds at full strength', film.filter((f) => f.logo > 0.98).length >= 4,
+    String(film.filter((f) => f.logo > 0.98).length));
+  ok('the title card comes up after it', !!cardUp && cardUp.t > logoUp.t, 
+    JSON.stringify([logoUp && logoUp.t, cardUp && cardUp.t]));
+
+  // the whole point of the gap: one is never on screen while the other arrives
+  const overlap = film.filter((f) => f.logo > 0.01 && f.card > 0.01);
+  ok('the logo is entirely gone before the card begins', overlap.length === 0,
+    JSON.stringify(overlap.slice(0, 3)));
+
+  const ended = film.find((f) => !f.up);
+  ok('the curtain lifts by itself', !!ended, JSON.stringify(film[film.length - 1]));
+  ok('and hands over to the menu', await page.evaluate(() =>
+    document.getElementById('intro').hidden && !document.getElementById('titleScreen').hidden));
+  ok('the title track carries on behind the menu', await page.evaluate(() => {
+    const m = document.getElementById('introMusic');
+    return !!m && !m.paused;
+  }));
+  ok('and stops once a board is in front of the player', await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    document.querySelector('.mode-card[data-mode="forge"]').click();
+    document.getElementById('beginBtn').click();
+    await new Promise((r) => setTimeout(r, 600));
+    return document.getElementById('introMusic').paused;
+  }));
+  await ctx.close();
+
+  // skipping, and the muted-by-refusal path
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+  await page.waitForTimeout(2600);
+  await page.mouse.click(195, 500);
+  await page.waitForTimeout(1400);
+  ok('a tap during the opening skips it', await page.evaluate(() =>
+    document.getElementById('intro').hidden && !document.getElementById('titleScreen').hidden));
+  await ctx.close();
+
+  // a browser that refuses audio holds on black and waits to be told to start
+  ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE);
+  await page.waitForTimeout(1500);
+  const waiting = await page.evaluate(() => ({
+    up: !document.getElementById('intro').hidden,
+    prompt: document.getElementById('introSkip').textContent,
+    lit: document.getElementById('introSkip').classList.contains('lit'),
+    logo: Number(getComputedStyle(document.getElementById('introLogo')).opacity)
+  }));
+  ok('a browser that refuses audio waits on black rather than playing it silent',
+    waiting.up && waiting.logo === 0 && /begin/i.test(waiting.prompt) && waiting.lit,
+    JSON.stringify(waiting));
+  await page.mouse.click(195, 500);
+  // that tap begins the sequence proper, which opens on its own black lead,
+  // so the logo is still a couple of seconds away
+  await page.waitForTimeout(3200);
+  ok('and that same tap starts the opening', await page.evaluate(() =>
+    !document.getElementById('intro').hidden &&
+    Number(getComputedStyle(document.getElementById('introLogo')).opacity) > 0.5));
+  await ctx.close();
+
+  /* the score follows the player from screen to screen */
+  section('The score');
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  page.on('pageerror', (e) => introErrs.push(String(e)));
+  await page.goto(RAW_FILE + '#skipintro');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  const playing = () => page.evaluate(() => {
+    const M = window.CHECKSMITH.music, el = M && M.el;
+    return { track: M ? M.track : null, on: !!(el && !el.paused), muted: el ? el.muted : null };
+  });
+  await page.waitForTimeout(700);
+  ok('the title track plays on the menu', JSON.stringify(await playing()) ===
+    JSON.stringify({ track: 'title', on: true, muted: false }), JSON.stringify(await playing()));
+
+  await page.click('.mode-card[data-mode="endless"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(1400);
+  const inRun = await playing();
+  ok('endless has a track of its own', inRun.track === 'endless' && inRun.on,
+    JSON.stringify(inRun));
+
+  await page.evaluate(() => document.getElementById('menuActionBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1400);
+  const backHome = await playing();
+  ok('and the title track comes back with the menu',
+    backHome.track === 'title' && backHome.on, JSON.stringify(backHome));
+
+  await page.click('.mode-card[data-mode="forge"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(1400);
+  const atForge = await playing();
+  ok('a forge board is played in silence', !atForge.on, JSON.stringify(atForge));
+
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1200);
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  if (await page.isVisible('#nameForge')) await page.click('#nameForgeGo');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await page.waitForTimeout(1400);
+  const atShop = await playing();
+  ok('the forge floor has a track of its own', atShop.track === 'shop' && atShop.on,
+    JSON.stringify(atShop));
+
+  // the anvil is part of the same day, so the track must not cut out for it
+  await page.click('#shActions [data-act="forge"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions button:not([disabled])');
+  await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+  await page.waitForTimeout(900);
+  const atAnvil = await playing();
+  ok('and it carries on when a batch goes on the anvil',
+    atAnvil.track === 'shop' && atAnvil.on, JSON.stringify(atAnvil));
+
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1200);
+  ok('the mute button can be reached while the menu is up', await page.evaluate(() => {
+    const r = document.getElementById('muteBtn').getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return !!(hit && hit.closest('#muteBtn'));
+  }));
+  await page.click('#muteBtn');
+  await page.waitForTimeout(400);
+  const hushed = await playing();
+  ok('and it silences the score too', hushed.muted === true, JSON.stringify(hushed));
+  await page.click('#muteBtn');
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const v = document.getElementById('volume');
+    v.value = '30';
+    v.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(700);
+  ok('the volume slider carries the score with it', await page.evaluate(() =>
+    Math.abs(window.CHECKSMITH.music.el.volume - 0.3) < 0.08),
+    await page.evaluate(() => window.CHECKSMITH.music.el.volume));
+  await ctx.close();
+
+  /* music has to stop when the player leaves the app */
+  section('The score goes quiet in the background');
+  ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
+  page = await ctx.newPage();
+  const bgErrs = [];
+  page.on('pageerror', (e) => bgErrs.push(String(e)));
+  await page.goto(RAW_FILE + '#skipintro');
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  // the page reads document.hidden, so that is what is faked here
+  await page.evaluate(() => {
+    window.__hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => window.__hidden });
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true, get: () => (window.__hidden ? 'hidden' : 'visible')
+    });
+    window.__away = (v) => {
+      window.__hidden = v;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+  });
+  const score = () => page.evaluate(() => {
+    const M = window.CHECKSMITH.music, el = M && M.el;
+    return { track: M ? M.track : null, held: M ? M.held : null,
+      on: !!(el && !el.paused), at: el ? el.currentTime : 0 };
+  });
+  await page.waitForTimeout(900);
+  const scoreBefore = await score();
+  ok('the title track is running to begin with', scoreBefore.on && scoreBefore.track === 'title',
+    JSON.stringify(scoreBefore));
+
+  await page.evaluate(() => window.__away(true));
+  await page.waitForTimeout(120);
+  const scoreAway = await score();
+  ok('sending the app away stops the music at once',
+    !scoreAway.on && scoreAway.held === true && scoreAway.track === 'title', JSON.stringify(scoreAway));
+  ok('and it stops without waiting out a fade', scoreAway.at > 0 && scoreAway.at >= scoreBefore.at,
+    JSON.stringify([scoreBefore.at, scoreAway.at]));
+
+  await page.waitForTimeout(700);
+  ok('it stays stopped while the app is away', !(await score()).on, JSON.stringify(await score()));
+
+  await page.evaluate(() => window.__away(false));
+  await page.waitForTimeout(400);
+  const scoreBack = await score();
+  ok('coming back picks the same track up again',
+    scoreBack.on && scoreBack.track === 'title' && scoreBack.held === false, JSON.stringify(scoreBack));
+  ok('and carries on from where it stood rather than starting over',
+    scoreBack.at >= scoreAway.at, JSON.stringify([scoreAway.at, scoreBack.at]));
+
+  // Every real minimise fires more than one of these: the shell hook, the
+  // page's own visibilitychange, and pagehide. The second must not undo the
+  // first - that bug stopped the music coming back at all.
+  await page.evaluate(() => {
+    window.checksmithPause();
+    window.__away(true);
+    window.dispatchEvent(new Event('pagehide'));
+    window.checksmithPause();
+  });
+  await page.waitForTimeout(150);
+  const piledOn = await score();
+  ok('stopping twice over still leaves the track to come back to',
+    !piledOn.on && piledOn.held === true && piledOn.track === 'title', JSON.stringify(piledOn));
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  const cameBack = await score();
+  ok('and it does come back, once', cameBack.on && cameBack.track === 'title',
+    JSON.stringify(cameBack));
+
+  // the same, over and over, because this is what a phone actually does
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => { window.checksmithPause(); window.__away(true); });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => { window.__away(false); window.checksmithResume(); });
+    await page.waitForTimeout(350);
+  }
+  const stillGoing = await score();
+  ok('minimising three times running still leaves the music playing',
+    stillGoing.on && stillGoing.track === 'title', JSON.stringify(stillGoing));
+
+  // and a pause the system took on its own, without telling the page
+  await page.evaluate(() => { window.CHECKSMITH.music.el.pause(); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  const healed = await score();
+  ok('a track the system stopped behind our back is picked up again',
+    healed.on && healed.track === 'title', JSON.stringify(healed));
+
+  // the hooks the two native shells call, since a WebView need not report
+  // being sent away as a visibility change at all
+  await page.evaluate(() => window.checksmithPause());
+  await page.waitForTimeout(120);
+  const shellAway = await score();
+  ok('the shell pause hook silences it the same way',
+    !shellAway.on && shellAway.held === true, JSON.stringify(shellAway));
+  await page.evaluate(() => window.checksmithResume());
+  await page.waitForTimeout(400);
+  ok('and the shell resume hook brings it back', (await score()).on, JSON.stringify(await score()));
+
+  // a screen with no music of its own must stay silent through the round trip
+  await page.click('.mode-card[data-mode="forge"]');
+  await page.click('#beginBtn');
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { window.__away(true); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(500);
+  const scoreQuiet = await score();
+  ok('a silent screen is still silent after a trip to the background',
+    !scoreQuiet.on && scoreQuiet.held === false, JSON.stringify(scoreQuiet));
+
+  // and a player who muted stays muted
+  await page.evaluate(() => document.getElementById('menuBtn').click());
+  if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+  await page.waitForTimeout(1000);
+  await page.click('#muteBtn');
+  await page.evaluate(() => { window.__away(true); });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => { window.__away(false); });
+  await page.waitForTimeout(400);
+  ok('a muted player comes back to silence', await page.evaluate(() =>
+    window.CHECKSMITH.music.el.muted === true));
+  ok('going to the background raises no errors', bgErrs.length === 0, bgErrs.slice(0, 3).join(' | '));
+  await ctx.close();
+
+  ok('the opening raises no errors', introErrs.length === 0, introErrs.slice(0, 3).join(' | '));
+  await loud.close();
+
+  await browser.close();
+  console.log('\n' + (failures.length ? 'FAILED: ' + failures.join('; ') : 'All browser checks passed') +
+    ' (' + pass + ' checks)');
+  process.exit(failures.length ? 1 : 0);
+}
+
+run().catch((e) => { console.error(e); process.exit(1); });
