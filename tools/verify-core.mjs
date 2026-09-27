@@ -2086,6 +2086,25 @@ section('Open Your Forge: the day and the week');
   })());
 }
 
+/* A town that can afford the thing under test. A one-star forge's town is
+   labourers and farmers on purpose, so checks about pricing and haggling -
+   which want money to be no object and somebody willing to push back - plant
+   a few well-off hagglers and fill every purse. Checks about purses and
+   standing top up what they need themselves. */
+function enrich(shop, gold) {
+  for (let i = 0; i < 6; i++) C.makeTownsfolk(shop, 'merchant');
+  for (let i = 0; i < 3; i++) C.makeTownsfolk(shop, 'knight');
+  for (const one of shop.town) one.gold = gold == null ? 100000 : gold;
+  return shop;
+}
+
+/* Somebody of this trade, standing at the counter. The queue is people now,
+   so a check that wants a particular trade has to find or make one. */
+function townsperson(shop, typeId) {
+  const found = shop.town.find((one) => one.type === typeId);
+  return found || C.makeTownsfolk(shop, typeId);
+}
+
 /* Puts a line straight onto a stand, making one if the shop has none of the
    right kind. Tests need shelves far deeper than a real shop would hold, so
    this bypasses what a stand will take rather than stocking it properly. */
@@ -2575,6 +2594,276 @@ section('Open Your Forge: the shop survives being put down');
     C.SHOP_SAVE_SLOTS >= 2 && C.SHOP_SAVE_SLOTS <= 12);
 }
 
+section('Open Your Forge: the board you worked is what it is worth');
+{
+  ok('quality moves the price, and moves it a long way', (() => {
+    const crude = C.recommendedPrice('longsword', 'bronze', 10);
+    const sound = C.recommendedPrice('longsword', 'bronze', 60);
+    const master = C.recommendedPrice('longsword', 'bronze', 98);
+    return crude < sound && sound < master && master > crude * 2.5;
+  })());
+
+  ok('a masterwork is worth more than the list price, crude work far less', (() => {
+    const list = C.shopItem('longsword').price * C.shopMaterial('bronze').value;
+    return C.recommendedPrice('longsword', 'bronze', 100) > list &&
+      C.recommendedPrice('longsword', 'bronze', 0) < list * 0.4;
+  })());
+
+  ok('the curve never doubles back on itself', (() => {
+    let last = -1;
+    for (let q = 0; q <= 100; q++) {
+      const f = C.qualityFactor(q);
+      if (f < last) return false;
+      last = f;
+    }
+    return true;
+  })());
+
+  ok('the same number has a name a smith would use', (() =>
+    C.qualityBandName(10) === 'Crude' && C.qualityBandName(40) === 'Plain' &&
+    C.qualityBandName(60) === 'Sound' && C.qualityBandName(78) === 'Fine' &&
+    C.qualityBandName(92) === 'Masterwork'));
+
+  ok('every band starts where the one below it ends', (() => {
+    const bands = C.SHOP.qualityBands;
+    return bands[0].from === 0 && bands.every((b, i) =>
+      i === 0 || b.from > bands[i - 1].from);
+  })());
+
+  ok('a knight will not look at crude iron, a labourer will', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(700) });
+    enrich(s);
+    const knight = townsperson(s, 'knight');
+    const hand = townsperson(s, 'laborer');
+    return C.meetsStandards(hand, 15) && !C.meetsStandards(knight, 15) &&
+      C.meetsStandards(knight, 95);
+  })());
+
+  ok('and rough work is not on the table for them at all', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(701) });
+    enrich(s);
+    const knight = townsperson(s, 'knight');
+    knight.standards = 70;
+    knight.want = { cat: 'swords', item: null };
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 20, 10);
+    const rough = C.chooseGoods(s, knight);
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 95, 10);
+    const good = C.chooseGoods(s, knight);
+    return rough === null && good === C.lineKey('longsword', 'bronze');
+  })());
+
+  ok('they say so on the way out rather than leaving silently', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(702) });
+    enrich(s);
+    const knight = townsperson(s, 'knight');
+    knight.standards = 80;
+    knight.want = { cat: 'swords', item: null };
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 20, 10);
+    const session = C.openCounter(s, null);
+    session.queue = [knight.id];
+    session.at = 0;
+    const e = C.counterNext(session, s);
+    return e.kind === 'leave' && /rough/.test(e.why) && e.name === knight.name;
+  })());
+
+  ok('two of a trade do not hold the same standard to the point', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(703) });
+    for (let i = 0; i < 24; i++) C.makeTownsfolk(s, 'guard');
+    const set = new Set(s.town.filter((o) => o.type === 'guard').map((o) => o.standards));
+    return set.size > 1;
+  })());
+
+  ok('an alternative below their standards is never put to them', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(704) });
+    enrich(s);
+    const knight = townsperson(s, 'knight');
+    knight.standards = 70;
+    stock(s, C.lineKey('longsword', 'bronze'), 6, 95, 40);
+    stock(s, C.lineKey('buckler', 'bronze'), 6, 20, 5);
+    const session = C.openCounter(s, null);
+    session.queue = [knight.id];
+    session.at = 0;
+    const e = C.counterNext(session, s);
+    if (!e || e.kind !== 'offer') return false;
+    return C.alternativeOdds(s, session, C.lineKey('buckler', 'bronze')) === 0;
+  })());
+}
+
+section('Open Your Forge: the town is people, not rolls');
+{
+  ok('a new forge opens onto a town of named people', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(600) });
+    const names = {};
+    for (const one of s.town) names[one.name] = (names[one.name] || 0) + 1;
+    return s.town.length === C.townTarget(s) && s.town.length >= 20 &&
+      Object.keys(names).length === s.town.length &&
+      s.town.every((one) => / /.test(one.name) && !!C.shopCustomerType(one.type));
+  })());
+
+  ok('everybody carries real money and earns a real wage', (() =>
+    (() => {
+      const s = C.createShop({ rnd: C.mulberry32(601) });
+      return s.town.every((one) => one.gold > 0 && one.income > 0) &&
+        // and two of a trade are not the same person
+        new Set(s.town.filter((o) => o.type === s.town[0].type)
+          .map((o) => o.income + ':' + o.gold)).size > 0;
+    })()));
+
+  ok('a bigger, better-known shop reaches more of the town', (() => {
+    const small = C.createShop({ rnd: C.mulberry32(602) });
+    const big = C.createShop({ rnd: C.mulberry32(602) });
+    big.tier = 4; big.reputation = 95;
+    return C.townTarget(big) > C.townTarget(small) &&
+      C.growTown(big).length > 0 && big.town.length === C.townTarget(big);
+  })());
+
+  ok('everybody is after something their own trade would want', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(603) });
+    return s.town.every((one) => {
+      if (!one.want) return true;
+      const type = C.shopCustomerType(one.type);
+      return (type.likes[one.want.cat] || 0) > 0;
+    });
+  })());
+
+  ok('a want gives out after a week of looking, and becomes another', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(604) });
+    const before = s.town.map((one) => C.wantName(one));
+    s.day += C.SHOP.town.wantDays;
+    const changed = C.driftWants(s);
+    const after = s.town.map((one) => C.wantName(one));
+    return changed.length > 0 &&
+      after.some((w, i) => w !== before[i]) &&
+      s.town.every((one) => one.wantDay === s.day);
+  })());
+
+  ok('and a want held for a day or two is left alone', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(605) });
+    const before = s.town.map((one) => C.wantName(one));
+    s.day += 1;
+    C.driftWants(s);
+    return s.town.every((one, i) => C.wantName(one) === before[i]);
+  })());
+
+  ok('getting what you came for settles it: you want something else after', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(606) });
+    enrich(s, 4000);
+    const one = townsperson(s, 'guard');
+    one.want = { cat: 'swords', item: null };
+    one.standards = 0;
+    stock(s, C.lineKey('shortsword', 'bronze'), 6, 100, 4);
+    const session = C.openCounter(s, null);
+    session.queue = [one.id];
+    session.at = 0;
+    const offer = C.counterNext(session, s);
+    const was = C.wantName(one);
+    const sale = C.counterRespond(session, s, 'accept');
+    return offer.kind === 'offer' && sale.kind === 'sale' && sale.got === was &&
+      one.bought === 1 && one.want !== null && one.wantDay === s.day;
+  })());
+
+  ok('a purse is real: the money paid comes out of it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(607) });
+    const one = townsperson(s, 'guard');
+    one.gold = 400; one.standards = 0;
+    stock(s, C.lineKey('shortsword', 'bronze'), 6, 100, 30);
+    const session = C.openCounter(s, null);
+    session.queue = [one.id];
+    session.at = 0;
+    C.counterNext(session, s);
+    const sale = C.counterRespond(session, s, 'accept');
+    return sale.kind === 'sale' && one.gold === 400 - sale.price &&
+      one.spent === sale.price;
+  })());
+
+  ok('nobody offers money they are not carrying', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(608) });
+    const one = townsperson(s, 'noble');
+    one.gold = 40; one.standards = 0;
+    stock(s, C.lineKey('plate', 'bronze'), 6, 100, 30);
+    const session = C.openCounter(s, null);
+    session.queue = [one.id];
+    session.at = 0;
+    const e = C.counterNext(session, s);
+    return !!e && (e.kind === 'leave' ||
+      (e.offer <= C.purseFor(one) && e.budget <= C.purseFor(one)));
+  })());
+
+  ok('an empty purse keeps you at home', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(609) });
+    stock(s, C.lineKey('shortsword', 'bronze'), 6, 100, 4);
+    for (const one of s.town) one.gold = 0;
+    const session = C.openCounter(s, null);
+    return session.queue.length === 0;
+  })());
+
+  ok('and nobody is in the same queue twice', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(610) });
+    enrich(s);
+    s.reputation = 100;
+    stock(s, C.lineKey('shortsword', 'bronze'), 400, 100, 20);
+    const session = C.openCounter(s, null);
+    return session.queue.length > 1 &&
+      new Set(session.queue).size === session.queue.length;
+  })());
+
+  ok('wages land at the turn of the week, and only then', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(611), gold: 100000 });
+    for (const one of s.town) one.gold = 0;
+    const owed = s.town.reduce((a, o) => a + o.income, 0);
+    for (let i = 0; i < 3; i++) C.shopAdvancePhase(s);       // day 2
+    const midweek = s.town.reduce((a, o) => a + o.gold, 0);
+    while (s.day < C.SHOP.weekLength + 1) {
+      for (let i = 0; i < 3; i++) C.shopAdvancePhase(s);
+    }
+    const payday = s.town.reduce((a, o) => a + o.gold, 0);
+    return midweek === 0 && payday >= owed;
+  })());
+
+  ok('the shop cannot take out more than the town can put in', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(612) });
+    const purse = s.town.reduce((a, o) => a + o.gold, 0);
+    stock(s, C.lineKey('shortsword', 'bronze'), 4000, 100, 1);
+    let taken = 0;
+    for (let i = 0; i < 40; i++) taken += C.runCounter(s, null).revenue;
+    return taken > 0 && taken <= purse;
+  })());
+
+  ok('a person put down comes back the same person', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(613) });
+    const one = s.town[0];
+    one.gold = 777; one.bought = 3; one.spent = 91;
+    one.want = { cat: 'swords', item: 'shortsword' };
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const again = back.town.find((o) => o.name === one.name);
+    return !!again && again.gold === 777 && again.income === one.income &&
+      again.standards === one.standards && again.bought === 3 && again.spent === 91 &&
+      again.want.item === 'shortsword' && back.town.length === s.town.length;
+  })());
+
+  ok('a forge saved before there was a town is given one', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(614) });
+    const data = C.serializeShop(s);
+    delete data.town;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return !!back && back.town.length === C.townTarget(back) &&
+      back.town.every((one) => one.gold > 0 && !!one.name);
+  })());
+
+  ok('a save whose town is rubbish still leaves a town', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(615) });
+    const data = C.serializeShop(s);
+    data.town = [null, 17, { type: 'dragon' },
+      { name: 'Real Person', type: 'farmer', gold: 'lots', income: -5,
+        standards: 900, want: { cat: 'trebuchets' } }];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const real = back.town.find((o) => o.name === 'Real Person');
+    return !!back && !!real && real.gold === 0 && real.income > 0 &&
+      real.standards <= 100 && !!real.want &&
+      !!C.shopCategory(real.want.cat) && back.town.length === C.townTarget(back);
+  })());
+}
+
 section('Open Your Forge: pricing and customers');
 {
   ok('every finished item has a recommended price', (() => {
@@ -2686,6 +2975,7 @@ section('Open Your Forge: the counter');
 
   ok('accepting an offer sells at the offer, not the asking price', (() => {
     const s = C.createShop({ rnd: C.mulberry32(27) });
+    enrich(s);
     for (let round = 0; round < 60; round++) {
       stock(s, C.lineKey('plate', 'bronze'), 60, 100, 400);
       const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
@@ -2762,6 +3052,7 @@ section('Open Your Forge: the counter');
 
   ok('a counter that lands sells at the price you named', (() => {
     const s = C.createShop({ rnd: C.mulberry32(65) });
+    enrich(s);
     stock(s, C.lineKey('plate', 'bronze'), 200, 100, 400);
     for (let round = 0; round < 80; round++) {
       const session = C.openCounter(s, { kind: 'player', power: 6, name: 'You' });
@@ -2786,6 +3077,7 @@ section('Open Your Forge: the counter');
     // priced dear enough to be haggled over, not so dear that everyone baulks
     // before they ever make an offer
     const s = C.createShop({ rnd: C.mulberry32(66) });
+    enrich(s);
     let walked = 0, held = 0, sold = 0, tries = 0;
     for (let round = 0; round < 200 && tries < 40; round++) {
       stock(s, C.lineKey('plate', 'bronze'), 400, 100, 400);
@@ -2811,6 +3103,7 @@ section('Open Your Forge: the counter');
 
   ok('their last word is their own offer, taken as it stands', (() => {
     const s = C.createShop({ rnd: C.mulberry32(67) });
+    enrich(s);
     for (let round = 0; round < 200; round++) {
       stock(s, C.lineKey('plate', 'bronze'), 400, 100, 400);
       const session = C.openCounter(s, { kind: 'player', power: 1, name: 'You' });
@@ -2838,15 +3131,22 @@ section('Open Your Forge: the counter');
       const s = C.createShop({ rnd: C.mulberry32(500) });
       // a longsword is wanted broadly, so the queue is full of people who
       // actually haggle - full plate draws only the three richest, who barely do
-      stock(s, C.lineKey('longsword', 'bronze'), 400, 100, 160);
+      enrich(s);
+      stock(s, C.lineKey('longsword', 'bronze'), 4000, 100, 92);
       let won = 0, tried = 0;
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 200; i++) {
         const session = C.openCounter(s, { kind: 'staff', power: power, name: 'X' });
         let guard = 0;
         while (guard++ < 200) {
           const e = C.counterNext(session, s);
           if (!e) break;
-          if (e.kind === 'offer') C.counterRespond(session, s, 'haggle');
+          if (e.kind !== 'offer') continue;
+          if (e.full || e.final) { C.counterRespond(session, s, 'reject'); continue; }
+          // split the difference rather than ask the earth: what is under test
+          // is the seller's skill, not how hopeless a demand can be
+          const bounds = C.counterBounds(e);
+          C.counterRespond(session, s, 'haggle',
+            Math.round((bounds.min + bounds.max) / 2));
         }
         won += session.report.won; tried += session.report.haggles;
       }
@@ -2868,9 +3168,10 @@ section('Open Your Forge: offering something else');
     for (let n = 0; n < 400; n++) {
       const s = C.createShop({ rnd: C.mulberry32(seed + n * 7) });
       s.gold = 9999;
+      enrich(s);
       for (const line of stockLines) stock(s, C.lineKey(line[0], 'bronze'), 6, 100, line[1]);
       const session = C.openCounter(s, null);
-      session.queue = [typeId];
+      session.queue = [townsperson(s, typeId).id];
       session.at = 0;
       const event = C.counterNext(session, s);
       if (event && event.kind === 'offer' && event.key === wantKey) {

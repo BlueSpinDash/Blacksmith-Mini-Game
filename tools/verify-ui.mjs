@@ -1689,8 +1689,8 @@ async function run() {
   ok('gold, rent and rating are on screen at a glance',
     board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
     JSON.stringify(board));
-  ok('materials, storage, the floor, staff and growth each have a panel',
-    board.tabs.join(',') === 'Shop,Storage,Metal,Staff,Growth', board.tabs.join(','));
+  ok('the floor, storage, metal, the town, staff and growth each have a panel',
+    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Staff,Growth', board.tabs.join(','));
   ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
     () => document.querySelector('#shActions [data-act="tend"]').disabled));
   ok('the Almanac is a book and not a job, so it is never shut', await page.evaluate(
@@ -2736,6 +2736,147 @@ async function run() {
     for (let i = 0; i < 21; i++) F.core.shopAdvancePhase(s);
     return s.closed === true;
   }));
+
+  section('Open Your Forge: the town is people with names');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 40000;
+    F.testClearFloor(sh);
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 6, 93, 30);
+    F.shopUi.tab = 'town';
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const town = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    const cards = Array.from(document.querySelectorAll('#shPanel [data-town]'));
+    const panel = document.getElementById('shPanel');
+    return { cards: cards.length, people: sh.town.length,
+      cap: panel.textContent.slice(0, 90),
+      names: new Set(sh.town.map((o) => o.name)).size,
+      faces: cards.filter((c) => c.querySelector('.portrait')).length,
+      purses: cards.filter((c) => /\d/.test(c.querySelector('.tc-purse').textContent)).length,
+      wants: cards.filter((c) => /after /.test(c.querySelector('.tc-want').textContent)).length,
+      wide: panel.scrollWidth > panel.clientWidth + 1 };
+  });
+  ok('the Town tab lists everybody who shops here, by name',
+    town.cards === town.people && town.people > 15 && town.names === town.people,
+    JSON.stringify(town).slice(0, 200));
+  ok('each of them has a face, a purse and something they are after',
+    town.faces === town.cards && town.purses === town.cards && town.wants === town.cards,
+    JSON.stringify(town));
+  ok('and the roster fits a phone without scrolling sideways', town.wide === false);
+  ok('the tab says what the town is worth between them',
+    /within reach/.test(town.cap) && /between them/.test(town.cap), town.cap);
+
+  await page.click('#shPanel [data-town]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const person = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ')
+  }));
+  ok('reading somebody gives their wage, their purse and their standards',
+    /Carrying/.test(person.body) && /turn of the week/.test(person.body) &&
+    /Will spend/.test(person.body) && /Standards/.test(person.body) &&
+    /After/.test(person.body) && /Bought here/.test(person.body),
+    person.body.slice(0, 260));
+  ok('and the sheet is headed with their name',
+    person.title.length > 2 && /\w/.test(person.title), person.title);
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(120);
+
+  ok('a purse is spent down and filled again at the turn of the week',
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      const one = sh.town[0];
+      one.gold = 500;
+      const income = one.income;
+      C.payTown(sh);
+      const afterPay = one.gold;
+      one.gold = 0;
+      return afterPay === 500 + income && C.purseFor(one) === 0;
+    }));
+
+  ok('somebody who has been looking a week starts looking for something else',
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      for (const one of sh.town) { one.gold = 400; one.wantDay = 1; }
+      sh.day += C.SHOP.town.wantDays + 1;
+      const before = sh.town.map((o) => C.wantName(o));
+      const changed = C.driftWants(sh);
+      const after = sh.town.map((o) => C.wantName(o));
+      F.shopRender();
+      return changed.length > 0 && after.some((w, i) => w !== before[i]);
+    }));
+
+  section('Open Your Forge: the board you worked is on the price tag');
+  const bands = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.testClearFloor(sh);
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 4, 96, 40);
+    F.testStock(sh, C.lineKey('hatchet', 'bronze'), 4, 22, 9);
+    F.shopUi.tab = 'shelf';
+    F.shopRender();
+    return {
+      tags: Array.from(document.querySelectorAll('#shPanel .shelf-box .sb-tag'))
+        .map((t) => t.textContent),
+      crude: C.recommendedPrice('shortsword', 'bronze', 10),
+      master: C.recommendedPrice('shortsword', 'bronze', 98)
+    };
+  });
+  ok('a stand names the work standing on it, not just the price',
+    bands.tags.indexOf('Masterwork') >= 0 && bands.tags.indexOf('Crude') >= 0,
+    bands.tags.join(','));
+  ok('and a masterwork is worth several times what crude work is',
+    bands.master > bands.crude * 2.5, bands.crude + ' -> ' + bands.master);
+
+  ok('somebody with standards will not look at rough work', await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.testClearFloor(sh);
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 6, 18, 8);
+    const knight = C.makeTownsfolk(sh, 'knight');
+    knight.gold = 9000;
+    knight.standards = 70;
+    knight.want = { cat: 'swords', item: null };
+    const rough = C.chooseGoods(sh, knight);
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 6, 96, 8);
+    const good = C.chooseGoods(sh, knight);
+    F.shopRender();
+    return rough === null && good === C.lineKey('shortsword', 'bronze');
+  }));
+
+  ok('the counter names the person, their trade and what brought them in',
+    await (async () => {
+      await page.evaluate(() => {
+        const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+        F.testClearFloor(sh);
+        sh.reputation = 70;
+        for (const one of sh.town) one.gold = 4000;
+        F.testStock(sh, C.lineKey('shortsword', 'bronze'), 200, 94, 20);
+        F.shopUi.tab = 'shelf';
+        F.shopRender();
+      });
+      await page.click('#shActions [data-act="tend"]');
+      await page.waitForTimeout(350);
+      const head = await page.evaluate(() => {
+        const el = document.querySelector('#shopSheetBody .cust-head');
+        const F = window.CHECKSMITH;
+        const p = F.shopUi.session && F.shopUi.session.pending;
+        return { text: el ? el.innerText.replace(/\s+/g, ' ') : '',
+          who: p ? p.name : '', trade: p ? p.trade : '', after: p ? p.after : '',
+          named: !!(p && F.core.townsfolkById(F.app.shop, p.who)) };
+      });
+      return head.named && head.text.indexOf(head.who) >= 0 &&
+        /after /i.test(head.text) && /\dg/.test(head.text) &&
+        head.text.toLowerCase().indexOf(head.after.toLowerCase()) >= 0;
+    })());
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopSheetClose();
+    F.shopUi.session = null;
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
 
   section('Open Your Forge: the Checksmith Almanac');
   await page.evaluate(() => {

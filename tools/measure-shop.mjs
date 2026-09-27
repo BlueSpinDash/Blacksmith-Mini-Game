@@ -3,15 +3,22 @@
 import { loadCore } from './load-core.mjs';
 const C = loadCore();
 
-/* What this plain shopkeeper works. It is whatever the forge knows that is
-   worth the most, so the run follows the blueprint tree upward as the shop
-   learns rather than staying on one recipe forever. */
-function bestSeller(shop) {
-  let best = null;
+/* What this plain shopkeeper works: the dearest thing they know how to make
+   that the town can actually pay for. Purses are real money now, so making
+   greatswords for a street of labourers is a way to go under, and a bot that
+   did it would measure the shop's floor rather than its ceiling. */
+function bestSeller(shop, quality = 88) {
+  const purses = shop.town.map((one) => C.purseFor(one)).sort((a, b) => a - b);
+  // what the better half of the town could put on the counter
+  const reach = purses.length ? purses[Math.floor(purses.length * 0.45)] : 40;
+  let best = null, fallback = null;
   for (const it of C.knownRecipes(shop)) {
-    if (!best || it.price > best.price) best = it;
+    const price = C.recommendedPrice(it.id, 'bronze', quality);
+    if (!fallback || price < C.recommendedPrice(fallback.id, 'bronze', quality)) fallback = it;
+    if (price > reach) continue;
+    if (!best || price > C.recommendedPrice(best.id, 'bronze', quality)) best = it;
   }
-  return best ? best.id : 'shortsword';
+  return (best || fallback || { id: 'shortsword' }).id;
 }
 
 /* A shopkeeper who notices the floor is full buys another stand for it, which
@@ -77,9 +84,11 @@ function playWeeks(seed, weeks, opts = {}) {
   const sold = trace.reduce((a, t) => a + t.sold, 0);
   const revenue = trace.reduce((a, t) => a + t.revenue, 0);
   const customers = trace.reduce((a, t) => a + t.customers, 0);
+  const purses = shop.town.reduce((a, o) => a + o.gold, 0);
   return { seed, closed: shop.closed, day: shop.day, gold: shop.gold,
     weeksPaid: shop.rentPaid, stars: C.shopStars(shop),
     known: shop.known.length, stands: shop.stands.length,
+    town: shop.town.length, purses: purses,
     customers, sold, revenue, sellPhases: trace.length,
     afterWeek: weekly.map((w) => w.gold).join(' / ') };
 }

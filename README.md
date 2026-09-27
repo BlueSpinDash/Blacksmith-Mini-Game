@@ -695,6 +695,50 @@ Saves from before there were stands carry a `shelf` map; `restoreShop` gives
 each line a stand of the right kind up to what the premises hold and puts the
 overflow into storage rather than dropping it.
 
+### The board you worked is the price tag
+
+Quality is the forge puzzle's own score, 0–100, and `qualityFactor` turns it
+into what the goods are actually worth. The spread is deliberately wide —
+`SHOP.quality` runs from **0.30** of the list price at quality 0 to **1.15** at
+100 — so the same sword can be worth four times another one. `qualityBand`
+names the five bands (Crude, Plain, Sound, Fine, Masterwork) and they are shown
+wherever a piece is: on the stand, in storage, on the anvil, in the picker and
+at the counter.
+
+Quality is also a gate, not only a multiplier. Every archetype carries a
+`standards` floor and every person strays from it a little, and `chooseGoods`
+drops anything under it before price is even considered. A labourer buys
+whatever works; a collector will not look at anything below a Masterwork. A
+botched board does not merely fetch less — it costs you the people who would
+have paid most.
+
+### The town is people, not rolls
+
+`shop.town` is a persistent roster of **named** people, saved with the shop.
+Each one has a trade, a purse with real money in it, an `income` paid at the
+turn of the week, a `standards` floor and a standing `want`. They come back.
+
+- **Wealth is real.** `purseFor` is the most somebody will put into one piece.
+  Nobody offers gold they are not carrying, `settleSale` takes the money out of
+  that purse, and a purse you empty stays empty until payday. The shop cannot
+  take out more than the town can put in.
+- **Payday is the week's turn** — the same beat as the rent. `payTown` pays
+  everybody their wage and `growTown` brings new faces as the shop's name
+  spreads.
+- **Wants change.** `rollWant` draws from the trade's own taste, so a farmer
+  wants farm things; one want in four is a single named recipe rather than a
+  kind of thing. `driftWants` gives up on a want that has gone `SHOP.town.wantDays`
+  unanswered, and buying what you came for settles it and starts another.
+  Somebody who can see what they want on the floor comes in sooner.
+- **Your name decides who is in town at all.** `townReach` reads a trade's
+  standards back as the stars a shop needs before that trade has heard of it —
+  a one-star corner forge is known to labourers and the town watch; a collector
+  will not cross the road for anything under five. It is derived, not a second
+  table.
+
+The **Town** tab lists everybody by name with their face, trade, purse and what
+they are after; tapping one reads them in full.
+
 ### Pricing and customers
 
 Every line has a recommended price and starts there; the player may ask
@@ -1053,7 +1097,9 @@ SHOP.categories                        // the sixteen shelves of the catalogue
 SHOP.items                             // every recipe: size, price, tree depth, needs, tags
 SHOP.startingRecipes / SHOP.unlock     // what a forge opens knowing, and what the rest cost
 SHOP.stands / SHOP.standHold           // the six fixtures, and how much one holds
-SHOP.customers                         // who shops here; `likes` is derived, never written
+SHOP.customers                         // the trades: budget, haggle, standards, income
+SHOP.town                              // town size, wants, purses and how fast they refill
+SHOP.quality / SHOP.qualityBands       // what the puzzle result is worth, and its five names
 SHOP.purseBase                         // what a middling customer thinks twice at
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
 SHOP.tiers                             // premises: rent, staff, stands, storage, batch
