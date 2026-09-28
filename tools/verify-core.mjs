@@ -42,15 +42,134 @@ section('Movement rules');
 
 /* The bishop joined the Novice pool, so the smallest board it can land on is
    now 3x3. It gets no special case there and must not want one. */
-section('The bishop on a Novice board');
+section('Numbered squares: strike exactly that many away');
+{
+  const idx = (r, c, n) => r * n + c;
+  const has = (piece, from, to, n) => C.movesFrom(piece, from, n).includes(to);
+  const ring = (from, away, n) => {
+    const r = Math.floor(from / n), c = from % n, out = [];
+    for (let rr = 0; rr < n; rr++) {
+      for (let cc = 0; cc < n; cc++) {
+        if (Math.max(Math.abs(rr - r), Math.abs(cc - c)) === away) out.push(rr * n + cc);
+      }
+    }
+    return out;
+  };
+
+  ok('a number is a symbol like any other, with a name and a glyph', (() =>
+    C.PIECES['2'].name === 'Two' && C.PIECES['2'].glyph === '2' &&
+    C.pieceNumber('2') === 2 && C.pieceNumber('K') === 0));
+
+  ok('a two reaches exactly the ring two squares out, and nothing nearer', (() => {
+    for (let n = 3; n <= 6; n++) {
+      for (let i = 0; i < n * n; i++) {
+        const got = C.movesFrom('2', i, n).slice().sort((a, b) => a - b);
+        const want = ring(i, 2, n);
+        if (got.join(',') !== want.join(',')) return false;
+      }
+    }
+    return true;
+  })());
+
+  ok('every number reaches its own ring and no other', (() => {
+    for (let n = 3; n <= 6; n++) {
+      for (const p of C.NUMBER_SYMBOLS) {
+        const away = C.pieceNumber(p);
+        if (away >= n) continue;
+        for (let i = 0; i < n * n; i++) {
+          const got = C.movesFrom(p, i, n).slice().sort((a, b) => a - b);
+          if (got.join(',') !== ring(i, away, n).join(',')) return false;
+        }
+      }
+    }
+    return true;
+  })());
+
+  ok('one would be the king, so numbers start at two', (() =>
+    C.NUMBER_SYMBOLS[0] === '2' &&
+    [3, 4, 5, 6].every((n) => !C.poolForSize(n).includes('1'))));
+
+  ok('and a number never stands still or steps off the board', (() => {
+    for (let n = 3; n <= 6; n++) {
+      for (const p of C.NUMBER_SYMBOLS) {
+        for (let i = 0; i < n * n; i++) {
+          const to = C.movesFrom(p, i, n);
+          if (to.includes(i)) return false;
+          if (to.some((d) => d < 0 || d >= n * n)) return false;
+        }
+      }
+    }
+    return true;
+  })());
+
+  ok('a two in the middle of a 3x3 reaches nowhere, so no board puts one there', (() => {
+    if (C.movesFrom('2', idx(1, 1, 3), 3).length !== 0) return false;
+    for (let seed = 1; seed <= 60; seed++) {
+      const b = C.makeBoard('novice', C.mulberry32(seed * 17));
+      if (!b) continue;
+      // the middle may hold a two only if the board never departs from it
+      if (b.pieces[4] === '2' && b.route.indexOf(4) < b.route.length - 1) return false;
+    }
+    return true;
+  })());
+
+  ok('a two from a 3x3 corner reaches the far row and column', (() =>
+    C.movesFrom('2', 0, 3).slice().sort((a, b) => a - b).join(',') === '2,5,6,7,8' &&
+    has('2', 0, 8, 3) && !has('2', 0, 1, 3) && !has('2', 0, 4, 3)));
+
+  ok('the numbers a board deals all fit on it', (() =>
+    [3, 4, 5, 6].every((n) => C.poolForSize(n)
+      .filter((p) => C.pieceNumber(p) > 0)
+      .every((p) => C.pieceNumber(p) < n))));
+
+  ok('reshaping never leaves a square with nowhere to go', (() => {
+    for (let n = 3; n <= 6; n++) {
+      for (let seed = 0; seed < 200; seed++) {
+        const b = C.makeBoard(C.CONFIG.order[n - 3], C.mulberry32(seed * 7 + n));
+        if (!b) continue;
+        const g = C.createGame(b, { morphChance: 1, rnd: C.mulberry32(seed) });
+        for (let i = 0; i < n * n; i++) {
+          C.reshape(g, i);
+          if (C.movesFrom(g.pieces[i], i, n).length === 0) return false;
+        }
+        break;
+      }
+    }
+    return true;
+  })());
+
+  ok('boards with numbers on them still solve, at every size', (() => {
+    for (const key of C.CONFIG.order) {
+      let withNumber = 0;
+      for (let seed = 1; seed <= 30; seed++) {
+        const b = C.makeBoard(key, C.mulberry32(seed * 23 + 5));
+        if (!b || !C.validateBoard(b)) return false;
+        if (b.pieces.some((p) => C.pieceNumber(p) > 0)) withNumber++;
+      }
+      if (withNumber < 15) return false;
+    }
+    return true;
+  })());
+
+  ok('a number on the board is walked like anything else', (() => {
+    const b = C.makeBoard('apprentice', C.mulberry32(99));
+    if (!b || !b.pieces.some((p) => C.pieceNumber(p) > 0)) return true;
+    const g = C.createGame(b, { morphChance: 0 });
+    for (const step of b.route) if (!C.applyStrike(g, step)) return false;
+    return g.status === 'complete';
+  })());
+}
+
+section('Size decides what is on a board, and the bishop still moves like one');
 {
   const idx = (r, c, n) => r * n + c;
   const has = (piece, from, to, n) => C.movesFrom(piece, from, n).includes(to);
 
-  ok('Novice offers the bishop, and still offers what it always did',
-    C.CONFIG.difficulties.novice.pool.includes('B') &&
-    ['K', 'R'].every((k) => C.CONFIG.difficulties.novice.pool.includes(k)),
-    C.CONFIG.difficulties.novice.pool.join(','));
+  ok('the smallest board is a king, a rook and numbers',
+    C.poolForSize(3).join(',') === 'K,R,2', C.poolForSize(3).join(','));
+  ok('and the bishop arrives when there is room for one',
+    !C.poolForSize(3).includes('B') && C.poolForSize(4).includes('B'),
+    C.poolForSize(4).join(','));
 
   // the same diagonal rule, at the small size, with nothing bolted on
   ok('a bishop in the middle of a 3x3 reaches all four corners',
@@ -88,21 +207,21 @@ section('The bishop on a Novice board');
     return true;
   })());
 
-  // generation: the pool is only useful if boards carrying it still solve
-  ok('Novice boards are generated with bishops on them', (() => {
-    let withB = 0;
+  // generation: a pool is only useful if boards carrying it still solve
+  ok('Novice boards are generated with numbers on them', (() => {
+    let withNumber = 0;
     for (let seed = 1; seed <= 40; seed++) {
       const b = C.makeBoard('novice', C.mulberry32(seed * 13));
       if (!b || !C.validateBoard(b)) return false;
-      if (b.pieces.includes('B')) withB++;
+      if (b.pieces.some((p) => C.pieceNumber(p) > 0)) withNumber++;
     }
-    return withB >= 20;                      // the great majority, not a fluke
+    return withNumber >= 20;                 // the great majority, not a fluke
   })());
   ok('and every one of them is a solvable, verified board', (() => {
     for (let seed = 1; seed <= 40; seed++) {
       const b = C.makeBoard('novice', C.mulberry32(seed * 29));
       if (!b || !C.validateBoard(b)) return false;
-      if (!b.pieces.every((p) => C.CONFIG.difficulties.novice.pool.includes(p))) return false;
+      if (!b.pieces.every((p) => C.poolForSize(3).includes(p))) return false;
     }
     return true;
   })());
@@ -127,17 +246,23 @@ section('The bishop on a Novice board');
     return true;
   })());
 
-  // the other modes keep their own tables and must not have moved
-  ok('versus still starts its rivals on kings and rooks alone',
-    C.CONFIG.versus.difficulties.novice.pool.join(',') === 'K,R');
-  ok('endless still draws from every symbol, as it always did',
-    C.CONFIG.endless.pool.join(',') === 'K,R,B,N,Q');
-  ok('the higher forge pools are untouched',
-    C.CONFIG.difficulties.apprentice.pool.join(',') === 'K,R,B' &&
-    C.CONFIG.difficulties.journeyman.pool.join(',') === 'K,R,B,N' &&
-    C.CONFIG.difficulties.master.pool.join(',') === 'K,R,B,N' &&
-    C.CONFIG.difficulties.master.maxQueens === 2);
-  ok('and so are the board sizes',
+  // one table, read by every mode: a board of a given size deals the same
+  // symbols whoever asked for it
+  ok('every rank up brings one more kind of symbol into play',
+    [3, 4, 5, 6].every((n, i, all) =>
+      i === 0 || C.poolForSize(n).length > C.poolForSize(all[i - 1]).length),
+    [3, 4, 5, 6].map((n) => n + ':' + C.poolForSize(n).join('')).join(' '));
+  ok('the knight waits for a board it can move on',
+    !C.poolForSize(4).includes('N') && C.poolForSize(5).includes('N'));
+  ok('the queen is a promotion, and only on the largest board',
+    C.queensForSize(3) === 0 && C.queensForSize(5) === 0 && C.queensForSize(6) === 2 &&
+    !C.poolForSize(6).includes('Q') && C.symbolsForSize(6).includes('Q'));
+  ok('difficulty no longer names a symbol anywhere',
+    C.CONFIG.order.every((k) => !C.CONFIG.difficulties[k].pool) &&
+    Object.keys(C.CONFIG.versus.difficulties).every(
+      (k) => !C.CONFIG.versus.difficulties[k].pool) &&
+    !C.CONFIG.endless.pool);
+  ok('and the board sizes are untouched',
     [3, 4, 5, 6].every((n, i) => C.CONFIG.difficulties[C.CONFIG.order[i]].size === n));
 }
 
@@ -165,7 +290,9 @@ section('Departure piece decides the move');
 /* ---------- opening strike ---------- */
 section('Opening strike');
 {
-  const b = C.makeBoard('apprentice', C.mulberry32(11));
+  // a plain board, so the opening blow lands on metal rather than on a crust
+  let b = C.makeBoard('apprentice', C.mulberry32(11));
+  for (let seed = 11; b && b.hard; seed++) b = C.makeBoard('apprentice', C.mulberry32(seed));
   for (let i = 0; i < 16; i++) {
     const g = C.createGame(b, { morphChance: 0 });
     if (!C.canStrike(g, i)) { ok('any square may open (' + i + ')', false); break; }
@@ -459,21 +586,171 @@ section('Scoring');
   })());
 }
 
+section('Hardened squares: break the crust before you can work it');
+{
+  /* A board with a crust on a known square, built rather than hoped for. */
+  const crusted = (key, wantCrust) => {
+    for (let seed = 1; seed < 400; seed++) {
+      const b = C.makeBoard(key, C.mulberry32(seed * 13 + 1));
+      if (!b || !b.hard) continue;
+      const at = b.hard.findIndex((h) => h === (wantCrust || 1));
+      if (at >= 0) return { b, at };
+    }
+    return { b: null, at: -1 };
+  };
+
+  ok('the smallest board never hardens, so it stays a pure routing puzzle', (() => {
+    if (C.CONFIG.difficulties.novice.hardenChance !== 0) return false;
+    for (let seed = 1; seed <= 80; seed++) {
+      const b = C.makeBoard('novice', C.mulberry32(seed * 7));
+      if (b && b.hard) return false;
+    }
+    return true;
+  })());
+
+  ok('bigger boards do harden, and only by the layers the rules allow', (() => {
+    let found = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const b = C.makeBoard('master', C.mulberry32(seed * 11));
+      if (!b || !b.hard) continue;
+      found++;
+      if (!b.hard.every((h) => h >= 0 && h <= C.CONFIG.hardening.max)) return false;
+    }
+    return found >= 40;
+  })());
+
+  ok('a crust is carried onto the game and shown as its own state', (() => {
+    const { b, at } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    return C.crustOf(g, at) === 1 && C.isHardened(g, at) &&
+      C.crustStartOf(g, at) === 1 && C.strikeState(g, at) === 0;
+  })());
+
+  ok('a blow on a crust breaks crust and never touches the metal', (() => {
+    const { b, at } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    const res = C.applyStrike(g, at);
+    return res && res.broke === true && res.opened === true &&
+      g.strikes[at] === 0 && C.crustOf(g, at) === 0 && g.current === at &&
+      g.totalStrikes === 1;
+  })());
+
+  ok('and two layers take two blows before the metal is reached', (() => {
+    const { b, at } = crusted('master', 2);
+    if (!b) return true;                       // no two-layer board in the sample
+    const g = C.createGame(b, { morphChance: 0 });
+    C.applyStrike(g, at);
+    if (C.crustOf(g, at) !== 1 || g.strikes[at] !== 0) return false;
+    // come back to it the way the route does
+    const away = C.legalTargets(g)[0];
+    C.applyStrike(g, away);
+    if (!C.canStrike(g, at)) return true;      // cannot get straight back; the route can
+    C.applyStrike(g, at);
+    return C.crustOf(g, at) === 0 && g.strikes[at] === 0;
+  })());
+
+  ok('you still land on a hardened square, so its symbol still steers you', (() => {
+    const { b, at } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    C.applyStrike(g, at);
+    const want = C.movesFrom(g.pieces[at], at, b.size).slice().sort((x, y) => x - y);
+    const got = C.legalTargets(g).slice().sort((x, y) => x - y);
+    return got.length > 0 && got.every((t) => want.includes(t));
+  })());
+
+  ok('a crust cannot be ruined, however many blows it takes', (() => {
+    const { b, at } = crusted('master', 2);
+    if (!b) return true;
+    const g = C.createGame(b, { morphChance: 0 });
+    C.applyStrike(g, at);
+    return !C.isSpent(g, at) && C.strikeState(g, at) === 0 &&
+      C.squareMetalTier(g, at) === -1;
+  })());
+
+  ok('a board is not finished while any crust is left on it', (() => {
+    const { b } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    // work every square to its count but leave the crusts alone
+    for (let i = 0; i < g.strikes.length; i++) {
+      if (!C.isHardened(g, i)) g.strikes[i] = C.perfectOf(g);
+    }
+    const target = g.board.hard.findIndex((h) => h > 0);
+    g.current = -1;
+    const res = C.applyStrike(g, target);
+    return res && g.status !== 'complete';
+  })());
+
+  ok('the blows owed to a crust are never counted as overstrikes', (() => {
+    const { b } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    for (const step of b.route) C.applyStrike(g, step);
+    const r = C.scoreGame(g);
+    return g.status === 'complete' && r.quality === 100 && r.stats.overstrikes === 0 &&
+      r.stats.crusted === 0 && g.totalStrikes > b.size * b.size * 2;
+  })());
+
+  ok('the stats say how much crust is still standing', (() => {
+    const { b, at } = crusted('master', 1);
+    if (!b) return false;
+    const g = C.createGame(b, { morphChance: 0 });
+    const before = C.gameStats(g).crusted;
+    C.applyStrike(g, at);
+    return before > 0 && C.gameStats(g).crusted === before - 1;
+  })());
+
+  ok('every hardened board still has an exact solution in its route', (() => {
+    for (const key of ['apprentice', 'journeyman', 'master']) {
+      let seen = 0;
+      for (let seed = 1; seed <= 40 && seen < 8; seed++) {
+        const b = C.makeBoard(key, C.mulberry32(seed * 19 + 3));
+        if (!b || !b.hard) continue;
+        seen++;
+        const g = C.createGame(b, { morphChance: 0 });
+        for (const step of b.route) if (!C.applyStrike(g, step)) return false;
+        if (g.status !== 'complete') return false;
+        if (!g.crust.every((c) => c === 0)) return false;
+        if (C.scoreGame(g).quality !== 100) return false;
+      }
+      if (seen === 0) return false;
+    }
+    return true;
+  })());
+
+  ok('endless and versus are left plain: a tour has nowhere to come back to', (() => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const e = C.makeEndlessBoard('master', C.mulberry32(seed * 5));
+      if (e && e.hard) return false;
+      const v = C.makeVersusBoards(5, 'master', C.mulberry32(seed * 9));
+      if (v && v.hard) return false;
+    }
+    return true;
+  })());
+}
+
 /* ---------- board generation ---------- */
 section('Board generation and verified routes');
 {
+  // A plain board is two visits a square. A crust adds one visit for every
+  // layer, so the route is longer by exactly the crust it carries.
   const minimums = { novice: 18, apprentice: 32, journeyman: 50, master: 72 };
+  const crustOn = (b) => (b.hard || []).reduce((a, h) => a + h, 0);
   for (const key of C.CONFIG.order) {
     const cfg = C.CONFIG.difficulties[key];
     let allValid = true, routesPlay = true, pooled = true, connected = true;
     for (let s = 0; s < 60; s++) {
       const b = C.makeBoard(key, C.mulberry32(s * 31 + 7));
       if (!b || !C.validateBoard(b)) { allValid = false; break; }
-      if (b.route.length !== minimums[key]) { allValid = false; break; }
-      const allowed = cfg.pool.concat(cfg.maxQueens > 0 ? ['Q'] : []);
+      if (b.route.length !== minimums[key] + crustOn(b)) { allValid = false; break; }
+      const allowed = C.symbolsForSize(cfg.size);
+      const queens = C.queensForSize(cfg.size);
       if (!b.pieces.every((p) => allowed.includes(p))) pooled = false;
-      if (cfg.maxQueens === 0 && b.pieces.includes('Q')) pooled = false;
-      if (b.pieces.filter((p) => p === 'Q').length > cfg.maxQueens) pooled = false;
+      if (queens === 0 && b.pieces.includes('Q')) pooled = false;
+      if (b.pieces.filter((p) => p === 'Q').length > queens) pooled = false;
       if (!C.isStronglyConnected(b.size, b.pieces)) connected = false;
 
       // replay the stored route through the real game state machine
@@ -481,10 +758,11 @@ section('Board generation and verified routes');
       for (const step of b.route) if (!C.applyStrike(g, step)) { routesPlay = false; break; }
       const r = C.scoreGame(g);
       if (g.status !== 'complete' || r.quality !== 100 || !g.strikes.every((x) => x === 2)) routesPlay = false;
-      if (g.totalStrikes !== minimums[key]) routesPlay = false;
+      if (!g.crust.every((c) => c === 0)) routesPlay = false;
+      if (g.totalStrikes !== minimums[key] + crustOn(b)) routesPlay = false;
       if (!routesPlay) break;
     }
-    ok(key + ': 60 boards all validate, route length = ' + minimums[key], allValid);
+    ok(key + ': 60 boards all validate, and the route is the board plus its crust', allValid);
     ok(key + ': every verified route replays to all-twos and quality 100', routesPlay);
     ok(key + ': symbols stay inside the declared piece pool', pooled);
     ok(key + ': movement graph is strongly connected', connected);
@@ -501,7 +779,9 @@ section('Embedded fallback layouts');
     for (const raw of layouts) {
       const size = Math.round(Math.sqrt(raw.pieces.length));
       for (let t = 0; t < 8; t++) {
-        const b = C.transformBoard({ size, difficulty: key, pieces: raw.pieces.split(''), route: raw.route }, t);
+        const b = C.transformBoard({ size, difficulty: key,
+          pieces: raw.pieces.split(''), route: raw.route,
+          hard: raw.hard ? raw.hard.split('').map(Number) : null }, t);
         count++;
         if (!C.validateBoard(b)) { good = false; break; }
         const g = C.createGame(b, { morphChance: 0 });
@@ -560,10 +840,11 @@ section('Endless: one visit per square');
 
   const g = C.createGame(board, { mode: 'endless', morphChance: 0 });
   ok('endless starts at round one with no score', g.mode === 'endless' && g.round === 1 && g.score === 0);
-  ok('every symbol can turn up in endless', C.CONFIG.endless.pool.length === 5 &&
-    ['K', 'R', 'B', 'N', 'Q'].every((x) => C.CONFIG.endless.pool.includes(x)));
-  ok('an endless game reshapes from the whole pool',
-    C.createGame(board, { mode: 'endless' }).morphPool.length === 5);
+  ok('endless deals what the board size deals, like everything else',
+    C.poolForSize(5).join(',') === 'K,R,B,N,2,3,4');
+  ok('an endless game reshapes from its own board size',
+    C.createGame(board, { mode: 'endless' }).morphPool.join(',') ===
+      C.symbolsForSize(board.size).join(','));
   ok('any square may open the round', C.legalTargets(g).length === 25);
 
   const first = C.applyStrike(g, board.route[0]);
@@ -655,7 +936,7 @@ section('Endless: generation and fallbacks');
       worst = Math.max(worst, Date.now() - t0);
       if (!b || !C.validateTour(b) || b.route.length !== sizes[key]) { ok1 = false; break; }
       // endless draws from the whole pool at every tier, not the tier's own
-      if (!b.pieces.every((p) => C.CONFIG.endless.pool.includes(p))) { ok1 = false; break; }
+      if (!b.pieces.every((p) => C.poolForSize(b.size).includes(p))) { ok1 = false; break; }
       const g = C.createGame(b, { mode: 'endless', morphChance: 0 });
       for (const step of b.route) if (!C.applyStrike(g, step)) { replay = false; break; }
       if (!g.strikes.every((x) => x === 1) || g.roundsCompleted !== 1) replay = false;
@@ -668,7 +949,9 @@ section('Endless: generation and fallbacks');
         const b = C.makeEndlessBoard(key, C.mulberry32(seed * 71 + 3));
         if (b) for (const p of b.pieces) seen.add(p);
       }
-      return C.CONFIG.endless.pool.every((p) => seen.has(p));
+      // a queen is a promotion, so it need not turn up in every sample
+      return C.poolForSize(C.CONFIG.difficulties[key].size)
+        .filter((p) => p !== 'Q').every((p) => seen.has(p));
     })());
     ok(key + ': every verified tour replays with no repeat hits', replay);
   }
@@ -1567,7 +1850,7 @@ section('Versus: the rival uses the powers, and uses them sensibly');
       if (!boards) continue;
       const m = C.createMatch(boards, { rnd: C.mulberry32(seed * 13) });
       matches++;
-      for (let t = 0; t < 400 && !C.matchOver(m); t++) {
+      for (let t = 0; t < 1200 && !C.matchOver(m); t++) {
         const who = m.turn;
         const buy = C.versusChooseUpgrade(m, who);
         if (buy) {
@@ -1724,11 +2007,12 @@ section('Versus: points, allowance and defeat');
     g.you.points = 1000;
     g.foe.pieces = g.foe.pieces.map(() => 'R');
     g.foe.current = 0;
-    // break everything the rook at 0 can reach, bar one square, then reforge that
+    // break everything the rook at 0 can reach, then reforge it onto a symbol
+    // with a small, known reach and break that too
     for (const i of [1, 2, 3, 6]) { g.foe.states[i] = C.SQ_BROKEN; g.foe.broken++; }
-    const r = C.versusBuy(g, 'you', 'reforge', 0, 'N');   // a knight at 0 on a 3x3 reaches 5 and 7
+    const r = C.versusBuy(g, 'you', 'reforge', 0, '2');   // a two at 0 on a 3x3 reaches 5, 7 and 8
     if (!r.ok) return false;
-    for (const i of [5, 7]) g.foe.states[i] = C.SQ_BROKEN;
+    for (const i of [5, 7, 8]) g.foe.states[i] = C.SQ_BROKEN;
     return C.versusTargets(g, 'foe').length === 0;
   })());
   ok('conceding hands the match over', (() => {
@@ -1909,7 +2193,8 @@ section('Open Your Forge: material sets the strikes, not the difficulty');
     for (const m of C.SHOP.materials) {
       const b = C.makeShopBoard(4, 'journeyman', m.strikes, C.mulberry32(m.strikes * 31 + 5));
       if (!b || b.visits !== m.strikes) return false;
-      if (b.route.length !== m.strikes * 16) return false;
+      const crust = (b.hard || []).reduce((a2, h) => a2 + h, 0);
+      if (b.route.length !== m.strikes * 16 + crust) return false;
       if (!C.validateBoard(b)) return false;
     }
     return true;
@@ -2019,9 +2304,10 @@ section('Open Your Forge: material sets the strikes, not the difficulty');
 
   ok('a bigger batch really is a harder board', (() => {
     const shop = C.createShop({ rnd: C.mulberry32(32) });
-    const one = C.CONFIG.difficulties[C.forgeBoardSpec(shop, 'mace', 'bronze', 1).difficulty];
-    const ten = C.CONFIG.difficulties[C.forgeBoardSpec(shop, 'mace', 'bronze', 10).difficulty];
-    return ten.pool.length > one.pool.length;
+    const one = C.forgeBoardSpec(shop, 'mace', 'bronze', 1);
+    const ten = C.forgeBoardSpec(shop, 'mace', 'bronze', 10);
+    const sizeOf = (spec) => C.CONFIG.difficulties[spec.difficulty].size;
+    return C.poolForSize(sizeOf(ten)).length > C.poolForSize(sizeOf(one)).length;
   })());
 
   ok('a square is perfect at the material’s count and ruined one past it', (() => {

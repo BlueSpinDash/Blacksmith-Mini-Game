@@ -188,6 +188,30 @@ input[type=range]{
   text-shadow:0 1px 1px #0b0c0f, 0 0 2px rgba(0,0,0,.8);
   pointer-events:none;
 }
+/* ---------- hardened squares ----------------------------------------
+   A crust sits over the metal: dark, rough and scabbed, with the symbol
+   still legible through it because the symbol is what you plan around. The
+   layers left are shown as pips, so a two-layer crust reads as two blows
+   owed rather than as a mystery. */
+.tile[data-crust]{
+  background:
+    repeating-linear-gradient(48deg, rgba(0,0,0,.34) 0 3px, rgba(255,255,255,.03) 3px 6px),
+    linear-gradient(160deg,#2b2721 0%,#1e1b17 48%,#171512 100%);
+  color:#8d8478;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 -3px 6px rgba(0,0,0,.6),
+    inset 0 0 0 1px rgba(120,96,64,.28);
+}
+.tile[data-crust] .glyph{opacity:.62;}
+.tile[data-crust]::before{opacity:.25;}
+.tile .crust{
+  position:absolute;top:3px;left:0;right:0;z-index:3;
+  display:flex;justify-content:center;gap:2px;pointer-events:none;
+}
+.tile .crust i{
+  width:4px;height:4px;border-radius:1px;background:#c2a06a;
+  box-shadow:0 0 3px rgba(194,160,106,.6);
+}
+.tile[data-legal="1"][data-crust]{color:#cbb48c;}
 /* rough hammered texture on untouched metal */
 .tile::before{
   content:"";position:absolute;inset:0;border-radius:inherit;z-index:1;
@@ -1652,17 +1676,18 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       </div>
       <h2 class="title-label" id="foeLabel">Rival skill</h2>
       <div class="difficulty" id="titleFoe" role="radiogroup" aria-labelledby="foeLabel">
-        <button class="diff-btn" type="button" data-tfoe="novice"     role="radio" aria-checked="true">Novice<small>K R</small></button>
-        <button class="diff-btn" type="button" data-tfoe="apprentice" role="radio" aria-checked="false">Appren.<small>K R B</small></button>
-        <button class="diff-btn" type="button" data-tfoe="journeyman" role="radio" aria-checked="false">Journey.<small>K R B N</small></button>
-        <button class="diff-btn" type="button" data-tfoe="master"     role="radio" aria-checked="false">Master<small>+ Q</small></button>
+        <button class="diff-btn" type="button" data-tfoe="novice"     role="radio" aria-checked="true">Novice<small>plays at random</small></button>
+        <button class="diff-btn" type="button" data-tfoe="apprentice" role="radio" aria-checked="false">Appren.<small>looks 1 ahead</small></button>
+        <button class="diff-btn" type="button" data-tfoe="journeyman" role="radio" aria-checked="false">Journey.<small>looks 2 ahead</small></button>
+        <button class="diff-btn" type="button" data-tfoe="master"     role="radio" aria-checked="false">Master<small>looks 3 ahead</small></button>
       </div>
       <p class="title-note">Board size and rival skill are chosen separately &mdash; a small board can still
-        face a Master, and a large one a Novice.</p>
+        face a Master, and a large one a Novice. The <b>size</b> decides which symbols both boards
+        are dealt; the <b>rival</b> decides only how far ahead it thinks.</p>
     </div>
     <p class="title-note" id="endlessNote" hidden>Endless always starts on the 3&times;3 board and
-      steps up a size every 5 rounds. Every symbol can appear, and the metal reshapes more often
-      the longer you last.</p>
+      steps up a size every 5 rounds. The board's size decides which symbols it deals, so each
+      step up brings a new one into play, and the metal reshapes more often the longer you last.</p>
 
     <div class="sheet-actions">
       <button class="btn primary" type="button" id="beginBtn">Begin</button>
@@ -1719,12 +1744,28 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        too often crumbles away.</p>
     <p>
       <b>1.</b> Tap any square to land the first blow.<br>
-      <b>2.</b> The chess symbol on the square you are standing on decides where the hammer may go next &mdash;
+      <b>2.</b> The symbol on the square you are standing on decides where the hammer may go next &mdash;
       the symbol on the destination does not matter.<br>
       <b>3.</b> Two strikes forge a square perfectly.<br>
       <b>4.</b> The board finishes on its own once every square has at least two strikes.
     </p>
-    <p><b>The metal reshapes.</b> A first strike can knock a square into a different piece entirely.
+    <p><b>The board's size decides what is on it</b> &mdash; not the difficulty you picked. A
+       <b>3&times;3</b> is kings, rooks and numbers. A <b>4&times;4</b> adds the bishop, a
+       <b>5&times;5</b> the knight, and a <b>6&times;6</b> the occasional queen. Every rank up
+       brings one more kind of symbol into play, because a bigger board is what gives that symbol
+       room to mean anything: a knight on a 3&times;3 could not move at all.</p>
+    <p><b>A number sends you exactly that far.</b> Land on a <b>2</b> and the next blow must fall
+       on a square exactly two away &mdash; count the rings out from where you stand, in any
+       direction, the way a king is everything one ring out. That makes one the king exactly, so
+       numbers start at two. A big number on a small board can be a tight corner: there is no
+       square two away from the middle of a 3&times;3 at all.</p>
+    <p><b>Some squares come up hardened.</b> They are scabbed over and dark, with gold pips along
+       the top saying how many blows the crust still owes. Break the crust first: those blows do
+       <i>not</i> work the metal underneath, so they neither finish the square nor can they ruin
+       it &mdash; but you still land there, so the symbol still steers you. A hardened square is a
+       routing problem, not a tax: the board is always built so there is still a way round that
+       visits it exactly often enough. The smallest board never hardens.</p>
+    <p><b>The metal reshapes.</b> A first strike can knock a square into a different symbol entirely.
        Above Novice this happens often enough to wreck a memorised route, so read the board again
        after every blow. Novice never reshapes.</p>
     <p><b>Third strikes are fatal to the square.</b> Strike a finished square again and it cracks apart.
@@ -1847,11 +1888,13 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        work <i>at any price</i>: a labourer buys whatever works, a town guard wants Plain or
        better, a knight Sound, a noble Fine, a collector nothing under a Masterwork. Botching a
        board does not merely cost you gold; it costs you the people who would have paid most.</p>
-    <p><b>The order is the difficulty.</b> There is nothing to pick. <b>Every three pieces in a
-       batch</b> is another tier of symbols on the board: one to three is a Novice board of kings,
-       rooks and bishops; four to six is Apprentice; seven to nine adds knights; ten or more brings
-       in the occasional queen. So a big batch is the efficient thing and the risky thing at once
-       &mdash; more goods off one puzzle, on a board far more likely to strand you.</p>
+    <p><b>The order is the difficulty.</b> There is nothing to pick. The <b>item</b> decides the
+       board it is worked on, and the board's size decides which symbols are dealt onto it &mdash;
+       a dagger is a 3&times;3 of kings, rooks and numbers however many you order. What the
+       <b>batch</b> raises is how unruly that metal is: <b>every three pieces</b> makes squares
+       likelier to reshape under the hammer and likelier to come up hardened. So a big batch is
+       the efficient thing and the risky thing at once &mdash; more goods off one puzzle, on metal
+       far more likely to fight you.</p>
     <p><b>And the metal raises it.</b> <b>Gold and above are worked a full tier harder</b> than the
        batch alone would ask for &mdash; a single Gold piece is an Apprentice board, not a Novice
        one. Bronze and Silver are worked at whatever the batch asked. Nothing goes above Master.
@@ -1995,15 +2038,44 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
    all live here. Change a value and everything downstream follows. */
 const CONFIG = {
   order: ['novice', 'apprentice', 'journeyman', 'master'],
-  difficulties: {
-    // morphChance: odds that a square's symbol is reshaped by its first strike.
-    // Novice stays at zero so it remains a pure route-planning puzzle - the
-    // bishop in its pool is there for variety, not to add hot-metal surprise.
-    novice:     { label: 'Novice',     size: 3, pool: ['K', 'R', 'B'],      maxQueens: 0, morphChance: 0 },
-    apprentice: { label: 'Apprentice', size: 4, pool: ['K', 'R', 'B'],      maxQueens: 0, morphChance: 0.15 },
-    journeyman: { label: 'Journeyman', size: 5, pool: ['K', 'R', 'B', 'N'], maxQueens: 0, morphChance: 0.25 },
-    master:     { label: 'Master',     size: 6, pool: ['K', 'R', 'B', 'N'], maxQueens: 2, morphChance: 0.35 }
+
+  /* WHAT IS ON A BOARD IS DECIDED BY HOW BIG IT IS, and by nothing else.
+     A three-square board is a king, a rook and numbers whatever mode dealt
+     it and whatever tier asked for it; every extra rank brings one more kind
+     of symbol into play, because a bigger board is what gives that symbol
+     room to mean anything. A bishop on a 3x3 reaches three squares; a knight
+     on one reaches none at all.
+
+     A NUMBER sends you exactly that many squares away - rings out from where
+     you stand, the way a king is everything one ring out. Numbers therefore
+     start at two, because one IS the king.
+
+     `queens` is a promotion applied after the symbols are dealt, not a pool
+     entry, so a queen stays the rarity it has always been. */
+  pools: {
+    3: { pieces: ['K', 'R', '2'],                          queens: 0 },
+    4: { pieces: ['K', 'R', 'B', '2', '3'],                queens: 0 },
+    5: { pieces: ['K', 'R', 'B', 'N', '2', '3', '4'],      queens: 0 },
+    6: { pieces: ['K', 'R', 'B', 'N', '2', '3', '4', '5'], queens: 2 }
   },
+
+  difficulties: {
+    // Difficulty picks the board and how unruly the metal on it is - never
+    // which symbols turn up, which is the board's own size to decide.
+    //   morphChance  odds that a square's symbol is reshaped by its first strike
+    //   hardenChance odds that a square comes up hardened and has to be broken
+    //                open before it can be worked at all
+    // Novice stays at zero on both so the smallest board remains a pure
+    // route-planning puzzle.
+    novice:     { label: 'Novice',     size: 3, morphChance: 0,    hardenChance: 0 },
+    apprentice: { label: 'Apprentice', size: 4, morphChance: 0.15, hardenChance: 0.10 },
+    journeyman: { label: 'Journeyman', size: 5, morphChance: 0.25, hardenChance: 0.16 },
+    master:     { label: 'Master',     size: 6, morphChance: 0.35, hardenChance: 0.22 }
+  },
+
+  /* How many blows a crust takes to break. A hardened square is rolled one
+     of these; the crust is worked off before the square itself is touched. */
+  hardening: { min: 1, max: 2 },
   generation: {
     nodeBudget: 150000,   // search nodes before giving up on one attempt
     timeBudgetMs: 900,    // hard wall-clock cap for a whole board request
@@ -2029,8 +2101,9 @@ const CONFIG = {
     roundBonus: 100,      // awarded for clearing a whole board
     // Round 1..6 take these names; round 7 onward is Adamantine II, III, ...
     materials: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Mithril', 'Adamantine'],
-    // Every symbol can turn up on an endless board, whatever the tier.
-    pool: ['K', 'R', 'B', 'N', 'Q'],
+    // Which symbols turn up is the board's size to decide, in endless as
+    // everywhere else, so there is no pool named here.
+    hardenChance: 0.14,
     // Reshaping is live in endless and climbs as the run goes on. In endless
     // every strike is a first strike, so a reshaped square immediately
     // redirects the very next move.
@@ -2046,11 +2119,16 @@ const CONFIG = {
   },
   versus: {
     sizes: [3, 4, 5, 6],
+    /* Versus picks its board size from `sizes` by tier, and the size decides
+       the symbols as everywhere else. What a tier sets here is how hard the
+       rival thinks and how freely it spends. Hardened squares are left out of
+       a duel: the board is already a fight over ground, and a crust would
+       only slow the trade of blows. */
     difficulties: {
-      novice:     { label: 'Novice',     pool: ['K', 'R'],                maxQueens: 0, depth: 0, upgradeOdds: 0.25 },
-      apprentice: { label: 'Apprentice', pool: ['K', 'R', 'B'],           maxQueens: 0, depth: 1, upgradeOdds: 1 },
-      journeyman: { label: 'Journeyman', pool: ['K', 'R', 'B', 'N'],      maxQueens: 0, depth: 2, upgradeOdds: 1 },
-      master:     { label: 'Master',     pool: ['K', 'R', 'B', 'N'],      maxQueens: 2, depth: 3, upgradeOdds: 1 }
+      novice:     { label: 'Novice',     depth: 0, upgradeOdds: 0.25 },
+      apprentice: { label: 'Apprentice', depth: 1, upgradeOdds: 1 },
+      journeyman: { label: 'Journeyman', depth: 2, upgradeOdds: 1 },
+      master:     { label: 'Master',     depth: 3, upgradeOdds: 1 }
     },
     scoring: {
       strike: 10,         // every legal strike, before the multiplier
@@ -2128,6 +2206,15 @@ const CONFIG = {
   }
 };
 
+/* A symbol is one character, so a board is a string and a saved board stays
+   small. The chess five are letters; a NUMBER is its own digit, and says how
+   many squares away the next blow must land - counted in rings out from where
+   you stand, the way a king is everything one ring out. That makes one the
+   king exactly, so numbers begin at two. */
+const NUMBER_SYMBOLS = ['2', '3', '4', '5', '6', '7', '8', '9'];
+const NUMBER_WORDS = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five',
+  6: 'Six', 7: 'Seven', 8: 'Eight', 9: 'Nine' };
+
 const PIECES = {
   K: { name: 'King',   glyph: '♔', move: 'move one square in any direction' },
   R: { name: 'Rook',   glyph: '♖', move: 'move any distance horizontally or vertically' },
@@ -2135,6 +2222,39 @@ const PIECES = {
   N: { name: 'Knight', glyph: '♘', move: 'move two squares one way and one the other, jumping over anything' },
   Q: { name: 'Queen',  glyph: '♕', move: 'move any distance horizontally, vertically or diagonally' }
 };
+for (const digit of NUMBER_SYMBOLS) {
+  const n = Number(digit);
+  PIECES[digit] = { name: NUMBER_WORDS[n], glyph: digit, number: n,
+    move: 'strike a square exactly ' + NUMBER_WORDS[n].toLowerCase() +
+      ' squares away, in any direction' };
+}
+
+/* Is this symbol a number, and which? 0 for the chess pieces. */
+function pieceNumber(piece) {
+  const def = PIECES[piece];
+  return def && def.number ? def.number : 0;
+}
+
+/* The symbols a board of this size is dealt, and how many queens may be
+   promoted onto it. One table, read by every mode, because what is on a
+   board is the board's own size to decide. */
+function poolFor(size) {
+  const sizes = Object.keys(CONFIG.pools).map(Number).sort(function (a, b) { return a - b; });
+  let pick = sizes[0];
+  for (const s of sizes) if (size >= s) pick = s;
+  return CONFIG.pools[pick];
+}
+/* What the generator deals. A queen is never in here: it is promoted onto a
+   square afterwards, which is what keeps it the rarity it has always been. */
+function poolForSize(size) { return poolFor(size).pieces.slice(); }
+function queensForSize(size) { return poolFor(size).queens || 0; }
+/* Everything that can end up on a board of this size, promotions included.
+   This is what the legend lists and what a reshaped square may become. */
+function symbolsForSize(size) {
+  const out = poolForSize(size);
+  if (queensForSize(size) > 0) out.push('Q');
+  return out;
+}
 
 const ORTHO = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const DIAG  = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
@@ -2160,6 +2280,17 @@ function movesFrom(piece, idx, size) {
       }
     }
   };
+  // a number: every square exactly that many rings out, in any direction
+  const away = pieceNumber(piece);
+  if (away > 0) {
+    for (let rr = 0; rr < size; rr++) {
+      for (let cc = 0; cc < size; cc++) {
+        const d = Math.max(Math.abs(rr - r), Math.abs(cc - c));
+        if (d === away) out.push(rr * size + cc);
+      }
+    }
+    return out;
+  }
   switch (piece) {
     case 'K': step(ORTHO.concat(DIAG)); break;
     case 'R': slide(ORTHO); break;
@@ -2214,9 +2345,19 @@ function mulberry32(seed) {
    visits every square exactly twice, tracking which pieces could
    still sit on each square given the departures made from it. A
    square's piece must legalise EVERY departure from that square. */
-function buildRoute(size, pool, rnd, budget, deadline, visits) {
+function buildRoute(size, pool, rnd, budget, deadline, visits, hard) {
   const per = visits || 2;
-  const n = size * size, total = per * n, T = tableFor(size);
+  const n = size * size, T = tableFor(size);
+  /* Each square is visited as many times as it needs blows. That is the base
+     count for a plain square and one more for every layer of crust on a
+     hardened one, because a crust is broken by coming back to it - which is
+     what makes hardening a route problem rather than a tax. */
+  const need = new Int32Array(n);
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    need[i] = per + (hard ? (hard[i] || 0) : 0);
+    total += need[i];
+  }
   const counts = new Int32Array(n);
   const opts = new Array(n);
   // Each square gets a wished-for piece up front. The search leans
@@ -2235,7 +2376,7 @@ function buildRoute(size, pool, rnd, budget, deadline, visits) {
   function candidates(cur) {
     const res = [], curOpts = opts[cur], wish = want[cur];
     for (let t = 0; t < n; t++) {
-      if (t === cur || counts[t] >= per) continue;
+      if (t === cur || counts[t] >= need[t]) continue;
       let ok = null, keepsWish = false;
       for (let k = 0; k < curOpts.length; k++) {
         const p = curOpts[k];
@@ -2365,18 +2506,50 @@ function validateBoard(board, visits) {
   // A board carries its own visit count: two for the forge, one to five for a
   // material in Open Your Forge. Read it from the board unless told otherwise.
   const per = visits || board.visits || 2;
-  if (!route || route.length !== per * n) return false;
+  const hard = board.hard;
+  let total = 0;
+  for (let i = 0; i < n; i++) total += per + (hard ? (hard[i] || 0) : 0);
+  if (!route || route.length !== total) return false;
   if (!pieces || pieces.length !== n) return false;
   const counts = new Int32Array(n);
   for (const i of route) {
     if (!(i >= 0 && i < n)) return false;
     counts[i]++;
   }
-  for (let i = 0; i < n; i++) if (counts[i] !== per) return false;
+  // every square is visited exactly as often as it needs blows, crust included
+  for (let i = 0; i < n; i++) {
+    if (counts[i] !== per + (hard ? (hard[i] || 0) : 0)) return false;
+  }
   for (let i = 0; i < route.length - 1; i++) {
     if (!isLegalMove(pieces[route[i]], route[i], route[i + 1], size)) return false;
   }
   return isStronglyConnected(size, pieces);
+}
+
+/* Roll the crust for a board. A hardened square has to be broken open before
+   it can be worked at all, and the blows that break it are extra visits the
+   route has to make - so this is decided before the route is searched for,
+   never bolted on after it. */
+function rollHardening(n, chance, rnd) {
+  const hard = new Array(n).fill(0);
+  if (!(chance > 0)) return hard;
+  const lo = CONFIG.hardening.min, hi = CONFIG.hardening.max;
+  let any = false;
+  for (let i = 0; i < n; i++) {
+    if (rnd() >= chance) continue;
+    hard[i] = lo + Math.floor(rnd() * (hi - lo + 1));
+    if (hard[i] > 0) any = true;
+  }
+  // a board that rolled no crust at all is simply a plain board
+  return any ? hard : hard;
+}
+
+/* Whether a board carries any crust, which is what decides if it has to be
+   drawn, saved or explained at all. */
+function hasHardening(hard) {
+  if (!hard) return false;
+  for (const h of hard) if (h > 0) return true;
+  return false;
 }
 
 /* The generator proper. A spec says how big the board is, which symbols may
@@ -2388,9 +2561,13 @@ function generateSpecBoard(spec, rnd, limits) {
   const g = Object.assign({}, CONFIG.generation, limits || {});
   const visits = spec.visits || 2;
   const deadline = Date.now() + g.timeBudgetMs;
+  const n = spec.size * spec.size;
   for (let attempt = 0; attempt < g.attempts; attempt++) {
     if (Date.now() > deadline) break;
-    const route = buildRoute(spec.size, spec.pool, rnd, g.nodeBudget, deadline, visits);
+    // Crust is rolled per attempt: a board that could not be routed with the
+    // hardening it drew gets a different roll rather than losing it entirely.
+    const hard = rollHardening(n, spec.harden, rnd);
+    const route = buildRoute(spec.size, spec.pool, rnd, g.nodeBudget, deadline, visits, hard);
     if (!route) continue;
     // Queens are considered only when assigning symbols, so the route
     // search never leans on their extra freedom.
@@ -2402,6 +2579,7 @@ function generateSpecBoard(spec, rnd, limits) {
       if (!pieces) break;
       const board = { size: spec.size, difficulty: spec.difficulty, pieces: pieces,
         route: route.slice(), visits: visits };
+      if (hasHardening(hard)) board.hard = hard.slice();
       if (validateBoard(board)) return board;
     }
   }
@@ -2410,7 +2588,8 @@ function generateSpecBoard(spec, rnd, limits) {
 
 function generateBoard(difficultyKey, rnd, limits) {
   const cfg = CONFIG.difficulties[difficultyKey];
-  return generateSpecBoard({ size: cfg.size, pool: cfg.pool, maxQueens: cfg.maxQueens,
+  return generateSpecBoard({ size: cfg.size, pool: poolForSize(cfg.size),
+    maxQueens: queensForSize(cfg.size), harden: cfg.hardenChance,
     difficulty: difficultyKey, visits: 2 }, rnd, limits);
 }
 
@@ -2429,48 +2608,65 @@ function transformBoard(board, t) {
   }
   const pieces = new Array(n * n);
   for (let i = 0; i < n * n; i++) pieces[map[i]] = board.pieces[i];
-  return {
+  const out = {
     size: n,
     difficulty: board.difficulty,
     pieces: pieces,
     route: board.route.map((i) => map[i])
   };
+  if (board.visits) out.visits = board.visits;
+  // the crust belongs to the square, so it turns with it
+  if (board.hard) {
+    const hard = new Array(n * n).fill(0);
+    for (let i = 0; i < n * n; i++) hard[map[i]] = board.hard[i];
+    out.hard = hard;
+  }
+  return out;
 }
 
 /* Prevalidated layouts, used when procedural search is bounded out.
    Each was produced by the generator above and passes validateBoard. */
 const FALLBACK_BOARDS = {
   novice: [
-    { pieces: 'KRRKKRKRK',
-      route: [2,1,4,3,6,7,8,5,8,5,2,0,1,4,7,6,3,0] },
-    { pieces: 'KRRKKKRKR',
-      route: [0,1,2,5,7,6,3,4,8,6,3,7,4,5,8,2,0,1] },
-    { pieces: 'RKRKKKRKR',
-      route: [7,4,3,6,0,1,2,8,5,1,0,6,8,2,5,7,4,3] }
+    { pieces: '2KRKR2RK2',
+      route: [1,2,8,3,4,7,6,0,5,6,8,2,0,5,3,1,4,7] },
+    { pieces: 'KR22KR2RR',
+      route: [3,5,4,7,6,8,2,0,1,7,6,0,1,4,2,8,5,3] },
+    { pieces: '2KRRKK2R2',
+      route: [3,0,7,1,5,4,6,8,2,8,2,0,6,1,3,5,7,4] }
   ],
   apprentice: [
-    { pieces: 'KRRBBBKKKKBRRBRR',
-      route: [1,2,3,6,5,0,4,9,10,15,13,7,11,8,12,14,13,7,10,15,14,2,1,5,8,12,0,4,9,6,11,3] },
-    { pieces: 'RRBRBKRBRKKBRKKB',
-      route: [4,9,14,11,6,2,7,13,10,5,8,12,15,0,1,3,7,13,8,9,12,15,0,4,1,3,2,5,6,10,11,14] },
-    { pieces: 'BBKBRRKRBKKKRBKR',
-      route: [2,5,4,8,13,10,11,14,9,6,7,3,12,0,15,14,13,8,2,1,6,3,9,4,12,0,15,11,10,7,5,1] }
+    { pieces: '2RB33R2KBKBKK32B',
+      hard: '0001000000000200',
+      route: [4,15,10,0,9,6,13,3,12,8,2,7,11,14,5,1,3,12,13,1,9,14,6,15,10,5,4,11,7,2,8,13,3,13,0] },
+    { pieces: 'R32KK2BBRRBBRKK2',
+      hard: '1002000000000000',
+      route: [0,2,8,9,10,5,15,13,12,4,1,14,11,6,3,7,13,12,14,10,0,8,9,11,1,15,5,3,7,2,4,0,3,6,3] },
+    { pieces: 'R32B3K2K3BB2B3R2',
+      hard: '0000000000010000',
+      route: [4,7,10,0,1,14,2,8,11,13,3,12,9,6,15,5,8,3,12,9,4,11,2,10,0,1,15,7,11,5,6,14,13] }
   ],
   journeyman: [
-    { pieces: 'KRRKBNBRRRRKRNNKKRKKRBKBB',
-      route: [19,24,18,13,22,21,17,12,2,1,11,7,8,9,6,0,5,16,15,10,14,3,4,20,23,5,16,17,15,20,22,18,19,13,6,0,1,21,9,24,12,7,8,23,11,10,14,3,2,4] },
-    { pieces: 'RRNRRBKNNKBBRNBRKKKBRNNKR',
-      route: [18,12,7,16,17,21,10,6,2,5,11,15,0,20,24,14,22,19,13,4,9,8,1,3,23,19,7,10,6,0,3,2,9,13,4,1,16,17,21,12,14,8,11,5,23,22,15,18,24,20] },
-    { pieces: 'NRBNRKKBNNKRKNRBKRKBBBRNN',
-      route: [20,8,19,23,12,16,21,13,24,17,15,3,6,0,7,11,14,9,18,22,2,10,5,1,4,1,21,15,11,12,18,23,16,10,6,5,0,7,3,14,19,13,24,17,22,20,4,9,2,8] }
+    { pieces: '4N4N3RR2KR2KR2B223RK4BNNB',
+      hard: '0000010112102022200000100',
+      route: [15,22,11,5,9,6,16,7,19,23,14,8,3,12,2,20,4,1,10,17,0,21,13,24,18,8,7,16,5,9,24,18,3,14,2,22,13,21,15,12,11,17,4,1,10,20,0,19,23,16,6,9,8,9,14,22,15,12,10,7,16,5,15,12,14] },
+    { pieces: '22RKRB2BRK4BB2R3KK3KR423B',
+      hard: '1002000000002000000000010',
+      route: [4,19,23,7,1,12,6,8,13,21,0,11,3,9,14,10,24,18,5,17,16,22,20,15,2,12,6,15,3,8,7,1,11,5,23,20,22,24,0,10,19,18,2,17,13,23,9,14,12,0,12,16,21,3,4,3] },
+    { pieces: 'R443KN223R4R2KRNNN3K3222B',
+      hard: '0000000010100002000122020',
+      route: [16,5,2,23,11,1,21,18,3,17,24,6,15,22,20,7,4,9,8,0,10,14,19,13,12,19,13,8,10,9,14,4,3,17,20,7,15,6,16,23,11,12,5,2,21,18,1,20,8,15,22,20,23,21,23,21,10,19,24,0,15] }
   ],
   master: [
-    { pieces: 'RKRKNBKNRKNNRRRRBBRKBQRBKBKKNRRKKRKK',
-      route: [21,27,34,35,29,11,15,9,16,23,33,32,25,10,14,13,7,20,6,1,0,12,24,31,26,19,18,22,4,17,3,8,2,5,30,31,30,24,19,14,2,0,4,17,27,28,15,21,16,23,33,32,26,25,18,6,12,13,1,7,3,9,8,11,22,28,20,34,35,29,5,10] },
-    { pieces: 'NRNNBNKKRBBKBNBRQBKKRKNRQNKRRKRRRNBB',
-      route: [17,22,11,5,9,2,15,21,20,19,18,25,33,29,35,28,16,10,3,14,7,12,26,27,24,31,32,30,34,13,0,8,6,1,4,24,18,25,14,28,26,32,30,31,13,0,8,9,23,29,34,6,12,2,10,5,16,17,3,11,4,19,20,23,21,15,27,33,22,35,7,1] },
-    { pieces: 'NKBNRKKNBNQRKNBBKRNKBBNNQNNRKKRKBNBR',
-      route: [10,4,5,11,29,23,15,20,27,28,21,35,31,32,17,16,9,22,33,25,14,19,13,2,12,18,26,34,6,0,8,1,7,3,14,24,30,18,31,25,21,16,10,9,22,33,29,28,34,27,24,30,0,8,13,2,23,15,20,5,4,1,6,7,3,11,35,32,17,12,19,26] }
+    { pieces: 'KQBN5R2RRRNRR2B2324KNKNR3BNK2432B24R',
+      hard: '011010110202000000001000010010000201',
+      route: [7,11,5,3,14,35,32,27,28,16,33,22,9,15,1,0,6,8,20,31,19,18,4,34,24,21,26,30,12,13,2,23,17,29,25,10,21,26,22,14,35,30,12,15,19,20,16,13,24,33,29,25,32,18,28,17,4,34,7,6,8,10,2,23,11,5,0,1,3,11,9,27,28,20,31,33,35,11,9,6,2,9,7,1,4,33,25] },
+    { pieces: 'R2KR4B5RR3443K3R234Q2B3B3KB42B52B43K',
+      hard: '000000000200002000000001010010002000',
+      route: [25,24,21,14,35,28,20,10,6,23,33,8,26,31,19,9,27,5,15,13,12,30,2,1,3,0,18,4,29,22,7,11,32,17,34,16,4,29,22,2,1,12,21,31,20,30,17,35,28,15,13,7,11,33,9,6,5,25,32,27,0,24,8,10,34,14,23,16,3,9,26,19,14,32,18,28,14,23,9,25,32] },
+    { pieces: '5RR4242N3K443BBKKNKQK2RR424BN24RKBR5',
+      hard: '000000001010000200012202000002000002',
+      route: [7,15,14,28,20,21,9,16,10,30,34,32,25,33,26,0,35,1,13,8,11,31,19,12,3,29,27,6,18,24,22,23,17,4,2,5,1,2,3,29,15,9,16,17,28,20,26,5,13,8,27,6,18,19,24,22,10,30,34,33,12,21,35,4,14,7,20,25,21,32,31,19,20,15,10,35,0,23,29,15,8,23,29,21,23,11,35] }
   ]
 };
 
@@ -2484,6 +2680,8 @@ function fallbackBoard(difficultyKey, rnd) {
     pieces: raw.pieces.split(''),
     route: raw.route.slice()
   };
+  // a stored layout says its crust as a digit per square, or carries none
+  if (raw.hard) board.hard = raw.hard.split('').map(Number);
   return transformBoard(board, Math.floor(rnd() * 8));
 }
 
@@ -2492,8 +2690,8 @@ function fallbackBoard(difficultyKey, rnd) {
    struck. All three are independent, which is the point. */
 function makeShopBoard(size, difficultyKey, visits, rnd, limits) {
   const cfg = CONFIG.difficulties[difficultyKey] || CONFIG.difficulties.novice;
-  const spec = { size: size, pool: cfg.pool, maxQueens: cfg.maxQueens,
-    difficulty: difficultyKey, visits: visits };
+  const spec = { size: size, pool: poolForSize(size), maxQueens: queensForSize(size),
+    harden: cfg.hardenChance, difficulty: difficultyKey, visits: visits };
   const budget = Object.assign({ attempts: 24, timeBudgetMs: 1400 }, limits || {});
   return generateSpecBoard(spec, rnd, budget);
 }
@@ -2629,7 +2827,7 @@ function validateTour(board) {
 function generateTourBoard(difficultyKey, rnd, limits, poolOverride) {
   const cfg = CONFIG.difficulties[difficultyKey];
   const g = Object.assign({}, CONFIG.endless.generation, limits || {});
-  const pool = poolOverride || CONFIG.endless.pool;
+  const pool = poolOverride || poolForSize(cfg.size);
   const deadline = Date.now() + g.timeBudgetMs;
   for (let attempt = 0; attempt < g.attempts; attempt++) {
     if (Date.now() > deadline) break;
@@ -2815,6 +3013,9 @@ function createGame(board, options) {
     mode: mode,
     pieces: board.pieces.slice(),     // live symbols; reshaping writes here
     strikes: new Array(n).fill(0),
+    // Blows still owed to a hardened square's crust before the metal under it
+    // can be worked at all. A plain board is all zeroes.
+    crust: board.hard ? board.hard.slice() : new Array(n).fill(0),
     current: -1,
     totalStrikes: 0,
     status: 'ready',                  // 'ready' | 'playing' | 'complete' | 'lost'
@@ -2830,7 +3031,7 @@ function createGame(board, options) {
     // an explicitly supplied chance is held for the whole run, not just round one
     morphFixed: typeof opts.morphChance === 'number',
     morphPool: opts.morphPool ||
-      (mode === 'endless' ? CONFIG.endless.pool.slice() : (cfg ? cfg.pool : ['K', 'R', 'B', 'N'])),
+      symbolsForSize(board.size),
     // Strikes to finish a square, and the strike that ruins it. The forge and
     // endless take the standing rules; Open Your Forge sets them from the
     // material being worked, which is the whole of what a material means.
@@ -2849,11 +3050,27 @@ function isOver(game) { return game.status === 'complete' || game.status === 'lo
    answers with the standing forge rules instead of NaN. */
 function perfectOf(game) { return game.perfect || CONFIG.rules.perfect; }
 function spentOf(game) { return game.spent || CONFIG.rules.spent; }
+
+/* ---------- hardened squares -----------------------------------------
+   A hardened square wears a crust. Blows land on the crust first and do not
+   touch the metal underneath: they do not count towards finishing the square
+   and they cannot ruin it. Only once the crust is off is the square worked
+   like any other. The route a board is built on visits a hardened square
+   once more for every layer, so a board with crust on it still has an exact
+   solution - the crust is a routing problem, not a tax. */
+function crustOf(game, idx) {
+  return (game.crust && game.crust[idx]) || 0;
+}
+function isHardened(game, idx) { return crustOf(game, idx) > 0; }
+/* What the square started under, for drawing how far through it you are. */
+function crustStartOf(game, idx) {
+  return (game.board && game.board.hard && game.board.hard[idx]) || 0;
+}
 function isEndless(game) { return game.mode === 'endless'; }
 
 /* forge only: a square that has taken its spending strike is finished with. */
 function isSpent(game, idx) {
-  return !isEndless(game) && game.strikes[idx] >= spentOf(game);
+  return !isEndless(game) && !isHardened(game, idx) && game.strikes[idx] >= spentOf(game);
 }
 /* endless only: a square already struck this round is closed until the next. */
 function isHit(game, idx) { return game.strikes[idx] > 0; }
@@ -2897,6 +3114,7 @@ function advanceMaterialTier(strikes, ladder) {
    ordered in. The plain forge keeps its own hot-metal art and takes no
    rung at all. */
 function squareMetalTier(game, idx) {
+  if (isHardened(game, idx)) return -1;          // nothing of the metal shows yet
   const strikes = game.strikes[idx];
   if (!(strikes > 0)) return -1;
   if (isEndless(game)) return materialFor(game.round).tier;
@@ -2913,6 +3131,7 @@ function squareMetalTier(game, idx) {
    forge's own count - a Gold square looking cracked on the very strike that
    finished it. */
 function strikeState(game, idx) {
+  if (isHardened(game, idx)) return 0;           // still under its crust
   const n = game.strikes[idx];
   if (!(n > 0)) return 0;
   if (n >= spentOf(game)) return 3;
@@ -2952,10 +3171,19 @@ function canStrike(game, idx) {
   return isLegalMove(piece, game.current, idx, game.board.size);
 }
 
-/* Pick a different symbol for a square that has just been shaped. */
+/* Pick a different symbol for a square that has just been shaped.
+
+   A symbol is only offered if it leaves somewhere to go from this square.
+   That has always been true of the chess five - a knight in a corner still
+   has two jumps - but a number can reach nothing at all: there is no square
+   two away from the middle of a 3x3, so reshaping into one there would end
+   the board on the spot rather than make it harder. */
 function reshape(game, idx) {
   const current = game.pieces[idx];
-  const choices = game.morphPool.filter(function (p) { return p !== current; });
+  const T = tableFor(game.board.size);
+  const choices = game.morphPool.filter(function (p) {
+    return p !== current && T[p] && T[p].list[idx].length > 0;
+  });
   if (!choices.length) return null;
   game.pieces[idx] = choices[Math.floor(game.rnd() * choices.length)];
   return { from: current, to: game.pieces[idx] };
@@ -3040,6 +3268,25 @@ function strikeForge(game, idx) {
     blanked = from;
   }
 
+  /* A blow on a hardened square breaks crust and nothing else: the metal
+     under it is untouched, so it neither counts towards finishing the square
+     nor can it ruin one. You still land there, so the symbol still says
+     where the next blow may go. */
+  let broke = 0;
+  if (isHardened(game, idx)) {
+    game.crust[idx] -= 1;
+    broke = game.crust[idx];
+    game.totalStrikes += 1;
+    game.current = idx;
+    game.status = 'playing';
+    if (legalTargets(game).length === 0) game.status = 'lost';
+    return {
+      index: idx, count: game.strikes[idx], morphed: null, blanked: blanked,
+      spent: false, crust: broke, broke: true, opened: broke === 0,
+      complete: false, lost: game.status === 'lost'
+    };
+  }
+
   game.strikes[idx] += 1;
   game.totalStrikes += 1;
   game.current = idx;
@@ -3052,7 +3299,9 @@ function strikeForge(game, idx) {
     morphed = reshape(game, idx);
   }
 
-  const complete = game.strikes.every(function (st) { return st >= perfectOf(game); });
+  const complete = game.strikes.every(function (st, i) {
+    return st >= perfectOf(game) && !isHardened(game, i);
+  });
   if (complete) game.status = 'complete';
   else if (legalTargets(game).length === 0) game.status = 'lost';
 
@@ -3072,18 +3321,21 @@ function gameStats(game) {
       round: game.round, roundsCompleted: game.roundsCompleted,
       material: materialFor(game.round), gold: game.gold,
       tier: roundTier(game), morphChance: game.morphChance,
-      overstrikes: 0, forged: hits, perfect: hits, spent: 0 };
+      overstrikes: 0, forged: hits, perfect: hits, spent: 0, crusted: 0 };
   }
-  let over = 0, forged = 0, perfect = 0, spent = 0;
+  let over = 0, forged = 0, perfect = 0, spent = 0, crusted = 0;
   const need = perfectOf(game), ruin = spentOf(game);
-  for (const st of game.strikes) {
+  for (let i = 0; i < game.strikes.length; i++) {
+    const st = game.strikes[i];
+    if (isHardened(game, i)) { crusted++; continue; }
+    // Blows spent on a crust are never overstrikes: they were owed.
     if (st > need) over += st - need;
     if (st >= need) forged++;
     if (st === need) perfect++;
     if (st >= ruin) spent++;
   }
   return { squares: n, hits: forged, total: game.totalStrikes, overstrikes: over,
-    forged: forged, perfect: perfect, spent: spent, score: 0,
+    forged: forged, perfect: perfect, spent: spent, crusted: crusted, score: 0,
     round: 1, roundsCompleted: 0, material: materialFor(1) };
 }
 
@@ -3122,12 +3374,13 @@ const SQ_WORDS = ['intact', 'cracked', 'armed', 'broken'];
 /* The same bag of symbols for both boards, so neither gets richer
    material - only a different arrangement of it. */
 function versusBag(size, diffKey, rnd) {
-  const cfg = CONFIG.versus.difficulties[diffKey];
   const n = size * size, bag = [];
-  const queens = cfg.maxQueens ? Math.min(cfg.maxQueens, 1 + Math.floor(rnd() * cfg.maxQueens)) : 0;
+  const pool = poolForSize(size);
+  const cap = queensForSize(size);
+  const queens = cap ? Math.min(cap, 1 + Math.floor(rnd() * cap)) : 0;
   for (let i = 0; i < queens && bag.length < n; i++) bag.push('Q');
   let k = 0;
-  while (bag.length < n) { bag.push(cfg.pool[k % cfg.pool.length]); k++; }
+  while (bag.length < n) { bag.push(pool[k % pool.length]); k++; }
   return bag;
 }
 
@@ -3182,8 +3435,15 @@ function makeVersusBoards(size, diffKey, rnd, limits) {
         }
       }
     }
-    // Too hard a bag for this size: soften it and try again rather than spin.
-    const hard = bag.lastIndexOf('N') >= 0 ? 'N' : (bag.lastIndexOf('B') >= 0 ? 'B' : null);
+    /* Too hard a bag for this size: soften it and try again rather than spin.
+       The most demanding symbol goes first, and the largest numbers are the
+       most demanding of all - a five reaches only the outer ring of a 6x6,
+       and nothing at all from the middle of it. */
+    let hard = null;
+    for (const p of NUMBER_SYMBOLS.slice().reverse()) {
+      if (bag.lastIndexOf(p) >= 0) { hard = p; break; }
+    }
+    if (!hard) hard = bag.lastIndexOf('N') >= 0 ? 'N' : (bag.lastIndexOf('B') >= 0 ? 'B' : null);
     if (!hard) break;
     bag[bag.lastIndexOf(hard)] = 'R';
   }
@@ -3410,8 +3670,7 @@ function versusReforgeOptions(match, who, target) {
   const at = target === undefined ? reforgeSquare(match, who) : target;
   if (!(at >= 0 && at < them.size * them.size)) return [];
   if (them.states[at] === SQ_BROKEN) return [];
-  const cfg = CONFIG.versus.difficulties[match.difficulty];
-  const pool = cfg.maxQueens > 0 ? cfg.pool.concat(['Q']) : cfg.pool;
+  const pool = symbolsForSize(match.size);
   const T = tableFor(match.size);
   return pool.filter(function (p) {
     if (p === them.pieces[at]) return false;
@@ -6127,6 +6386,11 @@ function shopExpand(shop) {
 
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
+  pieceNumber: pieceNumber, poolFor: poolFor, poolForSize: poolForSize,
+  rollHardening: rollHardening, hasHardening: hasHardening,
+  crustOf: crustOf, isHardened: isHardened, crustStartOf: crustStartOf,
+  queensForSize: queensForSize, symbolsForSize: symbolsForSize,
+  NUMBER_SYMBOLS: NUMBER_SYMBOLS,
   mulberry32: mulberry32, buildRoute: buildRoute, pieceOptionsFor: pieceOptionsFor,
   assignPieces: assignPieces, isStronglyConnected: isStronglyConnected, validateBoard: validateBoard,
   generateBoard: generateBoard, transformBoard: transformBoard, fallbackBoard: fallbackBoard,
@@ -6959,6 +7223,10 @@ function render() {
     // not ruined, on the strike that completes it.
     const shown = endless ? Math.min(strikes, 1) : strikeState(g, i);
     if (el.dataset.s !== String(shown)) el.dataset.s = String(shown);
+    // a crust is its own state: the metal under it has not been touched yet
+    const crust = crustOf(g, i);
+    if (crust > 0) el.dataset.crust = String(crust);
+    else el.removeAttribute('data-crust');
     el.dataset.current = isCurrent ? '1' : '0';
     el.dataset.legal = isLegal ? '1' : '0';
     el.dataset.void = blank ? '1' : '0';
@@ -6974,6 +7242,20 @@ function render() {
     const glyph = el.firstChild;
     const wantGlyph = blank ? '' : PIECES[piece].glyph;
     if (glyph.textContent !== wantGlyph) glyph.textContent = wantGlyph;
+
+    // the layers of crust still owed, as pips along the top of the tile
+    let crustPips = el.querySelector('.crust');
+    if (crust > 0) {
+      if (!crustPips) {
+        crustPips = document.createElement('span');
+        crustPips.className = 'crust';
+        el.appendChild(crustPips);
+      }
+      if (crustPips.childElementCount !== crust) {
+        crustPips.textContent = '';
+        for (let k = 0; k < crust; k++) crustPips.appendChild(document.createElement('i'));
+      }
+    } else if (crustPips) { crustPips.remove(); }
 
     const marks = el.children[1];
     // notches stop at what the square needed; three is all that fits on a tile
@@ -7004,8 +7286,13 @@ function render() {
       else if (isLegal) label += ', legal destination';
       else if (!isCurrent) label += ', not reachable from here';
     } else {
-      label += PIECES[piece].name + ', ' + strikes +
-        (strikes === 1 ? ' strike, ' : ' strikes, ') + STATE_WORD[shown];
+      label += PIECES[piece].name + ', ';
+      if (crust > 0) {
+        label += 'hardened, ' + crust + (crust === 1 ? ' blow' : ' blows') +
+          ' to break the crust';
+      } else {
+        label += strikes + (strikes === 1 ? ' strike, ' : ' strikes, ') + STATE_WORD[shown];
+      }
       if (rung >= 0) label += ', ' + CHECKSMITH_CORE.METAL_PALETTE[rung].toLowerCase();
       if (spent) label += ', crumbling, one move left';
       if (isCurrent) label += ', hammer is here';
@@ -8092,8 +8379,10 @@ function anvilSnapshot() {
     order: Object.assign({}, SHOPUI.order),
     board: { size: g.board.size, difficulty: g.board.difficulty,
       pieces: g.board.pieces.slice(), route: g.board.route.slice(),
-      visits: g.board.visits || 2 },
+      visits: g.board.visits || 2,
+      hard: g.board.hard ? g.board.hard.slice() : null },
     pieces: g.pieces.slice(), strikes: g.strikes.slice(),
+    crust: g.crust ? g.crust.slice() : null,
     current: g.current, totalStrikes: g.totalStrikes, status: g.status,
     perfect: g.perfect, spent: g.spent, morphChance: g.morphChance
   };
@@ -8117,6 +8406,12 @@ function resumeAnvil(snap) {
   const board = { size: size, difficulty: snap.board.difficulty,
     pieces: snap.board.pieces.slice(), route: snap.board.route.slice(),
     visits: snap.board.visits };
+  // a board put down before hardening existed simply has no crust on it
+  if (Array.isArray(snap.board.hard) && snap.board.hard.length === n) {
+    board.hard = snap.board.hard.map(function (h) {
+      return Math.max(0, Math.min(CONFIG.hardening.max, Math.round(Number(h) || 0)));
+    });
+  }
   // The ordered metal is the authority on how many blows a square wants, so
   // the thresholds are taken from it rather than from whatever the save
   // happened to carry. A board put down before this was settled comes back
@@ -8126,6 +8421,12 @@ function resumeAnvil(snap) {
     ladder: shopLadder(), morphChance: snap.morphChance, rnd: App.rnd });
   App.game.pieces = snap.pieces.slice();
   App.game.strikes = snap.strikes.slice();
+  if (Array.isArray(snap.crust) && snap.crust.length === n) {
+    App.game.crust = snap.crust.map(function (c, i) {
+      const start = (board.hard && board.hard[i]) || 0;
+      return Math.max(0, Math.min(start, Math.round(Number(c) || 0)));
+    });
+  }
   App.game.current = Number.isInteger(snap.current) ? snap.current : -1;
   App.game.totalStrikes = Math.max(0, Math.round(Number(snap.totalStrikes) || 0));
   App.game.status = snap.status === 'playing' ? 'playing' : 'ready';
@@ -8788,6 +9089,7 @@ function shopForgeBody(smith) {
   // if it is one of the hard ones. The dialog must say the same number the
   // anvil will deal, or choosing an order is choosing blind.
   const mtNow = shopMaterial(d.material);
+  const itNow = shopItem(d.item);
   const tier = forgeDifficulty(d.material, qty);
   const bumped = tier !== batchDifficulty(qty);
   const tierCfg = CONFIG.difficulties[tier];
@@ -8801,10 +9103,18 @@ function shopForgeBody(smith) {
     html += '<div class="shop-row" style="margin:0 0 10px">' +
       '<span class="nm">Board difficulty</span>' +
       '<span class="amt">' + esc(tierCfg.label) + '</span>' +
-      '<span class="sub">Every ' + SHOP.batchPerTier +
-      ' pieces in a batch is another tier of symbols \u00b7 ' +
-      esc(tierCfg.pool.map(function (k) { return PIECES[k].name; }).join(', ')) +
-      (tierCfg.maxQueens > 0 ? ' and the odd Queen' : '') +
+      // The item decides the board, and the board decides the symbols. What a
+      // batch raises is how unruly the metal on it is, which is a different
+      // lever and has to read as one.
+      '<span class="sub">The ' + esc(itNow ? itNow.name : 'item') + ' is worked on a ' +
+      (itNow ? itNow.size : 3) + '\u00d7' + (itNow ? itNow.size : 3) + ' board, dealing ' +
+      esc(poolForSize(itNow ? itNow.size : 3)
+        .map(function (k) { return PIECES[k].name; }).join(', ')) +
+      (queensForSize(itNow ? itNow.size : 3) > 0 ? ' and the odd Queen' : '') +
+      ' \u00b7 every ' + SHOP.batchPerTier + ' pieces in a batch makes that metal harder ' +
+      'to work' +
+      (tierCfg.morphChance > 0 ? ' \u00b7 squares reshape under the hammer' : '') +
+      (tierCfg.hardenChance > 0 ? ' \u00b7 some come up hardened' : '') +
       (bumped ? ' \u00b7 <span style="color:var(--ember)">' + esc(mtNow ? mtNow.name : 'this metal') +
         ' is worked a tier harder</span>' : '') +
       (nextAt <= cap && forgeDifficulty(d.material, nextAt) !== tier
@@ -10731,15 +11041,27 @@ function buildLegend() {
   // and the metal, so reading App.difficulty here would name the wrong pieces
   // on every anvil board that the metal had raised.
   const key = (App.game && App.game.board && App.game.board.difficulty) || App.difficulty;
-  const cfg = CONFIG.difficulties[key];
-  const used = cfg ? cfg.pool.slice() : [];
-  if (cfg && cfg.maxQueens > 0) used.push('Q');
-  const order = ['K', 'R', 'B', 'N', 'Q'].filter((p) => used.indexOf(p) !== -1);
+  const size = (App.game && App.game.board && App.game.board.size) ||
+    (CONFIG.difficulties[key] ? CONFIG.difficulties[key].size : 3);
+  const used = symbolsForSize(size);
+  // chess symbols first, then the numbers in order, which is how they read
+  const order = ['K', 'R', 'B', 'N', 'Q'].concat(NUMBER_SYMBOLS)
+    .filter((p) => used.indexOf(p) !== -1);
+  // a board with crust on it needs the crust explained, and only then
+  const crusted = !!(App.game && App.game.board && App.game.board.hard);
   body.innerHTML =
-    '<p style="margin:6px 0 2px">The symbol never changes and is never captured &mdash; it only says where the hammer may travel next.</p>' +
+    '<p style="margin:6px 0 2px">What is on a board is decided by how big it is. The symbol ' +
+    'never changes hands and is never captured &mdash; it only says where the hammer may ' +
+    'travel next.</p>' +
     order.map((p) =>
       '<div class="legend-row"><span class="g" aria-hidden="true">' + PIECES[p].glyph + '</span>' +
-      '<span class="t"><b>' + PIECES[p].name + '</b><br>' + PIECES[p].move + '.</span></div>').join('');
+      '<span class="t"><b>' + PIECES[p].name + '</b><br>' + PIECES[p].move + '.</span></div>').join('') +
+    (crusted
+      ? '<div class="legend-row"><span class="g" aria-hidden="true">\u2593</span>' +
+        '<span class="t"><b>Hardened</b><br>Scabbed over. Break the crust first &mdash; ' +
+        'those blows do not work the metal and cannot ruin it. The pips say how many are ' +
+        'left owed.</span></div>'
+      : '');
 }
 
 /* ---------- keyboard navigation --------------------------------------- */
@@ -11276,6 +11598,7 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   vsBanner: vsBanner, vsPowerWords: vsPowerWords, vsStart: vsStartMatch, vsImpact: vsImpact,
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   shopStartForge: shopStartForge, shopReturn: shopReturn,
+  buildTiles: buildTiles, buildLegend: buildLegend, startGame: startGame,
   shopSheetClose: shopSheetClose, shopOpenAlmanac: shopOpenAlmanac,
   shopOpenTownsfolk: shopOpenTownsfolk, shopTownHtml: shopTownHtml,
   shopOpenStand: shopOpenStand, standSprite: standSprite,

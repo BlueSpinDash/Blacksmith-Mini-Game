@@ -133,16 +133,22 @@ async function run() {
   section('Striking');
   await page.click('[data-diff="journeyman"]');
   await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 5);
-  await page.click('.tile[data-i="12"]');
+  // a blow on a hardened square breaks crust rather than working the metal, so
+  // what a plain strike does is read on a plain square
+  const hit = await page.evaluate(() => window.CHECKSMITH.app.game.crust.findIndex((c) => c === 0));
+  await page.click(`.tile[data-i="${hit}"]`);
   ok('a hammer appears during the swing', (await page.locator('.hammer').count()) > 0);
   await page.screenshot({ path: path.join(SHOTS, '02-hammer-midswing.png') });
   await settle(page);
   let s = await snap(page);
-  ok('one tap applies exactly one strike', s.total === 1 && s.strikes[12] === 1 && s.current === 12);
-  ok('struck square renders the shaped state', (await page.getAttribute('.tile[data-i="12"]', 'data-s')) === '1');
-  ok('current square is marked', (await page.getAttribute('.tile[data-i="12"]', 'data-current')) === '1');
+  ok('one tap applies exactly one strike', s.total === 1 && s.strikes[hit] === 1 && s.current === hit,
+    JSON.stringify({ hit, total: s.total, at: s.strikes[hit], current: s.current }));
+  ok('struck square renders the shaped state', (await page.getAttribute(`.tile[data-i="${hit}"]`, 'data-s')) === '1');
+  ok('current square is marked', (await page.getAttribute(`.tile[data-i="${hit}"]`, 'data-current')) === '1');
   ok('legal destinations are marked', (await page.locator('.tile[data-legal="1"]').count()) > 0);
-  ok('movement hint names the piece', /King|Rook|Bishop|Knight|Queen/.test(await page.textContent('#promptText')));
+  ok('movement hint names the symbol',
+    /King|Rook|Bishop|Knight|Queen|Two|Three|Four|Five/.test(await page.textContent('#promptText')),
+    await page.textContent('#promptText'));
   await page.waitForTimeout(900);   // let the recoil and sparks finish
   ok('hammer and sparks are cleaned up once the swing ends', await page.evaluate(
     () => document.getElementById('fx').childElementCount === 0));
@@ -151,7 +157,7 @@ async function run() {
 
   section('Illegal taps');
   const before = await snap(page);
-  await page.click('.tile[data-i="12"]');            // standing still
+  await page.click(`.tile[data-i="${before.current}"]`);   // standing still
   await page.waitForTimeout(120);
   let after = await snap(page);
   ok('tapping the current square changes nothing',
@@ -208,8 +214,12 @@ async function run() {
   }
   await page.waitForTimeout(200);
   st = await snap(page);
-  ok('route finishes with every square at exactly two strikes',
-    st.status === 'complete' && st.strikes.every((x) => x === 2) && st.total === 32);
+  // a crust adds a visit for every layer, so the route is the board plus it
+  const crust = await page.evaluate(() =>
+    (window.CHECKSMITH.app.game.board.hard || []).reduce((a, h) => a + h, 0));
+  ok('the route finishes the board, crust and all',
+    st.status === 'complete' && st.strikes.every((x) => x === 2) &&
+    st.total === 32 + crust, st.status + ' total ' + st.total + ' crust ' + crust);
   ok('results screen appears', await page.isVisible('#results'));
   ok('quality is 100', (await page.textContent('#rQuality')).startsWith('100'));
   ok('label reads Masterwork', (await page.textContent('#rLabel')).trim() === 'Masterwork');
@@ -356,7 +366,9 @@ async function run() {
     const wait = () => new Promise((r) => {
       const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
     });
-    const start = 12;
+    // a blow on a crust breaks crust and nothing else, so reshaping is read on
+    // a square with none
+    const start = F.app.game.crust.findIndex((c) => c === 0);
     const was = F.app.game.pieces[start];
     document.querySelector(`.tile[data-i="${start}"]`).click();
     await wait();
@@ -382,7 +394,9 @@ async function run() {
       const t = setInterval(() => { if (!F.app.busy) { clearInterval(t); r(); } }, 8);
     });
     // Hand-place a board state with no way out: a knight whose jumps are spent.
+    // No crust anywhere, because a crust is a blow that cannot strand you.
     const g = F.app.game;
+    g.crust = g.crust.map(() => 0);
     g.pieces = g.pieces.map(() => 'R');
     g.pieces[0] = 'N';
     g.strikes = g.strikes.map(() => 1);
@@ -485,8 +499,9 @@ async function run() {
 
   section('Accessibility');
   const label = await page.getAttribute('.tile[data-i="0"]', 'aria-label');
-  ok('tiles are named with position, piece, strikes and reachability',
-    /row 1, column 1, (King|Rook|Bishop|Knight|Queen), \d+ strikes?, /.test(label) &&
+  ok('tiles are named with position, symbol, how worked they are and reachability',
+    /row 1, column 1, (King|Rook|Bishop|Knight|Queen|Two|Three|Four|Five), /.test(label) &&
+    /(\d+ strikes?, |hardened, \d+ blows? to break the crust)/.test(label) &&
     /(legal|not reachable|hammer is here)/.test(label), label);
   ok('progress is exposed as a live region',
     await page.evaluate(() => document.getElementById('live').getAttribute('aria-live') === 'polite'));
@@ -537,7 +552,12 @@ async function run() {
   section('Page hidden mid-swing');
   await fast(page, 900);
   const hidBefore = await snap(page);
-  const hidTarget = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+  // a plain destination, so the blow lands on metal and the count moves
+  const hidTarget = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    const targets = C.legalTargets(F.app.game);
+    return targets.find((t) => C.crustOf(F.app.game, t) === 0);
+  });
   await page.evaluate((t) => { document.querySelector(`.tile[data-i="${t}"]`).click(); }, hidTarget);
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
@@ -546,8 +566,9 @@ async function run() {
   await page.waitForTimeout(100);
   const hidAfter = await snap(page);
   ok('a pending strike is applied exactly once when the page hides',
-    hidAfter.total === hidBefore.total + 1 && hidAfter.strikes[hidTarget] === hidBefore.strikes[hidTarget] + 1,
-    `${hidBefore.total} -> ${hidAfter.total}`);
+    hidTarget !== undefined && hidAfter.total === hidBefore.total + 1 &&
+    hidAfter.strikes[hidTarget] === hidBefore.strikes[hidTarget] + 1,
+    `${hidBefore.total} -> ${hidAfter.total} at ${hidTarget}`);
   ok('effects are cleared when hidden',
     await page.evaluate(() => document.getElementById('fx').childElementCount === 0));
 
@@ -1787,18 +1808,22 @@ async function run() {
   ok('the route visits every square that many times',
     forged.visits === 2 && forged.route === 2 * 16);
   ok('the anvil takes over the screen', forged.shopHidden === true);
-  // The batch is the difficulty lever now, so raising it has to change the
-  // board the player is handed, not just the label.
-  ok('a bigger batch is dealt a harder board', await page.evaluate(() => {
+  // The item decides the board and so the symbols; the batch decides how
+  // unruly the metal on it is. Raising the batch has to bite somewhere real.
+  ok('the item decides the symbols, whatever the batch', await page.evaluate(() => {
     const C = window.CHECKSMITH.core;
     const sh = window.CHECKSMITH.app.shop;
     const small = C.forgeBoardSpec(sh, 'plate', 'bronze', 1);
     const large = C.forgeBoardSpec(sh, 'plate', 'bronze', 7);
-    const boardA = C.makeShopBoard(small.size, small.difficulty, small.visits, C.mulberry32(21));
-    const boardB = C.makeShopBoard(large.size, large.difficulty, large.visits, C.mulberry32(21));
-    const kinds = (b) => new Set(b.pieces).size;
-    return small.difficulty === 'novice' && large.difficulty === 'journeyman' &&
-      kinds(boardB) > kinds(boardA);
+    return small.size === large.size &&
+      C.poolForSize(small.size).join(',') === C.poolForSize(large.size).join(',');
+  }));
+  ok('and a bigger batch makes that metal harder to work', await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const sh = window.CHECKSMITH.app.shop;
+    const small = C.CONFIG.difficulties[C.forgeBoardSpec(sh, 'plate', 'bronze', 1).difficulty];
+    const large = C.CONFIG.difficulties[C.forgeBoardSpec(sh, 'plate', 'bronze', 7).difficulty];
+    return large.morphChance > small.morphChance && large.hardenChance > small.hardenChance;
   }));
 
   // Nothing sits above the board but the top bar and the prompt: a banner up
@@ -1894,24 +1919,112 @@ async function run() {
   await installStock(page);
   }
 
-  /* The bishop joined the Novice pool. On a real 3x3 board it must be drawn,
-     named and highlighted like any other piece - no special case. */
-  section('Novice boards carry bishops');
+  /* A hardened square has to be broken open before the metal under it can be
+     worked at all. It has to look like one, say so, and behave like one. */
+  section('Hardened squares on a real board');
   {
-    const bishopBoard = await page.evaluate(async () => {
+    const crusted = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core;
+      F.shopUi.order = null; F.shopReturn();
+      // a board big enough to harden: the smallest never does
+      let board = null;
+      for (let seed = 1; seed < 400 && !(board && board.hard); seed++) {
+        board = C.makeBoard('master', C.mulberry32(seed * 13 + 1));
+      }
+      if (!board) return null;
+      F.app.difficulty = 'master';
+      F.buildTiles(board.size);
+      F.app.game = C.createGame(board, { mode: 'forge', morphChance: 0, rnd: F.app.rnd });
+      F.buildLegend();
+      F.render();
+      const at = board.hard.findIndex((h) => h > 0);
+      const plain = board.hard.findIndex((h) => h === 0);
+      const el = () => document.querySelector('#board .tile[data-i="' + at + '"]');
+      return { at: at, plain: plain, layers: board.hard[at],
+        crustAttr: el().getAttribute('data-crust'),
+        pips: el().querySelectorAll('.crust i').length,
+        glyph: el().querySelector('.glyph').textContent,
+        label: el().getAttribute('aria-label'),
+        plainCrust: document.querySelector('#board .tile[data-i="' + plain + '"]')
+          .getAttribute('data-crust'),
+        legend: document.getElementById('legendBody').textContent,
+        bg: getComputedStyle(el()).backgroundImage.slice(0, 40) };
+    });
+    ok('a hardened board can be dealt at all', !!crusted, JSON.stringify(crusted));
+    if (crusted) {
+      ok('a hardened square is marked as one, with a pip per layer owed',
+        crusted.crustAttr === String(crusted.layers) && crusted.pips === crusted.layers,
+        JSON.stringify(crusted));
+      ok('and a plain square beside it is not', crusted.plainCrust === null,
+        String(crusted.plainCrust));
+      ok('its symbol still shows through the crust, because you plan around it',
+        crusted.glyph.length > 0, crusted.glyph);
+      ok('it says so to a screen reader',
+        /hardened, \d+ blows? to break the crust/.test(crusted.label), crusted.label);
+      ok('and the legend explains the crust when a board carries one',
+        /Hardened/.test(crusted.legend) && /crust/.test(crusted.legend),
+        crusted.legend.slice(-200));
+
+      const broke = await page.evaluate(async (at) => {
+        const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+        const before = { crust: C.crustOf(g, at), strikes: g.strikes[at] };
+        C.applyStrike(g, at);
+        F.render();
+        const el = document.querySelector('#board .tile[data-i="' + at + '"]');
+        return { before: before, crust: C.crustOf(g, at), strikes: g.strikes[at],
+          attr: el.getAttribute('data-crust'), state: el.dataset.s,
+          metal: el.getAttribute('data-metal'), current: el.dataset.current,
+          total: g.totalStrikes };
+      }, crusted.at);
+      ok('a blow breaks a layer of crust and leaves the metal untouched',
+        broke.crust === broke.before.crust - 1 && broke.strikes === broke.before.strikes &&
+        broke.total === 1, JSON.stringify(broke));
+      ok('and you are standing on it, so its symbol steers the next blow',
+        broke.current === '1', JSON.stringify(broke));
+      ok('the metal under a crust shows nothing until the crust is off',
+        broke.crust > 0 ? (broke.attr === String(broke.crust) && broke.metal === null)
+          : broke.attr === null, JSON.stringify(broke));
+
+      ok('working the route through finishes a hardened board at quality 100',
+        await page.evaluate(() => {
+          const F = window.CHECKSMITH, C = F.core;
+          const board = F.app.game.board;
+          const g = C.createGame(board, { mode: 'forge', morphChance: 0 });
+          for (const step of board.route) if (!C.applyStrike(g, step)) return false;
+          F.app.game = g;
+          F.render();
+          return g.status === 'complete' && g.crust.every((c) => c === 0) &&
+            C.scoreGame(g).quality === 100;
+        }));
+    }
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      F.app.game = null;
+      F.shopReturn();
+    });
+    await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+    await installStock(page);
+  }
+
+  /* What is on a board is decided by its size, and a 3x3 is a king, a rook
+     and numbers. A number must be drawn, named and highlighted like any other
+     symbol - no special case anywhere. */
+  section('A 3x3 board carries numbers');
+  {
+    const numberBoard = await page.evaluate(async () => {
       const F = window.CHECKSMITH, C = F.core;
       F.app.shop.materials.bronze = 40;
-      // a 3x3 item in a soft metal is a Novice board; deal until one has a bishop
+      // a 3x3 item in a soft metal is a Novice board; deal until one has a number
       for (let tries = 0; tries < 30; tries++) {
         F.shopUi.draft = { item: 'dagger', material: 'bronze', qty: 1 };
         F.shopStartForge();
         await new Promise((r) => setTimeout(r, 90));
         const g = F.app.game;
         if (!g) continue;
-        if (g.board.size === 3 && g.board.difficulty === 'novice' && g.pieces.includes('B')) {
-          const at = g.pieces.indexOf('B');
+        const at = g.pieces.findIndex((p) => C.pieceNumber(p) > 0);
+        if (g.board.size === 3 && g.board.difficulty === 'novice' && at >= 0) {
           return { size: g.board.size, difficulty: g.board.difficulty, at: at,
-            pool: C.CONFIG.difficulties.novice.pool.slice(),
+            piece: g.pieces[at], pool: C.poolForSize(3),
             glyph: document.querySelector('#board .tile[data-i="' + at + '"] .glyph').textContent,
             label: document.querySelector('#board .tile[data-i="' + at + '"]').getAttribute('aria-label'),
             // a closed <details>, so textContent is the only honest read
@@ -1922,40 +2035,42 @@ async function run() {
       }
       return null;
     });
-    ok('a 3x3 Novice board is dealt with a bishop on it', !!bishopBoard,
-      JSON.stringify(bishopBoard));
-    if (bishopBoard) {
-      ok('the bishop is drawn with its own symbol', bishopBoard.glyph === '♗',
-        bishopBoard.glyph);
-      ok('and named as a bishop to a screen reader',
-        /Bishop/.test(bishopBoard.label), bishopBoard.label);
-      ok('the legend lists it alongside the rest of the pool',
-        /Bishop/.test(bishopBoard.legend) && /King/.test(bishopBoard.legend) &&
-        /Rook/.test(bishopBoard.legend) && !/Knight/.test(bishopBoard.legend),
-        JSON.stringify(bishopBoard.legend));
-
+    ok('a 3x3 Novice board is dealt with a number on it', !!numberBoard,
+      JSON.stringify(numberBoard));
+    if (numberBoard) {
+      ok('the number is drawn as the digit it is',
+        numberBoard.glyph === numberBoard.piece, numberBoard.glyph);
+      ok('and named to a screen reader', /Two|Three/.test(numberBoard.label),
+        numberBoard.label);
+      ok('the legend lists the smallest board as a king, a rook and numbers',
+        /King/.test(numberBoard.legend) && /Rook/.test(numberBoard.legend) &&
+        /Two/.test(numberBoard.legend) &&
+        !/Bishop/.test(numberBoard.legend) && !/Knight/.test(numberBoard.legend),
+        JSON.stringify(numberBoard.legend));
+      ok('and says how far it sends you',
+        /squares away/.test(numberBoard.legend), numberBoard.legend.slice(0, 200));
 
       // the highlighting has to agree with the rule, square by square
-      const moves = await page.evaluate((at) => {
+      const moves = await page.evaluate((info) => {
         const F = window.CHECKSMITH, C = F.core, g = F.app.game;
-        g.current = at;
+        g.current = info.at;
         g.status = 'playing';
-        g.strikes[at] = 1;
+        g.strikes[info.at] = 1;
         F.render();
-        const lit = [], want = C.movesFrom('B', at, 3);
+        const lit = [], want = C.movesFrom(info.piece, info.at, 3);
         for (let i = 0; i < 9; i++) {
           if (document.querySelector('#board .tile[data-i="' + i + '"]').dataset.legal === '1') lit.push(i);
         }
         return { lit: lit, want: want.slice().sort((a, b) => a - b) };
-      }, bishopBoard.at);
-      ok('standing on it lights exactly its diagonals, and nothing else',
+      }, { at: numberBoard.at, piece: numberBoard.piece });
+      ok('standing on it lights exactly the ring it names, and nothing else',
         moves.lit.join(',') === moves.want.join(','), JSON.stringify(moves));
 
-      const tapped = await page.evaluate(async (at) => {
+      const tapped = await page.evaluate(async (info) => {
         const F = window.CHECKSMITH, C = F.core;
-        const legal = C.movesFrom('B', at, 3)[0];
-        const illegal = [...Array(9).keys()].find((i) =>
-          i !== at && !C.movesFrom('B', at, 3).includes(i));
+        const reach = C.movesFrom(info.piece, info.at, 3);
+        const legal = reach[0];
+        const illegal = [...Array(9).keys()].find((i) => i !== info.at && !reach.includes(i));
         const before = F.app.game.strikes.slice();
         F.tap(illegal);
         await new Promise((r) => setTimeout(r, 220));
@@ -1965,25 +2080,30 @@ async function run() {
         return { illegal: illegal, legal: legal,
           refused: afterBad.join(',') === before.join(','),
           took: F.app.game.strikes[legal] > before[legal] };
-      }, bishopBoard.at);
-      ok('an off-diagonal tap is refused', tapped.refused, JSON.stringify(tapped));
-      ok('and a diagonal one lands', tapped.took, JSON.stringify(tapped));
+      }, { at: numberBoard.at, piece: numberBoard.piece });
+      ok('a square off the ring is refused', tapped.refused, JSON.stringify(tapped));
+      ok('and one on it lands', tapped.took, JSON.stringify(tapped));
 
       // last, because it deals a different board: the legend follows the board
       // the anvil dealt, not the mode. A Gold order is raised a tier, so its
-      // legend must name that tier's pieces rather than the player's setting.
+      // legend must name that board's symbols rather than the player's setting.
+      // The legend follows the board that was actually dealt. In this mode the
+      // ITEM decides the board, so a bigger item brings a bigger board and its
+      // symbols with it, whatever the player's own difficulty setting says.
       ok('the legend follows the board the anvil dealt, not the mode', await page.evaluate(async () => {
         const F = window.CHECKSMITH;
         F.shopUi.order = null; F.shopReturn();
         F.app.difficulty = 'novice';
-        F.app.shop.materials.gold = 20;
-        F.shopUi.draft = { item: 'dagger', material: 'gold', qty: 1 };
+        F.app.shop.materials.bronze = 40;
+        F.core.learnRecipe(F.app.shop, 'plate', 'schematic');
+        F.shopUi.draft = { item: 'plate', material: 'bronze', qty: 1 };
         F.shopStartForge();
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 400));
         const g = F.app.game;
         const text = document.getElementById('legendBody').textContent;
-        return !!g && g.board.difficulty === 'apprentice' &&
-          /Bishop/.test(text) && !/Knight/.test(text);
+        const size = g ? g.board.size : 0;
+        return !!g && size > 3 && F.core.poolForSize(size)
+          .every((p) => text.includes(F.core.PIECES[p].name));
       }));
     }
     await page.evaluate(() => { window.CHECKSMITH.shopUi.order = null; window.CHECKSMITH.shopReturn(); });
@@ -2015,21 +2135,24 @@ async function run() {
       opened === metal.strikes && (await page.evaluate(() =>
         window.CHECKSMITH.core.perfectOf(window.CHECKSMITH.app.game))) === metal.strikes);
 
-    // drive the strike count straight and read what the tile says
+    // drive the strike count straight and read what the tile says. A hardened
+    // square shows its crust rather than its metal, by design, so the walk is
+    // read off a plain one.
     const walk = await page.evaluate((need) => {
       const F = window.CHECKSMITH;
+      const at = F.app.game.crust.findIndex((c) => c === 0);
       const out = [];
       for (let n = 0; n <= need + 1; n++) {
-        F.app.game.strikes[0] = n;
+        F.app.game.strikes[at] = n;
         F.render();
         // #board, not any tile: the versus boards are still in the document
-        const el = document.querySelector('#board .tile[data-i="0"]');
+        const el = document.querySelector('#board .tile[data-i="' + at + '"]');
         const bg = getComputedStyle(el).backgroundImage;
-        out.push({ n: n, metal: el.getAttribute('data-metal'), s: el.dataset.s,
+        out.push({ n: n, at: at, metal: el.getAttribute('data-metal'), s: el.dataset.s,
           spent: el.dataset.spent, label: el.getAttribute('aria-label'),
           edge: getComputedStyle(el).borderTopColor, bg: bg.slice(0, 60) });
       }
-      F.app.game.strikes[0] = 0;
+      F.app.game.strikes[at] = 0;
       F.render();
       return out;
     }, metal.strikes);
@@ -2064,12 +2187,13 @@ async function run() {
     // hammer's own square keeps its ring, and a ruined square keeps its crack
     const onTop = await page.evaluate((need) => {
       const F = window.CHECKSMITH;
-      F.app.game.strikes[0] = need;
-      F.app.game.current = 0;
+      const at = F.app.game.crust.findIndex((c) => c === 0);
+      F.app.game.strikes[at] = need;
+      F.app.game.current = at;
       F.render();
-      const el = document.querySelector('#board .tile[data-i="0"]');
+      const el = document.querySelector('#board .tile[data-i="' + at + '"]');
       const mark = getComputedStyle(el, '::after');
-      return { metal: el.getAttribute('data-metal'), current: el.dataset.current,
+      return { at: at, metal: el.getAttribute('data-metal'), current: el.dataset.current,
         ring: mark.content !== 'none' && parseFloat(mark.width) > 0 };
     }, metal.strikes);
     ok(metal.name + ': the hammer\'s ring still shows over worked metal',

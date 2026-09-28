@@ -186,8 +186,8 @@ rules never fire. Everything else gets harder as you go:
   steps up a size every five rounds, to 6×6 where it stays. The title screen
   hides the difficulty picker when Endless is selected, and there is one endless
   best score rather than one per difficulty.
-- **Every symbol can turn up on any endless board** — king, rook, bishop, knight
-  and queen — regardless of the tier's usual pool.
+- **What an endless board deals is decided by its size**, as everywhere else,
+  so every step up in size brings a new kind of symbol into play.
 
 | Round | 1 | 4 | 7 | 10 | 16 | 31 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -413,12 +413,15 @@ strike. Reforge is the one exception and never can — see above.
 
 ### The rival
 
-| Tier | Piece pool | Search depth |
-| --- | --- | --- |
-| Novice | King, Rook | 0 (greedy, buys at random) |
-| Apprentice | King, Rook, Bishop | 1 |
-| Journeyman | King, Rook, Bishop, Knight | 2 |
-| Master | King, Rook, Bishop, Knight, occasional Queens | 3 |
+The board's **size** decides which symbols both sides are dealt; the tier
+decides only how far ahead the rival thinks.
+
+| Tier | Search depth |
+| --- | --- |
+| Novice | 0 (greedy, buys at random) |
+| Apprentice | 1 |
+| Journeyman | 2 |
+| Master | 3 |
 
 The tiers differ by **decision quality, not by delay**: a minimax from the
 rival's own point of view, weighing exits, reachable squares, holes punched in
@@ -560,12 +563,16 @@ exactly as they did.
 
 Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
 
-| Batch | Tier | Symbols |
-| --- | --- | --- |
-| 1–3 | Novice | King, Rook, Bishop |
-| 4–6 | Apprentice | the same three |
-| 7–9 | Journeyman | + Knight |
-| 10+ | Master | + the occasional Queen |
+| Batch | Tier | Reshape | Hardened |
+| --- | --- | --- | --- |
+| 1–3 | Novice | 0% | 0% |
+| 4–6 | Apprentice | 15% | 10% |
+| 7–9 | Journeyman | 25% | 16% |
+| 10+ | Master | 35% | 22% |
+
+The symbols are **not** on that list: the item decides the board size and the
+size decides the symbols, so a dagger is a 3×3 of kings, rooks and numbers
+however many you order at once.
 
 **And the metal raises it.** From `SHOP.hardenFrom` (Gold) up, an order is
 worked `SHOP.hardenBy` (1) difficulty steps harder than the batch alone would
@@ -583,13 +590,13 @@ So Gold is the point where the shop stops being a formality: a single Gold
 piece is an Apprentice board, and nine of them is a Master one.
 
 **What the step actually buys, tier by tier.** The board *size* never moves —
-the item owns that — so a raised tier changes the symbol pool and the reshape
-chance, nothing else. Since Bishop joined Novice, Novice and Apprentice now draw
-from the same three symbols, so the first step up (Novice → Apprentice) is
-purely **reshaping turning on, 0% → 15%**. That is the mechanic the game itself
+the item owns that, and the size owns the symbols — so a raised tier changes
+how unruly the metal is and nothing else: **reshaping** and **hardened
+squares**. The first step up (Novice → Apprentice) turns both on, 0% → 15%
+reshaping and 0% → 10% hardened. Reshaping is the mechanic the game itself
 calls the risky one: it voids the verified-route guarantee, so a Gold order can
 no longer be walked from a route worked out before the first blow. From there
-the steps add symbols as well: Journeyman brings the Knight and 25%, Master the
+the steps raise both: Journeyman 25% and 16%, Master the
 occasional Queen and 35%.
 
 | Step | Pool | Reshape |
@@ -1008,13 +1015,53 @@ price, so per-item layouts and demand profiles are a field away.
 | Bishop | Any positive distance diagonally |
 | Knight | Two squares along one axis and one along the other; jumps |
 | Queen | Any positive distance horizontally, vertically or diagonally |
+| **2 – 5** | Exactly that many squares away — count the rings out, in any direction |
 
-| Difficulty | Board | Piece pool | Strikes for perfection | Reshape chance |
+### The board's size decides what is on it
+
+Not the difficulty. `CONFIG.pools` is one table keyed by board edge, read by
+Forge, Endless, Versus and the shop alike, so a 3×3 deals the same symbols
+whoever asked for it. Every rank up brings one more kind of symbol into play,
+because a bigger board is what gives that symbol room to mean anything — a
+knight on a 3×3 could not move at all.
+
+| Board | Symbols dealt | Queens promoted |
+| --- | --- | --- |
+| 3 × 3 | King, Rook, **2** | — |
+| 4 × 4 | + Bishop, **3** | — |
+| 5 × 5 | + Knight, **4** | — |
+| 6 × 6 | + **5** | up to 2 |
+
+A **number** sends you exactly that many squares away: Chebyshev distance, so
+it reads as the ring that far out, in any direction. That makes `1` the king
+exactly, which is why numbers start at two. A number can have *no* legal
+destination — there is no square two away from the middle of a 3×3 — so the
+generator simply never places one where the route departs from it, and
+`reshape` refuses to turn a square into one that would strand you.
+
+| Difficulty | Board | Strikes for perfection | Reshape chance | Hardened chance |
 | --- | --- | --- | --- | --- |
-| Novice | 3 × 3 | King, Rook, Bishop | 18 | 0% |
-| Apprentice | 4 × 4 | King, Rook, Bishop | 32 | 15% |
-| Journeyman | 5 × 5 | King, Rook, Bishop, Knight | 50 | 25% |
-| Master | 6 × 6 | King, Rook, Bishop, Knight, occasional Queens | 72 | 35% |
+| Novice | 3 × 3 | 18 | 0% | 0% |
+| Apprentice | 4 × 4 | 32 | 15% | 10% |
+| Journeyman | 5 × 5 | 50 | 25% | 16% |
+| Master | 6 × 6 | 72 | 35% | 22% |
+
+### Hardened squares
+
+A hardened square wears a **crust** of one or two layers. Blows land on the
+crust first and do not touch the metal underneath: they neither count towards
+finishing the square nor can they ruin it, and you still land there, so the
+symbol still steers the next blow.
+
+The crust is a **routing problem, not a tax**. It is rolled *before* the route
+is searched for, and `buildRoute` takes a visit count per square — base visits
+plus one for every layer — so a hardened board still has an exact solution in
+its stored route. `validateBoard` checks the same sum, and the blows a crust
+owes are never counted as overstrikes, so a hardened board still finishes at
+quality 100 when walked properly.
+
+Endless and Versus are left plain: a tour visits each square once and has
+nowhere to come back to, and a duel is already a fight over ground.
 
 Scoring at completion:
 
@@ -1066,16 +1113,16 @@ Everything tunable sits in one `CONFIG` object near the top of the script in
 `index.html`:
 
 ```js
+CONFIG.pools                           // SYMBOLS BY BOARD SIZE - the one table
+CONFIG.hardening                       // how many layers a crust can be
 CONFIG.difficulties.master.size        // board edge length
-CONFIG.difficulties.master.pool        // piece pool: route search, and reshaping
-CONFIG.difficulties.master.maxQueens   // queens promoted in after the search
 CONFIG.difficulties.master.morphChance // odds a first strike reshapes a square
+CONFIG.difficulties.master.hardenChance// odds a square comes up hardened
 CONFIG.rules.perfect                   // strikes that finish a square
 CONFIG.rules.spent                     // strikes that blank a square for good
 CONFIG.endless.pointsPerStrike         // endless: points for each strike
 CONFIG.endless.roundBonus              // endless: points for clearing a board
 CONFIG.endless.materials               // the named metals, in order
-CONFIG.endless.pool                    // symbols that can appear in endless
 CONFIG.endless.morphBase/Step/Every    // the reshape ramp
 CONFIG.endless.morphMax                // reshape ceiling
 CONFIG.endless.startTier               // the board every endless run starts on
@@ -1086,7 +1133,7 @@ CONFIG.shop.goldPerScoreStep           // rate added per step (0.25)
 CONFIG.shop.goldPerGildLevel           // gold added per Gilded Hammer level
 CONFIG.shop.upgrades                   // levels, cost base and growth per upgrade
 CONFIG.versus.sizes                    // board sizes offered in versus
-CONFIG.versus.difficulties             // versus: pool, queens and search depth per tier
+CONFIG.versus.difficulties             // versus: how far ahead the rival thinks
 CONFIG.versus.scoring                  // strike, pair, trio, variety, route step
 CONFIG.versus.upgrades                 // versus upgrade ids, costs and targets
 CONFIG.versus.ai.comboWeight            // how hard the rival plays for combos
