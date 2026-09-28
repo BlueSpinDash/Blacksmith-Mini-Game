@@ -817,14 +817,15 @@ rather than send away a customer standing there with money in their hand.
 | --- | --- |
 | Salesperson | Minds the counter for one phase a day |
 | Apprentice | Works beside you; every batch *you* forge comes out larger |
-| Runner | Fetches ingots at a price that may beat the market or miss it |
-| Smith | Fills a production order alone — you keep the phase, they keep the hammer |
+| Runner | Fetches ingots at a price that may beat the market or miss it — or carts ore home from a mine you own |
+| Smith | Fills a production order alone — you keep the phase, they keep the hammer — or stands at the furnace smelting ore |
 | Store Hand | Carries finished goods out to the shelves |
 
 Ranks E→S set `power`, which drives every rank-sensitive roll, and wage. Better
 ranks are rarer among applicants as well as dearer. Everyone takes **one job a
 day**, which is why keeping the shop open all day takes two salespeople plus
-you.
+you. A new forge has room for **four** of them; **miners** are hired against a
+property rather than the forge and are counted apart from that four entirely.
 
 A Smith never quite matches a good run at the anvil — even an S-rank tops out
 short of 100 quality, verified by a check — so delegating production is a real
@@ -887,6 +888,79 @@ change about them (id and name). That makes it stable across screens, reloads
 and save round trips without touching anything else in an old save, and the
 first save afterwards writes it down. The same face follows them through
 recruitment, the roster list, the pickers and their box.
+
+### Commissions: a lot, a deadline and a price
+
+Once the forge has a reputation worth trusting (`SHOP.commission.minRep`), a
+customer at the counter may put a **bulk order** to you instead of buying one of
+something. It is a different conversation and gets a different screen: so many
+of one line, no worse than a stated quality band, inside a stated number of
+days, for `premium` above what the pieces would fetch singly.
+
+* **Accepting** pays `advance` (a quarter) at once and starts the clock *from
+  the day you accept* — a queued offer is not eaten into by the time it sat in
+  the ledger.
+* **Declining costs nothing at all.** No reputation, no gold. That is the point
+  of being asked.
+* **Delivering** pays the remaining three quarters and nudges reputation up.
+* **Missing the day** forfeits the rest, takes `repFailed` off your name, and
+  returns the promised goods to storage — they were made, after all.
+
+A **salesperson** minding the counter never answers one on your behalf. They
+write it down (`queueCommission`) and it is waiting in the **Ledger** tab when
+the phase closes.
+
+Goods are **allocated**, not counted: `allocateCommission` moves them out of
+`shop.storage` into `com.filled`, so the same piece can never be on a stand and
+in a crate at once. `releaseCommission` puts them back while the contract is
+still open. A smith can be given an order *for* a contract, and `shopEndDay`
+routes that batch into its crate first, with any overflow (or work under the
+contract's quality) landing in storage like any other batch — nothing is ever
+created or dropped on the way.
+
+Expiry runs at the **turn of the day**, in `shopEndDay`, so a calendar advanced
+by any route catches every deadline it passed.
+
+### Property, miners and ore
+
+The **Property** tab sells deeds to mines. You may own as many of one mineral as
+you can pay for — `minePrice` charges 1.6× more for each one you already hold —
+and each is a property of its own with its own id, name, miners, upgrades and
+ore sheds.
+
+**Owning a mine hands the forge nothing.** What it digs sits at the mine until a
+runner fetches it. That gap is the whole point of the chain:
+
+```
+mine digs (weekly) → mine's own ore store → runner + vehicle → forge ore yard
+  → smith at the furnace → ingots → the anvil
+```
+
+**Miners** are hired against the mine (`shopHireMiner`), never against
+`staffCapacity`. `runMines` runs once at the turn of the week and is keyed to
+the **week number** through `mine.lastDug`, so a week can never be dug twice
+however the calendar was advanced or a save reloaded. Anything over
+`mineStoreCap` is spoil left on the ground, which is what makes ore sheds worth
+buying.
+
+| Vehicle | Carries | Notes |
+| --- | --- | --- |
+| Cart | 10 | |
+| Wagon | 30 | |
+| Horse-drawn Wagon | 60 | Upgrades a wagon you already own, in place |
+
+Vehicles are **equipment, never consumed**. Booking a haul reserves one for that
+phase (`vehicle.busy`), so two runners cannot be sent out with the same cart;
+the runner gives it back when they get home. `collectOre` caps the load three
+ways — what the mine has, what the vehicle carries, and what the forge can still
+hold — and *moves* the ore rather than copying it, so nothing is created or lost
+by fetching it.
+
+**Ore is not an ingot.** It is counted apart from bar stock in `shop.ore`, with
+its own cap, and the anvil will not take it. `shopSmelt` converts it one for one;
+a smith on the furnace gets through `smeltRate(power)` in a phase and cannot
+also manufacture that phase. None of it is compulsory — the market still sells
+finished ingots, and a forge that never buys a deed plays exactly as it did.
 
 ### The week
 

@@ -1710,8 +1710,9 @@ async function run() {
   ok('gold, rent and rating are on screen at a glance',
     board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
     JSON.stringify(board));
-  ok('the floor, storage, metal, the town, staff and growth each have a panel',
-    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Staff,Growth', board.tabs.join(','));
+  ok('the floor, storage, metal, the town, the ledger, property, staff and growth each have a panel',
+    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Ledger,Property,Staff,Growth',
+    board.tabs.join(','));
   ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
     () => document.querySelector('#shActions [data-act="tend"]').disabled));
   ok('the Almanac is a book and not a job, so it is never shut', await page.evaluate(
@@ -1726,14 +1727,22 @@ async function run() {
     const missingFaces = C.SHOP.customers
       .filter((c) => !document.getElementById('cu-' + c.id)).map((c) => c.id);
     const tinted = C.SHOP.materials.filter((m) => !m.tint).map((m) => m.id);
-    return { missingItems, missingFaces, tinted,
+    const missingCarts = C.SHOP.vehicles
+      .filter((v) => !document.getElementById('pr-' + v.id)).map((v) => v.id);
+    return { missingItems, missingFaces, tinted, missingCarts,
       ingot: !!document.getElementById('it-ingot'),
-      expect: C.SHOP.items.length + C.SHOP.customers.length + C.SHOP.stands.length + 1,
+      ore: !!document.getElementById('it-ore'),
+      // one a recipe, one a customer, one a fixture, one a vehicle, plus the
+      // ingot, the raw ore, the mine, the pick and the contract
+      expect: C.SHOP.items.length + C.SHOP.customers.length + C.SHOP.stands.length +
+        C.SHOP.vehicles.length + 5,
       symbols: document.querySelectorAll('.sprite-defs symbol').length };
   });
   ok('every item has a sprite', art.missingItems.length === 0, art.missingItems.join(','));
   ok('every customer type has a portrait', art.missingFaces.length === 0, art.missingFaces.join(','));
   ok('there is an ingot sprite for the raw metal', art.ingot);
+  ok('raw ore is drawn as its own thing, not as an ingot', art.ore);
+  ok('every vehicle has a sprite', art.missingCarts.length === 0, art.missingCarts.join(','));
   ok('every material carries a tint', art.tinted.length === 0, art.tinted.join(','));
   ok('every display stand has a fixture sprite', await page.evaluate(() =>
     window.CHECKSMITH.core.SHOP.stands.every((d) => !!document.getElementById(d.icon))));
@@ -2524,7 +2533,8 @@ async function run() {
   // failed counter is shown twice.
   ok('every customer ends in exactly one stamp',
     seen.sold === report.tally.sold && seen.left === report.tally.left &&
-    seen.sold + seen.left === report.tally.customers,
+    seen.sold + seen.left + (report.tally.taken || 0) + (report.tally.declined || 0) ===
+      report.tally.customers,
     JSON.stringify([seen, report.tally]));
   ok('a selling phase ends in a sales report', /Sales Report/.test(report.title), report.title);
   ok('the report counts customers, sales, revenue and haggles',
@@ -2541,6 +2551,9 @@ async function run() {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     F.testClearFloor(sh);
     F.testStock(sh, C.lineKey('dagger', 'bronze'), 40, 100, 1);
+    // an unknown forge is not trusted with a bulk order, and a check about an
+    // ordinary sale wants an ordinary sale put to it
+    sh.reputation = 0;
     F.shopUi.session = null;
     F.shopAct('tend');
     await new Promise((r) => setTimeout(r, 250));
@@ -3194,6 +3207,213 @@ async function run() {
     F.shopRender();
   });
   await page.waitForTimeout(150);
+
+  section('Open Your Forge: property, ore and the carts that fetch it');
+  // a clean slate on the shop floor so nothing from the counter is in the way
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    F.testClearFloor(sh);
+    sh.gold = 400000;
+    sh.mines = []; sh.vehicles = []; sh.ore = {};
+    sh.commissions = []; sh.commissionOffers = [];
+    F.shopUi.tab = 'props';
+    F.shopRender();
+  });
+  await page.waitForTimeout(150);
+  const propEmpty = await page.evaluate(() => ({
+    text: document.getElementById('shPanel').innerText,
+    deeds: document.querySelectorAll('#shPanel [data-buymine]').length,
+    carts: document.querySelectorAll('#shPanel [data-buyvehicle]').length
+  }));
+  ok('a forge with no land is told what land would be for',
+    /own no land/i.test(propEmpty.text), propEmpty.text.slice(0, 120));
+  ok('every mineral has a deed on offer',
+    propEmpty.deeds === await page.evaluate(() => window.CHECKSMITH.core.SHOP.mines.length),
+    String(propEmpty.deeds));
+  ok('every vehicle is on offer too',
+    propEmpty.carts === await page.evaluate(() => window.CHECKSMITH.core.SHOP.vehicles.length),
+    String(propEmpty.carts));
+
+  await page.click('#shPanel [data-buymine="bronze"]');
+  await page.waitForTimeout(200);
+  const deed = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { mines: sh.mines.length, ore: sh.ore.bronze || 0,
+      bars: sh.materials.bronze, cards: document.querySelectorAll('#shPanel .mine-card').length };
+  });
+  ok('buying a deed puts a property on the books', deed.mines === 1 && deed.cards === 1,
+    JSON.stringify(deed));
+  ok('and hands the forge no metal at all', deed.ore === 0, JSON.stringify(deed));
+
+  await page.click('#shPanel [data-buymine="bronze"]');
+  await page.waitForTimeout(200);
+  const twice = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { mines: sh.mines.length, names: sh.mines.map((m) => m.name) };
+  });
+  ok('two mines of one mineral stand side by side, told apart by name',
+    twice.mines === 2 && twice.names[0] !== twice.names[1], JSON.stringify(twice));
+
+  // down the shaft: hire somebody, then let the week turn
+  await page.click('#shPanel [data-mine]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions .btn:nth-child(1)');          // Find miners
+  await page.waitForTimeout(150);
+  const pit = await page.evaluate(() => ({
+    applicants: document.querySelectorAll('#shopSheetBody [data-takeon]').length,
+    works: document.querySelectorAll('#shopSheetBody [data-minebuy]').length
+  }));
+  ok('a mine finds its own miners, and its own works to buy',
+    pit.applicants === 3 && pit.works === 3, JSON.stringify(pit));
+  await page.click('#shopSheetBody [data-takeon]');
+  await page.waitForTimeout(200);
+  const staffed = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { miners: sh.mines[0].miners.length, staff: sh.staff.length,
+      cap: window.CHECKSMITH.core.staffCapacity(sh) };
+  });
+  ok('a miner goes down the shaft, not onto the forge roster',
+    staffed.miners === 1 && staffed.staff <= staffed.cap, JSON.stringify(staffed));
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(120);
+
+  const dug = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const before = sh.mines[0].ore;
+    const rows = C.runMines(sh, 9);
+    const again = C.runMines(sh, 9);
+    F.shopRender();
+    return { before, after: sh.mines[0].ore, mines: sh.mines.length,
+      rows: rows.length, again: again.length };
+  });
+  ok('a week down the mine puts ore at the mine, and only once',
+    dug.before === 0 && dug.after > 0 && dug.rows === dug.mines && dug.again === 0,
+    JSON.stringify(dug));
+
+  await page.click('#shPanel [data-buyvehicle="cart"]');
+  await page.waitForTimeout(200);
+  const yard = await page.evaluate(() => ({
+    boxes: document.querySelectorAll('#shPanel .yard-box').length,
+    text: document.querySelector('#shPanel .yard-box').innerText.replace(/\n/g, ' ')
+  }));
+  ok('a bought cart stands in the yard and says what it carries',
+    yard.boxes === 1 && /10/.test(yard.text), JSON.stringify(yard));
+
+  // and the runner who fetches it
+  const fetched = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.mines[0].ore = 40;
+    const res = C.collectOre(sh, sh.mines[0].id, sh.vehicles[0].id, 999);
+    F.shopUi.tab = 'metal';
+    F.shopRender();
+    return { load: res.load, left: sh.mines[0].ore, yard: sh.ore.bronze,
+      text: document.getElementById('shPanel').innerText };
+  });
+  ok('a cart brings home ten and leaves the rest down the mine',
+    fetched.load === 10 && fetched.left === 30 && fetched.yard === 10, JSON.stringify(fetched));
+  ok('the metal page keeps raw ore apart from bar stock',
+    /Raw ore/i.test(fetched.text) && /Ingots/i.test(fetched.text),
+    fetched.text.slice(0, 200));
+
+  await page.click('#shPanel [data-smelt="bronze"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetActions .btn:nth-child(1)');
+  await page.waitForTimeout(400);
+  const smelted = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { ore: sh.ore.bronze || 0, bars: sh.materials.bronze };
+  });
+  ok('smelting takes the ore away and leaves bar stock behind',
+    smelted.ore < 10, JSON.stringify(smelted));
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(80);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+
+  section('Open Your Forge: the commission ledger');
+  const ledger = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.commissions = []; sh.commissionOffers = [];
+    sh.reputation = 60;
+    const one = C.makeTownsfolk(sh, 'farmer');
+    one.gold = 4000;
+    const rnd = sh.rnd;
+    sh.rnd = () => 0;
+    const com = C.rollCommission(sh, one);
+    sh.rnd = rnd;
+    sh.commissionOffers.push(com);
+    F.shopUi.tab = 'ledger';
+    F.shopRender();
+    return { id: com.id, qty: com.qty, key: com.key, pay: com.pay,
+      cards: document.querySelectorAll('#shPanel .contract').length,
+      text: document.getElementById('shPanel').innerText };
+  });
+  ok('an offer left with your people waits in the ledger for you',
+    ledger.cards === 1 && /consider/i.test(ledger.text), ledger.text.slice(0, 160));
+  ok('the contract says who wants what, and by when',
+    /Accept/.test(ledger.text) && /Decline/.test(ledger.text), ledger.text.slice(0, 200));
+
+  const took = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const before = sh.gold;
+    document.querySelector('#shPanel [data-take]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return { taken: sh.commissions.length, offers: sh.commissionOffers.length,
+      paid: sh.gold - before, text: document.getElementById('shPanel').innerText };
+  });
+  ok('accepting books the contract and pays the advance up front',
+    took.taken === 1 && took.offers === 0 && took.paid > 0, JSON.stringify(took));
+  ok('and the ledger then shows what is owed on it',
+    /in the crate/i.test(took.text), took.text.slice(0, 220));
+
+  const promised = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const com = sh.commissions[0];
+    C.addStorage(sh, com.key, com.qty, 100);
+    F.shopRender();
+    const held = sh.storage[com.key].qty;
+    document.querySelector('#shPanel [data-fill]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return { held, filled: com.filled, qty: com.qty,
+      storage: sh.storage[com.key] ? sh.storage[com.key].qty : 0,
+      text: document.getElementById('shPanel').innerText };
+  });
+  ok('promising goods moves them out of storage rather than copying them',
+    promised.filled === promised.qty && promised.storage === 0, JSON.stringify(promised));
+  ok('a full contract offers to be handed over',
+    /Hand it over/i.test(promised.text), promised.text.slice(0, 220));
+
+  const handed = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const before = sh.gold, rep = sh.reputation;
+    document.querySelector('#shPanel [data-deliver]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return { open: sh.commissions.length, paid: sh.gold - before,
+      better: sh.reputation > rep };
+  });
+  ok('handing it over pays the rest and builds the forge a name',
+    handed.open === 0 && handed.paid > 0 && handed.better, JSON.stringify(handed));
+
+  const missed = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const one = C.makeTownsfolk(sh, 'farmer');
+    one.gold = 4000;
+    const rnd = sh.rnd;
+    sh.rnd = () => 0;
+    const com = C.rollCommission(sh, one);
+    sh.rnd = rnd;
+    sh.commissionOffers.push(com);
+    C.acceptCommission(sh, com.id);
+    const rep = sh.reputation;
+    sh.day = com.dueDay + 1;
+    const failed = C.expireCommissions(sh);
+    F.shopRender();
+    return { failed: failed.length, open: sh.commissions.length, worse: sh.reputation < rep };
+  });
+  ok('a contract whose day has gone is off the books, and it costs you',
+    missed.failed === 1 && missed.open === 0 && missed.worse, JSON.stringify(missed));
+  await page.screenshot({ path: path.join(SHOTS, '31-ledger.png'), fullPage: true });
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());

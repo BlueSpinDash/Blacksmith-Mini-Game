@@ -661,7 +661,7 @@ input[type=range]{
 .shop-crew{margin:0;font-size:11.5px;color:var(--muted);min-height:1.2em;}
 .shop-crew b{color:var(--brass);font-weight:600;}
 
-.shop-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.shop-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
 .shop-tab{
   min-height:36px;padding:5px 2px;border-radius:9px;cursor:pointer;
   font-size:11px;letter-spacing:.03em;
@@ -1151,6 +1151,70 @@ input[type=range]{
 .sr-buy{min-width:76px;min-height:var(--tap);font-size:13px;white-space:nowrap;}
 .sr-buy:disabled{opacity:.45;cursor:not-allowed;}
 
+/* ---------- the commission ledger ----------
+   A contract is a piece of paper somebody handed across the counter, so it is
+   drawn as one: aged paper, a ruled edge, a wax seal in the corner. The rest
+   of the shop is iron and lamplight; this is the one thing in it that is not. */
+.ledger-note{margin:0 0 9px;font-size:12px;line-height:1.5;color:var(--muted);}
+.contract{
+  position:relative;display:grid;gap:5px;padding:11px 13px 11px 12px;
+  border-radius:4px 10px 10px 4px;
+  background:linear-gradient(105deg,#efe3c6 0%,#e3d5b4 46%,#d8c9a4 100%);
+  border:1px solid #9d8a62;border-left:4px solid #a8442e;
+  box-shadow:0 2px 0 rgba(0,0,0,.32), inset 0 0 22px rgba(140,116,70,.28);
+  color:#3a3024;text-align:left;
+}
+.contract.late{border-left-color:#c2412f;}
+.contract.ready{border-left-color:#3f7a45;}
+.contract-head{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;}
+.contract-who{font-size:14px;font-weight:600;color:#2c241a;letter-spacing:.01em;}
+.contract-trade{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#7a6849;}
+.contract-body{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#332b20;}
+.contract-body .sprite{filter:drop-shadow(0 1px 0 rgba(0,0,0,.28));}
+.contract-terms{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:4px 10px;
+  font-size:11.5px;color:#5d4f37;font-variant-numeric:tabular-nums;
+}
+.contract-terms b{display:block;font-size:13px;color:#2c241a;font-weight:600;}
+.contract-bar{height:6px;border-radius:3px;background:#bda986;overflow:hidden;
+  border:1px solid #9d8a62;}
+.contract-bar i{display:block;height:100%;background:#6d8f4e;}
+.contract.late .contract-bar i{background:#c2412f;}
+.contract-due{font-size:11.5px;color:#6b5a3e;}
+.contract.late .contract-due{color:#9d2f20;font-weight:600;}
+.contract-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+.contract-acts button{
+  min-height:34px;padding:0 12px;font-size:12.5px;border-radius:7px;
+  background:#cbb68e;color:#2c241a;border:1px solid #9d8a62;
+}
+.contract-seal{position:absolute;right:9px;bottom:9px;opacity:.5;}
+
+/* ---------- property ---------- */
+.mine-card{
+  display:grid;gap:7px;background:#15161b;border:1px solid var(--edge-soft);
+  border-radius:10px;padding:10px 12px;text-align:left;
+}
+.mine-head{display:flex;align-items:center;gap:9px;}
+.mine-head .nm{flex:1;min-width:0;font-size:14.5px;color:var(--text);}
+.mine-head .sub{font-size:11.5px;color:var(--muted);}
+.mine-stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:4px 10px;
+  font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+}
+.mine-stats b{display:block;font-size:13.5px;color:var(--text);font-weight:600;}
+.ore-bar{height:6px;border-radius:3px;background:#22242b;overflow:hidden;
+  border:1px solid var(--edge-soft);}
+.ore-bar i{display:block;height:100%;background:var(--brass);}
+.ore-bar.full i{background:var(--danger);}
+.yard-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;}
+.yard-box{
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 5px;
+  background:#15161b;border:1px solid var(--edge-soft);border-radius:10px;
+  font-size:11px;color:var(--muted);text-align:center;
+}
+.yard-box.out{opacity:.5;}
+.yard-box .nm{font-size:12px;color:var(--text);}
+
 /* ---------- title screen ---------- */
 /* Below the top bar on purpose: the title track plays behind this screen, so
    the mute button and the volume slider must still be reachable. Every other
@@ -1462,6 +1526,16 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 <symbol id="st-shield" viewBox="0 0 24 24"><rect x="2.8" y="4.2" width="18.4" height="2" rx=".7" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M12 6.2c3.6 0 6.4 1.2 6.4 1.2v6.2c0 3.6-3.4 6.4-6.4 7.6-3-1.2-6.4-4-6.4-7.6V7.4S8.4 6.2 12 6.2Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M12 6.2c-3.6 0-6.4 1.2-6.4 1.2v6.2c0 3.6 3.4 6.4 6.4 7.6Z" fill="#fff" opacity=".2"/><circle cx="12" cy="12.4" r="2" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/></symbol>
 <symbol id="st-helmet" viewBox="0 0 24 24"><path d="M7.4 21.2h9.2" fill="none" stroke="#5b3f24" stroke-width="2.2" stroke-linecap="round"/><rect x="11.1" y="13" width="1.8" height="7.8" rx=".6" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><ellipse cx="12" cy="13.2" rx="4.6" ry="1.4" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M6.6 13C6.6 6.4 9 3.4 12 3.4s5.4 3 5.4 9.6Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M12 3.4c-3 0-5.4 3-5.4 9.6H12Z" fill="#fff" opacity=".2"/><rect x="7.4" y="8.6" width="9.2" height="1.6" rx=".5" fill="#12141a" opacity=".55"/></symbol>
 <symbol id="st-tool" viewBox="0 0 24 24"><rect x="3.2" y="3.4" width="17.6" height="15.4" rx="1.2" fill="#5b3f24" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M3.2 3.4h8.8v15.4H3.2Z" fill="#fff" opacity=".08"/><rect x="5.4" y="6.2" width="13.2" height="1.4" rx=".5" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="7.6" y="7.4" width="1.5" height="8.2" rx=".5" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M5.4 7.4h6.2v2.4H5.4Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M14.6 7.4l3 1.6-3 1.6Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="14.2" y="10.6" width="1.4" height="5" rx=".5" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/></symbol>
+<!-- Property, haulage and the raw stuff that comes out of the ground. Rock
+     and timber are fixed colours; the mineral in the ore, the iron on a wheel
+     and the wax on a seal take currentColor, so a gold seam reads as gold. -->
+<symbol id="it-ore" viewBox="0 0 24 24"><path d="M4.2 13.6 7.4 7.2l6.8-2.4 5.6 4.2-1.2 7.4-6 3.4-7-2.6Z" fill="#6b5f52" stroke="#12141a" stroke-width=".9" stroke-linejoin="round"/><path d="M4.2 13.6 7.4 7.2l6.8-2.4-2.6 6.2Z" fill="#fff" opacity=".16"/><path d="M9.0 10.2 12.4 8.8l1.6 3-2.8 2.2Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M15.0 12.6 17.6 11.4l.4 2.8-2.2 1Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M7.6 15.0 10.0 15.8 9.2 17.8 7.2 16.8Z" fill="currentColor" stroke="#12141a" stroke-width=".55" stroke-linejoin="round"/></symbol>
+<symbol id="pr-mine" viewBox="0 0 24 24"><path d="M1.8 20.4 8.4 6.8 12 3.2l3.6 3.6 6.6 13.6Z" fill="#5c5348" stroke="#12141a" stroke-width=".85" stroke-linejoin="round"/><path d="M1.8 20.4 8.4 6.8 12 3.2v17.2Z" fill="#fff" opacity=".12"/><path d="M7.4 20.4v-6.2c0-2.5 2-4.4 4.6-4.4s4.6 1.9 4.6 4.4v6.2Z" fill="#12141a" opacity=".85"/><rect x="6.2" y="12.2" width="1.9" height="8.4" rx=".5" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="15.9" y="12.2" width="1.9" height="8.4" rx=".5" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="5.4" y="10.6" width="13.2" height="2.0" rx=".6" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M9.6 20.4h4.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="pr-pick" viewBox="0 0 24 24"><rect x="11.1" y="6.4" width="1.9" height="14.2" rx=".6" transform="rotate(14 12 13)" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M4.4 8.6C7.6 5.2 16.4 5.2 19.6 8.6c-3.0-1.6-4.8-1.9-7.6-1.9s-4.6.3-7.6 1.9Z" fill="currentColor" stroke="#12141a" stroke-width=".8" stroke-linejoin="round"/><path d="M4.4 8.6C7.6 5.2 12 5.6 12 5.6v1.1c-2.8 0-4.6.3-7.6 1.9Z" fill="#fff" opacity=".24"/></symbol>
+<symbol id="pr-cart" viewBox="0 0 24 24"><path d="M4.6 9.4h12.2l-1.6 6.6H6.2Z" fill="#8b6b3a" stroke="#12141a" stroke-width=".85" stroke-linejoin="round"/><path d="M4.6 9.4h4l-.8 6.6H6.2Z" fill="#fff" opacity=".2"/><path d="M6.4 11.8h9.0" fill="none" stroke="#5b3f24" stroke-width="1"/><path d="M16.8 9.4 21 7.0" fill="none" stroke="#5b3f24" stroke-width="1.6" stroke-linecap="round"/><circle cx="8.6" cy="18.2" r="2.6" fill="#5b3f24" stroke="#12141a" stroke-width=".8"/><circle cx="8.6" cy="18.2" r=".9" fill="currentColor" stroke="#12141a" stroke-width=".55"/><circle cx="14.6" cy="18.2" r="2.6" fill="#5b3f24" stroke="#12141a" stroke-width=".8"/><circle cx="14.6" cy="18.2" r=".9" fill="currentColor" stroke="#12141a" stroke-width=".55"/></symbol>
+<symbol id="pr-wagon" viewBox="0 0 24 24"><path d="M2.4 8.2h18.0l-1.4 7.4H3.8Z" fill="#8b6b3a" stroke="#12141a" stroke-width=".85" stroke-linejoin="round"/><path d="M2.4 8.2h4.2l-.8 7.4H3.8Z" fill="#fff" opacity=".2"/><path d="M6.6 8.4 6.0 15.4M10.4 8.4 10.0 15.4M14.2 8.4 14.0 15.4M18.0 8.4 18.0 15.4" fill="none" stroke="#5b3f24" stroke-width=".8"/><rect x="3.0" y="15.4" width="17.0" height="1.5" rx=".5" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="6.4" cy="19.2" r="2.4" fill="#5b3f24" stroke="#12141a" stroke-width=".8"/><circle cx="6.4" cy="19.2" r=".8" fill="currentColor" stroke="#12141a" stroke-width=".5"/><circle cx="16.6" cy="19.2" r="2.4" fill="#5b3f24" stroke="#12141a" stroke-width=".8"/><circle cx="16.6" cy="19.2" r=".8" fill="currentColor" stroke="#12141a" stroke-width=".5"/></symbol>
+<symbol id="pr-horse" viewBox="0 0 24 24"><path d="M13.2 10.0h8.6l-.9 5.4h-8.2Z" fill="#8b6b3a" stroke="#12141a" stroke-width=".8" stroke-linejoin="round"/><path d="M13.2 10.0h2.4l-.4 5.4h-2.0Z" fill="#fff" opacity=".2"/><circle cx="15.2" cy="18.0" r="2.0" fill="#5b3f24" stroke="#12141a" stroke-width=".75"/><circle cx="20.2" cy="18.0" r="2.0" fill="#5b3f24" stroke="#12141a" stroke-width=".75"/><path d="M5.0 14.0v5.0M9.0 14.0v5.0" fill="none" stroke="#4a3722" stroke-width="1.5" stroke-linecap="round"/><path d="M2.4 9.6 1.2 13.4" fill="none" stroke="#4a3722" stroke-width="1.3" stroke-linecap="round"/><rect x="2.6" y="9.0" width="8.2" height="5.2" rx="2.0" fill="#6b4f30" stroke="#12141a" stroke-width=".8"/><path d="M2.6 10.0h3.4v3.2H2.6Z" fill="#fff" opacity=".14"/><path d="M8.8 9.8 8.2 5.6l3.0-.6.9 3.6Z" fill="#6b4f30" stroke="#12141a" stroke-width=".7" stroke-linejoin="round"/><rect x="9.6" y="3.2" width="3.6" height="2.6" rx=".9" fill="#6b4f30" stroke="#12141a" stroke-width=".7"/><circle cx="11.7" cy="4.3" r=".5" fill="#12141a"/><path d="M11.0 11.8h2.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></symbol>
+<symbol id="pr-contract" viewBox="0 0 24 24"><path d="M5.6 3.4h10.2c1.0 0 1.8.8 1.8 1.8v13.6c0 1.0-.8 1.8-1.8 1.8H5.6c-1.0 0-1.8-.8-1.8-1.8V5.2c0-1.0.8-1.8 1.8-1.8Z" fill="#e8dcc0" stroke="#12141a" stroke-width=".85" stroke-linejoin="round"/><path d="M5.6 3.4h4.0v17.2H5.6c-1.0 0-1.8-.8-1.8-1.8V5.2c0-1.0.8-1.8 1.8-1.8Z" fill="#fff" opacity=".35"/><path d="M6.6 7.0h8.4M6.6 9.8h8.4M6.6 12.6h5.6" fill="none" stroke="#7a6a4c" stroke-width="1" stroke-linecap="round"/><circle cx="15.8" cy="17.4" r="3.0" fill="currentColor" stroke="#12141a" stroke-width=".8"/><circle cx="15.8" cy="17.4" r="1.2" fill="#12141a" opacity=".35"/></symbol>
 <symbol id="st-goods" viewBox="0 0 24 24"><rect x="2.6" y="10.6" width="18.8" height="2.4" rx=".8" fill="#8b6b3a" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M5.4 13 4 20.8M18.6 13 20 20.8" fill="none" stroke="#5b3f24" stroke-width="1.8" stroke-linecap="round"/><path d="M5.8 10.4V6.8c0-.6.5-1 1.2-1h3.2c.7 0 1.2.4 1.2 1v3.6Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M5.8 10.4V6.8c0-.6.5-1 1.2-1h1.6v4.6Z" fill="#fff" opacity=".2"/><path d="M13 10.4c0-2.2 1.2-3.6 2.8-3.6s2.8 1.4 2.8 3.6Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="12.6" y="5.8" width="6.4" height="1.4" rx=".5" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/></symbol>
 </svg>
 <svg xmlns="http://www.w3.org/2000/svg" class="sprite-defs" aria-hidden="true">
@@ -1957,14 +2031,52 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        The Haggler's Ledger and a good salesperson both improve
        your odds. Every outcome is stamped up &mdash; <b>Sold</b> or <b>Walked out</b> &mdash;
        before the next one steps forward.</p>
+    <p><b>Some customers do not want one of something.</b> Once the forge has a name worth
+       trusting, somebody may put a <b>commission</b> to you across the counter instead: a lot of
+       one thing, no worse than a stated quality, inside a stated number of days, for a price
+       above what the pieces would fetch singly. A quarter is paid the moment you accept and the
+       rest when the lot is handed over. <b>Turning one down costs nothing at all</b> &mdash; that
+       is the point of being asked. Miss the day and you keep the advance but lose the rest, and
+       word gets round. Contracts live in the <b>Ledger</b>, where you promise finished work to
+       them out of storage; a piece promised to a crate is out of the shop, so it is never on a
+       stand and in a contract at once, and you may take it back while the contract is still open.
+       A smith on your books can be set to forge <i>for</i> a contract, and what they make goes
+       straight into its crate. If a <b>salesperson</b> was minding the counter rather than you,
+       they write the order down instead of answering it, and it is waiting in the Ledger when the
+       phase closes.</p>
+    <p><b>You can own the ground the metal comes out of.</b> The <b>Property</b> tab sells deeds to
+       <b>mines</b> &mdash; a copper seam, a silver lode, gold, mithril, adamantine &mdash; and you
+       may own as many of one mineral as you can pay for, each a property of its own with its own
+       name, its own miners and its own ore sheds. Every mine after the first of a mineral costs
+       more than the last. <b>Miners</b> are hired against the mine itself and take <i>no place
+       among your forge staff</i>; they are paid three weeks up front and then a wage like anybody
+       else. At the <b>turn of each week</b> every staffed mine digs, by the rank of the people
+       down it; anything over what the sheds hold is spoil left on the ground, which is what makes
+       ore storage worth buying. Sinking a shaft makes room for more miners, and better gear makes
+       every one of them dig more.</p>
+    <p><b>Owning a mine hands you nothing.</b> What it digs sits <i>at the mine</i> until somebody
+       goes and fetches it. A <b>Runner</b> can be sent to <b>collect ore</b> instead of going to
+       market, and what they bring back is capped by the vehicle you send them out in: a
+       <b>Cart</b> carries 10, a <b>Wagon</b> 30, and a wagon with a <b>team of horses</b> in front
+       of it 60. Vehicles are bought once in the Property tab and kept &mdash; they are never used
+       up &mdash; but one is out for the phase it is sent out in, so a cart on the road cannot also
+       be somewhere else.</p>
+    <p><b>Ore is not metal.</b> Raw ore is counted apart from your bar stock, with a yard of its
+       own, and the anvil will not take it. A <b>Smith</b> can be put on the furnace for a phase to
+       <b>smelt</b> it &mdash; one ore makes one ingot, and a better smith gets through more of it
+       &mdash; or you can stand over it yourself from the Metal tab. None of this is compulsory:
+       the market still sells finished ingots, and a forge that never buys a deed plays exactly as
+       it did.</p>
     <p><b>Staff are hands, not percentages.</b> A <b>Salesperson</b> minds the counter for one
        phase a day, so two of them plus you keeps the shop open all day. A <b>Runner</b> fetches
-       ingots, at a price that may beat the market or miss it. A <b>Smith</b> fills an order
+       ingots, or fetches ore from a mine of yours with a cart. A <b>Smith</b> fills an order
        without you touching a board &mdash; you keep the phase, they keep the hammer, and the
-       result is theirs. A <b>Store Hand</b> carries stock out to the stands for you. Only the <b>Apprentice</b>
+       result is theirs &mdash; or stands at the furnace smelting ore instead, which is a phase
+       they cannot also spend at the anvil. A <b>Store Hand</b> carries stock out to the stands for you. Only the <b>Apprentice</b>
        works beside you, making every batch you forge yourself larger. Each of the others takes one
        job a day, and every one of them draws a wage on rent day.</p>
-    <p><b>Growing costs.</b> Bigger premises mean more staff, room for more stands, more storage
+    <p><b>Growing costs.</b> You have room for <b>four</b> general staff from the first day,
+       and miners are counted separately from them. Bigger premises mean more staff, room for more stands, more storage
        and bigger batches &mdash; and a much larger rent. Expanding too early is how a shop
        closes.</p>
     <p><b>The forge keeps.</b> Your shop is saved as you play, so you can put it down and pick it
@@ -4415,15 +4527,88 @@ const SHOP = {
     newcomersPerWeek: 2
   },
 
+  /* ---------- the supply chain --------------------------------------
+     A mine produces ORE. Ore is not an ingot: it sits at the property until a
+     runner fetches it, and a smith smelts it at the forge before anything can
+     be forged from it. Buying finished ingots at the market is untouched -
+     mining is a cheaper road, not a compulsory one.
+
+     Everything here is a number in a table on purpose. Mining should be worth
+     doing without being obviously right, and that balance is a dial rather
+     than a rewrite. */
+
+  /* A deed, one per mineral the game already has. `yield` is what one miner
+     of the baseline rank digs in a week; a better miner digs more. */
+  mines: [
+    { id: 'bronze',     name: 'Copper Seam',    material: 'bronze',
+      price: 900,   yield: 6, miners: 2, store: 40,  wage: 16 },
+    { id: 'silver',     name: 'Silver Lode',    material: 'silver',
+      price: 2600,  yield: 5, miners: 2, store: 34,  wage: 30 },
+    { id: 'gold',       name: 'Gold Workings',  material: 'gold',
+      price: 6800,  yield: 4, miners: 3, store: 28,  wage: 58 },
+    { id: 'mithril',    name: 'Mithril Deep',   material: 'mithril',
+      price: 16000, yield: 3, miners: 3, store: 24,  wage: 110 },
+    { id: 'adamantine', name: 'Adamant Pit',    material: 'adamantine',
+      price: 38000, yield: 2, miners: 4, store: 20,  wage: 220 }
+  ],
+
+  /* What a mine's owner can pay to improve, a level at a time, in the same
+     shape as the forge's own upgrades. */
+  mineUpgrades: [
+    { id: 'shafts', name: 'Sink a Shaft', max: 3, cost: [420, 1100, 2800],
+      blurb: 'Room for two more miners each time.', miners: 2 },
+    { id: 'sheds',  name: 'Ore Sheds',    max: 3, cost: [300, 820, 2100],
+      blurb: 'Twenty more ore of storage each time.', store: 20 },
+    { id: 'gear',   name: 'Better Gear',  max: 3, cost: [560, 1500, 3900],
+      blurb: 'Every miner digs a quarter more each time.', efficiency: 0.25 }
+  ],
+
+  /* How a week's dig is worked out, so the sum lives in one place:
+       ore = round(yield * sum(rank power) / powerBase * (1 + gear)) */
+  mining: {
+    powerBase: 2,          // the rank a mine's stated yield is quoted at
+    hireWeeks: 3           // a miner asks this many weeks of wage up front
+  },
+
+  /* Carts and wagons. A vehicle is equipment: it is reserved while a delivery
+     is out and free again once it is back, never consumed. */
+  vehicles: [
+    { id: 'cart',  name: 'Cart',              capacity: 10, price: 260,
+      blurb: 'One mule and a box. Enough to keep a small forge fed.' },
+    { id: 'wagon', name: 'Wagon',             capacity: 30, price: 980,
+      blurb: 'Three times the load, and a frame a team can be put in front of.' },
+    { id: 'horse', name: 'Horse-drawn Wagon', capacity: 60, price: 1400, from: 'wagon',
+      blurb: 'Put a team in front of a wagon you own and it carries double.' }
+  ],
+
+  /* ---------- commissions --------------------------------------------
+     A bulk order taken at the counter: somebody from the town, goods the
+     forge knows how to make, and terms worked out from the order rather than
+     picked off a list. */
+  commission: {
+    offerOdds: 0.16,       // chance a customer at the counter has one to put
+    minRep: 8,             // nobody trusts an unknown forge with a bulk order
+    advance: 0.25,         // paid on acceptance
+    premium: 1.35,         // what they pay over the retail worth of the lot
+    qtyPerPurse: 0.11,     // how much of a purse a customer will commit
+    minQty: 4, maxQty: 18,
+    daysPerPiece: 0.55,    // deadline: this much a piece...
+    daysBase: 4,           // ...on top of this
+    maxOffers: 3,          // offers a salesperson may bring back from a phase
+    maxActive: 4,          // contracts the ledger will hold at once
+    repDone: 3.5,          // reputation for a contract delivered
+    repFailed: -7          // and for one missed
+  },
+
   roles: [
     { id: 'salesperson', name: 'Salesperson', phase: true,
       blurb: 'Tends the store for one phase a day while you work elsewhere.' },
     { id: 'apprentice', name: 'Apprentice', phase: false,
       blurb: 'Works the anvil beside you: every batch you forge yourself comes out larger.' },
     { id: 'runner', name: 'Runner', phase: true,
-      blurb: 'Fetches an order of ingots. The price they come back with is their own.' },
+      blurb: 'Fetches ingots from the market, or ore from a mine you own.' },
     { id: 'smith', name: 'Smith', phase: true,
-      blurb: 'Fills a production order alone. You keep the phase; they keep the hammer.' },
+      blurb: 'Fills a production order alone, or smelts ore. You keep the phase; they keep the hammer.' },
     { id: 'storehand', name: 'Store Hand', phase: true,
       blurb: 'Moves finished goods out of storage and onto the shelves.' }
   ],
@@ -4442,12 +4627,21 @@ const SHOP = {
   /* `stands` is floor space, not stock: it is how many fixtures the premises
      will physically hold. Moving up does not put anything on the floor - it
      makes room for stands the player still has to buy. */
+  /* `staff` is the forge's own hiring capacity. Miners are not on it: they
+     are hired against the property they work and counted there. */
   tiers: [
-    { id: 1, name: 'Corner Forge',   rent: 175,  staff: 2, stands: 4,  storage: 45,  batch: 3,  cost: 0 },
-    { id: 2, name: 'Village Smithy', rent: 620,  staff: 4, stands: 6,  storage: 90,  batch: 5,  cost: 1800 },
-    { id: 3, name: 'Town Forge',     rent: 1500, staff: 6, stands: 9,  storage: 170, batch: 7,  cost: 6500 },
-    { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 9, stands: 12, storage: 300, batch: 10, cost: 22000 }
+    { id: 1, name: 'Corner Forge',   rent: 175,  staff: 4,  stands: 4,  storage: 45,  batch: 3,  cost: 0 },
+    { id: 2, name: 'Village Smithy', rent: 620,  staff: 6,  stands: 6,  storage: 90,  batch: 5,  cost: 1800 },
+    { id: 3, name: 'Town Forge',     rent: 1500, staff: 8,  stands: 9,  storage: 170, batch: 7,  cost: 6500 },
+    { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 11, stands: 12, storage: 300, batch: 10, cost: 22000 }
   ],
+
+  /* Ore sits in its own store at the forge, apart from the ingots. */
+  oreStorage: 60,
+  smelting: {
+    perPhase: 4,           // what a baseline smith gets through in one phase
+    perPower: 3            // and what each rank above that adds
+  },
 
   upgrades: [
     { id: 'bellows',  name: 'Greater Bellows', max: 3, cost: [300, 820, 2100],
@@ -4850,6 +5044,11 @@ function createShop(opts) {
     ledger: {},           // recipe id -> { made, best, metals } - what it has made
     learned: [],          // recipe id -> when and how it was learned
     town: [],             // the named people who shop here, purses and all
+    ore: {},              // raw ore at the forge, apart from the ingots
+    mines: [],            // properties owned, each with its own miners and store
+    vehicles: [],         // carts and wagons; equipment, never used up
+    commissions: [],      // contracts taken on
+    commissionOffers: [], // contracts put to you and not yet answered
     applicants: [],
     log: [],              // reports, newest first
     assignments: {},      // employeeId -> { phase, job }
@@ -4936,7 +5135,16 @@ function serializeShop(shop) {
     known: shop.known.slice(),
     ledger: JSON.parse(JSON.stringify(shop.ledger)),
     learned: shop.learned.map(function (l) { return Object.assign({}, l); }),
-    town: shop.town.map(function (one) { return Object.assign({}, one); })
+    town: shop.town.map(function (one) { return Object.assign({}, one); }),
+    ore: Object.assign({}, shop.ore),
+    mines: shop.mines.map(function (m) {
+      return { id: m.id, def: m.def, name: m.name, ore: m.ore, lastDug: m.lastDug,
+        upgrades: Object.assign({}, m.upgrades),
+        miners: m.miners.map(function (one) { return Object.assign({}, one); }) };
+    }),
+    vehicles: shop.vehicles.map(function (v) { return Object.assign({}, v); }),
+    commissions: shop.commissions.map(function (c) { return Object.assign({}, c); }),
+    commissionOffers: shop.commissionOffers.map(function (c) { return Object.assign({}, c); })
   };
 }
 
@@ -5149,11 +5357,86 @@ function restoreShop(data, rnd) {
   }
   growTown(shop);
 
+  /* Raw ore at the forge, then the properties. Everything is read back
+     defensively: a mine whose deed no longer exists is dropped, a miner
+     without a rank is dropped, and no count may come back negative. */
+  for (const id in data.ore || {}) {
+    if (!shopMaterial(id)) continue;
+    const n = whole(data.ore[id], 0, 1e9, 0);
+    if (n > 0) shop.ore[id] = n;
+  }
+
+  for (const raw of Array.isArray(data.mines) ? data.mines : []) {
+    const def = raw && mineDef(raw.def);
+    if (!def || !shopMaterial(def.material)) continue;
+    const mine = { id: whole(raw.id, 1, 1e9, shop.nextId++), def: def.id,
+      name: shopNameOf(raw.name, def.name), miners: [], ore: 0,
+      upgrades: {}, lastDug: whole(raw.lastDug, 0, 1e6, 0), applicants: [] };
+    for (const u of SHOP.mineUpgrades) {
+      const level = whole(raw.upgrades && raw.upgrades[u.id], 0, u.max, 0);
+      if (level > 0) mine.upgrades[u.id] = level;
+    }
+    for (const hand of Array.isArray(raw.miners) ? raw.miners : []) {
+      const rank = shopRank(hand && hand.rank);
+      if (!rank) continue;
+      if (mine.miners.length >= mineMinerCap(mine)) break;
+      mine.miners.push({ id: whole(hand.id, 1, 1e9, shop.nextId++),
+        name: shopNameOf(hand.name, 'Miner'), rank: rank.id, power: rank.power,
+        wage: whole(hand.wage, 1, 1e6, rank.wage),
+        face: shopCustomerType(hand.face) ? hand.face : SHOP.customers[0].id });
+    }
+    // never more ore than the sheds this mine actually has
+    mine.ore = whole(raw.ore, 0, mineStoreCap(mine), 0);
+    shop.mines.push(mine);
+  }
+
+  for (const raw of Array.isArray(data.vehicles) ? data.vehicles : []) {
+    if (!raw || !vehicleDef(raw.kind)) continue;
+    const busy = raw.busy && SHOP.phases.indexOf(raw.busy.phase) >= 0
+      ? { day: whole(raw.busy.day, 1, 1e6, shop.day), phase: raw.busy.phase } : null;
+    shop.vehicles.push({ id: whole(raw.id, 1, 1e9, shop.nextId++), kind: raw.kind, busy: busy });
+  }
+
+  /* Contracts. One read for both lists, because an offer and a contract are
+     the same shape; only where they live differs. */
+  const readCommission = function (raw) {
+    if (!raw || !shopItem(raw.item) || !shopMaterial(raw.material)) return null;
+    const qty = whole(raw.qty, 1, 1e4, 1);
+    return { id: whole(raw.id, 1, 1e9, shop.nextId++),
+      who: whole(raw.who, 0, 1e9, 0), name: shopNameOf(raw.name, 'A customer'),
+      type: shopCustomerType(raw.type) ? raw.type : SHOP.customers[0].id,
+      trade: shopNameOf(raw.trade, 'Customer'),
+      item: raw.item, material: raw.material, key: lineKey(raw.item, raw.material),
+      qty: qty, quality: whole(raw.quality, 0, 100, 0),
+      pay: whole(raw.pay, 0, 1e9, 0), days: whole(raw.days, 1, 1000, 1),
+      dueDay: whole(raw.dueDay, 1, 1e6, shop.day),
+      filled: whole(raw.filled, 0, qty, 0),
+      advance: whole(raw.advance, 0, 1e9, 0),
+      offeredDay: whole(raw.offeredDay, 1, 1e6, shop.day),
+      takenDay: whole(raw.takenDay, 1, 1e6, shop.day) };
+  };
+  for (const raw of Array.isArray(data.commissions) ? data.commissions : []) {
+    const com = readCommission(raw);
+    if (com && shop.commissions.length < SHOP.commission.maxActive) shop.commissions.push(com);
+  }
+  for (const raw of Array.isArray(data.commissionOffers) ? data.commissionOffers : []) {
+    const com = readCommission(raw);
+    if (com && shop.commissionOffers.length < SHOP.commission.maxOffers) {
+      shop.commissionOffers.push(com);
+    }
+  }
+
   // ids must not collide with anything restored
   let top = shop.nextId;
   for (const e of shop.staff) top = Math.max(top, e.id + 1);
   for (const o of shop.orders) top = Math.max(top, o.id + 1);
   for (const one of shop.town) top = Math.max(top, one.id + 1);
+  for (const m of shop.mines) {
+    top = Math.max(top, m.id + 1);
+    for (const one of m.miners) top = Math.max(top, one.id + 1);
+  }
+  for (const v of shop.vehicles) top = Math.max(top, v.id + 1);
+  for (const c of shop.commissions.concat(shop.commissionOffers)) top = Math.max(top, c.id + 1);
   shop.nextId = top;
   return shop;
 }
@@ -5170,7 +5453,7 @@ function wageBill(shop) {
   for (const e of shop.staff) total += e.wage;
   return total;
 }
-function weeklyBill(shop) { return rentDue(shop) + wageBill(shop); }
+function weeklyBill(shop) { return rentDue(shop) + wageBill(shop) + mineWageBill(shop); }
 
 function shopLog(shop, report) {
   report.day = shop.day;
@@ -5751,6 +6034,24 @@ function counterNext(session, shop) {
   const after = wantName(one);
   const face = { who: one.id, type: one.type, name: one.name,
     trade: type.name, after: after, purse: one.gold };
+
+  /* Some customers are not here to buy one of something. A commission is put
+     to the seller before anything on the floor is looked at, because it is a
+     different conversation: a lot, a deadline and a price, take it or leave
+     it. The player answers it; an employee minding the counter writes it down
+     and brings it back at the end of their phase. */
+  const contract = rollCommission(shop, one);
+  if (contract) {
+    session.report.commissions = (session.report.commissions || 0) + 1;
+    if (session.seller.kind === 'staff') {
+      queueCommission(shop, contract);
+      return Object.assign({}, face, { kind: 'leave', why: 'left a contract to consider',
+        commission: contract.id, quiet: true });
+    }
+    session.pending = Object.assign({}, face, { kind: 'commission', offer: contract });
+    return session.pending;
+  }
+
   const key = chooseGoods(shop, one);
   if (!key) {
     session.report.left++;
@@ -5850,6 +6151,29 @@ function settleSale(session, shop, key, price, how) {
   nudgeReputation(shop, 0.18 + (price <= rec ? 0.09 : 0) + (quality >= 90 ? 0.07 : 0));
   return { kind: 'sale', who: p.who, type: p.type, name: p.name, trade: p.trade,
     key: key, price: price, how: how, quality: quality, got: got };
+}
+
+/* Answer a contract put across the counter. Taking it books it and pays the
+   advance; turning it down costs nothing at all. Either way the customer is
+   done for today - a bulk order is the whole of what they came in for. */
+function counterAnswerCommission(session, shop, take) {
+  const p = session.pending;
+  if (!p || p.kind !== 'commission') return null;
+  session.pending = null;
+  const offer = p.offer;
+  if (!take) {
+    session.report.declined = (session.report.declined || 0) + 1;
+    return Object.assign({}, p, { kind: 'leave', why: 'took the contract elsewhere' });
+  }
+  // the offer has to be in the book before it can be taken out of it
+  shop.commissionOffers.push(offer);
+  const res = acceptCommission(shop, offer.id);
+  if (!res.ok) {
+    shop.commissionOffers = shop.commissionOffers.filter(function (c) { return c.id !== offer.id; });
+    return Object.assign({}, p, { kind: 'leave', why: res.why });
+  }
+  session.report.taken = (session.report.taken || 0) + 1;
+  return Object.assign({}, p, { kind: 'contract', commission: offer, advance: res.advance });
 }
 
 /* Answer a haggle. 'accept' takes the offer, 'reject' sends them away, and
@@ -6008,6 +6332,8 @@ function runCounter(shop, seller) {
   while (guard++ < 600) {
     const event = counterNext(session, shop);
     if (!event) break;
+    // a contract an employee took down is queued, never answered by them
+    if (event.kind === 'commission') { session.pending = null; continue; }
     if (event.kind !== 'offer') continue;
     const choice = autoRespond(session, shop);
     if (choice === 'offer') {
@@ -6134,7 +6460,19 @@ function shopAssign(shop, staffId, job, phase) {
   if (already && already.day === shop.day) {
     return { ok: false, why: e.name + ' already has work today' };
   }
+  /* A cart can only be in one place. Booking a haul takes the vehicle off the
+     yard there and then, so two runners cannot be sent out with it, and the
+     runner gives it back when they get home. */
+  const order = (job && job.order) || {};
+  let cart = null;
+  if (order.kind === 'ore') {
+    if (!mineById(shop, order.mine)) return { ok: false, why: 'no such property' };
+    cart = vehicleById(shop, order.vehicle);
+    if (!cart) return { ok: false, why: 'nothing to carry it in' };
+    if (!vehicleFree(shop, cart)) return { ok: false, why: 'that ' + vehicleDef(cart.kind).name.toLowerCase() + ' is already out' };
+  }
   shop.assignments[e.id] = { day: shop.day, phase: want, job: job || {}, done: false };
+  if (cart) cart.busy = { day: shop.day, phase: want };
   return { ok: true, phase: want };
 }
 
@@ -6144,6 +6482,12 @@ function shopUnassign(shop, staffId) {
   const status = assignmentStatus(shop, staffId);
   if (status === 'done') return { ok: false, why: 'that work is already finished' };
   if (status === 'active') return { ok: false, why: 'that phase is already under way' };
+  // whatever was promised to that job goes back in the yard
+  const order = ((shop.assignments[staffId] || {}).job || {}).order || {};
+  if (order.kind === 'ore') {
+    const cart = vehicleById(shop, order.vehicle);
+    if (cart) cart.busy = null;
+  }
   delete shop.assignments[staffId];
   return { ok: true };
 }
@@ -6191,6 +6535,16 @@ function runnerScale(shop, power) {
 }
 
 function runRunner(shop, employee, order) {
+  // a haul from a property you own rather than a trip to the market
+  if (order && order.kind === 'ore') {
+    const res = collectOre(shop, order.mine, order.vehicle, order.qty);
+    const vehicle = vehicleById(shop, order.vehicle);
+    if (vehicle) vehicle.busy = null;                 // back in the yard either way
+    if (!res.ok) return { ok: false, why: res.why };
+    return { ok: true, kind: 'haul', who: employee.name, rank: employee.rank,
+      mine: res.name, material: res.material, load: res.load,
+      capacity: res.capacity, spilled: res.spilled, left: res.left };
+  }
   const expected = purchaseCost(shop, order);
   if (expected <= 0) return { ok: false, why: 'no order given' };
   const scale = runnerScale(shop, employee.power);
@@ -6210,6 +6564,15 @@ function smithQuality(shop, power) {
   return Math.max(0, Math.min(100, Math.round(roll)));
 }
 function runSmith(shop, employee, order) {
+  /* Standing over the furnace instead of the anvil. A phase is one job: a
+     smith who is smelting is not also making anything. */
+  if (order && order.kind === 'smelt') {
+    const rate = smeltRate(employee.power);
+    const res = shopSmelt(shop, order.material, rate);
+    if (!res.ok) return { ok: false, why: res.why };
+    return { ok: true, kind: 'smelt', who: employee.name, rank: employee.rank,
+      material: res.material, made: res.made, rate: rate, left: res.left };
+  }
   const check = forgeCheck(shop, order.item, order.material, order.qty);
   if (!check.ok) return { ok: false, why: check.why };
   // a weak smith sometimes spoils part of the batch outright
@@ -6221,10 +6584,13 @@ function runSmith(shop, employee, order) {
   const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
     item: order.item, material: order.material, qty: made, quality: quality,
     maker: employee.name, dueDay: shop.day + 1 };
+  // Work promised to a contract is marked as such, so when it comes off the
+  // anvil tomorrow it goes into the crate rather than onto a stand.
+  if (order.commission) batch.commission = order.commission;
   shop.orders.push(batch);
   return { ok: true, kind: 'smith', who: employee.name, rank: employee.rank,
     item: order.item, material: order.material, ordered: order.qty, made: made,
-    quality: quality, spoiled: order.qty - made };
+    quality: quality, spoiled: order.qty - made, commission: order.commission || null };
 }
 
 /* A store hand carries out whatever the player told them to prioritise, then
@@ -6306,9 +6672,22 @@ function shopEndDay(shop) {
   const still = [];
   for (const order of shop.orders) {
     if (order.dueDay <= shop.day) {
-      const res = addStorage(shop, order.key, order.qty, order.quality);
+      /* A batch forged for a contract goes straight into its crate, if the
+         contract is still open and the work is good enough. Whatever is over
+         the amount owed, or not good enough, lands in storage like any other
+         batch - nothing is ever created or dropped on the way. */
+      let promised = 0;
+      const com = order.commission ? commissionById(shop, order.commission) : null;
+      if (com && com.key === order.key && order.quality >= com.quality) {
+        promised = Math.min(order.qty, commissionLeft(com));
+        com.filled += promised;
+      }
+      const rest = order.qty - promised;
+      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality)
+        : { stored: 0, lost: 0 };
       delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
-        quality: order.quality, maker: order.maker });
+        quality: order.quality, maker: order.maker,
+        promised: promised, commission: com ? com.id : null });
     } else still.push(order);
   }
   shop.orders = still;
@@ -6316,10 +6695,18 @@ function shopEndDay(shop) {
   // wants change as people give up looking, whatever else the day held
   const drifted = driftWants(shop);
 
+  // contracts are answered to at the turn of the day, before anything else:
+  // a day that has gone past a deadline has gone past it
+  const failed = expireCommissions(shop);
+
   let bill = null;
   let wages = null;
+  let dug = null;
   if ((shop.day - 1) % SHOP.weekLength === 0) {
     bill = payWeek(shop);
+    // The week's dig. It is keyed to the week number, so a week can never be
+    // worked twice however the calendar was advanced or a save reloaded.
+    if (!shop.closed) dug = runMines(shop, Math.floor((shop.day - 1) / SHOP.weekLength));
     // the town is paid on the same day the shop's own bill falls due: the
     // money the shop takes in comes out of purses, and purses refill on a wage
     if (!shop.closed) {
@@ -6335,17 +6722,20 @@ function shopEndDay(shop) {
   const learned = discoverRecipes(shop);
 
   const report = { kind: 'day', delivered: delivered, bill: bill, learned: learned,
-    wages: wages, drifted: drifted.length, newDay: true, day: shop.day };
-  if (delivered.length || bill || learned.length) shopLog(shop, report);
+    wages: wages, drifted: drifted.length, dug: dug, failed: failed,
+    newDay: true, day: shop.day };
+  if (delivered.length || bill || learned.length || failed.length ||
+      (dug && dug.length)) shopLog(shop, report);
   return report;
 }
 
 /* Rent and wages together. Falling short does not end the week quietly:
    the shop closes, which is the pressure the whole mode turns on. */
 function payWeek(shop) {
-  const rent = rentDue(shop), wages = wageBill(shop);
-  const total = rent + wages;
-  const bill = { rent: rent, wages: wages, total: total, gold: shop.gold, paid: false };
+  const rent = rentDue(shop), wages = wageBill(shop), mines = mineWageBill(shop);
+  const total = rent + wages + mines;
+  const bill = { rent: rent, wages: wages, mines: mines, total: total,
+    gold: shop.gold, paid: false };
   if (shop.gold >= total) {
     shop.gold -= total;
     shop.rentPaid += 1;
@@ -6356,6 +6746,478 @@ function payWeek(shop) {
     bill.short = total - shop.gold;
   }
   return bill;
+}
+
+/* ---------- commissions -------------------------------------------------
+   A bulk order. Somebody from the town wants a lot of one thing, made to at
+   least a stated standard, by a stated day, for a stated price. A quarter of
+   it is paid on acceptance and the rest on delivery; miss the day and the
+   rest is forfeit and the shop's name suffers for it.
+
+   Goods promised to a contract are ALLOCATED: they come out of storage and
+   sit against the contract, so the same sword can never be on a stand and in
+   a crate at once. */
+
+/* The quality band a contract asks for, named the way the rest of the game
+   names quality rather than as a bare number. */
+function commissionBand(quality) { return qualityBand(quality); }
+
+/* Whether a lot in storage is good enough for this contract. */
+function commissionTakes(com, key, quality) {
+  return key === com.key && quality >= com.quality;
+}
+
+/* What is still owed on a contract. */
+function commissionLeft(com) { return Math.max(0, com.qty - com.filled); }
+function commissionDone(com) { return com.filled >= com.qty; }
+function commissionDaysLeft(shop, com) { return com.dueDay - shop.day; }
+
+/* Everything in storage this contract would accept, as a map of key to how
+   many of it are good enough. */
+function commissionStock(shop, com) {
+  const lot = shop.storage[com.key];
+  if (!lot || !commissionTakes(com, com.key, lot.quality)) return 0;
+  return lot.qty;
+}
+
+/* Roll a contract for the person standing at the counter, or nothing. The
+   goods are something the forge knows how to make and the customer wants, the
+   size is what their purse will commit to, and the terms follow from both. */
+function rollCommission(shop, one) {
+  const c = SHOP.commission;
+  if (shop.reputation < c.minRep) return null;
+  if (shop.commissions.length + shop.commissionOffers.length >= c.maxActive) return null;
+  if (shop.rnd() >= c.offerOdds) return null;
+
+  const type = shopCustomerType(one.type);
+  /* Something they want and the forge can actually make. What they came in
+     for comes first, then anything else of that kind, and failing both,
+     anything their trade has a use for: somebody after a shield they cannot
+     get here will still order the axes they also want, rather than walking
+     out with nothing said. */
+  const liked = knownRecipes(shop).filter(function (it) {
+    return (type.likes[it.cat] || 0) > 0;
+  });
+  let wanted = [];
+  if (one.want && one.want.item) {
+    wanted = liked.filter(function (it) { return it.id === one.want.item; });
+  }
+  if (!wanted.length && one.want && one.want.cat) {
+    wanted = liked.filter(function (it) { return it.cat === one.want.cat; });
+  }
+  if (!wanted.length) wanted = liked;
+  if (!wanted.length) return null;
+  const item = wanted[Math.floor(shop.rnd() * wanted.length)];
+
+  // a metal the forge has a blueprint ladder for, weighted to the plain end
+  const metals = SHOP.materials.filter(function (m) {
+    return m.value <= 1 + shopStars(shop) * 1.6;
+  });
+  const material = (metals.length ? metals : [SHOP.materials[0]])[
+    Math.floor(shop.rnd() * (metals.length || 1))];
+
+  const quality = Math.max(0, Math.min(95, Math.round(one.standards + shop.rnd() * 12)));
+  const unit = recommendedPrice(item.id, material.id, Math.max(quality, 60));
+  const budget = one.gold * c.qtyPerPurse;
+  const qty = Math.max(c.minQty, Math.min(c.maxQty, Math.round(budget / Math.max(1, unit)) + 3));
+  const pay = Math.round(unit * qty * c.premium);
+  const days = Math.max(3, Math.round(c.daysBase + qty * c.daysPerPiece));
+
+  return {
+    id: shop.nextId++,
+    who: one.id, name: one.name, type: one.type, trade: type.name,
+    item: item.id, material: material.id, key: lineKey(item.id, material.id),
+    qty: qty, quality: quality, pay: pay,
+    days: days, dueDay: shop.day + days,
+    filled: 0, advance: Math.round(pay * c.advance),
+    offeredDay: shop.day
+  };
+}
+
+/* An employee at the counter writes a contract down rather than answering it.
+   The player sees the lot when the phase closes. */
+function queueCommission(shop, offer) {
+  if (shop.commissionOffers.length >= SHOP.commission.maxOffers) return false;
+  shop.commissionOffers.push(offer);
+  return true;
+}
+
+function commissionById(shop, id) {
+  return shop.commissions.find(function (c) { return c.id === id; }) || null;
+}
+function commissionOfferById(shop, id) {
+  return shop.commissionOffers.find(function (c) { return c.id === id; }) || null;
+}
+
+/* Take the contract on. The advance is paid at once, and the deadline is
+   counted from the day it was accepted rather than the day it was offered, so
+   a queued offer is not eaten into by the time it sat in the ledger. */
+function acceptCommission(shop, id) {
+  const at = shop.commissionOffers.findIndex(function (c) { return c.id === id; });
+  if (at < 0) return { ok: false, why: 'no such offer' };
+  if (shop.commissions.length >= SHOP.commission.maxActive) {
+    return { ok: false, why: 'the ledger is full' };
+  }
+  const com = shop.commissionOffers.splice(at, 1)[0];
+  com.dueDay = shop.day + com.days;
+  com.takenDay = shop.day;
+  shop.gold += com.advance;
+  shop.commissions.push(com);
+  return { ok: true, commission: com, advance: com.advance };
+}
+
+/* Turning one down costs nothing at all, which is the point of being asked. */
+function declineCommission(shop, id) {
+  const at = shop.commissionOffers.findIndex(function (c) { return c.id === id; });
+  if (at < 0) return { ok: false, why: 'no such offer' };
+  return { ok: true, commission: shop.commissionOffers.splice(at, 1)[0] };
+}
+
+/* Promise goods to a contract. They leave storage there and then: a piece in
+   a crate is not a piece on a stand, and the count can never go negative. */
+function allocateCommission(shop, id, qty) {
+  const com = commissionById(shop, id);
+  if (!com) return { ok: false, why: 'no such contract' };
+  const lot = shop.storage[com.key];
+  if (!lot) return { ok: false, why: 'none of that in storage' };
+  if (lot.quality < com.quality) {
+    return { ok: false, why: 'that work is under ' + commissionBand(com.quality).name.toLowerCase() };
+  }
+  const want = Math.max(0, Math.floor(Number(qty) || 0));
+  const moved = Math.min(want, lot.qty, commissionLeft(com));
+  if (moved <= 0) return { ok: false, why: 'nothing to promise' };
+  lot.qty -= moved;
+  if (lot.qty <= 0) delete shop.storage[com.key];
+  com.filled += moved;
+  return { ok: true, moved: moved, filled: com.filled, left: commissionLeft(com) };
+}
+
+/* Take goods back out of a contract and into storage, while it is still open.
+   Nothing is created: what comes back is what went in. */
+function releaseCommission(shop, id, qty) {
+  const com = commissionById(shop, id);
+  if (!com) return { ok: false, why: 'no such contract' };
+  const want = Math.max(0, Math.floor(Number(qty) || 0));
+  const moved = Math.min(want, com.filled);
+  if (moved <= 0) return { ok: false, why: 'nothing promised to take back' };
+  const res = addStorage(shop, com.key, moved, Math.max(com.quality, 60));
+  com.filled -= res.stored;
+  return { ok: true, moved: res.stored, lost: res.lost, filled: com.filled };
+}
+
+/* Hand the lot over. Only a full contract may be delivered, and delivering it
+   pays the rest and builds the shop's name. */
+function deliverCommission(shop, id) {
+  const at = shop.commissions.findIndex(function (c) { return c.id === id; });
+  if (at < 0) return { ok: false, why: 'no such contract' };
+  const com = shop.commissions[at];
+  if (!commissionDone(com)) {
+    return { ok: false, why: commissionLeft(com) + ' still owed' };
+  }
+  const rest = com.pay - com.advance;
+  shop.gold += rest;
+  nudgeReputation(shop, SHOP.commission.repDone);
+  shop.commissions.splice(at, 1);
+  // the customer thinks better of a forge that delivered for them
+  const one = townsfolkById(shop, com.who);
+  if (one) one.bought += com.qty;
+  return { ok: true, commission: com, paid: rest, total: com.pay };
+}
+
+/* The day has turned: anything past its day is gone. The goods promised to it
+   come back into storage - they were made, after all - but the money and the
+   shop's name do not. */
+function expireCommissions(shop) {
+  const failed = [];
+  const kept = [];
+  for (const com of shop.commissions) {
+    if (shop.day <= com.dueDay) { kept.push(com); continue; }
+    if (com.filled > 0) addStorage(shop, com.key, com.filled, Math.max(com.quality, 60));
+    nudgeReputation(shop, SHOP.commission.repFailed);
+    failed.push(com);
+  }
+  shop.commissions = kept;
+  // an offer nobody answered is off the table by morning
+  shop.commissionOffers = shop.commissionOffers.filter(function (c) {
+    return c.offeredDay >= shop.day - 1;
+  });
+  return failed;
+}
+
+/* The contract falling due soonest, for the indicator on the management
+   screen. Null when the ledger is empty. */
+function nextCommissionDue(shop) {
+  let soonest = null;
+  for (const com of shop.commissions) {
+    if (!soonest || com.dueDay < soonest.dueDay) soonest = com;
+  }
+  return soonest;
+}
+
+/* ---------- properties: mines, miners and ore --------------------------
+   A mine is a property, not a number on the forge. You may own as many of a
+   mineral as you can pay for, each with its own miners, its own upgrades and
+   its own ore store; owning one puts nothing in the forge's hands until a
+   runner has been out to fetch it. That gap is the whole point of the chain. */
+function mineDef(id) { return SHOP.mines.find(function (m) { return m.id === id; }) || null; }
+function mineUpgradeDef(id) {
+  return SHOP.mineUpgrades.find(function (u) { return u.id === id; }) || null;
+}
+function mineById(shop, id) {
+  return shop.mines.find(function (m) { return m.id === id; }) || null;
+}
+function mineLevel(mine, id) { return (mine.upgrades && mine.upgrades[id]) || 0; }
+
+/* What a deed costs today. Every mine of a mineral after the first costs more
+   than the last, so a second Silver Lode is a real decision rather than an
+   obvious one once the first has paid for itself. */
+function minePrice(shop, defId) {
+  const def = mineDef(defId);
+  if (!def) return null;
+  const owned = shop.mines.filter(function (m) { return m.def === defId; }).length;
+  return Math.round(def.price * Math.pow(1.6, owned));
+}
+
+/* Mines of one mineral are numbered, so two Silver Lodes are told apart. */
+function mineNameFor(shop, defId) {
+  const def = mineDef(defId);
+  if (!def) return 'Mine';
+  const owned = shop.mines.filter(function (m) { return m.def === defId; }).length;
+  const roman = ['', ' II', ' III', ' IV', ' V', ' VI', ' VII', ' VIII'];
+  return def.name + (roman[owned] || ' ' + (owned + 1));
+}
+
+function mineMinerCap(mine) {
+  const def = mineDef(mine.def);
+  return (def ? def.miners : 0) + mineLevel(mine, 'shafts') * mineUpgradeDef('shafts').miners;
+}
+function mineStoreCap(mine) {
+  const def = mineDef(mine.def);
+  return (def ? def.store : 0) + mineLevel(mine, 'sheds') * mineUpgradeDef('sheds').store;
+}
+function mineEfficiency(mine) {
+  return 1 + mineLevel(mine, 'gear') * mineUpgradeDef('gear').efficiency;
+}
+
+/* A week's dig. Every miner contributes their rank, measured against the rank
+   the mine's stated yield is quoted at, and the gear multiplies the lot. An
+   unmanned mine digs nothing at all. */
+function mineYield(mine) {
+  const def = mineDef(mine.def);
+  if (!def || !mine.miners.length) return 0;
+  let power = 0;
+  for (const one of mine.miners) power += shopRank(one.rank).power;
+  return Math.max(0, Math.round(def.yield * (power / SHOP.mining.powerBase) * mineEfficiency(mine)));
+}
+
+/* What the mines cost to run, added to the week's bill beside the forge's own
+   wages. A mine with nobody in it costs nothing. */
+function mineWageBill(shop) {
+  let total = 0;
+  for (const mine of shop.mines) for (const one of mine.miners) total += one.wage;
+  return total;
+}
+
+function shopBuyMine(shop, defId) {
+  const def = mineDef(defId);
+  if (!def) return { ok: false, why: 'no such deed' };
+  if (!shopMaterial(def.material)) return { ok: false, why: 'no such mineral' };
+  const price = minePrice(shop, defId);
+  if (shop.gold < price) return { ok: false, why: 'needs ' + price + 'g' };
+  shop.gold -= price;
+  const mine = { id: shop.nextId++, def: defId, name: mineNameFor(shop, defId),
+    miners: [], ore: 0, upgrades: {}, lastDug: 0, applicants: [] };
+  shop.mines.push(mine);
+  return { ok: true, mine: mine, spent: price };
+}
+
+function mineUpgradeCost(mine, id) {
+  const def = mineUpgradeDef(id);
+  if (!def) return null;
+  const level = mineLevel(mine, id);
+  return level >= def.max ? null : def.cost[level];
+}
+function shopBuyMineUpgrade(shop, mineId, id) {
+  const mine = mineById(shop, mineId);
+  if (!mine) return { ok: false, why: 'no such mine' };
+  const cost = mineUpgradeCost(mine, id);
+  if (cost === null) return { ok: false, why: 'nothing left to buy there' };
+  if (shop.gold < cost) return { ok: false, why: 'needs ' + cost + 'g' };
+  shop.gold -= cost;
+  mine.upgrades[id] = mineLevel(mine, id) + 1;
+  return { ok: true, level: mine.upgrades[id], spent: cost };
+}
+
+/* Miners are hired against the property they work, so they never take a slot
+   from the forge's own staff. A mine's shafts are what limit them. */
+function makeMiner(shop, mine, rankId) {
+  const def = mineDef(mine.def);
+  const rank = shopRank(rankId) || shopRank(rollRank(shop));
+  const first = SHOP.firstNames[Math.floor(shop.rnd() * SHOP.firstNames.length)];
+  const last = SHOP.lastNames[Math.floor(shop.rnd() * SHOP.lastNames.length)];
+  return { id: shop.nextId++, name: first + ' ' + last, rank: rank.id, power: rank.power,
+    wage: Math.max(1, Math.round(def.wage * (0.7 + rank.power * 0.22))),
+    face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id };
+}
+
+function shopSearchMiners(shop, mineId, count) {
+  const mine = mineById(shop, mineId);
+  if (!mine) return [];
+  const floor = shopStars(shop) >= 4 ? 2 : 1;
+  const out = [];
+  for (let i = 0; i < (count || 3); i++) out.push(makeMiner(shop, mine, rollRank(shop, floor)));
+  mine.applicants = out;
+  return out;
+}
+
+function shopHireMiner(shop, mineId, applicantId) {
+  const mine = mineById(shop, mineId);
+  if (!mine) return { ok: false, why: 'no such mine' };
+  const list = mine.applicants || [];
+  const idx = list.findIndex(function (a) { return a.id === applicantId; });
+  if (idx < 0) return { ok: false, why: 'no such applicant' };
+  if (mine.miners.length >= mineMinerCap(mine)) {
+    return { ok: false, why: 'no room down there — sink another shaft' };
+  }
+  const fee = list[idx].wage * SHOP.mining.hireWeeks;
+  if (shop.gold < fee) return { ok: false, why: 'needs ' + fee + 'g up front' };
+  shop.gold -= fee;
+  const one = list.splice(idx, 1)[0];
+  mine.miners.push(one);
+  return { ok: true, miner: one, spent: fee };
+}
+
+function shopDismissMiner(shop, mineId, minerId) {
+  const mine = mineById(shop, mineId);
+  if (!mine) return { ok: false, why: 'no such mine' };
+  const idx = mine.miners.findIndex(function (m) { return m.id === minerId; });
+  if (idx < 0) return { ok: false, why: 'not on the books' };
+  return { ok: true, miner: mine.miners.splice(idx, 1)[0] };
+}
+
+/* The week's dig, run once at the turn of the week and nowhere else. Ore
+   lands in the mine's own store; anything past what the sheds hold is spoil
+   left on the ground, which is what makes storage worth buying.
+
+   `lastDug` is the week that mine was last worked, so a week can never be dug
+   twice however the calendar was advanced or a save reloaded. */
+function runMines(shop, week) {
+  const rows = [];
+  for (const mine of shop.mines) {
+    if (mine.lastDug >= week) continue;
+    mine.lastDug = week;
+    const dug = mineYield(mine);
+    const room = Math.max(0, mineStoreCap(mine) - mine.ore);
+    const kept = Math.min(dug, room);
+    mine.ore += kept;
+    rows.push({ id: mine.id, name: mine.name, material: mineDef(mine.def).material,
+      dug: dug, kept: kept, lost: dug - kept, ore: mine.ore,
+      cap: mineStoreCap(mine), full: mine.ore >= mineStoreCap(mine),
+      miners: mine.miners.length });
+  }
+  return rows;
+}
+
+/* ---------- carts, wagons and what they carry ---------------------------
+   A vehicle is equipment. It is reserved for the phase a delivery is out in
+   and free again once the runner is back, and it is never used up. */
+function vehicleDef(id) { return SHOP.vehicles.find(function (v) { return v.id === id; }) || null; }
+function vehicleById(shop, id) {
+  return shop.vehicles.find(function (v) { return v.id === id; }) || null;
+}
+function vehicleCapacity(vehicle) {
+  const def = vehicleDef(vehicle.kind);
+  return def ? def.capacity : 0;
+}
+/* Free right now: not promised to a delivery in a phase still to come. */
+function vehicleFree(shop, vehicle) {
+  if (!vehicle.busy) return true;
+  return !(vehicle.busy.day === shop.day && phaseIndexOf(vehicle.busy.phase) >= shop.phaseIndex);
+}
+function freeVehicles(shop) {
+  return shop.vehicles.filter(function (v) { return vehicleFree(shop, v); });
+}
+
+function shopBuyVehicle(shop, kind) {
+  const def = vehicleDef(kind);
+  if (!def) return { ok: false, why: 'no such vehicle' };
+  // a team of horses is an upgrade to a wagon you already own, not a new one
+  if (def.from) {
+    const base = shop.vehicles.find(function (v) {
+      return v.kind === def.from && vehicleFree(shop, v);
+    });
+    if (!base) return { ok: false, why: 'you have no free ' + vehicleDef(def.from).name };
+    if (shop.gold < def.price) return { ok: false, why: 'needs ' + def.price + 'g' };
+    shop.gold -= def.price;
+    base.kind = kind;
+    return { ok: true, vehicle: base, spent: def.price, upgraded: true };
+  }
+  if (shop.gold < def.price) return { ok: false, why: 'needs ' + def.price + 'g' };
+  shop.gold -= def.price;
+  const vehicle = { id: shop.nextId++, kind: kind, busy: null };
+  shop.vehicles.push(vehicle);
+  return { ok: true, vehicle: vehicle, spent: def.price };
+}
+
+/* ---------- ore at the forge -------------------------------------------
+   Raw ore is not an ingot and is counted apart from them, with a store of its
+   own, so a full ore shed cannot crowd out finished metal. */
+function oreStorageCap(shop) {
+  return SHOP.oreStorage + 20 * shopUpgradeLevel(shop, 'racks');
+}
+function countOre(shop) {
+  let n = 0;
+  for (const id in shop.ore) n += shop.ore[id];
+  return n;
+}
+function addOre(shop, materialId, qty) {
+  if (!shopMaterial(materialId) || !(qty > 0)) return 0;
+  const room = Math.max(0, oreStorageCap(shop) - countOre(shop));
+  const taken = Math.min(Math.floor(qty), room);
+  if (taken > 0) shop.ore[materialId] = (shop.ore[materialId] || 0) + taken;
+  return taken;
+}
+
+/* Fetch ore from a property. The load is capped three ways - what the mine
+   has, what the vehicle carries and what the forge can still hold - and the
+   ore is moved rather than copied: it leaves the mine exactly as it arrives,
+   so nothing is created or lost by fetching it. */
+function collectOre(shop, mineId, vehicleId, want) {
+  const mine = mineById(shop, mineId);
+  if (!mine) return { ok: false, why: 'no such mine' };
+  const vehicle = vehicleById(shop, vehicleId);
+  if (!vehicle) return { ok: false, why: 'no such vehicle' };
+  const asked = Math.max(0, Math.floor(Number(want) || 0));
+  if (asked <= 0) return { ok: false, why: 'nothing asked for' };
+  const cap = vehicleCapacity(vehicle);
+  const load = Math.min(asked, cap, mine.ore);
+  if (load <= 0) {
+    return { ok: false, why: mine.ore <= 0 ? 'that mine is empty' : 'nothing to carry' };
+  }
+  const material = mineDef(mine.def).material;
+  const landed = addOre(shop, material, load);
+  mine.ore -= landed;
+  return { ok: true, mine: mine.id, name: mine.name, material: material, load: landed,
+    spilled: load - landed, capacity: cap, left: mine.ore };
+}
+
+/* ---------- smelting ----------------------------------------------------
+   Ore is not metal until somebody has stood over it. One ore makes one ingot;
+   how much a smith gets through in a phase is their rank. */
+function smeltRate(power) {
+  return SHOP.smelting.perPhase + SHOP.smelting.perPower * Math.max(0, (power || 1) - 1);
+}
+function shopSmelt(shop, materialId, qty) {
+  if (!shopMaterial(materialId)) return { ok: false, why: 'no such metal' };
+  const have = shop.ore[materialId] || 0;
+  const made = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), have);
+  if (made <= 0) {
+    return { ok: false, why: 'no ' + shopMaterial(materialId).name + ' ore to smelt' };
+  }
+  shop.ore[materialId] = have - made;
+  if (shop.ore[materialId] <= 0) delete shop.ore[materialId];
+  shop.materials[materialId] += made;              // one ore, one ingot
+  return { ok: true, material: materialId, made: made, left: shop.ore[materialId] || 0 };
 }
 
 /* ---------- growth -------------------------------------------------------- */
@@ -6463,6 +7325,26 @@ const CHECKSMITH_CORE = {
   rollWant: rollWant, wantName: wantName, driftWants: driftWants, payTown: payTown,
   townsfolkById: townsfolkById, purseFor: purseFor, meetsStandards: meetsStandards,
   standHoldsWant: standHoldsWant, townReach: townReach,
+  rollCommission: rollCommission, queueCommission: queueCommission,
+  commissionById: commissionById, commissionOfferById: commissionOfferById,
+  acceptCommission: acceptCommission, declineCommission: declineCommission,
+  allocateCommission: allocateCommission, releaseCommission: releaseCommission,
+  deliverCommission: deliverCommission, expireCommissions: expireCommissions,
+  commissionLeft: commissionLeft, commissionDone: commissionDone,
+  commissionDaysLeft: commissionDaysLeft, commissionStock: commissionStock,
+  commissionBand: commissionBand, nextCommissionDue: nextCommissionDue,
+  counterAnswerCommission: counterAnswerCommission,
+  mineDef: mineDef, mineUpgradeDef: mineUpgradeDef, mineById: mineById,
+  minePrice: minePrice, mineNameFor: mineNameFor, mineLevel: mineLevel,
+  mineMinerCap: mineMinerCap, mineStoreCap: mineStoreCap, mineEfficiency: mineEfficiency,
+  mineYield: mineYield, mineWageBill: mineWageBill, shopBuyMine: shopBuyMine,
+  mineUpgradeCost: mineUpgradeCost, shopBuyMineUpgrade: shopBuyMineUpgrade,
+  makeMiner: makeMiner, shopSearchMiners: shopSearchMiners,
+  shopHireMiner: shopHireMiner, shopDismissMiner: shopDismissMiner, runMines: runMines,
+  vehicleDef: vehicleDef, vehicleById: vehicleById, vehicleCapacity: vehicleCapacity,
+  vehicleFree: vehicleFree, freeVehicles: freeVehicles, shopBuyVehicle: shopBuyVehicle,
+  oreStorageCap: oreStorageCap, countOre: countOre, addOre: addOre,
+  collectOre: collectOre, smeltRate: smeltRate, shopSmelt: shopSmelt,
   purseLimit: purseLimit, purseAppeal: purseAppeal, alternativeOdds: alternativeOdds,
   autoRespond: autoRespond,
   alternativeOffers: alternativeOffers, counterOfferAlternative: counterOfferAlternative,
@@ -8281,7 +9163,8 @@ const SHOPUI = {
   almanacCat: null,   // the page of the Almanac last read
   planPhase: null,    // the phase the roster is booking into
   replacing: null,    // whoever is being swapped out, while the picker is open
-  reorder: false      // changing a booking's orders rather than making one
+  reorder: false,     // changing a booking's orders rather than making one
+  mineOpen: null      // the property whose sheet is open
 };
 
 function shop() { return App.shop; }
@@ -8469,6 +9352,41 @@ function ingotSprite(materialId, extra) {
     '<use href="#it-ingot"></use></svg>';
 }
 
+/* Raw ore wears its mineral's colour, so a heap of gold ore is not a heap of
+   copper ore with a different label under it. */
+function oreSprite(materialId, extra) {
+  const mt = shopMaterial(materialId);
+  if (!mt) return '';
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:' + mt.tint + '" role="img" aria-label="' + esc(mt.name) + ' ore">' +
+    '<use href="#it-ore"></use></svg>';
+}
+
+function mineSprite(defId, extra) {
+  const def = mineDef(defId);
+  const mt = def && shopMaterial(def.material);
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:' + (mt ? mt.tint : '#b6bfca') + '" role="img" aria-label="' +
+    esc(def ? def.name : 'Mine') + '"><use href="#pr-mine"></use></svg>';
+}
+
+function vehicleSprite(kind, extra) {
+  const def = vehicleDef(kind);
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:#9aa4b0" role="img" aria-label="' + esc(def ? def.name : 'Vehicle') +
+    '"><use href="#pr-' + (def ? def.id : 'cart') + '"></use></svg>';
+}
+
+function pickSprite(extra) {
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:#b6bfca" role="img" aria-label="Miner"><use href="#pr-pick"></use></svg>';
+}
+
+function contractSprite(extra) {
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:#a8442e" role="img" aria-label="Contract"><use href="#pr-contract"></use></svg>';
+}
+
 function portrait(typeId, extra) {
   const type = shopCustomerType(typeId);
   if (!type) return '';
@@ -8487,9 +9405,15 @@ function shopRenderBar() {
   const days = daysToRent(sh);
   const bill = weeklyBill(sh);
   const rent = $('shRent');
+  const due = nextCommissionDue(sh);
+  const left = due ? commissionDaysLeft(sh, due) : null;
   rent.textContent = 'Rent + wages ' + coin(bill) + 'g due ' +
-    (days === 1 ? 'tonight' : 'in ' + days + ' days');
-  rent.className = 'shop-rent' + (days === 1 ? ' late' : days <= 2 ? ' due' : '');
+    (days === 1 ? 'tonight' : 'in ' + days + ' days') +
+    (due ? ' · ' + due.name + "'s order " + commissionLeft(due) + ' short, due ' +
+      (left <= 0 ? 'today' : left === 1 ? 'tomorrow' : 'in ' + left + ' days') : '');
+  const pressing = due && left <= 1;
+  rent.className = 'shop-rent' + (days === 1 || pressing ? ' late'
+    : days <= 2 || (due && left <= 2) ? ' due' : '');
 
   const stars = shopStars(sh);
   let art = '';
@@ -8562,6 +9486,8 @@ const SHOP_TABS = [
   { id: 'storage', name: 'Storage' },
   { id: 'metal', name: 'Metal' },
   { id: 'town', name: 'Town' },
+  { id: 'ledger', name: 'Ledger' },
+  { id: 'props', name: 'Property' },
   { id: 'staff', name: 'Staff' },
   { id: 'grow', name: 'Growth' }
 ];
@@ -8607,9 +9533,20 @@ function staffPortrait(employee, extra) {
 function jobGap(sh, employee, job) {
   const order = (job && job.order) || {};
   if (employee.role === 'runner') {
+    if (order.kind === 'ore') {
+      const mine = mineById(sh, order.mine);
+      if (!mine) return 'that property is gone';
+      if (!vehicleById(sh, order.vehicle)) return 'nothing to carry it in';
+      return mine.ore > 0 ? '' : 'that mine has nothing to fetch';
+    }
     return purchaseCost(sh, order) > 0 ? '' : 'no shopping list yet';
   }
   if (employee.role === 'smith') {
+    if (order.kind === 'smelt') {
+      if (!shopMaterial(order.material)) return 'no metal chosen';
+      return (sh.ore[order.material] || 0) > 0 ? ''
+        : 'no ' + shopMaterial(order.material).name.toLowerCase() + ' ore in the yard';
+    }
     if (!order.item || !order.material) return 'no order yet';
     const check = forgeCheck(sh, order.item, order.material, order.qty || 1);
     return check.ok ? '' : check.why;
@@ -8624,14 +9561,26 @@ function jobGap(sh, employee, job) {
 function jobSummary(sh, employee, job) {
   const order = (job && job.order) || {};
   if (employee.role === 'runner') {
+    if (order.kind === 'ore') {
+      const mine = mineById(sh, order.mine);
+      const cart = vehicleById(sh, order.vehicle);
+      return 'fetch ' + (order.qty || 0) + ' ore from ' + (mine ? mine.name : 'a lost property') +
+        (cart ? ' by ' + vehicleDef(cart.kind).name.toLowerCase() : '');
+    }
     const parts = [];
     for (const m of SHOP.materials) if (order[m.id] > 0) parts.push(order[m.id] + ' ' + m.name);
     return parts.length ? parts.join(', ') + ' · about ' +
       coin(purchaseCost(sh, order)) + 'g' : 'nothing on the list';
   }
   if (employee.role === 'smith') {
+    if (order.kind === 'smelt') {
+      const mt = shopMaterial(order.material);
+      return 'smelt ' + (mt ? mt.name.toLowerCase() : '') + ' ore at the furnace';
+    }
     if (!order.item || !order.material) return 'no order given';
-    return (order.qty || 1) + ' × ' + lineName(lineKey(order.item, order.material));
+    const com = order.commission ? commissionById(sh, order.commission) : null;
+    return (order.qty || 1) + ' × ' + lineName(lineKey(order.item, order.material)) +
+      (com ? ' · for ' + com.name + "'s order" : '');
   }
   if (employee.role === 'storehand') {
     const keys = (order.keys || []).filter(function (k) { return !!sh.storage[k]; });
@@ -8799,6 +9748,173 @@ function shopOpenAssignment(staffId) {
   shopSheet(SHOP.phaseName[a.phase] + ' · ' + role.name, html, buttons);
 }
 
+/* ---------- the commission ledger ------------------------------------
+   Contracts, in the order they fall due, on the paper they were written on.
+   Everything the player has to decide about one is on its own card: what is
+   owed, what the storeroom could put towards it, and how long is left. */
+function contractCardHtml(sh, com, offer) {
+  const left = commissionLeft(com);
+  const days = offer ? com.days : commissionDaysLeft(sh, com);
+  const ready = commissionDone(com);
+  const late = !offer && days <= 1;
+  const held = commissionStock(sh, com);
+  const band = commissionBand(com.quality);
+  const pct = Math.round((com.filled / Math.max(1, com.qty)) * 100);
+
+  let html = '<div class="contract' + (ready ? ' ready' : late ? ' late' : '') + '">' +
+    '<div class="contract-head"><span class="contract-who">' + esc(com.name) + '</span>' +
+    '<span class="contract-trade">' + esc(com.trade) + '</span></div>' +
+    '<div class="contract-body">' + lineSprite(com.key) + '<span>' + com.qty + ' &times; ' +
+    esc(lineName(com.key)) + '</span></div>' +
+    '<div class="contract-terms">' +
+    '<span>Pays<b>' + coin(com.pay) + 'g</b></span>' +
+    '<span>' + (offer ? 'Advance' : 'Paid up front') + '<b>' + coin(com.advance) + 'g</b></span>' +
+    '<span>No worse than<b>' + esc(band.name) + '</b></span>' +
+    '<span>' + (offer ? 'You get' : 'Days left') + '<b>' + days +
+    (days === 1 ? ' day' : ' days') + '</b></span></div>';
+
+  if (!offer) {
+    html += '<div class="contract-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="contract-due">' + com.filled + ' of ' + com.qty + ' in the crate' +
+      (ready ? ' — ready to hand over'
+        : held > 0 ? ' · ' + held + ' in storage would do'
+          : ' · nothing in storage is good enough yet') + '</div>';
+  }
+
+  html += '<div class="contract-acts">';
+  if (offer) {
+    html += '<button data-take="' + com.id + '">Accept</button>' +
+      '<button data-drop="' + com.id + '">Decline</button>';
+  } else if (ready) {
+    html += '<button data-deliver="' + com.id + '">Hand it over</button>' +
+      '<button data-release="' + com.id + '">Take back</button>';
+  } else {
+    html += '<button data-fill="' + com.id + '"' + (held <= 0 ? ' disabled' : '') + '>Promise ' +
+      Math.min(held, left) + ' from storage</button>' +
+      (com.filled > 0 ? '<button data-release="' + com.id + '">Take back</button>' : '');
+  }
+  html += '</div>' + contractSprite('contract-seal') + '</div>';
+  return html;
+}
+
+function shopLedgerHtml(sh) {
+  const due = nextCommissionDue(sh);
+  let html = '<p class="shop-cap">Ledger ' + sh.commissions.length + ' / ' +
+    SHOP.commission.maxActive +
+    (due ? ' · next falls due in ' + commissionDaysLeft(sh, due) + ' days' : '') +
+    ' · reputation ' + Math.round(sh.reputation) + '</p>';
+
+  if (sh.commissionOffers.length) {
+    html += '<p class="ledger-note"><b>Left for you to consider.</b> Somebody came in while ' +
+      'your people were minding the counter. Nothing is owed until you accept.</p>' +
+      '<div class="shop-list">';
+    for (const com of sh.commissionOffers) html += contractCardHtml(sh, com, true);
+    html += '</div>';
+  }
+
+  if (!sh.commissions.length) {
+    html += '<p class="shop-empty">No contracts on the books. Mind the counter yourself and ' +
+      'a customer with a bulk order will put it to you — but only once the forge has a name ' +
+      'worth trusting with one.</p>';
+    return html;
+  }
+
+  html += '<p class="ledger-note">A quarter was paid up front. The rest comes when the lot is ' +
+    'handed over — and a missed day costs you the rest and your good name. Goods promised to a ' +
+    'contract are out of the storeroom and off the floor.</p><div class="shop-list">';
+  const sorted = sh.commissions.slice().sort(function (a, b) { return a.dueDay - b.dueDay; });
+  for (const com of sorted) html += contractCardHtml(sh, com, false);
+  return html + '</div>';
+}
+
+/* ---------- property ---------------------------------------------------
+   A mine is somewhere else. What it digs stays there until a runner has been
+   out for it, so this screen is about the gap: how much is sitting at each
+   property, and what you have in the yard to go and fetch it with. */
+function mineCardHtml(sh, mine) {
+  const def = mineDef(mine.def);
+  const cap = mineStoreCap(mine);
+  const pct = Math.round((mine.ore / Math.max(1, cap)) * 100);
+  const full = mine.ore >= cap;
+  return '<div class="mine-card">' +
+    '<div class="mine-head">' + mineSprite(mine.def, 'lg') +
+    '<span class="nm">' + esc(mine.name) +
+    '<br><span class="sub">' + esc(shopMaterial(def.material).name) + ' · ' +
+    mine.miners.length + ' of ' + mineMinerCap(mine) +
+    (mineMinerCap(mine) === 1 ? ' miner' : ' miners') + '</span></span>' +
+    '<button data-mine="' + mine.id + '">Manage</button></div>' +
+    '<div class="ore-bar' + (full ? ' full' : '') + '"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="mine-stats">' +
+    '<span>Ore at the mine<b>' + mine.ore + ' / ' + cap + '</b></span>' +
+    '<span>Digs a week<b>' + mineYield(mine) + '</b></span>' +
+    '<span>Wages<b>' + coin(mine.miners.reduce(function (t, o) { return t + o.wage; }, 0)) +
+    'g</b></span></div>' +
+    (full ? '<p class="ledger-note" style="margin:0;color:var(--danger)">The sheds are full. ' +
+      'Next week\'s dig is spoil on the ground until somebody fetches this.</p>' : '') +
+    '</div>';
+}
+
+function shopPropertyHtml(sh) {
+  let html = '<p class="shop-cap">Ore in the yard ' + countOre(sh) + ' / ' + oreStorageCap(sh) +
+    ' · ' + sh.mines.length + (sh.mines.length === 1 ? ' property' : ' properties') +
+    ' · ' + sh.vehicles.length + (sh.vehicles.length === 1 ? ' vehicle' : ' vehicles') + '</p>';
+
+  if (!sh.mines.length) {
+    html += '<p class="shop-empty">You own no land. A mine digs its own metal week by week — ' +
+      'but the ore stays at the mine until a runner fetches it, and it is ore, not ingots, ' +
+      'until a smith has smelted it. The market still sells finished stock either way.</p>';
+  } else {
+    html += '<div class="shop-list">';
+    for (const mine of sh.mines) html += mineCardHtml(sh, mine);
+    html += '</div>';
+  }
+
+  html += '<p class="shop-cap" style="margin-top:12px">Deeds for sale</p><div class="shop-list">';
+  for (const def of SHOP.mines) {
+    const price = minePrice(sh, def.id);
+    const owned = sh.mines.filter(function (m) { return m.def === def.id; }).length;
+    html += '<div class="shop-row">' +
+      '<span class="nm">' + mineSprite(def.id) + ' ' + esc(def.name) +
+      (owned ? ' <small style="color:var(--muted)">&times;' + owned + '</small>' : '') + '</span>' +
+      '<button data-buymine="' + def.id + '"' + (sh.gold < price ? ' disabled' : '') + '>' +
+      coin(price) + 'g</button>' +
+      '<span class="sub">' + esc(shopMaterial(def.material).name) + ' · about ' + def.yield +
+      ' ore a week at C rank · room for ' + def.miners + ' miners and ' + def.store +
+      ' ore</span></div>';
+  }
+  html += '</div>';
+
+  html += '<p class="shop-cap" style="margin-top:12px">The yard</p>';
+  if (sh.vehicles.length) {
+    html += '<div class="yard-grid">';
+    for (const v of sh.vehicles) {
+      const free = vehicleFree(sh, v);
+      html += '<div class="yard-box' + (free ? '' : ' out') + '">' + vehicleSprite(v.kind, 'lg') +
+        '<span class="nm">' + esc(vehicleDef(v.kind).name) + '</span>' +
+        '<span>carries ' + vehicleCapacity(v) + (free ? '' : ' · out') + '</span></div>';
+    }
+    html += '</div>';
+  } else {
+    html += '<p class="shop-empty">Nothing to cart ore in. A runner needs one to fetch it.</p>';
+  }
+  html += '<div class="shop-list" style="margin-top:6px">';
+  for (const def of SHOP.vehicles) {
+    const have = sh.vehicles.filter(function (v) { return v.kind === def.id; }).length;
+    const base = def.from ? sh.vehicles.some(function (v) {
+      return v.kind === def.from && vehicleFree(sh, v);
+    }) : true;
+    html += '<div class="shop-row">' +
+      '<span class="nm">' + vehicleSprite(def.id) + ' ' + esc(def.name) +
+      (have ? ' <small style="color:var(--muted)">&times;' + have + '</small>' : '') + '</span>' +
+      '<button data-buyvehicle="' + def.id + '"' +
+      (sh.gold < def.price || !base ? ' disabled' : '') + '>' + coin(def.price) + 'g</button>' +
+      '<span class="sub">Carries ' + def.capacity + ' ore a trip' +
+      (def.from ? ' · put in front of a ' + esc(vehicleDef(def.from).name.toLowerCase()) +
+        ' you already own' + (base ? '' : ' — you have none free') : '') + '</span></div>';
+  }
+  return html + '</div>';
+}
+
 function shopRenderPanel() {
   const sh = shop();
   const host = $('shPanel');
@@ -8852,6 +9968,8 @@ function shopRenderPanel() {
       html += '</div>';
     }
   } else if (SHOPUI.tab === 'metal') {
+    html += '<p class="shop-cap">Bar stock is what the anvil works. Raw ore is not: it comes ' +
+      'out of your own mines and has to be smelted first.</p>';
     html += '<div class="shop-list">';
     for (const m of SHOP.materials) {
       html += rowHtml(ingotSprite(m.id) + ' ' + esc(m.name) + ' Ingots',
@@ -8860,8 +9978,29 @@ function shopRenderPanel() {
         String(sh.materials[m.id]));
     }
     html += '</div>';
+    const ores = SHOP.materials.filter(function (m) { return (sh.ore[m.id] || 0) > 0; });
+    html += '<p class="shop-cap" style="margin-top:12px">Raw ore ' + countOre(sh) + ' / ' +
+      oreStorageCap(sh) + '</p>';
+    if (!ores.length) {
+      html += '<p class="shop-empty">No ore in the yard. Buy a mine under Property, and send ' +
+        'a runner out with a cart to fetch what it digs.</p>';
+    } else {
+      html += '<div class="shop-list">';
+      for (const m of ores) {
+        html += '<div class="shop-row">' +
+          '<span class="nm">' + oreSprite(m.id) + ' ' + esc(m.name) + ' Ore</span>' +
+          '<button data-smelt="' + m.id + '">Smelt</button>' +
+          '<span class="sub">' + sh.ore[m.id] + ' held · one ore makes one ingot at the ' +
+          'furnace</span></div>';
+      }
+      html += '</div>';
+    }
   } else if (SHOPUI.tab === 'town') {
     html += shopTownHtml(sh);
+  } else if (SHOPUI.tab === 'ledger') {
+    html += shopLedgerHtml(sh);
+  } else if (SHOPUI.tab === 'props') {
+    html += shopPropertyHtml(sh);
   } else if (SHOPUI.tab === 'staff') {
     html += shopRosterHtml(sh);
   } else {
@@ -9084,6 +10223,29 @@ function shopForgeBody(smith) {
   }
   html += '</select></div>';
 
+  /* A smith can be set to work a contract rather than the storeroom. Picking
+     one fixes what they make, because a contract is not a suggestion: the
+     batch goes into its crate when it comes off the anvil. */
+  if (smith && sh.commissions.length) {
+    html += '<div class="pick-row"><label for="shCom">For</label>' +
+      '<select id="shCom" data-sel="commission">' +
+      '<option value="0"' + (!d.commission ? ' selected' : '') + '>The storeroom</option>';
+    for (const com of sh.commissions) {
+      html += '<option value="' + com.id + '"' + (d.commission === com.id ? ' selected' : '') +
+        '>' + esc(com.name) + ' — ' + commissionLeft(com) + ' more ' +
+        esc(lineName(com.key)) + ', ' + esc(commissionBand(com.quality).name.toLowerCase()) +
+        ' or better</option>';
+    }
+    html += '</select></div>';
+    const com = d.commission ? commissionById(sh, d.commission) : null;
+    if (com) {
+      html += '<p class="roster-note">' + esc(smith.name) + ' works to about ' +
+        (34 + smith.power * 9) + ' quality. This contract will not take worse than ' +
+        esc(commissionBand(com.quality).name.toLowerCase()) + ' — anything under that goes ' +
+        'to the storeroom instead, and the contract stays open.</p>';
+    }
+  }
+
   const qty = d.qty || 1;
   // What the board will actually be worked at: the batch, raised by the metal
   // if it is one of the hard ones. The dialog must say the same number the
@@ -9148,6 +10310,7 @@ function shopOpenForge(smith) {
   if (!d.item || !recipeKnown(sh, d.item)) d.item = firstKnownRecipe();
   if (!d.material) d.material = 'bronze';
   if (!d.qty) d.qty = 1;
+  if (d.commission && !commissionById(sh, d.commission)) d.commission = 0;
   const redraw = function () {
     const check = forgeCheck(shop(), d.item, d.material, d.qty);
     shopSheet(smith ? 'Order from ' + smith.name : 'Work the anvil', shopForgeBody(smith),
@@ -9163,7 +10326,9 @@ function shopOpenForge(smith) {
 
 function shopGiveSmithOrder(smith) {
   const d = SHOPUI.draft;
-  const res = rosterBook(smith, { order: { item: d.item, material: d.material, qty: d.qty } });
+  const order = { item: d.item, material: d.material, qty: d.qty };
+  if (d.commission && commissionById(shop(), d.commission)) order.commission = d.commission;
+  const res = rosterBook(smith, { order: order });
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   shopSheetClose();
   shopRender();
@@ -9901,6 +11066,7 @@ function shopCounterStep() {
   if (!event) { shopCloseCounter(); return; }
   if (event.kind === 'leave') { shopCounterOutcome(event); return; }
   if (event.kind === 'sale') { shopCounterOutcome(event); return; }
+  if (event.kind === 'commission') { shopCounterContract(event); return; }
 
   const p = event;
   // the door, but only for somebody new - a haggle redraws this same screen
@@ -9940,6 +11106,56 @@ function shopCounterStep() {
     '</span></div>' +
     counterLogHtml(),
     buttons);
+}
+
+/* Somebody at the counter with a bulk order rather than a purchase. The whole
+   of it is on one screen because the whole of it is one decision, and saying
+   no to it costs nothing - that is the point of being asked. */
+function shopCounterContract(event) {
+  const sh = shop();
+  const session = SHOPUI.session;
+  const com = event.offer;
+  if (SHOPUI.ringed !== event) { SHOPUI.ringed = event; SOUNDS.doorbell(); }
+  const band = commissionBand(com.quality);
+  const rest = com.pay - com.advance;
+  const held = commissionStock(sh, com);
+
+  shopSheet('A word about a large order',
+    custLine(session) + custHead(event) +
+    '<p class="cust-want">' + contractSprite('lg') + ' Not here to buy off the floor. ' +
+    esc(com.name) + ' wants <b>' + com.qty + ' &times; ' + esc(lineName(com.key)) +
+    '</b>, no worse than <b>' + esc(band.name.toLowerCase()) + '</b> work, inside <b>' +
+    com.days + ' days</b>.</p>' +
+    '<div class="cust-bid fair">' +
+    '<span class="lead">Pays in all</span>' +
+    '<span class="sum">' + coin(com.pay) + 'g</span>' +
+    '<span class="vs">' + coin(com.advance) + 'g now, ' + coin(rest) +
+    'g when the lot is handed over</span></div>' +
+    '<p class="cust-want">' + (held > 0
+      ? 'You have <b>' + held + '</b> in storage good enough for it already.'
+      : 'Nothing in storage would do. It would all have to be made.') +
+    ' Miss the day and you keep the advance, but not the rest — and word gets round.</p>' +
+    counterLogHtml(),
+    [
+      { label: 'Take it on', primary: true,
+        onClick: function () { shopCounterAnswerContract(true); } },
+      { label: 'Turn it down', ghost: true,
+        onClick: function () { shopCounterAnswerContract(false); } }
+    ]);
+}
+
+function shopCounterAnswerContract(take) {
+  const session = SHOPUI.session;
+  const result = counterAnswerCommission(session, shop(), take);
+  if (!result) { shopCounterStep(); return; }
+  if (take && result.kind === 'contract') {
+    SOUNDS.coins(1.2, false);
+    session.events.push({ kind: 'contract',
+      text: result.commission.name + ' left an order for ' + result.commission.qty + ' ' +
+        lineName(result.commission.key) + ' — ' + coin(result.advance) + 'g up front' });
+  }
+  shopRenderBar();
+  shopCounterOutcome(result);
 }
 
 /* Point at something else on the floor. What they will take is their own
@@ -10062,20 +11278,25 @@ function shopCounterOutcome(event) {
   }
   const more = session.at < session.queue.length;
   const sold = event.kind === 'sale';
+  const booked = event.kind === 'contract';
   // the stamp is the moment the player reads, so the sound lands with it
   if (sold) SOUNDS.coins(Math.min(3, event.price / 60));
-  else SOUNDS.walkout();
+  else if (!booked) SOUNDS.walkout();
   const body = custLine(session) +
-    '<div class="stamp' + (sold ? '' : ' lost') + '">' +
-    (sold ? lineSprite(event.key, 'xl') : portrait(event.type)) +
-    '<span class="word">' + (sold ? 'Sold' : 'Walked out') + '</span>' +
+    '<div class="stamp' + (sold || booked ? '' : ' lost') + '">' +
+    (sold ? lineSprite(event.key, 'xl')
+      : booked ? contractSprite('xl') : portrait(event.type)) +
+    '<span class="word">' + (sold ? 'Sold' : booked ? 'On the books' : 'Walked out') + '</span>' +
     (sold ? '<span class="sum">+' + coin(event.price) + 'g</span>' : '') +
+    (booked ? '<span class="sum">+' + coin(event.advance) + 'g</span>' : '') +
     '<span class="note">' + esc(event.name) +
     (sold ? ' takes the ' + lineName(event.key) + ' — ' + esc(event.how) + '.' +
       (event.got ? ' That is what they came for.' : '')
-      : ' left — ' + esc(event.why) + '.') +
+      : booked ? ' wants ' + event.commission.qty + ' ' + lineName(event.commission.key) +
+        ' inside ' + event.commission.days + ' days. It is in the ledger now.'
+        : ' left — ' + esc(event.why) + '.') +
     '</span></div>' + counterLogHtml();
-  shopSheet(sold ? 'Sold' : 'No sale', body,
+  shopSheet(sold ? 'Sold' : booked ? 'Contract taken' : 'No sale', body,
     [{ label: more ? 'Next customer' : 'Close up and count it', primary: true,
       onClick: function () {
         if (more) shopCounterStep();
@@ -10151,6 +11372,25 @@ function reportBody(r) {
       '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">In storage tomorrow ' +
       'morning.</p></div>';
   }
+  if (r.kind === 'haul') {
+    return '<div class="report"><dl>' +
+      '<dt>Fetched from</dt><dd>' + esc(r.mine) + '</dd>' +
+      '<dt>Ore brought home</dt><dd class="good">' + r.load + '</dd>' +
+      '<dt>The load holds</dt><dd>' + r.capacity + '</dd>' +
+      (r.spilled ? '<dt>Left behind, no room</dt><dd>' + r.spilled + '</dd>' : '') +
+      '<dt>Still at the mine</dt><dd>' + r.left + '</dd>' +
+      '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">Raw ' +
+      esc(shopMaterial(r.material).name.toLowerCase()) + ' ore. The anvil will not take it ' +
+      'until it has been smelted.</p></div>';
+  }
+  if (r.kind === 'smelt') {
+    return '<div class="report"><dl>' +
+      '<dt>Smelted</dt><dd class="good">' + r.made + ' × ' +
+      esc(shopMaterial(r.material).name) + ' ingots</dd>' +
+      '<dt>They can manage</dt><dd>' + r.rate + ' a phase</dd>' +
+      '<dt>Ore still in the yard</dt><dd>' + r.left + '</dd>' +
+      '</dl></div>';
+  }
   if (r.kind === 'storehand') {
     const keys = Object.keys(r.lines || {});
     return '<div class="report"><dl>' +
@@ -10170,6 +11410,8 @@ function reportTitle(r) {
   if (r.kind === 'runner') return r.who + '’s Purchase Report';
   if (r.kind === 'smith') return r.who + '’s Production Report';
   if (r.kind === 'storehand') return r.who + '’s Stocking Report';
+  if (r.kind === 'haul') return r.who + '’s Haulage Report';
+  if (r.kind === 'smelt') return r.who + '’s Smelting Report';
   return 'Report';
 }
 
@@ -10187,6 +11429,221 @@ function shopShowReports(list, done) {
 }
 
 /* ---------- the day ---------------------------------------------------- */
+/* ---------- answering the ledger --------------------------------------
+   None of this spends a phase. Taking a contract on, promising goods to it
+   and handing it over are bookkeeping: the work itself is the phases you
+   spend at the anvil, or the smith you sent there. */
+function shopAnswerOffer(id, take) {
+  const sh = shop();
+  const offer = commissionOfferById(sh, id);
+  if (!offer) return;
+  if (!take) {
+    declineCommission(sh, id);
+    shopRender();
+    announce('Turned down ' + offer.name + "'s order.");
+    shopToast('Declined. It costs you nothing to say no.');
+    return;
+  }
+  const res = acceptCommission(sh, id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.coins(1.2, false);
+  shopRender();
+  announce('Took on ' + offer.qty + ' ' + lineName(offer.key) + ' for ' + offer.name + '.');
+  shopToast(coin(res.advance) + 'g paid up front. Due in ' + offer.days + ' days.');
+}
+
+/* Promise everything the storeroom can spare to a contract in one tap: a
+   player who wanted to part-fill it can take the rest back again. */
+function shopFillContract(id) {
+  const sh = shop();
+  const com = commissionById(sh, id);
+  if (!com) return;
+  const res = allocateCommission(sh, id, commissionStock(sh, com));
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.chime();
+  shopRender();
+  const done = commissionDone(com);
+  announce(res.moved + ' put towards ' + com.name + "'s order.");
+  shopToast(done ? 'That contract is full. Hand it over when you like.'
+    : res.left + ' still owed.');
+}
+
+function shopOpenRelease(id) {
+  const sh = shop();
+  const com = commissionById(sh, id);
+  if (!com || com.filled <= 0) { shopToast('Nothing promised to take back.'); return; }
+  SHOPUI.draft = { qty: com.filled };
+  const redraw = function () {
+    const d = SHOPUI.draft;
+    shopSheet('Take back from ' + com.name + "'s order",
+      '<p class="roster-note">Goods promised to a contract are out of the storeroom. Take ' +
+      'some back and they are yours to sell again — but the contract is that much further ' +
+      'from being filled.</p>' +
+      '<div class="pick-row"><label>How many</label>' + stepper('qty', d.qty, 1, com.filled) +
+      '</div>',
+      [
+        { label: 'Take them back', primary: true,
+          onClick: function () {
+            const res = releaseCommission(shop(), id, SHOPUI.draft.qty);
+            if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+            shopSheetClose();
+            shopRender();
+            shopToast(res.moved + ' back in storage' +
+              (res.lost ? ', ' + res.lost + ' lost for want of room' : '') + '.');
+          } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+function shopHandOver(id) {
+  const sh = shop();
+  const com = commissionById(sh, id);
+  if (!com) return;
+  const res = deliverCommission(sh, id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.coins(Math.min(3, res.paid / 120), true);
+  shopRender();
+  announce(com.name + ' is paid up: ' + coin(res.total) + 'g in all.');
+  shopToast(coin(res.paid) + 'g on delivery. Word of the forge gets round.');
+}
+
+/* ---------- property --------------------------------------------------- */
+function shopBuyDeed(defId) {
+  const res = shopBuyMine(shop(), defId);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.prosper(true);
+  shopRender();
+  announce(res.mine.name + ' is yours for ' + coin(res.spent) + 'g.');
+  shopToast('Hire miners and it digs every week. Send a runner for what it digs.');
+}
+
+function shopBuyCart(kind) {
+  const res = shopBuyVehicle(shop(), kind);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.prosper(false);
+  shopRender();
+  const def = vehicleDef(kind);
+  announce(def.name + (res.upgraded ? ' put to the wagon' : ' bought') + '.');
+  shopToast('Carries ' + def.capacity + ' ore a trip.');
+}
+
+/* One mine, everything about it: who works it, what it has dug, and what can
+   be bought to make it dig more. */
+function shopOpenMine(id) {
+  const redraw = function () {
+    const sh = shop();
+    const mine = mineById(sh, id);
+    if (!mine) { shopSheetClose(); return; }
+    const def = mineDef(mine.def);
+    const cap = mineStoreCap(mine);
+
+    let html = '<div class="mine-stats" style="margin-bottom:10px">' +
+      '<span>Mineral<b>' + esc(shopMaterial(def.material).name) + '</b></span>' +
+      '<span>Ore at the mine<b>' + mine.ore + ' / ' + cap + '</b></span>' +
+      '<span>Digs a week<b>' + mineYield(mine) + '</b></span>' +
+      '<span>Miners<b>' + mine.miners.length + ' / ' + mineMinerCap(mine) + '</b></span></div>';
+
+    html += '<p class="shop-cap">Down the shaft</p>';
+    if (!mine.miners.length) {
+      html += '<p class="shop-empty">Nobody works it, so it digs nothing. Miners are hired ' +
+        'against the property and take no place among your forge staff.</p>';
+    } else {
+      html += '<div class="shop-list">';
+      for (const one of mine.miners) {
+        html += '<div class="applicant">' + portrait(one.face) +
+          '<span class="nm"><span class="rank" data-r="' + one.rank + '">' + one.rank +
+          '</span> ' + esc(one.name) + '</span>' +
+          '<button data-sack="' + one.id + '">Let go</button>' +
+          '<span class="role">Miner · ' + coin(one.wage) + 'g a week · digs ' +
+          shopRank(one.rank).power + '</span></div>';
+      }
+      html += '</div>';
+    }
+
+    const room = mine.miners.length < mineMinerCap(mine);
+    const list = mine.applicants || [];
+    if (list.length) {
+      html += '<p class="shop-cap" style="margin-top:10px">Looking for work</p><div class="shop-list">';
+      for (const one of list) {
+        const fee = one.wage * SHOP.mining.hireWeeks;
+        html += '<div class="applicant">' + portrait(one.face) +
+          '<span class="nm"><span class="rank" data-r="' + one.rank + '">' + one.rank +
+          '</span> ' + esc(one.name) + '</span>' +
+          '<button data-takeon="' + one.id + '"' +
+          (!room || sh.gold < fee ? ' disabled' : '') + '>' + coin(fee) + 'g</button>' +
+          '<span class="role">' + coin(one.wage) + 'g a week · ' + SHOP.mining.hireWeeks +
+          ' weeks up front' + (room ? '' : ' · no room down there') + '</span></div>';
+      }
+      html += '</div>';
+    }
+
+    html += '<p class="shop-cap" style="margin-top:10px">Works</p><div class="shop-list">';
+    for (const u of SHOP.mineUpgrades) {
+      const level = mineLevel(mine, u.id);
+      const cost = mineUpgradeCost(mine, u.id);
+      const what = u.miners ? '+' + u.miners + ' miners a level'
+        : u.store ? '+' + u.store + ' ore stored a level'
+          : '+' + Math.round(u.efficiency * 100) + '% dug a level';
+      html += '<div class="shop-row">' +
+        '<span class="nm">' + esc(u.name) + ' <small style="color:var(--muted)">' + level +
+        '/' + u.max + '</small></span>' +
+        (cost === null ? '<span class="amt">maxed</span>'
+          : '<button data-minebuy="' + u.id + '"' + (sh.gold < cost ? ' disabled' : '') + '>' +
+            coin(cost) + 'g</button>') +
+        '<span class="sub">' + what + '</span></div>';
+    }
+    html += '</div>';
+
+    shopSheet(mine.name, html, [
+      { label: 'Find miners', onClick: function () {
+        shopSearchMiners(shop(), id, 3);
+        redraw();
+      } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+  };
+  SHOPUI.mineOpen = id;
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+/* The player at the furnace. A phase of your own turns ore into bar stock at
+   the same rate a C-rank smith manages. */
+function shopOpenSmelt(materialId) {
+  const sh = shop();
+  const have = sh.ore[materialId] || 0;
+  if (have <= 0) { shopToast('No ore of that kind in the yard.'); return; }
+  const rate = smeltRate(3);
+  const most = Math.min(have, rate);
+  SHOPUI.draft = { qty: most };
+  const mt = shopMaterial(materialId);
+  const redraw = function () {
+    const d = SHOPUI.draft;
+    shopSheet('Smelt ' + mt.name + ' Ore',
+      '<p class="roster-note">One ore makes one ingot. A phase at the furnace is a phase not ' +
+      'spent at the anvil — a smith on your books can do this instead, and get through more ' +
+      'of it the better they are.</p>' +
+      '<div class="pick-row"><label>How much ore</label>' +
+      stepper('qty', d.qty, 1, most) + '</div>' +
+      '<div class="sheet-total"><span>In the yard</span><b>' + have + ' ore</b></div>' +
+      '<div class="sheet-total"><span>Most in one phase</span><b>' + rate + '</b></div>',
+      [
+        { label: 'To the furnace', primary: true, onClick: function () {
+          const res = shopSmelt(shop(), materialId, SHOPUI.draft.qty);
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          shopSheetClose();
+          shopSpendPhase('Smelted ' + res.made + ' ' + mt.name + ' ingots.');
+        } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }
+      ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
 function shopToast(text) {
   $('shPromptText').textContent = text;
   announce(text);
@@ -10236,6 +11693,37 @@ function shopDayBreak(result) {
       html += rowHtml(itemSprite(id, 'bronze') + ' ' + esc(it.name),
         esc(cat ? cat.name : it.cat) + ' · ' + it.size + '×' + it.size + ' board · ' +
         coin(it.price) + 'g in bronze', 'new');
+    }
+    html += '</div>';
+  }
+  // a contract whose day has gone. The goods come back; the money and the
+  // forge's good name do not, so it is said plainly rather than filed.
+  if (result.failed && result.failed.length) {
+    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px;' +
+      'color:var(--danger)">Contracts you did not fill in time:</p><div class="shop-list">';
+    for (const com of result.failed) {
+      html += rowHtml(contractSprite() + ' ' + esc(com.name) + "'s order",
+        com.filled + ' of ' + com.qty + ' ' + esc(lineName(com.key)) + ' · ' +
+        coin(com.pay - com.advance) + 'g forfeited' +
+        (com.filled ? ' · the work is back in storage' : ''), 'failed');
+    }
+    html += '</div>';
+  }
+  // the week down the mines, said once a week and only when you own one
+  if (result.dug && result.dug.length) {
+    const total = result.dug.reduce(function (t, r) { return t + r.kept; }, 0);
+    const spoiled = result.dug.reduce(function (t, r) { return t + r.lost; }, 0);
+    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px">' +
+      'A week down the mines — ' + total + ' ore' +
+      (spoiled ? ', and ' + spoiled + ' left on the ground for want of sheds' : '') +
+      ':</p><div class="shop-list">';
+    for (const row of result.dug) {
+      html += rowHtml(oreSprite(row.material) + ' ' + esc(row.name),
+        (row.miners ? row.miners + (row.miners === 1 ? ' miner · ' : ' miners · ') : 'nobody down it · ') +
+        row.ore + ' of ' + row.cap + ' stored' +
+        (row.lost ? ' · ' + row.lost + ' spoiled' : '') +
+        (row.full ? ' · full, send a runner' : ''),
+        '+' + row.kept);
     }
     html += '</div>';
   }
@@ -10399,9 +11887,153 @@ function shopSendStaff(id, again) {
     announce(e.name + ' is down for the ' + SHOP.phaseName[phase].toLowerCase() + '.');
     return;
   }
-  if (e.role === 'runner') { SHOPUI.draft = {}; shopOpenBuy(e); return; }
-  if (e.role === 'smith') { shopOpenForge(e); return; }
+  if (e.role === 'runner') {
+    if (sh.mines.length && sh.vehicles.length) { shopOpenErrand(e); return; }
+    SHOPUI.draft = {};
+    shopOpenBuy(e);
+    return;
+  }
+  if (e.role === 'smith') {
+    if (countOre(sh) > 0) { shopOpenSmithJob(e); return; }
+    shopOpenForge(e);
+    return;
+  }
   if (e.role === 'storehand') { shopOpenStock(e); return; }
+}
+
+/* A runner who could go either way is asked which. A forge with no property
+   never sees this at all. */
+function shopOpenErrand(runner) {
+  shopSheet('What is ' + runner.name.split(' ')[0] + ' doing?',
+    '<p class="roster-note">One errand a phase. The market sells finished bar stock; your own ' +
+    'mines dig raw ore, which has to be carted home and smelted before the anvil will take ' +
+    'it.</p>',
+    [
+      { label: 'Go to market', primary: true,
+        onClick: function () { SHOPUI.draft = {}; shopOpenBuy(runner); } },
+      { label: 'Collect ore', onClick: function () { shopOpenCollect(runner); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+}
+
+/* Which property, in what, and how much. The amount is capped by all three
+   things that can cap it, so the number on screen is the number that arrives. */
+function shopOpenCollect(runner) {
+  const sh = shop();
+  const carts = freeVehicles(sh);
+  if (!carts.length) {
+    shopSheet('Collect ore',
+      '<p class="shop-empty">Every vehicle is already out. Buy another under Property, or ' +
+      'wait for this one to get back.</p>',
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  const d = SHOPUI.draft = {};
+  d.mine = sh.mines[0].id;
+  d.vehicle = carts[0].id;
+  const redraw = function () {
+    const sh2 = shop();
+    const mine = mineById(sh2, d.mine) || sh2.mines[0];
+    const cart = vehicleById(sh2, d.vehicle) || carts[0];
+    const room = Math.max(0, oreStorageCap(sh2) - countOre(sh2));
+    const most = Math.max(0, Math.min(mine.ore, vehicleCapacity(cart), room));
+    if (!d.qty || d.qty > most) d.qty = most;
+
+    let html = '<div class="pick-row"><label for="shMine">Property</label>' +
+      '<select id="shMine" data-sel="mine">';
+    for (const m of sh2.mines) {
+      html += '<option value="' + m.id + '"' + (m.id === mine.id ? ' selected' : '') + '>' +
+        esc(m.name) + ' — ' + m.ore + ' ore waiting</option>';
+    }
+    html += '</select></div>';
+
+    html += '<div class="pick-row"><label for="shCart">In</label>' +
+      '<select id="shCart" data-sel="vehicle">';
+    for (const v of freeVehicles(sh2)) {
+      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') + '>' +
+        esc(vehicleDef(v.kind).name) + ' — carries ' + vehicleCapacity(v) + '</option>';
+    }
+    html += '</select></div>';
+
+    html += '<div class="pick-row"><label>How much</label>' +
+      stepper('qty', d.qty, 0, Math.max(0, most)) + '</div>' +
+      '<div class="sheet-total"><span>At the mine</span><b>' + mine.ore + ' ore</b></div>' +
+      '<div class="sheet-total"><span>The ' +
+      esc(vehicleDef(cart.kind).name.toLowerCase()) + ' holds</span><b>' +
+      vehicleCapacity(cart) + '</b></div>' +
+      '<div class="sheet-total"><span>Room in the yard</span><b>' + room + '</b></div>' +
+      (most <= 0 ? '<p class="roster-note" style="color:var(--danger)">Nothing would come ' +
+        'home from this trip.</p>' : '');
+
+    shopSheet('Send ' + runner.name.split(' ')[0] + ' for ore', html, [
+      { label: 'Send them off', primary: true, disabled: most <= 0 || d.qty <= 0,
+        onClick: function () {
+          const res = rosterBook(runner, { order: { kind: 'ore', mine: d.mine,
+            vehicle: d.vehicle, qty: d.qty } });
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          shopSheetClose();
+          shopRender();
+          announce(runner.name + ' will fetch ' + d.qty + ' ore in the ' +
+            SHOP.phaseName[res.phase].toLowerCase() + '.');
+        } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+/* A smith with ore in the yard can be put on the furnace instead of the
+   anvil. They cannot do both in one phase, which is the whole choice. */
+function shopOpenSmithJob(smith) {
+  shopSheet('What is ' + smith.name.split(' ')[0] + ' doing?',
+    '<p class="roster-note">A phase at the furnace is a phase not at the anvil. Smelting turns ' +
+    'raw ore into bar stock one for one, and a better smith gets through more of it.</p>',
+    [
+      { label: 'Work the anvil', primary: true,
+        onClick: function () { shopOpenForge(smith); } },
+      { label: 'Smelt ore', onClick: function () { shopOpenSmeltJob(smith); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+}
+
+function shopOpenSmeltJob(smith) {
+  const sh = shop();
+  const ores = SHOP.materials.filter(function (m) { return (sh.ore[m.id] || 0) > 0; });
+  if (!ores.length) { shopToast('No ore in the yard.'); return; }
+  const d = SHOPUI.draft = { material: ores[0].id };
+  const redraw = function () {
+    const sh2 = shop();
+    const rate = smeltRate(smith.power);
+    let html = '<div class="pick-row"><label for="shOre">Ore</label>' +
+      '<select id="shOre" data-sel="material">';
+    for (const m of SHOP.materials) {
+      const have = sh2.ore[m.id] || 0;
+      if (!have) continue;
+      html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
+        esc(m.name) + ' — ' + have + ' held</option>';
+    }
+    html += '</select></div>' +
+      '<div class="sheet-total"><span>' + esc(smith.name) + ' gets through</span><b>' +
+      rate + ' a phase</b></div>' +
+      '<div class="sheet-total"><span>Makes</span><b>' +
+      Math.min(rate, sh2.ore[d.material] || 0) + ' ingots</b></div>';
+
+    shopSheet('Put ' + smith.name.split(' ')[0] + ' on the furnace', html, [
+      { label: 'Give the order', primary: true,
+        onClick: function () {
+          const res = rosterBook(smith, { order: { kind: 'smelt', material: d.material } });
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          shopSheetClose();
+          shopRender();
+          announce(smith.name + ' will smelt in the ' +
+            SHOP.phaseName[res.phase].toLowerCase() + '.');
+        } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
 }
 
 /* One way in for every job a rostered employee is given: book them into the
@@ -10413,6 +12045,26 @@ function rosterBook(employee, job) {
   if (SHOPUI.reorder) {
     const a = assignedThisDay(sh, employee.id);
     if (!a || a.done) return { ok: false, why: 'that work is already finished' };
+    const was = (a.job || {}).order || {};
+    const now = (job || {}).order || {};
+    // the cart the old order held goes back in the yard before the new one
+    // asks for it, so re-picking the same cart is not a clash with itself
+    if (was.kind === 'ore') {
+      const old = vehicleById(sh, was.vehicle);
+      if (old) old.busy = null;
+    }
+    if (now.kind === 'ore') {
+      const cart = vehicleById(sh, now.vehicle);
+      if (!cart || !vehicleFree(sh, cart)) {
+        if (was.kind === 'ore') {
+          const back = vehicleById(sh, was.vehicle);
+          if (back) back.busy = { day: sh.day, phase: a.phase };
+        }
+        return { ok: false, why: cart ? 'that vehicle is already out'
+          : 'nothing to carry it in' };
+      }
+      cart.busy = { day: sh.day, phase: a.phase };
+    }
     a.job = job || {};
     return { ok: true, phase: a.phase };
   }
@@ -10504,6 +12156,26 @@ function wireShop() {
     if (buy && !buy.disabled) { shopBuyStandFrom(buy.dataset.buyStand); return; }
     const fire = t.closest('[data-fire]');
     if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
+    // the ledger
+    const take = t.closest('[data-take]');
+    if (take) { shopAnswerOffer(Number(take.dataset.take), true); return; }
+    const drop = t.closest('[data-drop]');
+    if (drop) { shopAnswerOffer(Number(drop.dataset.drop), false); return; }
+    const fill = t.closest('[data-fill]');
+    if (fill && !fill.disabled) { shopFillContract(Number(fill.dataset.fill)); return; }
+    const release = t.closest('[data-release]');
+    if (release) { shopOpenRelease(Number(release.dataset.release)); return; }
+    const deliver = t.closest('[data-deliver]');
+    if (deliver) { shopHandOver(Number(deliver.dataset.deliver)); return; }
+    // property
+    const mine = t.closest('[data-mine]');
+    if (mine) { shopOpenMine(Number(mine.dataset.mine)); return; }
+    const buymine = t.closest('[data-buymine]');
+    if (buymine && !buymine.disabled) { shopBuyDeed(buymine.dataset.buymine); return; }
+    const buyveh = t.closest('[data-buyvehicle]');
+    if (buyveh && !buyveh.disabled) { shopBuyCart(buyveh.dataset.buyvehicle); return; }
+    const smelt = t.closest('[data-smelt]');
+    if (smelt) { shopOpenSmelt(smelt.dataset.smelt); return; }
     const up = t.closest('[data-upgrade]');
     if (up && !up.disabled) {
       const res = shopBuyUpgrade(shop(), up.dataset.upgrade);
@@ -10577,6 +12249,36 @@ function wireShop() {
         shopRole(res.staff.role).name + ', at ' + coin(res.staff.wage) + 'g a week.');
       return;
     }
+    // the mine sheet: taking somebody on, letting them go, sinking a shaft
+    const takeon = e.target.closest ? e.target.closest('[data-takeon]') : null;
+    if (takeon && !takeon.disabled) {
+      const res = shopHireMiner(shop(), SHOPUI.mineOpen, Number(takeon.dataset.takeon));
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      shopRender();
+      shopToast(res.miner.name + ' is down the shaft at ' + coin(res.miner.wage) + 'g a week.');
+      return;
+    }
+    const sack = e.target.closest ? e.target.closest('[data-sack]') : null;
+    if (sack) {
+      const res = shopDismissMiner(shop(), SHOPUI.mineOpen, Number(sack.dataset.sack));
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      shopRender();
+      shopToast(res.miner.name + ' is off the books.');
+      return;
+    }
+    const minebuy = e.target.closest ? e.target.closest('[data-minebuy]') : null;
+    if (minebuy && !minebuy.disabled) {
+      const res = shopBuyMineUpgrade(shop(), SHOPUI.mineOpen, minebuy.dataset.minebuy);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      shopRender();
+      shopToast(mineUpgradeDef(minebuy.dataset.minebuy).name + ' — level ' + res.level + '.');
+      return;
+    }
     // the Almanac: a page of the book, and a recipe on it
     const almCat = e.target.closest ? e.target.closest('[data-alm-cat]') : null;
     if (almCat) {
@@ -10639,10 +12341,25 @@ function wireShop() {
   $('shopSheetBody').addEventListener('change', function (e) {
     const sel = e.target.closest ? e.target.closest('[data-sel]') : null;
     if (sel) {
-      SHOPUI.draft[sel.dataset.sel] = sel.value;
+      // a property, a vehicle and a contract are known by their number, not
+      // by a name, so those come back off the select as numbers
+      const byId = sel.dataset.sel === 'mine' || sel.dataset.sel === 'vehicle' ||
+        sel.dataset.sel === 'commission';
+      SHOPUI.draft[sel.dataset.sel] = byId ? Number(sel.value) : sel.value;
       if (sel.dataset.sel === 'material' || sel.dataset.sel === 'item') {
         const cap = batchCapacity(shop());
         SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1, cap));
+      }
+      // a contract says what it wants, so choosing one chooses the goods
+      if (sel.dataset.sel === 'commission') {
+        const com = commissionById(shop(), SHOPUI.draft.commission);
+        if (com) {
+          const parts = splitKey(com.key);
+          SHOPUI.draft.item = parts.item;
+          SHOPUI.draft.material = parts.material;
+          SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1,
+            batchCapacity(shop()), commissionLeft(com)));
+        } else SHOPUI.draft.commission = 0;
       }
       if (SHOPUI.redraw) SHOPUI.redraw();
       return;

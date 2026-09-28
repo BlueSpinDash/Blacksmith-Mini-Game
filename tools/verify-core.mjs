@@ -2372,6 +2372,14 @@ section('Open Your Forge: the day and the week');
   })());
 }
 
+/* No bulk orders, please. A commission is put to the seller before anything
+   on the floor is looked at, so a check about an ordinary sale silences them
+   the way the game itself does: an unknown forge is not trusted with one. */
+function noContracts(shop) {
+  shop.reputation = 0;
+  return shop;
+}
+
 /* A town that can afford the thing under test. A one-star forge's town is
    labourers and farmers on purpose, so checks about pricing and haggling -
    which want money to be no object and somebody willing to push back - plant
@@ -2939,7 +2947,7 @@ section('Open Your Forge: the board you worked is what it is worth');
   })());
 
   ok('they say so on the way out rather than leaving silently', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(702) });
+    const s = noContracts(C.createShop({ rnd: C.mulberry32(702) }));
     enrich(s);
     const knight = townsperson(s, 'knight');
     knight.standards = 80;
@@ -3295,7 +3303,7 @@ section('Open Your Forge: the counter');
   })());
 
   ok('a customer happy with the price offers exactly that', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(61) });
+    const s = noContracts(C.createShop({ rnd: C.mulberry32(61) }));
     stock(s, C.lineKey('dagger', 'bronze'), 99, 100, 1);
     const session = C.openCounter(s, { kind: 'player', power: 2, name: 'You' });
     const e = C.counterNext(session, s);
@@ -3889,6 +3897,806 @@ section('Open Your Forge: employees do the work, not the maths');
     C.shopAssign(s, 2, { order: { keys: [] } });
     const res = C.shopAdvancePhase(s);
     return res.reports.length === 2 && s.materials.silver === 2 && C.countShelf(s) > 0;
+  })());
+}
+
+/* A contract on the books, rolled the way the game rolls one but with the
+   dice held still, so a check can say what it is testing rather than shake
+   the bag until a bulk order falls out. */
+function contractFor(shop, typeId, gold) {
+  shop.reputation = 60;
+  const one = C.makeTownsfolk(shop, typeId || 'farmer');
+  one.gold = gold == null ? 4000 : gold;
+  const rnd = shop.rnd;
+  shop.rnd = () => 0;
+  const com = C.rollCommission(shop, one);
+  shop.rnd = rnd;
+  return com;
+}
+
+/* An offer sitting in the ledger, waiting to be answered. */
+function offerOn(shop, typeId, gold) {
+  const com = contractFor(shop, typeId, gold);
+  shop.commissionOffers.push(com);
+  return com;
+}
+
+/* A mine already dug out and staffed, so a check about ore does not have to
+   play three weeks first. */
+function minedShop(defId, seed) {
+  const s = C.createShop({ rnd: C.mulberry32(seed || 900), gold: 200000 });
+  const res = C.shopBuyMine(s, defId || 'bronze');
+  const mine = res.mine;
+  mine.miners.push({ id: s.nextId++, name: 'Pick', rank: 'C', power: 3, wage: 10 });
+  return { shop: s, mine: mine };
+}
+
+/* ---------- commissions ---------- */
+section('Commissions: a lot, a deadline and a price');
+{
+  ok('an unknown forge is not trusted with a bulk order', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(901) });
+    s.reputation = 0;
+    const one = C.makeTownsfolk(s, 'farmer');
+    s.rnd = () => 0;
+    return C.rollCommission(s, one) === null;
+  })());
+
+  ok('a contract asks for something the forge knows how to make', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(902) });
+    const com = contractFor(s);
+    return !!com && C.knownRecipes(s).some((it) => it.id === com.item);
+  })());
+
+  ok('a contract names its customer, its goods and its terms', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(903) });
+    const com = contractFor(s);
+    return com.name && com.trade && com.item && com.material &&
+      com.key === C.lineKey(com.item, com.material) &&
+      com.qty >= C.SHOP.commission.minQty && com.qty <= C.SHOP.commission.maxQty &&
+      com.pay > 0 && com.days >= 3 && com.filled === 0;
+  })());
+
+  ok('the ledger is not filled past what a forge can carry', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(904) });
+    for (let i = 0; i < C.SHOP.commission.maxActive; i++) offerOn(s);
+    s.rnd = () => 0;
+    return C.rollCommission(s, C.makeTownsfolk(s, 'farmer')) === null;
+  })());
+
+  ok('accepting pays the advance and starts the clock that day', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(905), gold: 1000 });
+    const com = offerOn(s);
+    s.day = 9;                                     // it sat in the book a while
+    const res = C.acceptCommission(s, com.id);
+    return res.ok && s.gold === 1000 + com.advance &&
+      com.dueDay === 9 + com.days &&               // not eaten into by the wait
+      s.commissions.length === 1 && s.commissionOffers.length === 0;
+  })());
+
+  ok('the advance is a quarter of the price and no more', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(906) });
+    const com = offerOn(s);
+    return com.advance === Math.round(com.pay * C.SHOP.commission.advance);
+  })());
+
+  ok('declining costs nothing at all', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(907), gold: 500 });
+    const com = offerOn(s);
+    const rep = s.reputation;
+    const res = C.declineCommission(s, com.id);
+    return res.ok && s.gold === 500 && s.reputation === rep &&
+      s.commissions.length === 0 && s.commissionOffers.length === 0;
+  })());
+
+  ok('promised goods leave the storeroom rather than sitting in both places', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(908) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 5, 100);
+    const before = s.storage[com.key].qty;
+    const res = C.allocateCommission(s, com.id, 3);
+    return res.ok && res.moved === 3 && com.filled === 3 &&
+      s.storage[com.key].qty === before - 3;
+  })());
+
+  ok('work under the contract is refused rather than quietly taken', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(909) });
+    const com = offerOn(s);
+    com.quality = 80;
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 5, 40);
+    const res = C.allocateCommission(s, com.id, 3);
+    return !res.ok && com.filled === 0 && s.storage[com.key].qty === 5;
+  })());
+
+  ok('nothing is promised past what the contract owes', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(910) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, com.qty + 10, 100);
+    const res = C.allocateCommission(s, com.id, com.qty + 10);
+    return res.ok && com.filled === com.qty && C.commissionLeft(com) === 0 &&
+      s.storage[com.key].qty === 10;
+  })());
+
+  ok('taking goods back out of a crate creates nothing', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(911) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 6, 100);
+    C.allocateCommission(s, com.id, 4);
+    const res = C.releaseCommission(s, com.id, 3);
+    return res.ok && com.filled === 1 && s.storage[com.key].qty === 5;
+  })());
+
+  ok('a half-filled contract cannot be handed over', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(912) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 2, 100);
+    C.allocateCommission(s, com.id, 2);
+    const res = C.deliverCommission(s, com.id);
+    return !res.ok && s.commissions.length === 1;
+  })());
+
+  ok('delivering pays the rest and builds the forge a name', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(913), gold: 0 });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    const rep = s.reputation;
+    C.addStorage(s, com.key, com.qty, 100);
+    C.allocateCommission(s, com.id, com.qty);
+    const res = C.deliverCommission(s, com.id);
+    return res.ok && s.gold === com.pay && res.paid === com.pay - com.advance &&
+      s.reputation > rep && s.commissions.length === 0;
+  })());
+
+  ok('a missed deadline forfeits the rest and costs the forge its name', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(914), gold: 0 });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 3, 100);
+    C.allocateCommission(s, com.id, 3);
+    const rep = s.reputation, purse = s.gold;
+    s.day = com.dueDay + 1;
+    const failed = C.expireCommissions(s);
+    return failed.length === 1 && s.commissions.length === 0 &&
+      s.gold === purse &&                          // the advance is kept, the rest lost
+      s.reputation < rep &&
+      s.storage[com.key] && s.storage[com.key].qty === 3;   // the work comes back
+  })());
+
+  ok('a contract still inside its deadline is left alone', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(915) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    s.day = com.dueDay;
+    return C.expireCommissions(s).length === 0 && s.commissions.length === 1;
+  })());
+
+  ok('the day turning is what catches a deadline, however far it turned', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(916), gold: 20000 });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    let seen = 0;
+    for (let i = 0; i < (com.days + 2) * 3; i++) {
+      const res = C.shopAdvancePhase(s);
+      if (res.failed) seen += res.failed.length;
+    }
+    return seen === 1 && s.commissions.length === 0;
+  })());
+
+  ok('an offer nobody answered is off the table by morning', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(917) });
+    offerOn(s);
+    s.day += 2;
+    C.expireCommissions(s);
+    return s.commissionOffers.length === 0;
+  })());
+
+  ok('the soonest deadline is what the ledger warns about', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(918) });
+    const a = offerOn(s); C.acceptCommission(s, a.id); a.dueDay = 30;
+    const b = offerOn(s); C.acceptCommission(s, b.id); b.dueDay = 12;
+    return C.nextCommissionDue(s).id === b.id && C.commissionDaysLeft(s, b) === 12 - s.day;
+  })());
+
+  ok('the player is asked about a contract and can take it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(919), gold: 0 });
+    stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
+    s.reputation = 60;
+    for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
+    s.rnd = () => 0.05;                            // under the odds, every time
+    const session = C.openCounter(s, { kind: 'player', power: 0, name: 'You' });
+    const event = C.counterNext(session, s);
+    if (!event || event.kind !== 'commission') return false;
+    const res = C.counterAnswerCommission(session, s, true);
+    return res.kind === 'contract' && s.commissions.length === 1 &&
+      s.gold === res.advance && session.pending === null;
+  })());
+
+  ok('turning one down at the counter leaves the books as they were', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(920), gold: 0 });
+    stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
+    s.reputation = 60;
+    for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
+    s.rnd = () => 0.05;
+    const session = C.openCounter(s, { kind: 'player', power: 0, name: 'You' });
+    C.counterNext(session, s);
+    const res = C.counterAnswerCommission(session, s, false);
+    return res.kind === 'leave' && s.commissions.length === 0 &&
+      s.commissionOffers.length === 0 && s.gold === 0;
+  })());
+
+  ok('a salesperson writes a contract down for you rather than answering it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(921), gold: 0 });
+    stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
+    s.reputation = 60;
+    for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
+    s.rnd = () => 0.05;
+    const e = { id: 1, name: 'Sal', role: 'salesperson', rank: 'C', power: 3, wage: 30 };
+    const report = C.runSalesperson(s, e);
+    return report.commissions > 0 && s.commissionOffers.length > 0 &&
+      s.commissions.length === 0 && s.gold === 0;   // nothing taken on your behalf
+  })());
+
+  ok('the offers a salesperson brings back are the ones you answer', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(922), gold: 0 });
+    const com = offerOn(s);
+    return C.commissionOfferById(s, com.id) === com &&
+      C.acceptCommission(s, com.id).ok && C.commissionById(s, com.id) === com;
+  })());
+
+  ok('a salesperson never queues more offers than the desk will hold', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(923) });
+    stock(s, C.lineKey('dagger', 'bronze'), 12, 100);
+    s.reputation = 60;
+    for (let i = 0; i < 12; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
+    s.rnd = () => 0.05;
+    const e = { id: 1, name: 'Sal', role: 'salesperson', rank: 'S', power: 6, wage: 30 };
+    C.runSalesperson(s, e);
+    return s.commissionOffers.length <= C.SHOP.commission.maxOffers;
+  })());
+
+  ok('what storage could put towards a contract is counted, not guessed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(924) });
+    const com = offerOn(s);
+    com.quality = 70;
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 4, 40);
+    const rough = C.commissionStock(s, com);
+    s.storage[com.key].quality = 90;
+    return rough === 0 && C.commissionStock(s, com) === 4;
+  })());
+
+  ok('a smith forging for a contract fills the crate, not the shelf twice over', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(925), gold: 20000 });
+    const com = offerOn(s);
+    com.quality = 0;
+    C.acceptCommission(s, com.id);
+    const parts = C.splitKey(com.key);
+    s.materials[parts.material] = 40;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
+    const r = C.runSmith(s, e, { item: parts.item, material: parts.material, qty: 3,
+      commission: com.id });
+    if (!r.ok || s.orders[0].commission !== com.id) return false;
+    const held = s.storage[com.key] ? s.storage[com.key].qty : 0;
+    C.shopEndDay(s);
+    const after = s.storage[com.key] ? s.storage[com.key].qty : 0;
+    // three pieces were made and three pieces exist: in the crate, not both places
+    return com.filled === 3 && after === held;
+  })());
+
+  ok('work over what a contract owes still reaches the storeroom', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(926), gold: 20000 });
+    const com = offerOn(s);
+    com.quality = 0;
+    com.qty = 2;
+    C.acceptCommission(s, com.id);
+    const parts = C.splitKey(com.key);
+    s.materials[parts.material] = 40;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
+    C.runSmith(s, e, { item: parts.item, material: parts.material, qty: 3, commission: com.id });
+    C.shopEndDay(s);
+    return com.filled === 2 && s.storage[com.key] && s.storage[com.key].qty === 1;
+  })());
+}
+
+/* ---------- mines ---------- */
+section('Properties: deeds, shafts and what comes up');
+{
+  ok('a deed buys a property, not a number on the forge', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(930), gold: 200000 });
+    const before = s.materials.bronze;
+    const res = C.shopBuyMine(s, 'bronze');
+    return res.ok && s.mines.length === 1 && res.mine.ore === 0 &&
+      s.materials.bronze === before &&             // owning it hands you nothing
+      (s.ore.bronze || 0) === 0;
+  })());
+
+  ok('a deed you cannot pay for is not signed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(931), gold: 10 });
+    return !C.shopBuyMine(s, 'bronze').ok && s.mines.length === 0 && s.gold === 10;
+  })());
+
+  ok('every mine works one of the metals the forge already knows', (() =>
+    C.SHOP.mines.every((m) => !!C.shopMaterial(m.material))));
+
+  ok('two mines of one mineral can be owned at once, and told apart', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(932), gold: 200000 });
+    const a = C.shopBuyMine(s, 'bronze'), b = C.shopBuyMine(s, 'bronze');
+    return a.ok && b.ok && s.mines.length === 2 && a.mine.id !== b.mine.id &&
+      a.mine.name !== b.mine.name;
+  })());
+
+  ok('the second mine of a mineral costs more than the first', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(933), gold: 200000 });
+    const first = C.minePrice(s, 'bronze');
+    C.shopBuyMine(s, 'bronze');
+    return C.minePrice(s, 'bronze') > first;
+  })());
+
+  ok('each mine keeps its own ore, and one filling up is not the other', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(934), gold: 200000 });
+    const a = C.shopBuyMine(s, 'bronze').mine;
+    const b = C.shopBuyMine(s, 'bronze').mine;
+    a.miners.push({ id: 1, name: 'A', rank: 'C', power: 3, wage: 10 });
+    C.runMines(s, 1);
+    return a.ore > 0 && b.ore === 0;
+  })());
+
+  ok('a mine with nobody down it digs nothing', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(935), gold: 200000 });
+    const mine = C.shopBuyMine(s, 'bronze').mine;
+    C.runMines(s, 1);
+    return C.mineYield(mine) === 0 && mine.ore === 0;
+  })());
+
+  ok('more miners bring up more ore', (() => {
+    const { mine } = minedShop('bronze', 936);
+    const one = C.mineYield(mine);
+    mine.miners.push({ id: 99, name: 'Two', rank: 'C', power: 3, wage: 10 });
+    return C.mineYield(mine) > one;
+  })());
+
+  ok('a better miner brings up more than a worse one', (() => {
+    const { mine } = minedShop('bronze', 937);
+    mine.miners = [{ id: 1, name: 'E', rank: 'E', power: 1, wage: 10 }];
+    const worst = C.mineYield(mine);
+    mine.miners = [{ id: 1, name: 'S', rank: 'S', power: 6, wage: 10 }];
+    return C.mineYield(mine) > worst;
+  })());
+
+  ok('a week is dug once and once only, however the calendar was turned', (() => {
+    const { shop, mine } = minedShop('bronze', 938);
+    C.runMines(shop, 3);
+    const after = mine.ore;
+    C.runMines(shop, 3);
+    C.runMines(shop, 2);                           // a week already behind us
+    return after > 0 && mine.ore === after;
+  })());
+
+  ok('the next week digs again', (() => {
+    const { shop, mine } = minedShop('bronze', 939);
+    C.runMines(shop, 3);
+    const after = mine.ore;
+    C.runMines(shop, 4);
+    return mine.ore > after;
+  })());
+
+  ok('the turn of the week is what sets the miners going', (() => {
+    const { shop, mine } = minedShop('bronze', 940);
+    let digs = 0;
+    for (let i = 0; i < C.SHOP.weekLength * 3; i++) {
+      const res = C.shopAdvancePhase(shop);
+      if (res.dug && res.dug.length) digs++;
+    }
+    return digs === 1 && mine.ore > 0;
+  })());
+
+  ok('ore past what the sheds hold is spoil left on the ground', (() => {
+    const { shop, mine } = minedShop('bronze', 941);
+    mine.ore = C.mineStoreCap(mine) - 1;
+    const rows = C.runMines(shop, 5);
+    return mine.ore === C.mineStoreCap(mine) && rows[0].lost > 0 && rows[0].full;
+  })());
+
+  ok('sinking a shaft makes room for more miners', (() => {
+    const { shop, mine } = minedShop('bronze', 942);
+    const cap = C.mineMinerCap(mine);
+    return C.shopBuyMineUpgrade(shop, mine.id, 'shafts').ok &&
+      C.mineMinerCap(mine) > cap;
+  })());
+
+  ok('ore sheds make room for more ore, and better gear for more of it', (() => {
+    const { shop, mine } = minedShop('bronze', 943);
+    const store = C.mineStoreCap(mine), yield0 = C.mineYield(mine);
+    C.shopBuyMineUpgrade(shop, mine.id, 'sheds');
+    C.shopBuyMineUpgrade(shop, mine.id, 'gear');
+    return C.mineStoreCap(mine) > store && C.mineYield(mine) > yield0;
+  })());
+
+  ok('an upgrade runs out rather than climbing for ever', (() => {
+    const { shop, mine } = minedShop('bronze', 944);
+    const def = C.mineUpgradeDef('sheds');
+    for (let i = 0; i < def.max; i++) C.shopBuyMineUpgrade(shop, mine.id, 'sheds');
+    return C.mineUpgradeCost(mine, 'sheds') === null &&
+      !C.shopBuyMineUpgrade(shop, mine.id, 'sheds').ok;
+  })());
+
+  ok('a miner is hired against the mine and takes no place at the forge', (() => {
+    const { shop, mine } = minedShop('bronze', 945);
+    const before = shop.staff.length;
+    const offered = C.shopSearchMiners(shop, mine.id, 3).length;
+    const res = C.shopHireMiner(shop, mine.id, mine.applicants[0].id);
+    return offered === 3 && res.ok && mine.miners.length === 2 &&
+      shop.staff.length === before;
+  })());
+
+  ok('a mine will not take more miners than it has shafts for', (() => {
+    const { shop, mine } = minedShop('bronze', 946);
+    while (mine.miners.length < C.mineMinerCap(mine)) {
+      mine.miners.push({ id: shop.nextId++, name: 'X', rank: 'C', power: 3, wage: 10 });
+    }
+    const list = C.shopSearchMiners(shop, mine.id, 1);
+    return !C.shopHireMiner(shop, mine.id, list[0].id).ok;
+  })());
+
+  ok('a miner can be let go', (() => {
+    const { shop, mine } = minedShop('bronze', 947);
+    const id = mine.miners[0].id;
+    return C.shopDismissMiner(shop, mine.id, id).ok && mine.miners.length === 0;
+  })());
+
+  ok('miners are paid out of the same week as everybody else', (() => {
+    const { shop, mine } = minedShop('bronze', 948);
+    const bill = C.mineWageBill(shop);
+    return bill === mine.miners[0].wage && C.weeklyBill(shop) >= bill;
+  })());
+}
+
+/* ---------- carting it home ---------- */
+section('Transport: what a cart will carry');
+{
+  ok('a cart carries ten, a wagon thirty and a team sixty', (() => {
+    const cart = C.vehicleDef('cart'), wagon = C.vehicleDef('wagon'),
+      horse = C.vehicleDef('horse');
+    return cart.capacity === 10 && wagon.capacity === 30 && horse.capacity === 60;
+  })());
+
+  ok('a vehicle is bought once and kept', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(950), gold: 200000 });
+    const res = C.shopBuyVehicle(s, 'cart');
+    return res.ok && s.vehicles.length === 1 && C.vehicleCapacity(res.vehicle) === 10;
+  })());
+
+  ok('a team of horses upgrades the wagon you own rather than adding one', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(951), gold: 200000 });
+    const wagon = C.shopBuyVehicle(s, 'wagon').vehicle;
+    const res = C.shopBuyVehicle(s, 'horse');
+    return res.ok && res.upgraded && s.vehicles.length === 1 &&
+      res.vehicle.id === wagon.id && C.vehicleCapacity(wagon) === 60;
+  })());
+
+  ok('there is nothing to put horses in front of without a wagon', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(952), gold: 200000 });
+    return !C.shopBuyVehicle(s, 'horse').ok && s.vehicles.length === 0;
+  })());
+
+  ok('a vehicle out on a delivery cannot be sent somewhere else as well', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(953), gold: 200000 });
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    if (!C.vehicleFree(s, cart)) return false;
+    cart.busy = { day: s.day, phase: C.SHOP.phases[s.phaseIndex] };
+    return !C.vehicleFree(s, cart) && C.freeVehicles(s).length === 0;
+  })());
+
+  ok('the cart is free again once the phase it went out in has closed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(954), gold: 200000 });
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    cart.busy = { day: s.day, phase: C.SHOP.phases[0] };
+    s.phaseIndex = 1;
+    return C.vehicleFree(s, cart);
+  })());
+
+  ok('no runner carries more than the cart will hold', (() => {
+    const { shop, mine } = minedShop('bronze', 955);
+    mine.ore = 40;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    const res = C.collectOre(shop, mine.id, cart.id, 999);
+    return res.ok && res.load === 10 && mine.ore === 30 && shop.ore.bronze === 10;
+  })());
+
+  ok('a wagon brings back thirty of the same', (() => {
+    const { shop, mine } = minedShop('bronze', 956);
+    mine.ore = 40;
+    const wagon = C.shopBuyVehicle(shop, 'wagon').vehicle;
+    const res = C.collectOre(shop, mine.id, wagon.id, 999);
+    return res.ok && res.load === 30 && mine.ore === 10;
+  })());
+
+  ok('you cannot fetch more ore than there is down the mine', (() => {
+    const { shop, mine } = minedShop('bronze', 957);
+    mine.ore = 4;
+    const wagon = C.shopBuyVehicle(shop, 'wagon').vehicle;
+    const res = C.collectOre(shop, mine.id, wagon.id, 30);
+    return res.ok && res.load === 4 && mine.ore === 0;
+  })());
+
+  ok('fetching ore moves it rather than copying it', (() => {
+    const { shop, mine } = minedShop('bronze', 958);
+    mine.ore = 25;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    const total = () => mine.ore + C.countOre(shop);
+    const before = total();
+    C.collectOre(shop, mine.id, cart.id, 10);
+    C.collectOre(shop, mine.id, cart.id, 10);
+    return before === 25 && total() === 25 && C.countOre(shop) === 20;
+  })());
+
+  ok('ore the forge has no room for stays down the mine', (() => {
+    const { shop, mine } = minedShop('bronze', 959);
+    mine.ore = 60;
+    const wagon = C.shopBuyVehicle(shop, 'wagon').vehicle;
+    shop.ore.silver = C.oreStorageCap(shop) - 5;
+    const res = C.collectOre(shop, mine.id, wagon.id, 30);
+    return res.load === 5 && res.spilled === 25 && mine.ore === 55;
+  })());
+
+  ok('an empty mine is said to be empty rather than fetched from', (() => {
+    const { shop, mine } = minedShop('bronze', 960);
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    return !C.collectOre(shop, mine.id, cart.id, 10).ok && C.countOre(shop) === 0;
+  })());
+
+  ok('booking a haul takes the cart off the yard', (() => {
+    const { shop, mine } = minedShop('bronze', 962);
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    shop.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    shop.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(shop, 1, { order: { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 10 } });
+    const second = C.shopAssign(shop, 2, { order: { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 10 } });
+    return first.ok && !second.ok && C.freeVehicles(shop).length === 0;
+  })());
+
+  ok('dropping the job puts the cart back in the yard', (() => {
+    const { shop, mine } = minedShop('bronze', 963);
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    shop.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    C.shopAssign(shop, 1, { order: { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 10 },
+      }, C.SHOP.phases[2]);
+    C.shopUnassign(shop, 1);
+    return C.freeVehicles(shop).length === 1;
+  })());
+
+  ok('a haul from a property nobody owns is not booked at all', (() => {
+    const { shop } = minedShop('bronze', 964);
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    shop.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const res = C.shopAssign(shop, 1, { order: { kind: 'ore', mine: 9999, vehicle: cart.id, qty: 10 } });
+    return !res.ok && C.vehicleFree(shop, cart);
+  })());
+
+  ok('nobody is given two jobs in one day', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(965), gold: 20000 });
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(s, 1, { order: { bronze: 2 } });
+    const second = C.shopAssign(s, 1, { order: { bronze: 2 } }, C.SHOP.phases[2]);
+    return first.ok && !second.ok;
+  })());
+
+  ok('a runner sent for ore comes back with it, and with the cart', (() => {
+    const { shop, mine } = minedShop('bronze', 961);
+    mine.ore = 20;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    cart.busy = { day: shop.day, phase: C.SHOP.phases[shop.phaseIndex] };
+    const e = { id: 1, name: 'Run', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const r = C.runRunner(shop, e, { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 10 });
+    return r.ok && r.load === 10 && shop.ore.bronze === 10 && cart.busy === null;
+  })());
+}
+
+/* ---------- smelting ---------- */
+section('Smelting: ore is not metal until somebody stands over it');
+{
+  ok('ore is counted apart from the bar stock it becomes', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(970) });
+    const bars = s.materials.bronze;
+    C.addOre(s, 'bronze', 10);
+    return s.ore.bronze === 10 && s.materials.bronze === bars;
+  })());
+
+  ok('one ore makes one ingot, and the ore is gone', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(971) });
+    const bars = s.materials.bronze;
+    C.addOre(s, 'bronze', 10);
+    const res = C.shopSmelt(s, 'bronze', 4);
+    return res.ok && res.made === 4 && s.ore.bronze === 6 &&
+      s.materials.bronze === bars + 4;
+  })());
+
+  ok('you cannot smelt ore you have not fetched', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(972) });
+    const bars = s.materials.bronze;
+    const res = C.shopSmelt(s, 'bronze', 5);
+    return !res.ok && s.materials.bronze === bars && C.countOre(s) === 0;
+  })());
+
+  ok('smelting more than you have smelts what you have', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(973) });
+    C.addOre(s, 'bronze', 3);
+    const res = C.shopSmelt(s, 'bronze', 20);
+    return res.ok && res.made === 3 && !s.ore.bronze && C.countOre(s) === 0;
+  })());
+
+  ok('a better smith gets through more of it in a phase', (() =>
+    C.smeltRate(6) > C.smeltRate(3) && C.smeltRate(3) > C.smeltRate(1)));
+
+  ok('a smith at the furnace turns ore into bar stock', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(974) });
+    C.addOre(s, 'bronze', 20);
+    const bars = s.materials.bronze;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'C', power: 3, wage: 60 };
+    const r = C.runSmith(s, e, { kind: 'smelt', material: 'bronze' });
+    return r.ok && r.kind === 'smelt' && r.made === C.smeltRate(3) &&
+      s.materials.bronze === bars + r.made && s.orders.length === 0;
+  })());
+
+  ok('a smith at the furnace is not at the anvil as well', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(975) });
+    C.addOre(s, 'bronze', 20);
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'C', power: 3, wage: 60 };
+    C.runSmith(s, e, { kind: 'smelt', material: 'bronze' });
+    return s.orders.length === 0;                  // nothing on the anvil that phase
+  })());
+
+  ok('the market still sells finished bar stock: mining is a choice', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(976), gold: 100000 });
+    const bars = s.materials.bronze;
+    const e = { id: 1, name: 'Run', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const r = C.runRunner(s, e, { bronze: 8 });
+    return r.ok && s.materials.bronze === bars + 8 && s.mines.length === 0;
+  })());
+}
+
+/* ---------- the hands you can keep ---------- */
+section('Staff room: four hands at the start');
+{
+  ok('a new forge has room for four', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(980) });
+    return C.staffCapacity(s) === 4;
+  })());
+
+  ok('room only grows from there', (() => {
+    let last = 0;
+    return C.SHOP.tiers.every((t) => { const up = t.staff >= last; last = t.staff; return up; }) &&
+      C.SHOP.tiers[0].staff === 4;
+  })());
+
+  ok('the five trades are all still hireable', (() => {
+    const roles = C.SHOP.roles.map((r) => r.id);
+    return ['smith', 'runner', 'salesperson', 'storehand', 'apprentice']
+      .every((id) => roles.includes(id));
+  })());
+
+  ok('a fifth hand is turned away and the fourth is not', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(981), gold: 500000 });
+    let hired = 0;
+    for (let i = 0; i < 8; i++) {
+      const list = C.shopSearchStaff(s, 3);
+      if (!list.length) break;
+      if (C.shopHire(s, list[0].id).ok) hired++;
+    }
+    return hired === 4 && s.staff.length === 4;
+  })());
+
+  ok('miners are not counted against the forge at all', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(982), gold: 500000 });
+    for (let i = 0; i < 4; i++) {
+      const list = C.shopSearchStaff(s, 3);
+      C.shopHire(s, list[0].id);
+    }
+    const mine = C.shopBuyMine(s, 'bronze').mine;
+    const list = C.shopSearchMiners(s, mine.id, 2);
+    return s.staff.length === C.staffCapacity(s) &&
+      C.shopHireMiner(s, mine.id, list[0].id).ok && mine.miners.length === 1;
+  })());
+}
+
+/* ---------- it all has to come back ---------- */
+section('Saving: mines, carts, ore and contracts all come back');
+{
+  ok('a mine comes back with its miners, its ore and its upgrades', (() => {
+    const { shop, mine } = minedShop('bronze', 990);
+    mine.ore = 17;
+    mine.lastDug = 4;
+    C.shopBuyMineUpgrade(shop, mine.id, 'sheds');
+    const back = C.restoreShop(C.serializeShop(shop), C.mulberry32(1));
+    const got = C.mineById(back, mine.id);
+    return got && got.def === 'bronze' && got.ore === 17 && got.lastDug === 4 &&
+      got.miners.length === 1 && C.mineLevel(got, 'sheds') === 1 &&
+      got.name === mine.name;
+  })());
+
+  ok('two mines of one mineral come back as two', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(991), gold: 200000 });
+    C.shopBuyMine(s, 'bronze');
+    C.shopBuyMine(s, 'bronze');
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return back.mines.length === 2 && back.mines[0].id !== back.mines[1].id;
+  })());
+
+  ok('a week already dug is not dug again after a reload', (() => {
+    const { shop, mine } = minedShop('bronze', 992);
+    C.runMines(shop, 6);
+    const ore = mine.ore;
+    const back = C.restoreShop(C.serializeShop(shop), C.mulberry32(1));
+    C.runMines(back, 6);
+    return ore > 0 && C.mineById(back, mine.id).ore === ore;
+  })());
+
+  ok('the carts in the yard come back', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(993), gold: 200000 });
+    C.shopBuyVehicle(s, 'wagon');
+    C.shopBuyVehicle(s, 'horse');
+    C.shopBuyVehicle(s, 'cart');
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return back.vehicles.length === 2 &&
+      back.vehicles.some((v) => C.vehicleCapacity(v) === 60) &&
+      back.vehicles.some((v) => C.vehicleCapacity(v) === 10);
+  })());
+
+  ok('the ore in the yard comes back, and stays apart from the bar stock', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(994) });
+    C.addOre(s, 'bronze', 9);
+    const bars = s.materials.bronze;
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return back.ore.bronze === 9 && back.materials.bronze === bars;
+  })());
+
+  ok('a contract comes back with what has been promised to it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(995) });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 3, 100);
+    C.allocateCommission(s, com.id, 3);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const got = C.commissionById(back, com.id);
+    return got && got.filled === 3 && got.qty === com.qty && got.pay === com.pay &&
+      got.dueDay === com.dueDay && got.key === com.key;
+  })());
+
+  ok('an offer still waiting for an answer comes back waiting', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(996) });
+    const com = offerOn(s);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return back.commissionOffers.length === 1 &&
+      C.commissionOfferById(back, com.id).item === com.item;
+  })());
+
+  ok('a save with nonsense in the new fields loads as an honest empty yard', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(997) });
+    const data = C.serializeShop(s);
+    data.mines = [{ def: 'not-a-mine', ore: -50, miners: 'lots' }, 7, null];
+    data.vehicles = [{ kind: 'zeppelin' }, 'cart'];
+    data.ore = { bronze: -9, unobtanium: 400 };
+    data.commissions = [{ item: 'nope', qty: -3 }];
+    data.commissionOffers = 'none';
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back && back.mines.length === 0 && back.vehicles.length === 0 &&
+      C.countOre(back) === 0 && back.commissions.length === 0 &&
+      Array.isArray(back.commissionOffers) && back.commissionOffers.length === 0;
+  })());
+
+  ok('an old save loads with an empty yard rather than not at all', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(998) });
+    const data = C.serializeShop(s);
+    delete data.mines; delete data.vehicles; delete data.ore;
+    delete data.commissions; delete data.commissionOffers;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back && back.mines.length === 0 && back.vehicles.length === 0 &&
+      back.commissions.length === 0 && C.countOre(back) === 0;
   })());
 }
 
