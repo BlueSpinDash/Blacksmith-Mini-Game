@@ -1373,6 +1373,48 @@ input[type=range]{
 .contract-haul b{color:#3a3024;}
 .contract-haul.warn b{color:#9d2f20;}
 
+/* ---------- a roster box kept every day ---------- */
+.roster-tools{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0 0 10px;
+  padding:8px 11px;background:#15161b;border:1px solid var(--edge-soft);border-radius:10px;
+}
+.rt-note{flex:1;min-width:150px;font-size:11.5px;line-height:1.45;color:var(--muted);}
+.rt-note b{color:var(--brass);}
+.roster-tools button{
+  min-height:34px;padding:0 12px;font-size:12.5px;border-radius:8px;
+  background:#1b1d23;border:1px solid var(--edge-soft);color:var(--text);
+}
+.rb-repeat{
+  position:absolute;top:4px;right:6px;font-size:12px;line-height:1;color:var(--brass);
+}
+.roster-box{position:relative;}
+.roster-box.kept{border-color:var(--brass);}
+.roster-box.empty.standing{border-style:solid;border-color:#5c4a28;}
+.standing-card{
+  display:flex;flex-direction:column;gap:2px;margin:0 0 10px;padding:10px 12px;
+  background:linear-gradient(180deg,#1f1c14 0%,#15161b 100%);
+  border:1px solid var(--brass);border-radius:10px;
+}
+.standing-card.off{opacity:.6;border-color:var(--edge-soft);}
+.sc-head{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--brass);}
+.sc-who{font-size:14.5px;color:var(--gold);}
+.sc-plan{font-size:12.5px;color:var(--text);}
+.sc-state{font-size:11.5px;color:var(--muted);font-style:italic;}
+
+/* ---------- the morning's own report ---------- */
+.roster-report{display:grid;gap:4px;margin:9px 0 0;}
+.rr-row{
+  display:flex;align-items:baseline;gap:7px;font-size:12px;padding:5px 9px;
+  background:#15161b;border:1px solid var(--edge-soft);border-radius:8px;
+}
+.rr-row.miss{border-color:#5c3a33;}
+.rr-when{
+  flex:0 0 66px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+}
+.rr-who{color:var(--text);}
+.rr-why{color:var(--muted);font-style:italic;}
+.rr-row.miss .rr-why{color:#c08b7e;}
+
 /* ---------- title screen ---------- */
 /* Below the top bar on purpose: the title track plays behind this screen, so
    the mute button and the volume slider must still be reachable. Every other
@@ -2280,6 +2322,26 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        they cannot also spend at the anvil. A <b>Store Hand</b> carries stock out to the stands for you. Only the <b>Apprentice</b>
        works beside you, making every batch you forge yourself larger. Each of the others takes one
        job a day, and every one of them draws a wage on rent day.</p>
+    <p><b>A roster that keeps itself.</b> Once a forge has hands enough, re-booking them every
+       morning is a chore rather than a decision. Tap any box on the <b>Staff</b> screen and
+       choose <b>Keep this box every day</b>: say who holds it &mdash; a named employee, or
+       <i>whoever is free</i> &mdash; and what they are to do, and it fills itself at the turn of
+       every day. A kept box wears a <b>&#8634;</b>.</p>
+    <p>The orders are the standing part. A runner can be told to keep a metal <b>stocked to</b> a
+       figure without ever spending past a ceiling you set; to fetch ore from a named mine, and
+       <i>only</i> when the yard has fallen under a threshold; or simply to deliver, taking
+       whichever contract falls due soonest in the largest cart free that phase. A smith can be
+       told a blueprint, a metal and a batch, or put on the furnace. A salesperson opens the
+       counter; a store hand carries out whatever storage holds.</p>
+    <p><b>It obeys every rule you do.</b> One job an employee a day, one cart to a phase, nothing
+       bought that cannot be paid for, nothing forged without the metal. When a box cannot be
+       filled it is left <i>empty</i> and the morning says why &mdash; it never quietly does
+       something else instead. The day-break report lists every box the roster filled and every
+       one it could not, so a forge you left running still tells you what happened.</p>
+    <p>Overriding is per-day: change or drop a booking the roster made and only <b>today</b>
+       changes, with the box back to filling itself tomorrow. <b>Pause</b> a box to stop it
+       without forgetting what it held, and <b>Same as yesterday</b> puts the previous day's
+       whole roster back up in one tap.</p>
     <p><b>Growing costs.</b> You have room for <b>four</b> general staff from the first day,
        and miners are counted separately from them. Bigger premises mean more staff, room for more stands, more storage
        and bigger batches &mdash; and a much larger rent. Expanding too early is how a shop
@@ -5625,6 +5687,8 @@ function createShop(opts) {
     applicants: [],
     log: [],              // reports, newest first
     assignments: {},      // employeeId -> { phase, job }
+    standing: [],         // the roster kept day after day: role, phase, hand, orders
+    lastRoster: [],       // yesterday's bookings, so "again" needs no rebuilding
     rentPaid: 0,
     closed: false,        // true once the shop has gone under
     nextId: 1,
@@ -5705,6 +5769,12 @@ function serializeShop(shop) {
     }),
     orders: shop.orders.map(function (o) { return Object.assign({}, o); }),
     assignments: JSON.parse(JSON.stringify(shop.assignments)),
+    standing: shop.standing.map(function (slot) {
+      return { id: slot.id, role: slot.role, phase: slot.phase,
+        staff: slot.staff, plan: JSON.parse(JSON.stringify(slot.plan || {})),
+        on: slot.on !== false };
+    }),
+    lastRoster: JSON.parse(JSON.stringify(shop.lastRoster || [])),
     known: shop.known.slice(),
     disciplines: shop.disciplines.slice(),
     xp: Object.assign({}, shop.xp),
@@ -5725,7 +5795,10 @@ function serializeShop(shop) {
         upgrades: Object.assign({}, m.upgrades),
         miners: m.miners.map(function (one) { return Object.assign({}, one); }) };
     }),
-    vehicles: shop.vehicles.map(function (v) { return Object.assign({}, v); }),
+    vehicles: shop.vehicles.map(function (v) {
+      return { id: v.id, kind: v.kind,
+        busy: v.busy ? { day: v.busy.day, phases: vehicleBusyPhases(shop, v).slice() } : null };
+    }),
     commissions: shop.commissions.map(function (c) {
       return Object.assign({ delivered: 0 }, c);
     }),
@@ -5876,7 +5949,40 @@ function restoreShop(data, rnd) {
     if (!a || !staffById(shop, Number(id))) continue;
     if (SHOP.phases.indexOf(a.phase) < 0) continue;
     shop.assignments[id] = { day: whole(a.day, 1, 100000, shop.day), phase: a.phase,
-      job: a.job && typeof a.job === 'object' ? a.job : {}, done: a.done === true };
+      job: a.job && typeof a.job === 'object' ? a.job : {}, done: a.done === true,
+      standing: a.standing === true };
+  }
+
+  /* The standing roster. One slot to a box: a save naming the same role and
+     phase twice keeps the first and drops the rest, and a slot for a role or
+     a phase that no longer exists is dropped rather than believed. A save
+     from before there was a standing roster simply has none, which is the
+     honest default - nothing books itself until the player says so. */
+  shop.standing = [];
+  const boxes = {};
+  for (const raw of Array.isArray(data.standing) ? data.standing : []) {
+    if (!raw || !shopRole(raw.role) || SHOP.phases.indexOf(raw.phase) < 0) continue;
+    const box = raw.role + '@' + raw.phase;
+    if (boxes[box]) continue;
+    boxes[box] = true;
+    // a named hand who is no longer on the books falls back to auto-fill
+    const named = raw.staff == null ? null : staffById(shop, whole(raw.staff, 1, 1e9, 0));
+    shop.standing.push({ id: whole(raw.id, 1, 1e9, shop.nextId++),
+      role: raw.role, phase: raw.phase,
+      staff: named && named.role === raw.role ? named.id : null,
+      plan: raw.plan && typeof raw.plan === 'object'
+        ? JSON.parse(JSON.stringify(raw.plan)) : {},
+      on: raw.on !== false });
+  }
+
+  shop.lastRoster = [];
+  for (const raw of Array.isArray(data.lastRoster) ? data.lastRoster : []) {
+    if (!raw || !shopRole(raw.role) || SHOP.phases.indexOf(raw.phase) < 0) continue;
+    if (!staffById(shop, whole(raw.staff, 1, 1e9, 0))) continue;
+    shop.lastRoster.push({ role: raw.role, phase: raw.phase,
+      staff: whole(raw.staff, 1, 1e9, 0),
+      job: raw.job && typeof raw.job === 'object'
+        ? JSON.parse(JSON.stringify(raw.job)) : {} });
   }
 
   /* What the forge knows, and how good it is at it.
@@ -6059,8 +6165,18 @@ function restoreShop(data, rnd) {
 
   for (const raw of Array.isArray(data.vehicles) ? data.vehicles : []) {
     if (!raw || !vehicleDef(raw.kind)) continue;
-    const busy = raw.busy && SHOP.phases.indexOf(raw.busy.phase) >= 0
-      ? { day: whole(raw.busy.day, 1, 1e6, shop.day), phase: raw.busy.phase } : null;
+    /* Which phases it is out in today. A save from when a vehicle could only
+       be out once a day names one phase; either shape comes back as a list. */
+    let busy = null;
+    if (raw.busy && typeof raw.busy === 'object') {
+      const named = Array.isArray(raw.busy.phases) ? raw.busy.phases
+        : raw.busy.phase ? [raw.busy.phase] : [];
+      const phases = [];
+      for (const p of named) {
+        if (SHOP.phases.indexOf(p) >= 0 && phases.indexOf(p) < 0) phases.push(p);
+      }
+      if (phases.length) busy = { day: whole(raw.busy.day, 1, 1e6, shop.day), phases: phases };
+    }
     shop.vehicles.push({ id: whole(raw.id, 1, 1e9, shop.nextId++), kind: raw.kind, busy: busy });
   }
 
@@ -7318,10 +7434,14 @@ function shopAssign(shop, staffId, job, phase) {
     }
     cart = vehicleById(shop, order.vehicle);
     if (!cart) return { ok: false, why: 'nothing to carry it in' };
-    if (!vehicleFree(shop, cart)) return { ok: false, why: 'that ' + vehicleDef(cart.kind).name.toLowerCase() + ' is already out' };
+    if (!vehicleFree(shop, cart, want)) {
+      return { ok: false, why: 'that ' + vehicleDef(cart.kind).name.toLowerCase() +
+        ' is already out that ' + SHOP.phaseName[want].toLowerCase() };
+    }
   }
-  shop.assignments[e.id] = { day: shop.day, phase: want, job: job || {}, done: false };
-  if (cart) cart.busy = { day: shop.day, phase: want };
+  shop.assignments[e.id] = { day: shop.day, phase: want, job: job || {}, done: false,
+    standing: !!(job && job.standing) };
+  if (cart) bookVehicle(shop, cart, want);
   return { ok: true, phase: want };
 }
 
@@ -7332,10 +7452,11 @@ function shopUnassign(shop, staffId) {
   if (status === 'done') return { ok: false, why: 'that work is already finished' };
   if (status === 'active') return { ok: false, why: 'that phase is already under way' };
   // whatever was promised to that job goes back in the yard
-  const order = ((shop.assignments[staffId] || {}).job || {}).order || {};
+  const booking = shop.assignments[staffId] || {};
+  const order = (booking.job || {}).order || {};
   if (order.kind === 'ore' || order.kind === 'deliver') {
     const cart = vehicleById(shop, order.vehicle);
-    if (cart) cart.busy = null;
+    if (cart) releaseVehicle(shop, cart, booking.phase);
   }
   delete shop.assignments[staffId];
   return { ok: true };
@@ -7372,6 +7493,252 @@ function staffCandidates(shop, roleId, phase) {
 }
 
 
+/* ---------- the standing schedule ---------------------------------------
+   A forge with nine hands should not be re-booked from scratch every morning.
+   A standing slot is one box of the roster - a role and a phase - held open
+   day after day, with either a named employee in it or `auto`, and with the
+   orders that job should be given written down once.
+
+   Nothing here does any work. It books the same roster the player books by
+   hand, through the same `shopAssign`, so every rule about who is free, what
+   a phase costs and which cart is out still applies exactly as it did. When a
+   standing slot cannot be filled or its orders cannot be met, the box is left
+   empty and the morning says why - it never quietly does something else. */
+
+function standingKey(role, phase) { return role + '@' + phase; }
+
+function standingAt(shop, role, phase) {
+  return (shop.standing || []).find(function (slot) {
+    return slot.role === role && slot.phase === phase;
+  }) || null;
+}
+
+/* Put a slot in the book, or change the one already there. `staff` is an
+   employee id, or null for auto-fill. */
+function setStanding(shop, role, phase, staff, plan) {
+  if (!shopRole(role) || phaseIndexOf(phase) < 0) return { ok: false, why: 'no such slot' };
+  let slot = standingAt(shop, role, phase);
+  if (!slot) {
+    slot = { id: shop.nextId++, role: role, phase: phase, staff: null, plan: {}, on: true };
+    shop.standing.push(slot);
+  }
+  slot.staff = staff == null ? null : staff;
+  slot.plan = plan || {};
+  slot.on = true;
+  return { ok: true, slot: slot };
+}
+function clearStanding(shop, role, phase) {
+  const before = (shop.standing || []).length;
+  shop.standing = (shop.standing || []).filter(function (slot) {
+    return !(slot.role === role && slot.phase === phase);
+  });
+  return { ok: shop.standing.length < before };
+}
+function toggleStanding(shop, role, phase, on) {
+  const slot = standingAt(shop, role, phase);
+  if (!slot) return { ok: false, why: 'nothing standing there' };
+  slot.on = on === undefined ? !slot.on : !!on;
+  return { ok: true, on: slot.on };
+}
+
+/* ---------- turning a standing plan into today's orders ----------------
+   Each of these answers one question: given how the forge stands right now,
+   what exactly should this employee be told to do? A null order means there
+   is honestly nothing to do, and the reason is the player's to read. */
+
+/* The contract most worth carting: the one whose day comes soonest. */
+function nextDelivery(shop, phase) {
+  let pick = null;
+  for (const com of shop.commissions) {
+    if (!commissionReady(com)) continue;
+    if (!pick || com.dueDay < pick.dueDay) pick = com;
+  }
+  if (!pick) return { ok: false, why: 'no contract is ready to go' };
+  const cart = bestFreeVehicle(shop, phase);
+  if (!cart) return { ok: false, why: 'no vehicle free that phase' };
+  const haul = commissionHaul(shop, pick, cart);
+  if (haul.load <= 0) return { ok: false, why: 'nothing would go on the trip' };
+  return { ok: true, order: { kind: 'deliver', commission: pick.id,
+    vehicle: cart.id, qty: haul.load } };
+}
+
+/* A shopping list that tops a metal back up to where the player wants it,
+   without spending past the ceiling they set or the gold they have. */
+function restockOrder(shop, plan) {
+  const mt = shopMaterial(plan.material);
+  if (!mt) return { ok: false, why: 'no such metal' };
+  const upTo = Math.max(0, Math.floor(plan.upTo || 0));
+  const held = shop.materials[mt.id] || 0;
+  let want = upTo - held;
+  if (want <= 0) return { ok: false, why: mt.name + ' is already stocked to ' + upTo };
+  const ceiling = Math.max(0, Math.min(plan.cap === undefined ? Infinity : plan.cap, shop.gold));
+  while (want > 0 && purchaseCost(shop, buildOrder(mt.id, want)) > ceiling) want--;
+  if (want <= 0) {
+    return { ok: false, why: 'one ' + mt.name.toLowerCase() + ' ingot is past the limit set' };
+  }
+  return { ok: true, order: buildOrder(mt.id, want) };
+}
+function buildOrder(materialId, qty) {
+  const order = {};
+  order[materialId] = qty;
+  return order;
+}
+
+/* An ore run, held back until the yard actually needs one. */
+function oreRunOrder(shop, plan, phase) {
+  const mine = mineById(shop, plan.mine);
+  if (!mine) return { ok: false, why: 'that property is gone' };
+  const below = Math.max(0, Math.floor(plan.below || 0));
+  if (below > 0 && countOre(shop) >= below) {
+    return { ok: false, why: 'the yard still holds ' + countOre(shop) + ' ore' };
+  }
+  if (mine.ore <= 0) return { ok: false, why: mine.name + ' has nothing to fetch' };
+  const cart = bestFreeVehicle(shop, phase);
+  if (!cart) return { ok: false, why: 'no vehicle free that phase' };
+  const want = Math.max(1, Math.floor(plan.qty || vehicleCapacity(cart)));
+  return { ok: true, order: { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: want } };
+}
+
+/* What a standing slot's orders come to today, for whoever fills it. */
+function planOrder(shop, role, plan, phase) {
+  const p = plan || {};
+  if (role === 'runner') {
+    if (p.kind === 'deliver') return nextDelivery(shop, phase);
+    if (p.kind === 'ore') return oreRunOrder(shop, p, phase);
+    if (p.kind === 'market') return restockOrder(shop, p);
+    return { ok: false, why: 'no errand set' };
+  }
+  if (role === 'smith') {
+    if (p.kind === 'smelt') {
+      if (!shopMaterial(p.material)) return { ok: false, why: 'no metal set' };
+      if ((shop.ore[p.material] || 0) <= 0) {
+        return { ok: false, why: 'no ' + shopMaterial(p.material).name.toLowerCase() +
+          ' ore in the yard' };
+      }
+      return { ok: true, order: { kind: 'smelt', material: p.material } };
+    }
+    if (!p.item || !p.material) return { ok: false, why: 'no order set' };
+    const qty = Math.max(1, Math.min(batchCapacity(shop), Math.floor(p.qty || 1)));
+    const check = forgeCheck(shop, p.item, p.material, qty);
+    if (!check.ok) return { ok: false, why: check.why };
+    return { ok: true, order: { item: p.item, material: p.material, qty: qty } };
+  }
+  if (role === 'storehand') {
+    if (countStorage(shop) <= 0) return { ok: false, why: 'nothing in storage to carry out' };
+    return { ok: true, order: { keys: (p.keys || []).slice() } };
+  }
+  // a salesperson minds the counter and an apprentice works beside you; both
+  // need no orders at all
+  return { ok: true, order: {} };
+}
+
+/* Who fills this slot today. A named employee is used only if they are still
+   on the books, still of that role and not already working; auto-fill takes
+   whoever is free. */
+function standingHand(shop, slot) {
+  if (slot.staff != null) {
+    const named = staffById(shop, slot.staff);
+    if (!named) return { ok: false, why: 'that employee has left' };
+    if (named.role !== slot.role) return { ok: false, why: named.name + ' changed trade' };
+    if (assignedThisDay(shop, named.id)) {
+      return { ok: false, why: named.name + ' already has work today' };
+    }
+    return { ok: true, staff: named };
+  }
+  const free = staffCandidates(shop, slot.role, slot.phase);
+  if (!free.length) return { ok: false, why: 'nobody free to fill it' };
+  return { ok: true, staff: free[0], auto: true };
+}
+
+/* Book the whole standing schedule into a day. Called at the turn of the day
+   and nowhere else, so nothing that has already happened can be rewritten.
+   Slots are worked in phase order and role order, which is what makes the
+   result the same every morning rather than depending on list order. */
+function applyStanding(shop) {
+  const rows = [];
+  if (!shop.standing || !shop.standing.length) return rows;
+  for (const phase of SHOP.phases) {
+    for (const role of SHOP.roles) {
+      const slot = standingAt(shop, role.id, phase);
+      if (!slot || !slot.on) continue;
+      // a box the player already filled by hand today is theirs, not the book's
+      if (assignmentAt(shop, role.id, phase)) continue;
+      const row = { role: role.id, phase: phase, slot: slot.id };
+      const hand = standingHand(shop, slot);
+      if (!hand.ok) { rows.push(Object.assign(row, { ok: false, why: hand.why })); continue; }
+      const orders = planOrder(shop, role.id, slot.plan, phase);
+      if (!orders.ok) {
+        rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: orders.why }));
+        continue;
+      }
+      const res = shopAssign(shop, hand.staff.id,
+        { order: orders.order, standing: true }, phase);
+      if (!res.ok) {
+        rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: res.why }));
+        continue;
+      }
+      rows.push(Object.assign(row, { ok: true, who: hand.staff.name,
+        auto: !!hand.auto, staff: hand.staff.id }));
+    }
+  }
+  return rows;
+}
+
+/* Yesterday's roster, kept so the player can say "again" without rebuilding
+   it. Taken before the day turn wipes the bookings. */
+function captureRoster(shop) {
+  const out = [];
+  for (const e of shop.staff) {
+    const a = shop.assignments[e.id];
+    if (!a || a.day !== shop.day) continue;
+    out.push({ role: e.role, phase: a.phase, staff: e.id,
+      job: JSON.parse(JSON.stringify(a.job || {})) });
+  }
+  return out;
+}
+
+/* Put yesterday's roster back up for today, as far as it still makes sense.
+   Anything that cannot be booked again is simply left out. */
+function repeatRoster(shop) {
+  const rows = [];
+  for (const phase of SHOP.phases) {
+    for (const was of (shop.lastRoster || [])) {
+      if (was.phase !== phase) continue;
+      const e = staffById(shop, was.staff);
+      const row = { role: was.role, phase: phase };
+      if (!e) { rows.push(Object.assign(row, { ok: false, why: 'that employee has left' })); continue; }
+      if (assignedThisDay(shop, e.id)) {
+        rows.push(Object.assign(row, { ok: false, who: e.name, why: 'already has work today' }));
+        continue;
+      }
+      const job = JSON.parse(JSON.stringify(was.job || {}));
+      // a cart named yesterday may be out today; take whichever is free
+      const order = job.order || {};
+      if (order.kind === 'ore' || order.kind === 'deliver') {
+        const cart = bestFreeVehicle(shop, phase);
+        if (!cart) {
+          rows.push(Object.assign(row, { ok: false, who: e.name, why: 'no vehicle free' }));
+          continue;
+        }
+        order.vehicle = cart.id;
+        if (order.kind === 'deliver') {
+          const com = commissionById(shop, order.commission);
+          if (!com || !commissionReady(com)) {
+            rows.push(Object.assign(row, { ok: false, who: e.name,
+              why: 'that contract is not ready' }));
+            continue;
+          }
+          order.qty = commissionHaul(shop, com, cart).load;
+        }
+      }
+      const res = shopAssign(shop, e.id, job, phase);
+      rows.push(Object.assign(row, res.ok ? { ok: true, who: e.name }
+        : { ok: false, who: e.name, why: res.why }));
+    }
+  }
+  return rows;
+}
+
 /* ---------- what each role actually does -------------------------------- */
 
 /* A runner's price is their own. Rank tilts the odds towards a bargain, but
@@ -7389,7 +7756,8 @@ function runRunner(shop, employee, order) {
   if (order && order.kind === 'deliver') {
     const vehicle = vehicleById(shop, order.vehicle);
     const res = deliverCommission(shop, order.commission, order.vehicle, order.qty);
-    if (vehicle) vehicle.busy = null;                 // back in the yard either way
+    // back in the yard at the end of the phase either way
+    if (vehicle) releaseVehicle(shop, vehicle, shopPhase(shop));
     if (!res.ok) return { ok: false, why: res.why };
     return { ok: true, kind: 'delivery', who: employee.name, rank: employee.rank,
       commission: res.commission.id, customer: res.name, key: res.commission.key,
@@ -7401,7 +7769,8 @@ function runRunner(shop, employee, order) {
   if (order && order.kind === 'ore') {
     const res = collectOre(shop, order.mine, order.vehicle, order.qty);
     const vehicle = vehicleById(shop, order.vehicle);
-    if (vehicle) vehicle.busy = null;                 // back in the yard either way
+    // back in the yard at the end of the phase either way
+    if (vehicle) releaseVehicle(shop, vehicle, shopPhase(shop));
     if (!res.ok) return { ok: false, why: res.why };
     return { ok: true, kind: 'haul', who: employee.name, rank: employee.rank,
       mine: res.name, material: res.material, load: res.load,
@@ -7525,6 +7894,8 @@ function shopAdvancePhase(shop) {
 
 function shopEndDay(shop) {
   const delivered = [];
+  // what everybody was down for, kept so the player can say "again" tomorrow
+  shop.lastRoster = captureRoster(shop);
   shop.day += 1;
   shop.phaseIndex = 0;
 
@@ -7532,6 +7903,10 @@ function shopEndDay(shop) {
   // unworked carries over to be worked twice
   for (const id in shop.assignments) {
     if (shop.assignments[id].day < shop.day) delete shop.assignments[id];
+  }
+  // yesterday's vehicles are back in the yard
+  for (const v of shop.vehicles) {
+    if (v.busy && v.busy.day < shop.day) v.busy = null;
   }
 
   // yesterday's production comes off the anvil and into storage
@@ -7590,11 +7965,17 @@ function shopEndDay(shop) {
   // experience of having made its forerunner, in the Almanac, by hand.
   const learned = [];
 
+  /* The standing roster goes up for the new day. It is put up AFTER the day
+     has fully turned - rent paid, mines dug, contracts expired - so what it
+     books is decided by how the forge actually stands this morning, and never
+     by how it stood last night. */
+  const roster = shop.closed ? [] : applyStanding(shop);
+
   const report = { kind: 'day', delivered: delivered, bill: bill, learned: learned,
     wages: wages, drifted: drifted.length, dug: dug, failed: failed,
-    newDay: true, day: shop.day };
+    roster: roster, newDay: true, day: shop.day };
   if (delivered.length || bill || learned.length || failed.length ||
-      (dug && dug.length)) shopLog(shop, report);
+      (dug && dug.length) || roster.length) shopLog(shop, report);
   return report;
 }
 
@@ -8083,12 +8464,37 @@ function vehicleCapacity(vehicle) {
   return def ? def.capacity : 0;
 }
 /* Free right now: not promised to a delivery in a phase still to come. */
-function vehicleFree(shop, vehicle) {
-  if (!vehicle.busy) return true;
-  return !(vehicle.busy.day === shop.day && phaseIndexOf(vehicle.busy.phase) >= shop.phaseIndex);
+/* Which phases a vehicle is already spoken for in today. A cart that goes out
+   in the morning is back in the yard by the afternoon, so being out is a
+   property of the PHASE and not of the day - which is what lets one cart do
+   an ore run and a delivery on the same day when two runners are booked to
+   different phases.
+
+   A save written when `busy` held a single phase still reads. */
+function vehicleBusyPhases(shop, vehicle) {
+  const b = vehicle.busy;
+  if (!b || b.day !== shop.day) return [];
+  if (Array.isArray(b.phases)) return b.phases;
+  return b.phase ? [b.phase] : [];
 }
-function freeVehicles(shop) {
-  return shop.vehicles.filter(function (v) { return vehicleFree(shop, v); });
+function vehicleFree(shop, vehicle, phase) {
+  const want = phase || shopPhase(shop);
+  return vehicleBusyPhases(shop, vehicle).indexOf(want) < 0;
+}
+function bookVehicle(shop, vehicle, phase) {
+  if (!vehicle.busy || vehicle.busy.day !== shop.day || !Array.isArray(vehicle.busy.phases)) {
+    vehicle.busy = { day: shop.day, phases: vehicleBusyPhases(shop, vehicle).slice() };
+  }
+  if (vehicle.busy.phases.indexOf(phase) < 0) vehicle.busy.phases.push(phase);
+}
+function releaseVehicle(shop, vehicle, phase) {
+  const held = vehicleBusyPhases(shop, vehicle);
+  if (!held.length) { vehicle.busy = null; return; }
+  vehicle.busy = { day: shop.day, phases: held.filter(function (p) { return p !== phase; }) };
+  if (!vehicle.busy.phases.length) vehicle.busy = null;
+}
+function freeVehicles(shop, phase) {
+  return shop.vehicles.filter(function (v) { return vehicleFree(shop, v, phase); });
 }
 
 /* What it would cost to put this vehicle in the yard, and how. Trading a
@@ -8124,9 +8530,9 @@ function shopBuyVehicle(shop, kind, trade) {
 
 /* The biggest vehicle standing free right now, which is what a delivery
    screen offers first. */
-function bestFreeVehicle(shop) {
+function bestFreeVehicle(shop, phase) {
   let best = null;
-  for (const v of freeVehicles(shop)) {
+  for (const v of freeVehicles(shop, phase)) {
     if (!best || vehicleCapacity(v) > vehicleCapacity(best)) best = v;
   }
   return best;
@@ -8335,6 +8741,12 @@ const CHECKSMITH_CORE = {
   oreStorageCap: oreStorageCap, countOre: countOre, addOre: addOre,
   collectOre: collectOre, smeltRate: smeltRate, shopSmelt: shopSmelt,
   vehicleUpgradeBase: vehicleUpgradeBase, bestFreeVehicle: bestFreeVehicle,
+  vehicleBusyPhases: vehicleBusyPhases, bookVehicle: bookVehicle,
+  releaseVehicle: releaseVehicle,
+  standingAt: standingAt, setStanding: setStanding, clearStanding: clearStanding,
+  toggleStanding: toggleStanding, planOrder: planOrder, standingHand: standingHand,
+  applyStanding: applyStanding, captureRoster: captureRoster, repeatRoster: repeatRoster,
+  nextDelivery: nextDelivery, restockOrder: restockOrder, oreRunOrder: oreRunOrder,
   commissionMade: commissionMade, commissionToMake: commissionToMake,
   commissionToShip: commissionToShip, commissionReady: commissionReady,
   commissionState: commissionState, commissionStateName: commissionStateName,
@@ -10615,32 +11027,60 @@ function jobWord(sh, employee, job) {
   return 'Beside you';
 }
 
+/* Why a standing box came up empty this morning, in the words the morning
+   report used. Read back off the day's own log so the two cannot disagree. */
+function standingWhyEmpty(sh, role, phase) {
+  for (const entry of sh.log) {
+    if (entry.kind !== 'day' || entry.day !== sh.day) continue;
+    for (const row of entry.roster || []) {
+      if (row.role === role && row.phase === phase && !row.ok) return row.why;
+    }
+    break;
+  }
+  return '';
+}
+
 function rosterBox(sh, role, phase) {
   const when = '<span class="rb-when">' + esc(SHOP.phaseName[phase]) + '</span>';
   const held = assignmentAt(sh, role.id, phase);
   const past = phaseIndexOf(phase) < sh.phaseIndex;
 
+  const standing = standingAt(sh, role.id, phase);
+  const mark = standing && standing.on
+    ? '<span class="rb-repeat" aria-hidden="true">\u21ba</span>' : '';
+
   if (!held) {
     const open = staffCandidates(sh, role.id, phase).length > 0;
-    return '<button class="roster-box empty" type="button"' +
-      (open ? ' data-slot-role="' + role.id + '" data-slot-phase="' + phase + '"' : ' disabled') +
+    // a box the standing roster could not fill this morning still says so
+    const why = standing && standing.on ? standingWhyEmpty(sh, role.id, phase) : '';
+    return '<button class="roster-box empty' + (standing && standing.on ? ' standing' : '') +
+      '" type="button"' +
+      (open || standing ? ' data-slot-role="' + role.id + '" data-slot-phase="' + phase + '"'
+        : ' disabled') +
       ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name +
-        (open ? ', assign employee' : past ? ', this phase has gone by' : ', nobody free')) + '">' +
-      when + '<span class="rb-plus">+</span>' +
-      '<span class="rb-name">' + (open ? 'Assign employee' : past ? '—' : 'Nobody free') +
-      '</span></button>';
+        (standing && standing.on ? ', kept every day' : '') +
+        (why ? ', unfilled: ' + why
+          : open ? ', assign employee' : past ? ', this phase has gone by' : ', nobody free')) +
+      '">' + when + mark + '<span class="rb-plus">+</span>' +
+      '<span class="rb-name">' + esc(why ? 'Unfilled'
+        : open ? 'Assign employee' : past ? '\u2014' : 'Nobody free') + '</span>' +
+      (why ? '<span class="rb-state">' + esc(why) + '</span>' : '') +
+      '</button>';
   }
 
   const e = held.staff;
   const status = assignmentStatus(sh, e.id) || 'done';
   const gap = status === 'done' ? '' : jobGap(sh, e, held.job);
   const errand = jobWord(sh, e, held.job);
-  const word = status === 'done' ? 'Worked' : status === 'active' ? errand : errand;
-  return '<button class="roster-box ' + status + (gap ? ' needs' : '') + '" type="button"' +
+  const word = status === 'done' ? 'Worked' : errand;
+  const kept = !!(held.job && held.job.standing);
+  return '<button class="roster-box ' + status + (gap ? ' needs' : '') +
+    (kept ? ' kept' : '') + '" type="button"' +
     ' data-hand="' + e.id + '"' +
     ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + ', ' + e.name +
-      ', rank ' + e.rank + ', ' + (gap ? errand + ', ' + gap : word)) + '">' +
-    when + staffPortrait(e) +
+      ', rank ' + e.rank + ', ' + (gap ? errand + ', ' + gap : word) +
+      (kept ? ', from the standing roster' : '')) + '">' +
+    when + mark + staffPortrait(e) +
     '<span class="rb-name"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
     esc(e.name.split(' ')[0]) + '</span>' +
     '<span class="rb-state">' + esc(gap ? 'Needs orders' : word) + '</span>' +
@@ -10655,9 +11095,19 @@ function shopRosterHtml(sh) {
     return html + '<p class="shop-empty">You work alone. Search for employees and their day is ' +
       'planned here.</p>';
   }
+  const kept = (sh.standing || []).filter(function (slot) { return slot.on; }).length;
   html += '<p class="roster-note">Plan the whole day at once. Booking work costs you ' +
     '<b>nothing</b> — your own one action a phase is untouched, and each job runs by itself ' +
     'when its phase comes round. One job each a day.</p>';
+  html += '<div class="roster-tools">' +
+    '<span class="rt-note">' + (kept
+      ? '<b>' + kept + '</b> ' + (kept === 1 ? 'box is' : 'boxes are') +
+        ' kept every day \u21ba — they fill themselves each morning'
+      : 'Nothing is kept yet. Set a box to repeat and it fills itself every morning.') +
+    '</span>' +
+    (sh.lastRoster && sh.lastRoster.length
+      ? '<button data-repeat-roster="1">Same as yesterday</button>' : '') +
+    '</div>';
 
   for (const role of SHOP.roles) {
     const mine = staffOfRole(sh, role.id);
@@ -10692,24 +11142,289 @@ function shopOpenHandPicker(roleId, phase) {
   const sh = shop();
   const role = shopRole(roleId);
   const free = staffCandidates(sh, roleId, phase);
+  const standing = standingAt(sh, roleId, phase);
   SHOPUI.planPhase = phase;
+
+  let html = '<p class="roster-note">' + esc(role.blurb) + '</p>';
+  if (standing) {
+    // the box is already kept; say what it keeps and offer to change it
+    html += '<div class="standing-card' + (standing.on ? '' : ' off') + '">' +
+      '<span class="sc-head">\u21ba Kept every ' +
+      esc(SHOP.phaseName[phase].toLowerCase()) + '</span>' +
+      '<span class="sc-who">' + esc(standing.staff == null ? 'Whoever is free'
+        : (staffById(sh, standing.staff) || {}).name || 'somebody gone') + '</span>' +
+      '<span class="sc-plan">' + esc(standingPlanLine(sh, role.id, standing.plan)) + '</span>' +
+      '<span class="sc-state">' + (standing.on ? 'It fills this box every morning'
+        : 'Paused — it will not fill itself') + '</span></div>';
+  }
+
   if (!free.length) {
-    shopSheet(SHOP.phaseName[phase] + ' · ' + role.name,
-      '<p class="shop-empty">No available employees for this role.</p>',
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
-    return;
+    html += '<p class="shop-empty">Nobody of this trade is free for that phase.</p>';
+  } else {
+    html += '<p class="shop-cap">Just for today</p><div class="shop-list">';
+    for (const e of free) {
+      html += '<button class="hand-line" type="button" data-pick-hand="' + e.id + '">' +
+        staffPortrait(e) +
+        '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
+        esc(e.name) + '</span>' +
+        '<span class="sub">' + esc(role.name) + ' · rank ' + e.rank + ' · ' +
+        esc(rankBenefit(role.id, e)) + '</span></button>';
+    }
+    html += '</div>';
   }
-  let html = '<p class="roster-note">' + esc(role.blurb) + '</p><div class="shop-list">';
-  for (const e of free) {
-    html += '<button class="hand-line" type="button" data-pick-hand="' + e.id + '">' +
-      staffPortrait(e) +
-      '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
-      esc(e.name) + '</span>' +
-      '<span class="sub">' + esc(role.name) + ' · rank ' + e.rank + ' · ' +
-      esc(rankBenefit(role.id, e)) + '</span></button>';
+
+  const acts = [];
+  acts.push({ label: standing ? 'Change what is kept' : 'Keep this box every day',
+    primary: !free.length,
+    onClick: function () { shopOpenStanding(roleId, phase); } });
+  if (standing) {
+    acts.push({ label: standing.on ? 'Pause it' : 'Start it again', onClick: function () {
+      toggleStanding(shop(), roleId, phase);
+      shopRender();
+      shopOpenHandPicker(roleId, phase);
+    } });
   }
-  shopSheet('Who works the ' + SHOP.phaseName[phase].toLowerCase() + '?', html + '</div>',
-    [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+  acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+  shopSheet('Who works the ' + SHOP.phaseName[phase].toLowerCase() + '?', html, acts);
+}
+
+/* A standing slot's orders in one line, for the cards that show it. */
+function standingPlanLine(sh, roleId, plan) {
+  const p = plan || {};
+  if (roleId === 'runner') {
+    if (p.kind === 'deliver') return 'Deliver whichever contract is due soonest';
+    if (p.kind === 'ore') {
+      const mine = mineById(sh, p.mine);
+      return 'Fetch ' + (p.qty || 0) + ' ore from ' + (mine ? mine.name : 'a lost property') +
+        (p.below ? ', only under ' + p.below + ' in the yard' : '');
+    }
+    if (p.kind === 'market') {
+      const mt = shopMaterial(p.material);
+      return 'Keep ' + (mt ? mt.name.toLowerCase() : 'metal') + ' stocked to ' + (p.upTo || 0) +
+        ', spending at most ' + coin(p.cap || 0) + 'g';
+    }
+    return 'No errand set';
+  }
+  if (roleId === 'smith') {
+    if (p.kind === 'smelt') {
+      const mt = shopMaterial(p.material);
+      return 'Smelt ' + (mt ? mt.name.toLowerCase() : 'ore') + ' at the furnace';
+    }
+    if (!p.item || !p.material) return 'No order set';
+    return 'Forge ' + (p.qty || 1) + ' \u00d7 ' + lineName(lineKey(p.item, p.material));
+  }
+  if (roleId === 'storehand') return 'Carry out whatever storage holds';
+  if (roleId === 'salesperson') return 'Mind the counter';
+  return 'Work beside you at the anvil';
+}
+
+/* ---------- keeping a box -----------------------------------------------
+   The editor for one standing slot: who holds it, what they are told to do,
+   and whether it is running. Everything it writes is read back at the turn of
+   the day, so what is set here is exactly what happens tomorrow morning. */
+function shopOpenStanding(roleId, phase) {
+  const sh = shop();
+  const role = shopRole(roleId);
+  const was = standingAt(sh, roleId, phase);
+  const d = SHOPUI.draft = Object.assign({
+    staff: was ? was.staff : null
+  }, was ? JSON.parse(JSON.stringify(was.plan || {})) : standingDefault(sh, roleId));
+
+  const redraw = function () {
+    const sh2 = shop();
+    const mine = shopRole(roleId);
+    let html = '<p class="roster-note">A box you keep fills itself every morning, before you ' +
+      'have touched anything. It obeys every rule you do: one job an employee a day, one cart ' +
+      'to a phase, and nothing bought that cannot be paid for. When it cannot be filled it is ' +
+      'left empty and the morning says why.</p>';
+
+    // who holds it
+    html += '<div class="pick-row"><label for="shWho">Held by</label>' +
+      '<select id="shWho" data-sel="staff">' +
+      '<option value="">Whoever is free — auto</option>';
+    for (const e of staffOfRole(sh2, roleId)) {
+      html += '<option value="' + e.id + '"' +
+        (String(d.staff) === String(e.id) ? ' selected' : '') + '>' +
+        esc(e.name) + ' — rank ' + e.rank + '</option>';
+    }
+    html += '</select></div>';
+
+    html += standingPlanFields(sh2, roleId, d);
+
+    // what it would do if the day turned right now
+    const test = planOrder(sh2, roleId, d, phase);
+    html += '<div class="sheet-total' + (test.ok ? '' : ' short') + '">' +
+      '<span>As things stand</span><b>' +
+      esc(test.ok ? 'it would run' : test.why) + '</b></div>';
+
+    const acts = [
+      { label: was ? 'Save it' : 'Keep it every day', primary: true,
+        onClick: function () {
+          const plan = Object.assign({}, d);
+          delete plan.staff;
+          const res = setStanding(shop(), roleId, phase,
+            d.staff === '' || d.staff == null ? null : Number(d.staff), plan);
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          /* Fill it for the rest of today too, so setting a box up is felt
+             now rather than tomorrow. Phases already gone are left alone. */
+          const filled = phaseIndexOf(phase) >= shop().phaseIndex &&
+            !assignmentAt(shop(), roleId, phase)
+            ? applyStandingSlot(shop(), res.slot) : null;
+          SOUNDS.shelve();
+          shopSheetClose();
+          shopRender();
+          announce(mine.name + ', ' + SHOP.phaseName[phase].toLowerCase() +
+            ', is kept every day.');
+          shopToast(filled && filled.ok
+            ? filled.who + ' takes it from today.'
+            : filled ? 'Kept. Today it cannot run: ' + filled.why
+              : 'Kept. It fills itself each morning from tomorrow.');
+        } }
+    ];
+    if (was) {
+      acts.push({ label: 'Stop keeping it', onClick: function () {
+        clearStanding(shop(), roleId, phase);
+        shopSheetClose();
+        shopRender();
+        shopToast('That box is yours to fill again.');
+      } });
+    }
+    acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+    shopSheet('Keep ' + role.name.toLowerCase() + ', ' +
+      SHOP.phaseName[phase].toLowerCase(), html, acts);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
+}
+
+/* A sensible plan to open the editor on, so a box is never set up empty. */
+function standingDefault(sh, roleId) {
+  if (roleId === 'runner') {
+    return sh.mines.length ? { kind: 'ore', mine: sh.mines[0].id, qty: 5, below: 0 }
+      : { kind: 'market', material: 'bronze', upTo: 20, cap: 400 };
+  }
+  if (roleId === 'smith') {
+    const book = knownRecipes(sh);
+    return { kind: 'forge', item: book.length ? book[0].id : null,
+      material: 'bronze', qty: 1 };
+  }
+  return {};
+}
+
+/* The instructions a standing box needs, which differ by trade. */
+function standingPlanFields(sh, roleId, d) {
+  let html = '';
+  if (roleId === 'runner') {
+    html += '<div class="pick-row"><label for="shErrand">Errand</label>' +
+      '<select id="shErrand" data-sel="kind">' +
+      '<option value="market"' + (d.kind === 'market' ? ' selected' : '') + '>Purchase materials</option>' +
+      '<option value="ore"' + (d.kind === 'ore' ? ' selected' : '') + '>Retrieve ore</option>' +
+      '<option value="deliver"' + (d.kind === 'deliver' ? ' selected' : '') + '>Make a delivery</option>' +
+      '</select></div>';
+    if (d.kind === 'market') {
+      html += '<div class="pick-row"><label for="shMat">Metal</label>' +
+        '<select id="shMat" data-sel="material">';
+      for (const m of SHOP.materials) {
+        html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
+          esc(m.name) + ' — ' + coin(m.cost) + 'g each · ' + (sh.materials[m.id] || 0) +
+          ' held</option>';
+      }
+      html += '</select></div>' +
+        '<div class="pick-row"><label>Keep stocked to</label>' +
+        stepper('upTo', d.upTo || 0, 0, 200) + '</div>' +
+        '<div class="pick-row"><label>Never spend over</label>' +
+        stepper('cap', d.cap || 0, 0, 20000) + '</div>' +
+        '<p class="roster-note">They buy only what is missing, and stop at the ceiling. ' +
+        'A standing order can never empty the strongbox.</p>';
+    } else if (d.kind === 'ore') {
+      if (!sh.mines.length) {
+        html += '<p class="shop-empty">You own no property to fetch from.</p>';
+      } else {
+        html += '<div class="pick-row"><label for="shMine">From</label>' +
+          '<select id="shMine" data-sel="mine">';
+        for (const m of sh.mines) {
+          html += '<option value="' + m.id + '"' +
+            (String(d.mine) === String(m.id) ? ' selected' : '') + '>' +
+            esc(m.name) + ' — ' + m.ore + ' waiting</option>';
+        }
+        html += '</select></div>' +
+          '<div class="pick-row"><label>Fetch up to</label>' +
+          stepper('qty', d.qty || 0, 1, 200) + '</div>' +
+          '<div class="pick-row"><label>Only under</label>' +
+          stepper('below', d.below || 0, 0, 400) + '</div>' +
+          '<p class="roster-note">Set the last to <b>0</b> to go every day. Otherwise they ' +
+          'stay home while the yard already holds that much ore. The cart they take is ' +
+          'whichever is free that phase.</p>';
+      }
+    } else {
+      html += '<p class="roster-note">They take whichever contract falls due soonest, in the ' +
+        'largest cart free that phase, and carry as much of it as will fit. With no contract ' +
+        'ready they stay home.</p>';
+    }
+    return html;
+  }
+
+  if (roleId === 'smith') {
+    html += '<div class="pick-row"><label for="shWork">At the</label>' +
+      '<select id="shWork" data-sel="kind">' +
+      '<option value="forge"' + (d.kind !== 'smelt' ? ' selected' : '') + '>Anvil</option>' +
+      '<option value="smelt"' + (d.kind === 'smelt' ? ' selected' : '') + '>Furnace</option>' +
+      '</select></div>';
+    if (d.kind === 'smelt') {
+      html += '<div class="pick-row"><label for="shOre">Ore</label>' +
+        '<select id="shOre" data-sel="material">';
+      for (const m of SHOP.materials) {
+        html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
+          esc(m.name) + ' — ' + (sh.ore[m.id] || 0) + ' in the yard</option>';
+      }
+      html += '</select></div>';
+      return html;
+    }
+    const book = knownRecipes(sh);
+    html += '<div class="pick-row"><label for="shItem">Makes</label>' +
+      '<select id="shItem" data-sel="item">';
+    for (const it of book) {
+      html += '<option value="' + it.id + '"' + (d.item === it.id ? ' selected' : '') + '>' +
+        esc(it.name) + '</option>';
+    }
+    html += '</select></div>' +
+      '<div class="pick-row"><label for="shMat">In</label>' +
+      '<select id="shMat" data-sel="material">';
+    for (const m of SHOP.materials) {
+      html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
+        esc(m.name) + ' — ' + (sh.materials[m.id] || 0) + ' held</option>';
+    }
+    html += '</select></div>' +
+      '<div class="pick-row"><label>Batch</label>' +
+      stepper('qty', d.qty || 1, 1, batchCapacity(sh)) + '</div>' +
+      '<p class="roster-note">They forge that batch every day it can be paid for in metal. ' +
+      'Short of ingots, or short of room, and they stand idle rather than making something ' +
+      'else.</p>';
+    return html;
+  }
+
+  if (roleId === 'storehand') {
+    return '<p class="roster-note">They carry out whatever storage holds, filling the stands ' +
+      'that will take it. With nothing waiting they stay idle.</p>';
+  }
+  if (roleId === 'salesperson') {
+    return '<p class="roster-note">They open the counter for the phase: the selling, the ' +
+      'haggling, what they learn about the people who come in, and any contract put to them ' +
+      '— which is written down for you to answer rather than accepted on your behalf.</p>';
+  }
+  return '<p class="roster-note">They work beside you, making every batch you forge ' +
+    'yourself larger.</p>';
+}
+
+/* Fill one standing box for today, if it can be filled at all. */
+function applyStandingSlot(shop, slot) {
+  const hand = standingHand(shop, slot);
+  if (!hand.ok) return { ok: false, why: hand.why };
+  const orders = planOrder(shop, slot.role, slot.plan, slot.phase);
+  if (!orders.ok) return { ok: false, why: orders.why, who: hand.staff.name };
+  const res = shopAssign(shop, hand.staff.id, { order: orders.order, standing: true },
+    slot.phase);
+  return res.ok ? { ok: true, who: hand.staff.name } : { ok: false, why: res.why };
 }
 
 /* What this rank buys you in this role, in a few words. */
@@ -10738,6 +11453,7 @@ function shopOpenAssignment(staffId) {
     : status === 'active' ? 'Under way now — no longer yours to move'
       : 'Booked for ' + SHOP.phaseName[a.phase];
 
+  const kept = !!(a.job && a.job.standing);
   const html = '<div class="hand-line" style="cursor:default;margin-bottom:10px">' +
     staffPortrait(e, 'lg') +
     '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
@@ -10747,6 +11463,9 @@ function shopOpenAssignment(staffId) {
     esc(word) + '</b></div>' +
     '<div class="sheet-total"><span>Told to</span><b>' + esc(jobSummary(sh, e, a.job)) +
     '</b></div>' +
+    (kept ? '<p class="roster-note">\u21ba The standing roster put this up this morning. ' +
+      'Change it or drop it and only <b>today</b> changes \u2014 the box goes back to ' +
+      'filling itself tomorrow.</p>' : '') +
     (gap ? '<p class="roster-note" style="color:var(--danger)">This will not run: ' + esc(gap) +
       '. Give them their orders before ' + esc(SHOP.phaseName[a.phase].toLowerCase()) + '.</p>'
       : '');
@@ -13048,6 +13767,28 @@ function shopDayBreak(result) {
     }
     html += '</div>';
   }
+  /* What the standing roster managed this morning. Both halves matter: a box
+     that filled itself is the point of the feature, and a box that could not
+     is the thing the player has to know about. */
+  if (result.roster && result.roster.length) {
+    const put = result.roster.filter(function (r) { return r.ok; });
+    const missed = result.roster.filter(function (r) { return !r.ok; });
+    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px">' +
+      '\u21ba The day books itself: ' + put.length +
+      (put.length === 1 ? ' box filled' : ' boxes filled') +
+      (missed.length ? ', ' + missed.length + ' left empty' : '') + '</p>' +
+      '<div class="roster-report">';
+    for (const row of result.roster) {
+      const role = shopRole(row.role);
+      html += '<div class="rr-row' + (row.ok ? '' : ' miss') + '">' +
+        '<span class="rr-when">' + esc(SHOP.phaseName[row.phase]) + '</span>' +
+        '<span class="rr-who">' + esc(role ? role.name : row.role) + '</span>' +
+        '<span class="rr-why">' + esc(row.ok
+          ? (row.auto ? row.who + ' — whoever was free' : row.who)
+          : (row.who ? row.who + ' idle: ' : '') + row.why) + '</span></div>';
+    }
+    html += '</div>';
+  }
   const bill = result.bill;
   if (bill) {
     // the week's reckoning: the money leaving is the sound of it
@@ -13465,19 +14206,19 @@ function rosterBook(employee, job) {
     const carries = function (o) { return o.kind === 'ore' || o.kind === 'deliver'; };
     if (carries(was)) {
       const old = vehicleById(sh, was.vehicle);
-      if (old) old.busy = null;
+      if (old) releaseVehicle(sh, old, a.phase);
     }
     if (carries(now)) {
       const cart = vehicleById(sh, now.vehicle);
-      if (!cart || !vehicleFree(sh, cart)) {
+      if (!cart || !vehicleFree(sh, cart, a.phase)) {
         if (carries(was)) {
           const back = vehicleById(sh, was.vehicle);
-          if (back) back.busy = { day: sh.day, phase: a.phase };
+          if (back) bookVehicle(sh, back, a.phase);
         }
         return { ok: false, why: cart ? 'that vehicle is already out'
           : 'nothing to carry it in' };
       }
-      cart.busy = { day: sh.day, phase: a.phase };
+      bookVehicle(sh, cart, a.phase);
     }
     a.job = job || {};
     return { ok: true, phase: a.phase };
@@ -13656,6 +14397,20 @@ function wireShop() {
     if (buy && !buy.disabled) { shopBuyStandFrom(buy.dataset.buyStand); return; }
     const fire = t.closest('[data-fire]');
     if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
+    const again = t.closest('[data-repeat-roster]');
+    if (again) {
+      const rows = repeatRoster(shop());
+      const put = rows.filter(function (r) { return r.ok; }).length;
+      if (put) SOUNDS.shelve(); else SOUNDS.invalid();
+      shopRender();
+      announce(put ? put + ' of yesterday\u2019s bookings are back up.'
+        : 'None of yesterday\u2019s bookings could be made again.');
+      shopToast(put
+        ? put + (put === 1 ? ' booking' : ' bookings') + ' put back' +
+          (rows.length > put ? ', ' + (rows.length - put) + ' could not be' : '') + '.'
+        : (rows.length ? rows[0].why : 'Nothing was booked yesterday.'));
+      return;
+    }
     // the ledger
     const take = t.closest('[data-take]');
     if (take) { shopAnswerOffer(Number(take.dataset.take), true); return; }
@@ -13863,14 +14618,34 @@ function wireShop() {
   $('shopSheetBody').addEventListener('change', function (e) {
     const sel = e.target.closest ? e.target.closest('[data-sel]') : null;
     if (sel) {
-      // a property, a vehicle and a contract are known by their number, not
-      // by a name, so those come back off the select as numbers
+      // a property, a vehicle, a contract and an employee are known by their
+      // number, not by a name, so those come back off the select as numbers
       const byId = sel.dataset.sel === 'mine' || sel.dataset.sel === 'vehicle' ||
-        sel.dataset.sel === 'commission';
+        sel.dataset.sel === 'commission' ||
+        (sel.dataset.sel === 'staff' && sel.value !== '');
       SHOPUI.draft[sel.dataset.sel] = byId ? Number(sel.value) : sel.value;
       if (sel.dataset.sel === 'material' || sel.dataset.sel === 'item') {
         const cap = batchCapacity(shop());
         SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1, cap));
+      }
+      // an empty employee select means auto-fill, not employee number zero
+      if (sel.dataset.sel === 'staff' && sel.value === '') SHOPUI.draft.staff = null;
+      // switching a standing box between errands starts that errand sensibly
+      if (sel.dataset.sel === 'kind') {
+        const d = SHOPUI.draft, sh = shop();
+        if (d.kind === 'ore' && d.mine === undefined && sh.mines.length) d.mine = sh.mines[0].id;
+        if (d.kind === 'ore' && !d.qty) d.qty = 5;
+        if (d.kind === 'market') {
+          if (!d.material) d.material = 'bronze';
+          if (!d.upTo) d.upTo = 20;
+          if (!d.cap) d.cap = 400;
+        }
+        if (d.kind === 'forge' && !d.item) {
+          const book = knownRecipes(sh);
+          if (book.length) d.item = book[0].id;
+          if (!d.material) d.material = 'bronze';
+          if (!d.qty) d.qty = 1;
+        }
       }
       // a contract says what it wants, so choosing one chooses the goods
       if (sel.dataset.sel === 'commission') {
@@ -14838,7 +15613,7 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   shopUi: SHOPUI, shopRender: shopRender, shopAct: shopAct, shopSpendPhase: shopSpendPhase,
   shopStartForge: shopStartForge, shopReturn: shopReturn,
   buildTiles: buildTiles, buildLegend: buildLegend, startGame: startGame,
-  shopSheetClose: shopSheetClose, shopOpenAlmanac: shopOpenAlmanac,
+  shopSheetClose: shopSheetClose, shopDayBreak: shopDayBreak, shopOpenAlmanac: shopOpenAlmanac,
   shopOpenTownsfolk: shopOpenTownsfolk, shopTownHtml: shopTownHtml,
   shopOpenStand: shopOpenStand, standSprite: standSprite,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,

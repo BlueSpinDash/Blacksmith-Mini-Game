@@ -947,6 +947,47 @@ and save round trips without touching anything else in an old save, and the
 first save afterwards writes it down. The same face follows them through
 recruitment, the roster list, the pickers and their box.
 
+### A roster that keeps itself
+
+A forge with nine hands should not be re-booked from scratch every morning.
+`shop.standing` holds one slot per box of the roster — a role and a phase —
+with either a named employee or `null` for auto-fill, plus the orders that job
+should be given, written once.
+
+Nothing in it does any work. `applyStanding` runs at the turn of the day and
+books the same roster the player books by hand, through the same `shopAssign`,
+so every rule still applies exactly as it did: one job an employee a day, one
+cart to a phase, no metal bought that cannot be paid for. A box already filled
+by hand is skipped, so an override is never overwritten.
+
+`planOrder` turns a standing plan into today's concrete order, or an honest
+reason it cannot run:
+
+| Role | Standing plan | Resolves to |
+| --- | --- | --- |
+| Runner | `{kind:'market', material, upTo, cap}` | tops the metal back up, trimming the order until it fits both the ceiling and the gold |
+| Runner | `{kind:'ore', mine, qty, below}` | an ore run, held back while the yard still holds `below` |
+| Runner | `{kind:'deliver'}` | the contract due soonest, in the largest cart free that phase, loaded to capacity |
+| Smith | `{kind:'forge', item, material, qty}` | a batch, clamped to `batchCapacity` and checked against the metal |
+| Smith | `{kind:'smelt', material}` | the furnace, if there is ore for it |
+| Store hand | `{}` | carries out whatever storage holds |
+| Salesperson / Apprentice | `{}` | needs no orders |
+
+When a slot cannot be filled the box is **left empty** and the reason goes into
+the morning report — it never silently does something else. The day-break
+screen lists every box filled and every one that was not, and an unfilled
+standing box on the Staff screen reads the reason back off that same log so the
+two cannot disagree.
+
+**A cart is out for a phase, not a day.** `vehicle.busy` became the list of
+phases a vehicle is spoken for in, so one handcart can do an ore run in the
+morning and a delivery in the afternoon when two runners are booked to different
+phases. A save written when `busy` named a single phase still reads.
+
+`captureRoster` saves yesterday's bookings at the day turn and `repeatRoster`
+puts them back up on request, re-picking vehicles and re-checking contracts
+rather than trusting yesterday's choices.
+
 ### Everyone is a stranger until you serve them
 
 A townsperson's purse, standards and taste are real from the day they arrive
@@ -1347,6 +1388,7 @@ SHOP.intel.tastes                      // how many likes and dislikes are learna
 SHOP.intel.playerOdds / .staffOdds     // reading somebody over the counter
 SHOP.intel.staffPerPower / .triesPerPower  // what a salesperson's rank buys
 SHOP.vehicles                          // the yard: what each carries, costs and trades up for
+shop.standing[]                        // the roster kept day after day: role, phase, hand, orders
 SHOP.quality / SHOP.qualityBands       // what the puzzle result is worth, and its five names
 SHOP.purseBase                         // what a middling customer thinks twice at
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages

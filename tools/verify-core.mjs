@@ -5736,5 +5736,410 @@ section('Open Your Forge: a runner on the road');
   })());
 }
 
+/* A forge with hands on the books, for the checks about keeping a roster. */
+function staffed(shop, ...roles) {
+  let id = 900;
+  for (const role of roles) {
+    shop.staff.push({ id: id++, name: 'Hand ' + id, role: role, rank: 'C',
+      power: 3, wage: 30, face: 'traveler' });
+  }
+  return shop;
+}
+const PH = C.SHOP.phases;
+
+section('Open Your Forge: a cart is out for a phase, not for a day');
+{
+  ok('a cart booked in the morning is free again by the afternoon', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1200), gold: 200000 });
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    C.bookVehicle(s, cart, PH[0]);
+    return !C.vehicleFree(s, cart, PH[0]) && C.vehicleFree(s, cart, PH[1]) &&
+      C.vehicleFree(s, cart, PH[2]);
+  })());
+
+  ok('but it cannot be in two places in the same phase', (() => {
+    const { shop, mine } = minedShop('bronze', 1201);
+    mine.ore = 40;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    staffed(shop, 'runner', 'runner');
+    const first = C.shopAssign(shop, 900, { order: { kind: 'ore', mine: mine.id,
+      vehicle: cart.id, qty: 5 } }, PH[0]);
+    const clash = C.shopAssign(shop, 901, { order: { kind: 'ore', mine: mine.id,
+      vehicle: cart.id, qty: 5 } }, PH[0]);
+    const later = C.shopAssign(shop, 901, { order: { kind: 'ore', mine: mine.id,
+      vehicle: cart.id, qty: 5 } }, PH[1]);
+    return first.ok && !clash.ok && later.ok;
+  })());
+
+  ok('running the job puts it back in the yard for the phases after', (() => {
+    const { shop, mine } = minedShop('bronze', 1202);
+    mine.ore = 40;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    const e = { id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    C.bookVehicle(shop, cart, C.shopPhase(shop));
+    C.runRunner(shop, e, { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 5 });
+    return C.vehicleFree(shop, cart, C.shopPhase(shop));
+  })());
+
+  ok('a save from when a cart was out for the whole day still reads', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1203), gold: 200000 });
+    C.shopBuyVehicle(s, 'cart');
+    const data = C.serializeShop(s);
+    data.vehicles[0].busy = { day: s.day, phase: PH[1] };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const cart = back.vehicles[0];
+    return C.vehicleFree(back, cart, PH[0]) && !C.vehicleFree(back, cart, PH[1]);
+  })());
+
+  ok('the phases a cart is out in survive being put down', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1204), gold: 200000 });
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    C.bookVehicle(s, cart, PH[0]);
+    C.bookVehicle(s, cart, PH[2]);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const got = back.vehicles[0];
+    return !C.vehicleFree(back, got, PH[0]) && C.vehicleFree(back, got, PH[1]) &&
+      !C.vehicleFree(back, got, PH[2]);
+  })());
+}
+
+section('Open Your Forge: a roster that keeps itself');
+{
+  ok('a new forge keeps nothing until it is told to', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1210) });
+    return s.standing.length === 0 && C.applyStanding(s).length === 0;
+  })());
+
+  ok('a box can be kept, changed and stopped', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1211) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    // the slot is one object kept in place, so read it rather than hold it
+    const first = C.standingAt(s, 'salesperson', PH[0]);
+    const heldBy = first.staff, wasId = first.id;
+    C.setStanding(s, 'salesperson', PH[0], null, {});
+    const two = C.standingAt(s, 'salesperson', PH[0]);
+    const count = s.standing.length;
+    C.clearStanding(s, 'salesperson', PH[0]);
+    return heldBy === 900 && count === 1 && two.staff === null &&
+      two.id === wasId && C.standingAt(s, 'salesperson', PH[0]) === null;
+  })());
+
+  ok('a box can be paused without being forgotten', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1212) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    C.toggleStanding(s, 'salesperson', PH[0], false);
+    const rows = C.applyStanding(s);
+    return s.standing.length === 1 && !s.standing[0].on && rows.length === 0;
+  })());
+
+  ok('the turn of the day puts the kept boxes up', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1213) }), 'salesperson', 'apprentice');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    C.setStanding(s, 'apprentice', PH[1], 901, {});
+    const day = C.shopEndDay(s);
+    return day.roster.length === 2 && day.roster.every((r) => r.ok) &&
+      !!C.assignedThisDay(s, 900) && !!C.assignedThisDay(s, 901);
+  })());
+
+  ok('a named hand holds their box', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1214) }), 'salesperson', 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 901, {});
+    C.shopEndDay(s);
+    return !!C.assignedThisDay(s, 901) && !C.assignedThisDay(s, 900);
+  })());
+
+  ok('auto-fill takes whoever is free', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1215) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], null, {});
+    const day = C.shopEndDay(s);
+    return day.roster[0].ok && day.roster[0].auto === true &&
+      !!C.assignedThisDay(s, 900);
+  })());
+
+  ok('and never double-books anybody', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1216) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], null, {});
+    C.setStanding(s, 'salesperson', PH[1], null, {});
+    const day = C.shopEndDay(s);
+    const put = day.roster.filter((r) => r.ok);
+    return put.length === 1 && day.roster.some((r) => !r.ok && /nobody free/i.test(r.why));
+  })());
+
+  ok('a box nobody can fill is left empty and says why', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1217) });
+    C.setStanding(s, 'runner', PH[0], null, { kind: 'market', material: 'bronze',
+      upTo: 10, cap: 500 });
+    const day = C.shopEndDay(s);
+    return day.roster.length === 1 && !day.roster[0].ok &&
+      /nobody free/i.test(day.roster[0].why) && Object.keys(s.assignments).length === 0;
+  })());
+
+  ok('a hand who has left hands their box back to nobody', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1218) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    s.staff = [];
+    const day = C.shopEndDay(s);
+    return !day.roster[0].ok && /has left/i.test(day.roster[0].why);
+  })());
+
+  ok('a box the player filled by hand is left alone', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1219) }), 'salesperson', 'salesperson');
+    C.setStanding(s, 'salesperson', PH[2], 900, {});
+    C.shopEndDay(s);
+    C.shopUnassign(s, 900);
+    C.shopAssign(s, 901, {}, PH[2]);
+    const rows = C.applyStanding(s);
+    return rows.length === 0 && !!C.assignedThisDay(s, 901) && !C.assignedThisDay(s, 900);
+  })());
+
+  ok('what the roster books is marked as the book’s doing', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1220) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    C.shopEndDay(s);
+    return C.assignedThisDay(s, 900).job.standing === true;
+  })());
+
+  ok('overriding for a day never touches the standing box', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1221) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[2], 900, {});
+    C.shopEndDay(s);
+    C.shopUnassign(s, 900);
+    const still = C.standingAt(s, 'salesperson', PH[2]);
+    C.shopEndDay(s);
+    return !!still && still.on && !!C.assignedThisDay(s, 900);
+  })());
+
+  ok('a closed forge books nothing at all', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1222) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    s.closed = true;
+    const day = C.shopEndDay(s);
+    return day.roster.length === 0;
+  })());
+}
+
+section('Open Your Forge: what a kept box is told to do');
+{
+  ok('a runner keeps a metal stocked, and stops when it is', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1230), gold: 200000 }), 'runner');
+    s.materials.bronze = 0;
+    C.setStanding(s, 'runner', PH[0], 900, { kind: 'market', material: 'bronze',
+      upTo: 12, cap: 9000 });
+    const first = C.shopEndDay(s);
+    const order = C.assignedThisDay(s, 900).job.order;
+    s.materials.bronze = 12;
+    const again = C.planOrder(s, 'runner', C.standingAt(s, 'runner', PH[0]).plan, PH[0]);
+    return first.roster[0].ok && order.bronze === 12 &&
+      !again.ok && /already stocked/i.test(again.why);
+  })());
+
+  ok('and never spends past the ceiling set for it', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1231), gold: 200000 }), 'runner');
+    s.materials.gold = 0;
+    const each = C.shopMaterial('gold').cost;
+    C.setStanding(s, 'runner', PH[0], 900, { kind: 'market', material: 'gold',
+      upTo: 50, cap: each * 3 });
+    C.shopEndDay(s);
+    const order = C.assignedThisDay(s, 900).job.order;
+    return order.gold === 3;
+  })());
+
+  ok('nor past the gold actually in the strongbox', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1232), gold: 0 }), 'runner');
+    C.setStanding(s, 'runner', PH[0], 900, { kind: 'market', material: 'bronze',
+      upTo: 50, cap: 99999 });
+    const day = C.shopEndDay(s);
+    return !day.roster[0].ok && Object.keys(s.assignments).length === 0;
+  })());
+
+  ok('an ore run waits until the yard is low enough', (() => {
+    const { shop, mine } = minedShop('bronze', 1233);
+    mine.ore = 40;
+    shop.gold = 200000;
+    C.shopBuyVehicle(shop, 'cart');
+    staffed(shop, 'runner');
+    C.setStanding(shop, 'runner', PH[0], 900, { kind: 'ore', mine: mine.id,
+      qty: 5, below: 10 });
+    const plan = C.standingAt(shop, 'runner', PH[0]).plan;
+    shop.ore.bronze = 20;
+    const full = C.planOrder(shop, 'runner', plan, PH[0]);
+    shop.ore = {};
+    const empty = C.planOrder(shop, 'runner', plan, PH[0]);
+    return !full.ok && /still holds/i.test(full.why) && empty.ok;
+  })());
+
+  ok('a delivery takes the contract due soonest', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1234), gold: 200000 }), 'runner');
+    C.shopBuyVehicle(s, 'cart');
+    const far = readyContract(s);
+    const near = readyContract(s);
+    far.dueDay = s.day + 20;
+    near.dueDay = s.day + 2;
+    const pick = C.nextDelivery(s, PH[0]);
+    return pick.ok && pick.order.commission === near.id;
+  })());
+
+  ok('and loads as much of it as the cart will take', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1235), gold: 200000 }), 'runner');
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const com = readyContract(s);
+    const pick = C.nextDelivery(s, PH[0]);
+    return pick.ok && pick.order.qty === Math.min(com.qty, C.vehicleCapacity(cart));
+  })());
+
+  ok('with nothing ready to go the runner stays home', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1236), gold: 200000 }), 'runner');
+    C.shopBuyVehicle(s, 'cart');
+    C.setStanding(s, 'runner', PH[0], 900, { kind: 'deliver' });
+    const day = C.shopEndDay(s);
+    return !day.roster[0].ok && /ready to go/i.test(day.roster[0].why) &&
+      Object.keys(s.assignments).length === 0;
+  })());
+
+  ok('a smith keeps forging the same batch while the metal lasts', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1237) })), 'smith');
+    s.materials.bronze = 4;
+    C.setStanding(s, 'smith', PH[0], 900, { kind: 'forge', item: 'shortsword',
+      material: 'bronze', qty: 3 });
+    const first = C.shopEndDay(s);
+    C.runSmith(s, s.staff[0], C.assignedThisDay(s, 900).job.order);
+    const second = C.planOrder(s, 'smith', C.standingAt(s, 'smith', PH[0]).plan, PH[0]);
+    return first.roster[0].ok && !second.ok && /ingot/i.test(second.why);
+  })());
+
+  ok('a batch is never bigger than the anvil will take', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1238) })), 'smith');
+    s.materials.bronze = 200;
+    C.setStanding(s, 'smith', PH[0], 900, { kind: 'forge', item: 'shortsword',
+      material: 'bronze', qty: 99 });
+    C.shopEndDay(s);
+    return C.assignedThisDay(s, 900).job.order.qty === C.batchCapacity(s);
+  })());
+
+  ok('a smith at the furnace needs ore in the yard', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1239) })), 'smith');
+    C.setStanding(s, 'smith', PH[0], 900, { kind: 'smelt', material: 'bronze' });
+    const plan = C.standingAt(s, 'smith', PH[0]).plan;
+    const dry = C.planOrder(s, 'smith', plan, PH[0]);
+    C.addOre(s, 'bronze', 10);
+    const wet = C.planOrder(s, 'smith', plan, PH[0]);
+    return !dry.ok && wet.ok && wet.order.kind === 'smelt' &&
+      C.applyStanding(s)[0].ok;
+  })());
+
+  ok('a store hand needs something in storage', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1240) })), 'storehand');
+    C.setStanding(s, 'storehand', PH[0], 900, {});
+    const plan = C.standingAt(s, 'storehand', PH[0]).plan;
+    const bare = C.planOrder(s, 'storehand', plan, PH[0]);
+    C.addStorage(s, C.lineKey('shortsword', 'bronze'), 4, 90, 1);
+    const full = C.planOrder(s, 'storehand', plan, PH[0]);
+    return !bare.ok && full.ok && C.applyStanding(s)[0].ok;
+  })());
+
+  ok('a salesperson and an apprentice need no orders at all', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1241) }), 'salesperson', 'apprentice');
+    return C.planOrder(s, 'salesperson', {}, PH[0]).ok &&
+      C.planOrder(s, 'apprentice', {}, PH[0]).ok;
+  })());
+}
+
+section('Open Your Forge: the day the book made');
+{
+  ok('a kept roster runs its work when the phases close', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1250), gold: 200000 })),
+      'smith', 'salesperson');
+    s.materials.bronze = 40;
+    stock(s, C.lineKey('shortsword', 'bronze'), 8, 95);
+    noContracts(s);
+    C.setStanding(s, 'smith', PH[0], 900, { kind: 'forge', item: 'shortsword',
+      material: 'bronze', qty: 2 });
+    C.setStanding(s, 'salesperson', PH[1], 901, {});
+    C.shopEndDay(s);
+    const made = s.orders.length;
+    const first = C.shopAdvancePhase(s);
+    const second = C.shopAdvancePhase(s);
+    return made === 0 && s.orders.length === 1 &&
+      first.reports.some((r) => r.kind === 'smith') &&
+      second.reports.some((r) => r.kind === 'sales');
+  })());
+
+  ok('two days running book themselves the same way', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1251) })), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    const one = C.shopEndDay(s);
+    const two = C.shopEndDay(s);
+    return one.roster[0].ok && two.roster[0].ok &&
+      C.assignedThisDay(s, 900).phase === PH[0];
+  })());
+
+  ok('yesterday’s roster can simply be put up again', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1252) })), 'smith');
+    s.materials.bronze = 40;
+    C.shopAssign(s, 900, { order: { item: 'shortsword', material: 'bronze', qty: 2 } }, PH[0]);
+    C.shopEndDay(s);
+    const rows = C.repeatRoster(s);
+    return rows.length === 1 && rows[0].ok &&
+      C.assignedThisDay(s, 900).job.order.item === 'shortsword';
+  })());
+
+  ok('and what cannot be put up again is said, not forced', (() => {
+    const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1253) })), 'smith');
+    s.materials.bronze = 40;
+    C.shopAssign(s, 900, { order: { item: 'shortsword', material: 'bronze', qty: 2 } }, PH[0]);
+    C.shopEndDay(s);
+    s.staff = [];
+    const rows = C.repeatRoster(s);
+    return rows.length === 1 && !rows[0].ok;
+  })());
+
+  ok('the standing roster survives being put down', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1254) }), 'salesperson', 'runner');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    C.setStanding(s, 'runner', PH[2], null, { kind: 'market', material: 'silver',
+      upTo: 9, cap: 700 });
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const sale = C.standingAt(back, 'salesperson', PH[0]);
+    const run = C.standingAt(back, 'runner', PH[2]);
+    return back.standing.length === 2 && sale.staff === 900 && run.staff === null &&
+      run.plan.material === 'silver' && run.plan.upTo === 9 && run.plan.cap === 700;
+  })());
+
+  ok('a save from before there was one keeps nothing, and says nothing', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1255) }), 'salesperson');
+    const data = C.serializeShop(s);
+    delete data.standing;
+    delete data.lastRoster;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.standing.length === 0 && back.lastRoster.length === 0 &&
+      C.shopEndDay(back).roster.length === 0;
+  })());
+
+  ok('a save whose roster is rubbish still leaves a forge that works', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1256) }), 'salesperson');
+    const data = C.serializeShop(s);
+    data.standing = [
+      { role: 'not-a-role', phase: PH[0] },
+      { role: 'salesperson', phase: 'teatime' },
+      { role: 'salesperson', phase: PH[0], staff: 4242, plan: { kind: 'market' } },
+      { role: 'salesperson', phase: PH[0], staff: 900 },
+      null, 17
+    ];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const slot = C.standingAt(back, 'salesperson', PH[0]);
+    return back.standing.length === 1 && !!slot && slot.staff === null;
+  })());
+
+  ok('the morning report names every box it filled and every one it did not', (() => {
+    const s = staffed(C.createShop({ rnd: C.mulberry32(1257) }), 'salesperson');
+    C.setStanding(s, 'salesperson', PH[0], 900, {});
+    C.setStanding(s, 'runner', PH[0], null, { kind: 'deliver' });
+    const day = C.shopEndDay(s);
+    return day.roster.length === 2 &&
+      day.roster.some((r) => r.ok && r.who) &&
+      day.roster.some((r) => !r.ok && typeof r.why === 'string' && r.why.length > 0);
+  })());
+}
+
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
 process.exit(failures.length ? 1 : 0);

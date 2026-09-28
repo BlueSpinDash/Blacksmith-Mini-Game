@@ -2757,7 +2757,7 @@ async function run() {
   // filling a box: tap, pick, done - and no phase is spent doing it
   const beforePlan = await page.evaluate(() => ({
     phase: window.CHECKSMITH.app.shop.phaseIndex, day: window.CHECKSMITH.app.shop.day }));
-  await page.click('#shPanel .roster-role:nth-child(3) .roster-box.empty:not(:disabled)');
+  await page.click('#shPanel .roster-role .roster-box.empty:not(:disabled)');
   await page.waitForTimeout(180);
   const whoSheet = await page.evaluate(() => ({
     title: document.getElementById('shopSheetTitle').textContent,
@@ -2776,7 +2776,7 @@ async function run() {
   await page.waitForTimeout(300);
   const boxFilled = await page.evaluate(() => {
     const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
-    const box = document.querySelector('#shPanel .roster-role:nth-child(3) .roster-box[data-hand]');
+    const box = document.querySelector('#shPanel .roster-role .roster-box[data-hand]');
     return { sheetShut: document.getElementById('shopSheet').hidden,
       who: box && box.getAttribute('data-hand'),
       face: !!(box && box.querySelector('.portrait')),
@@ -3643,8 +3643,11 @@ async function run() {
       storage: sh.storage[com.key] ? sh.storage[com.key].qty : 0,
       text: document.getElementById('shPanel').innerText };
   });
+  // storage may hold more than the contract needs, so what matters is that
+  // exactly what was promised left it — nothing copied, nothing over-taken
   ok('promising goods moves them out of storage rather than copying them',
-    promised.filled === promised.qty && promised.storage === 0, JSON.stringify(promised));
+    promised.filled === promised.qty &&
+    promised.storage === promised.held - promised.qty, JSON.stringify(promised));
   ok('a contract whose goods are made says it is awaiting delivery',
     /Awaiting delivery/i.test(promised.text), promised.text.slice(0, 260));
   ok('and it is not paid for merely being made', await page.evaluate(() => {
@@ -3840,6 +3843,150 @@ async function run() {
     ran.before === 0 && ran.after > 0 && ran.report, JSON.stringify(ran));
   ok('and the cart is back in the yard afterwards', ran.free === 2, JSON.stringify(ran));
   await page.screenshot({ path: path.join(SHOTS, '32-delivery.png'), fullPage: true });
+
+  section('Open Your Forge: a roster that keeps itself');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 200000;
+    sh.materials.bronze = 200;
+    sh.standing = [];
+    sh.assignments = {};
+    sh.staff = sh.staff.filter((e) => e.role !== 'smith' && e.role !== 'salesperson');
+    sh.staff.push({ id: sh.nextId++, name: 'Mara Quill', role: 'smith', rank: 'C',
+      power: 3, wage: 60, face: 'craftsman' });
+    sh.staff.push({ id: sh.nextId++, name: 'Ode Vance', role: 'salesperson', rank: 'B',
+      power: 4, wage: 70, face: 'merchant' });
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+  });
+  await page.waitForTimeout(200);
+  const roster = await page.evaluate(() => {
+    const panel = document.getElementById('shPanel');
+    return { tools: !!panel.querySelector('.roster-tools'),
+      note: panel.querySelector('.rt-note').innerText.replace(/\s+/g, ' '),
+      marks: panel.querySelectorAll('.rb-repeat').length };
+  });
+  ok('the staff screen says what is kept and what is not',
+    roster.tools && /Nothing is kept yet/i.test(roster.note) && roster.marks === 0,
+    JSON.stringify(roster));
+
+  // keep the smith's morning box
+  await page.click('#shPanel .roster-role [data-slot-role="smith"][data-slot-phase="morning"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  const picker = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
+  ok('a box offers to be kept as well as filled for today',
+    picker.some((l) => /Keep this box every day/i.test(l)), picker.join(','));
+
+  await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .find((b) => /Keep this box/i.test(b.textContent));
+    btn.click();
+  });
+  await page.waitForTimeout(220);
+  const editor = await page.evaluate(() => {
+    const body = document.getElementById('shopSheetBody');
+    return { text: body.innerText.replace(/\s+/g, ' '),
+      who: body.querySelectorAll('[data-sel="staff"] option').length,
+      auto: body.querySelector('[data-sel="staff"] option').textContent,
+      item: !!body.querySelector('[data-sel="item"]'),
+      material: !!body.querySelector('[data-sel="material"]'),
+      batch: !!body.querySelector('[data-num="qty"]') };
+  });
+  ok('the editor asks who holds it, with auto-fill offered first',
+    editor.who >= 2 && /auto/i.test(editor.auto), JSON.stringify(editor).slice(0, 220));
+  ok('and asks a smith what to make, in what, and how many',
+    editor.item && editor.material && editor.batch, JSON.stringify(editor).slice(0, 220));
+  ok('it says what it would do as things stand',
+    /As things stand/i.test(editor.text), editor.text.slice(-200));
+
+  const written = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    document.querySelector('#shopSheetActions .btn.primary').click();
+    await new Promise((r) => setTimeout(r, 300));
+    const slot = C.standingAt(sh, 'smith', 'morning');
+    const panel = document.getElementById('shPanel');
+    return { slot: !!slot, on: slot && slot.on, plan: slot && slot.plan,
+      marks: panel.querySelectorAll('.rb-repeat').length,
+      note: panel.querySelector('.rt-note').innerText.replace(/\s+/g, ' ') };
+  });
+  ok('keeping a box writes it into the standing roster',
+    written.slot && written.on && written.plan.item, JSON.stringify(written).slice(0, 200));
+  ok('and the box is marked as kept on the grid',
+    written.marks === 1 && /1 box is kept/i.test(written.note), JSON.stringify(written).slice(0, 200));
+
+  const morning = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    // clear today and let the day turn book it
+    sh.assignments = {};
+    const day = C.shopEndDay(sh);
+    F.shopRender();
+    const smith = sh.staff.find((e) => e.role === 'smith');
+    return { rows: (day.roster || []).length,
+      booked: !!C.assignedThisDay(sh, smith.id),
+      marked: !!(C.assignedThisDay(sh, smith.id) || {}).job.standing,
+      kept: document.querySelectorAll('#shPanel .roster-box.kept').length };
+  });
+  ok('the turn of the day fills the kept box by itself',
+    morning.rows >= 1 && morning.booked && morning.marked, JSON.stringify(morning));
+  ok('and the filled box shows it came from the book', morning.kept >= 1,
+    JSON.stringify(morning));
+  await page.screenshot({ path: path.join(SHOTS, '33-roster.png'), fullPage: true });
+
+  // a box that cannot be filled is left empty, and says why
+  const stuck = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.materials.bronze = 0;
+    sh.assignments = {};
+    const day = C.shopEndDay(sh);
+    F.shopRender();
+    const smith = sh.staff.find((e) => e.role === 'smith');
+    const box = document.querySelector(
+      '#shPanel .roster-box.empty.standing[data-slot-role="smith"]');
+    return { booked: !!C.assignedThisDay(sh, smith.id),
+      why: (day.roster.find((r) => r.role === 'smith') || {}).why,
+      onBox: box ? box.innerText.replace(/\s+/g, ' ') : null };
+  });
+  ok('a kept box with no metal is left empty rather than doing something else',
+    !stuck.booked && /ingot/i.test(stuck.why || ''), JSON.stringify(stuck));
+  ok('and the empty box on the grid says why', /Unfilled/i.test(stuck.onBox || ''),
+    JSON.stringify(stuck));
+
+  // pausing, and the day report
+  const paused = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.materials.bronze = 200;
+    C.toggleStanding(sh, 'smith', 'morning', false);
+    sh.assignments = {};
+    const day = C.shopEndDay(sh);
+    F.shopRender();
+    const smith = sh.staff.find((e) => e.role === 'smith');
+    return { rows: (day.roster || []).length, booked: !!C.assignedThisDay(sh, smith.id),
+      still: !!C.standingAt(sh, 'smith', 'morning') };
+  });
+  ok('a paused box stops filling itself but is not forgotten',
+    paused.rows === 0 && !paused.booked && paused.still, JSON.stringify(paused));
+
+  const summary = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    C.toggleStanding(sh, 'smith', 'morning', true);
+    C.setStanding(sh, 'runner', 'afternoon', null, { kind: 'deliver' });
+    sh.assignments = {};
+    const day = C.shopEndDay(sh);
+    F.shopDayBreak(day);
+    await new Promise((r) => setTimeout(r, 200));
+    return { body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+      rows: document.querySelectorAll('#shopSheetBody .rr-row').length,
+      misses: document.querySelectorAll('#shopSheetBody .rr-row.miss').length };
+  });
+  ok('the morning reports every box the roster filled and every one it did not',
+    /books itself/i.test(summary.body) && summary.rows >= 2 && summary.misses >= 1,
+    summary.body.slice(0, 280));
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(80);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());
