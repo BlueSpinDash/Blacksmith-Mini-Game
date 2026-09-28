@@ -3971,6 +3971,10 @@ async function run() {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     C.toggleStanding(sh, 'smith', 'morning', true);
     C.setStanding(sh, 'runner', 'afternoon', null, { kind: 'deliver' });
+    // a second smith box in the evening cannot fill: the one smith is already
+    // on the morning box, and nobody works twice in a day. That is the miss.
+    const dup = C.standingAt(sh, 'smith', 'morning');
+    C.setStanding(sh, 'smith', 'evening', null, JSON.parse(JSON.stringify(dup.plan)));
     sh.assignments = {};
     const day = C.shopEndDay(sh);
     F.shopDayBreak(day);
