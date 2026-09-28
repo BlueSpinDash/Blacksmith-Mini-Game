@@ -4544,7 +4544,7 @@ section('Commissions: a lot, a deadline and a price');
     C.acceptCommission(s, com.id);
     C.addStorage(s, com.key, com.qty + 10, 100);
     const res = C.allocateCommission(s, com.id, com.qty + 10);
-    return res.ok && com.filled === com.qty && C.commissionLeft(com) === 0 &&
+    return res.ok && com.filled === com.qty && C.commissionToMake(com) === 0 &&
       s.storage[com.key].qty === 10;
   })());
 
@@ -4568,16 +4568,15 @@ section('Commissions: a lot, a deadline and a price');
     return !res.ok && s.commissions.length === 1;
   })());
 
-  ok('delivering pays the rest and builds the forge a name', (() => {
+  ok('making the goods is not finishing the job', (() => {
     const s = C.createShop({ rnd: C.mulberry32(913), gold: 0 });
     const com = offerOn(s);
     C.acceptCommission(s, com.id);
-    const rep = s.reputation;
     C.addStorage(s, com.key, com.qty, 100);
     C.allocateCommission(s, com.id, com.qty);
-    const res = C.deliverCommission(s, com.id);
-    return res.ok && s.gold === com.pay && res.paid === com.pay - com.advance &&
-      s.reputation > rep && s.commissions.length === 0;
+    return C.commissionToMake(com) === 0 && C.commissionReady(com) &&
+      !C.commissionDone(com) && s.gold === com.advance &&
+      C.commissionState(s, com) === 'awaiting';
   })());
 
   ok('a missed deadline forfeits the rest and costs the forge its name', (() => {
@@ -4893,29 +4892,47 @@ section('Properties: deeds, shafts and what comes up');
 /* ---------- carting it home ---------- */
 section('Transport: what a cart will carry');
 {
-  ok('a cart carries ten, a wagon thirty and a team sixty', (() => {
+  ok('a handcart carries five, a merchant wagon fifteen and a freight wagon thirty', (() => {
     const cart = C.vehicleDef('cart'), wagon = C.vehicleDef('wagon'),
-      horse = C.vehicleDef('horse');
-    return cart.capacity === 10 && wagon.capacity === 30 && horse.capacity === 60;
+      freight = C.vehicleDef('horse');
+    return cart.capacity === 5 && wagon.capacity === 15 && freight.capacity === 30;
+  })());
+
+  ok('every tier can simply be bought, without owning the one below', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(949), gold: 200000 });
+    const res = C.shopBuyVehicle(s, 'horse');
+    return res.ok && !res.upgraded && s.vehicles.length === 1 &&
+      C.vehicleCapacity(res.vehicle) === 30;
   })());
 
   ok('a vehicle is bought once and kept', (() => {
     const s = C.createShop({ rnd: C.mulberry32(950), gold: 200000 });
     const res = C.shopBuyVehicle(s, 'cart');
-    return res.ok && s.vehicles.length === 1 && C.vehicleCapacity(res.vehicle) === 10;
+    return res.ok && s.vehicles.length === 1 && C.vehicleCapacity(res.vehicle) === 5;
   })());
 
-  ok('a team of horses upgrades the wagon you own rather than adding one', (() => {
+  ok('trading a wagon up costs the wagon, and less than buying outright', (() => {
     const s = C.createShop({ rnd: C.mulberry32(951), gold: 200000 });
     const wagon = C.shopBuyVehicle(s, 'wagon').vehicle;
-    const res = C.shopBuyVehicle(s, 'horse');
+    const res = C.shopBuyVehicle(s, 'horse', true);
     return res.ok && res.upgraded && s.vehicles.length === 1 &&
-      res.vehicle.id === wagon.id && C.vehicleCapacity(wagon) === 60;
+      res.vehicle.id === wagon.id && C.vehicleCapacity(wagon) === 30 &&
+      res.spent === C.vehicleDef('horse').upgrade &&
+      res.spent < C.vehicleDef('horse').price;
   })());
 
-  ok('there is nothing to put horses in front of without a wagon', (() => {
+  ok('there is nothing to trade up without a wagon to trade', (() => {
     const s = C.createShop({ rnd: C.mulberry32(952), gold: 200000 });
-    return !C.shopBuyVehicle(s, 'horse').ok && s.vehicles.length === 0;
+    return !C.shopBuyVehicle(s, 'horse', true).ok && s.vehicles.length === 0;
+  })());
+
+  ok('the biggest free vehicle is the one a delivery reaches for', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(953), gold: 200000 });
+    C.shopBuyVehicle(s, 'cart');
+    const big = C.shopBuyVehicle(s, 'wagon').vehicle;
+    if (C.bestFreeVehicle(s).id !== big.id) return false;
+    big.busy = { day: s.day, phase: C.SHOP.phases[s.phaseIndex] };
+    return C.vehicleCapacity(C.bestFreeVehicle(s)) === 5;
   })());
 
   ok('a vehicle out on a delivery cannot be sent somewhere else as well', (() => {
@@ -4939,15 +4956,15 @@ section('Transport: what a cart will carry');
     mine.ore = 40;
     const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
     const res = C.collectOre(shop, mine.id, cart.id, 999);
-    return res.ok && res.load === 10 && mine.ore === 30 && shop.ore.bronze === 10;
+    return res.ok && res.load === 5 && mine.ore === 35 && shop.ore.bronze === 5;
   })());
 
-  ok('a wagon brings back thirty of the same', (() => {
+  ok('a merchant wagon brings back fifteen of the same', (() => {
     const { shop, mine } = minedShop('bronze', 956);
     mine.ore = 40;
     const wagon = C.shopBuyVehicle(shop, 'wagon').vehicle;
     const res = C.collectOre(shop, mine.id, wagon.id, 999);
-    return res.ok && res.load === 30 && mine.ore === 10;
+    return res.ok && res.load === 15 && mine.ore === 25;
   })());
 
   ok('you cannot fetch more ore than there is down the mine', (() => {
@@ -4966,7 +4983,7 @@ section('Transport: what a cart will carry');
     const before = total();
     C.collectOre(shop, mine.id, cart.id, 10);
     C.collectOre(shop, mine.id, cart.id, 10);
-    return before === 25 && total() === 25 && C.countOre(shop) === 20;
+    return before === 25 && total() === 25 && C.countOre(shop) === 10;
   })());
 
   ok('ore the forge has no room for stays down the mine', (() => {
@@ -4975,7 +4992,7 @@ section('Transport: what a cart will carry');
     const wagon = C.shopBuyVehicle(shop, 'wagon').vehicle;
     shop.ore.silver = C.oreStorageCap(shop) - 5;
     const res = C.collectOre(shop, mine.id, wagon.id, 30);
-    return res.load === 5 && res.spilled === 25 && mine.ore === 55;
+    return res.load === 5 && res.spilled === 10 && mine.ore === 55;
   })());
 
   ok('an empty mine is said to be empty rather than fetched from', (() => {
@@ -5027,7 +5044,7 @@ section('Transport: what a cart will carry');
     cart.busy = { day: shop.day, phase: C.SHOP.phases[shop.phaseIndex] };
     const e = { id: 1, name: 'Run', role: 'runner', rank: 'C', power: 3, wage: 30 };
     const r = C.runRunner(shop, e, { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: 10 });
-    return r.ok && r.load === 10 && shop.ore.bronze === 10 && cart.busy === null;
+    return r.ok && r.load === 5 && shop.ore.bronze === 5 && cart.busy === null;
   })());
 }
 
@@ -5173,12 +5190,12 @@ section('Saving: mines, carts, ore and contracts all come back');
   ok('the carts in the yard come back', (() => {
     const s = C.createShop({ rnd: C.mulberry32(993), gold: 200000 });
     C.shopBuyVehicle(s, 'wagon');
-    C.shopBuyVehicle(s, 'horse');
+    C.shopBuyVehicle(s, 'horse', true);
     C.shopBuyVehicle(s, 'cart');
     const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
     return back.vehicles.length === 2 &&
-      back.vehicles.some((v) => C.vehicleCapacity(v) === 60) &&
-      back.vehicles.some((v) => C.vehicleCapacity(v) === 10);
+      back.vehicles.some((v) => C.vehicleCapacity(v) === 30) &&
+      back.vehicles.some((v) => C.vehicleCapacity(v) === 5);
   })());
 
   ok('the ore in the yard comes back, and stays apart from the bar stock', (() => {
@@ -5231,6 +5248,491 @@ section('Saving: mines, carts, ore and contracts all come back');
     const back = C.restoreShop(data, C.mulberry32(1));
     return back && back.mines.length === 0 && back.vehicles.length === 0 &&
       back.commissions.length === 0 && C.countOre(back) === 0;
+  })());
+}
+
+/* A contract whose goods are all made and standing in the crate, waiting for
+   a cart. Most delivery checks start here. */
+function readyContract(shop, seed) {
+  const com = offerOn(shop);
+  C.acceptCommission(shop, com.id);
+  C.addStorage(shop, com.key, com.qty, 100, 1);
+  C.allocateCommission(shop, com.id, com.qty);
+  return com;
+}
+
+section('Open Your Forge: a customer is a stranger until you serve them');
+{
+  ok('wealth, likes and dislikes all start hidden', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1000) });
+    const one = C.makeTownsfolk(s, 'knight');
+    const known = C.knownOf(one);
+    return known.wealth === false && known.likes.length === 0 &&
+      known.dislikes.length === 0 && !C.knowsWealth(one);
+  })());
+
+  ok('but they are real all along, and still steer what that person does', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1001) });
+    const one = C.makeTownsfolk(s, 'knight');
+    one.standards = 80;
+    // an unknown standard still turns crude work away
+    return !C.meetsStandards(one, 40) && C.meetsStandards(one, 90) &&
+      C.purseFor(one) > 0 && !C.knowsWealth(one);
+  })());
+
+  ok('wealth is a band, never a figure', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1002) });
+    const one = C.makeTownsfolk(s, 'laborer');
+    const band = C.wealthBandOf(one);
+    return typeof band.name === 'string' &&
+      C.SHOP.intel.wealth.some((b) => b.id === band.id);
+  })());
+
+  ok('every trade lands in one of the five bands, and all five are used', (() => {
+    const seen = {};
+    for (const c of C.SHOP.customers) seen[C.wealthBandOf({ income: c.income }).id] = true;
+    return C.SHOP.intel.wealth.every((b) => seen[b.id]);
+  })());
+
+  ok('a richer trade never bands lower than a poorer one', (() => {
+    const order = C.SHOP.customers.slice().sort((a, b) => a.income - b.income);
+    let last = -1;
+    for (const c of order) {
+      const at = C.SHOP.intel.wealth.findIndex((b) => b.id === C.wealthBandOf(c).id);
+      if (at < last) return false;
+      last = at;
+    }
+    return true;
+  })());
+
+  ok('what a trade likes is read off the same table the floor uses', (() => {
+    const taste = C.customerTaste('knight');
+    const type = C.shopCustomerType('knight');
+    return taste.likes.length > 0 &&
+      taste.likes.every((cat) => (type.likes[cat] || 0) > 0) &&
+      taste.dislikes.every((cat) => !(type.likes[cat] > 0));
+  })());
+
+  ok('likes and dislikes never overlap', (() =>
+    C.SHOP.customers.every((c) => {
+      const taste = C.customerTaste(c.id);
+      return taste.likes.every((cat) => taste.dislikes.indexOf(cat) < 0);
+    })));
+
+  ok('there is a fixed number of things to find out about anybody', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1003) });
+    const one = C.makeTownsfolk(s, 'merchant');
+    const read = C.customerRead(one);
+    return read.got === 0 && read.total === C.unknownFacts(one).length && !read.whole;
+  })());
+}
+
+section('Open Your Forge: the counter is how a forge learns');
+{
+  const serve = function (seed, seller, days) {
+    const s = C.createShop({ rnd: C.mulberry32(seed) });
+    apprenticed(s);
+    stock(s, C.lineKey('shortsword', 'bronze'), 40, 100);
+    let found = 0;
+    for (let d = 0; d < (days || 12); d++) {
+      const session = C.openCounter(s, seller);
+      let guard = 0;
+      while (guard++ < 40) {
+        const event = C.counterNext(session, s);
+        if (!event) break;
+        if (session.pending) session.pending = null;
+      }
+      found += (session.report.learned || []).length;
+    }
+    return { shop: s, found: found };
+  };
+
+  ok('serving somebody can teach you something about them', (() =>
+    serve(1010, { kind: 'player', power: 0, name: 'You' }).found > 0));
+
+  ok('a salesperson learns about the people they serve', (() =>
+    serve(1011, { kind: 'staff', power: 3, name: 'Sal' }).found > 0));
+
+  ok('a better salesperson learns more', (() => {
+    const poor = serve(1012, { kind: 'staff', power: 1, name: 'E' }).found;
+    const good = serve(1012, { kind: 'staff', power: 6, name: 'S' }).found;
+    return good > poor;
+  })());
+
+  ok('rank buys both better odds and more chances at them', (() => {
+    const low = C.readSkill({ kind: 'staff', power: 1 });
+    const high = C.readSkill({ kind: 'staff', power: 6 });
+    return high.odds > low.odds && high.tries > low.tries &&
+      high.tries <= C.SHOP.intel.maxTries;
+  })());
+
+  ok('nothing is ever discovered twice', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1013) });
+    const one = C.makeTownsfolk(s, 'knight');
+    const seller = { kind: 'staff', power: 6, name: 'S' };
+    let guard = 0;
+    while (C.unknownFacts(one).length && guard++ < 400) {
+      C.learnAboutCustomer(s, one, seller);
+    }
+    const known = C.knownOf(one);
+    const likes = known.likes.slice().sort().join(',');
+    const uniq = known.likes.slice().sort().filter((v, i, a) => a.indexOf(v) === i).join(',');
+    return likes === uniq && C.customerRead(one).whole &&
+      C.learnAboutCustomer(s, one, seller).length === 0;
+  })());
+
+  ok('a fact learned is a fact kept', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1014) });
+    const one = C.makeTownsfolk(s, 'knight');
+    C.learnFact(one, { kind: 'wealth' });
+    const again = C.learnFact(one, { kind: 'wealth' });
+    return C.knowsWealth(one) && again === false;
+  })());
+
+  ok('discoveries survive being put down', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1015) });
+    const one = C.makeTownsfolk(s, 'knight');
+    const taste = C.customerTaste('knight');
+    C.learnFact(one, { kind: 'wealth' });
+    C.learnFact(one, { kind: 'like', cat: taste.likes[0] });
+    C.learnFact(one, { kind: 'dislike', cat: taste.dislikes[0] });
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const got = back.town.find((p) => p.name === one.name);
+    return got && C.knowsWealth(got) && C.knowsLike(got, taste.likes[0]) &&
+      C.knowsDislike(got, taste.dislikes[0]);
+  })());
+
+  ok('a save from before anybody was read has strangers, not free knowledge', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1016) });
+    C.makeTownsfolk(s, 'knight');
+    const data = C.serializeShop(s);
+    for (const one of data.town) delete one.known;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.town.every((one) => !C.knowsWealth(one) &&
+      C.knownOf(one).likes.length === 0);
+  })());
+
+  ok('a save claiming to know things it could not is not believed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1017) });
+    const one = C.makeTownsfolk(s, 'farmer');
+    const data = C.serializeShop(s);
+    const raw = data.town.find((p) => p.name === one.name);
+    raw.known = { wealth: true, likes: ['not-a-craft', 'armor'], dislikes: ['swords', 17] };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const got = back.town.find((p) => p.name === one.name);
+    const taste = C.customerTaste('farmer');
+    return C.knowsWealth(got) &&
+      C.knownOf(got).likes.every((c) => taste.likes.indexOf(c) >= 0) &&
+      C.knownOf(got).dislikes.every((c) => taste.dislikes.indexOf(c) >= 0);
+  })());
+
+  ok('the counter never hands a customer’s purse to the screen', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1018) });
+    apprenticed(s);
+    stock(s, C.lineKey('shortsword', 'bronze'), 40, 100);
+    noContracts(s);
+    const session = C.openCounter(s, { kind: 'player', power: 0, name: 'You' });
+    let guard = 0;
+    while (guard++ < 30) {
+      const event = C.counterNext(session, s);
+      if (!event) break;
+      if (event.purse !== undefined) return false;
+      if (session.pending) session.pending = null;
+    }
+    return true;
+  })());
+}
+
+section('Open Your Forge: a contract has to be carted to the customer');
+{
+  ok('goods made are goods waiting, not goods delivered', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1020), gold: 0 });
+    const com = readyContract(s);
+    return C.commissionState(s, com) === 'awaiting' && !C.commissionDone(com) &&
+      C.commissionToShip(com) === com.qty && (com.delivered || 0) === 0 &&
+      s.gold === com.advance;
+  })());
+
+  ok('a contract still being made cannot be delivered', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1021), gold: 200000 });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    C.addStorage(s, com.key, 2, 100, 1);
+    C.allocateCommission(s, com.id, 2);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const res = C.deliverCommission(s, com.id, cart.id);
+    return !res.ok && (com.delivered || 0) === 0;
+  })());
+
+  ok('a delivery needs something to carry it in', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1022), gold: 0 });
+    const com = readyContract(s);
+    return !C.deliverCommission(s, com.id, 999).ok && (com.delivered || 0) === 0;
+  })());
+
+  ok('one load is never bigger than the cart', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1023), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const res = C.deliverCommission(s, com.id, cart.id, 9999);
+    return res.ok && res.load === C.vehicleCapacity(cart) &&
+      com.delivered === C.vehicleCapacity(cart);
+  })());
+
+  ok('a lot too big for the cart goes out over several trips', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1024), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const want = Math.ceil(com.qty / C.vehicleCapacity(cart));
+    let trips = 0;
+    while (!C.commissionDone(com) && trips < 40) {
+      C.deliverCommission(s, com.id, cart.id);
+      trips++;
+    }
+    return trips === want && trips > 1 && com.delivered === com.qty;
+  })());
+
+  ok('a part-delivered contract says so, and is not paid yet', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1025), gold: 0 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart');           // no gold: refused
+    s.gold = 200000;
+    const real = C.shopBuyVehicle(s, 'cart').vehicle;
+    const purse = s.gold;
+    const res = C.deliverCommission(s, com.id, real.id);
+    return !cart.ok && res.ok && !res.done && res.paid === 0 && s.gold === purse &&
+      C.commissionState(s, com) === 'partial';
+  })());
+
+  ok('the balance is paid once, on the load that finishes it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1026), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const purse = s.gold;
+    let paid = 0, guard = 0;
+    while (!C.commissionDone(com) && guard++ < 40) {
+      paid += C.deliverCommission(s, com.id, cart.id).paid || 0;
+    }
+    return paid === com.pay - com.advance && s.gold === purse + paid &&
+      s.commissions.length === 0;
+  })());
+
+  ok('nothing is delivered twice, and the crate empties exactly', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1027), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    let carried = 0, guard = 0;
+    while (!C.commissionDone(com) && guard++ < 40) {
+      carried += C.deliverCommission(s, com.id, cart.id).load || 0;
+    }
+    return carried === com.qty && com.filled === 0 &&
+      !C.deliverCommission(s, com.id, cart.id).ok;
+  })());
+
+  ok('goods promised to a contract are out of the storeroom while they wait', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1028), gold: 200000 });
+    const com = readyContract(s);
+    return !s.storage[com.key] && C.commissionToShip(com) === com.qty;
+  })());
+
+  ok('a contract made but never carted still fails on its day', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1029), gold: 0 });
+    const com = readyContract(s);
+    const rep = s.reputation, purse = s.gold;
+    s.day = com.dueDay + 1;
+    const failed = C.expireCommissions(s);
+    return failed.length === 1 && s.gold === purse && s.reputation < rep &&
+      s.storage[com.key] && s.storage[com.key].qty === com.qty;
+  })());
+
+  ok('a part-delivered contract that runs out of days keeps what went out', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1030), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const first = C.deliverCommission(s, com.id, cart.id).load;
+    s.day = com.dueDay + 1;
+    const failed = C.expireCommissions(s);
+    return failed.length === 1 && s.commissions.length === 0 &&
+      s.storage[com.key].qty === com.qty - first;
+  })());
+
+  ok('the trips a contract will take are known before it is signed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1031), gold: 200000 });
+    const bare = C.commissionTrips(s, 20);
+    C.shopBuyVehicle(s, 'wagon');
+    const some = C.commissionTrips(s, 20);
+    C.shopBuyVehicle(s, 'horse');
+    const plenty = C.commissionTrips(s, 20);
+    return bare.warn && bare.capacity === 0 &&
+      some.capacity === 15 && some.trips === 2 && some.warn &&
+      plenty.capacity === 30 && plenty.trips === 1 && !plenty.warn;
+  })());
+
+  ok('what a given cart would take on one trip is worked out, not guessed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1032), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const haul = C.commissionHaul(s, com, cart);
+    return haul.waiting === com.qty && haul.capacity === 5 && haul.load === 5 &&
+      haul.trips === Math.ceil(com.qty / 5);
+  })());
+
+  ok('delivery progress survives being put down', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1033), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    C.deliverCommission(s, com.id, cart.id);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const got = C.commissionById(back, com.id);
+    return got && got.delivered === com.delivered && got.filled === com.filled &&
+      C.commissionState(back, got) === 'partial';
+  })());
+
+  ok('a contract from before deliveries resumes with its goods in the crate', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1034), gold: 200000 });
+    const com = readyContract(s);
+    const data = C.serializeShop(s);
+    for (const c of data.commissions) delete c.delivered;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const got = C.commissionById(back, com.id);
+    return got && (got.delivered || 0) === 0 && got.filled === com.qty &&
+      C.commissionState(back, got) === 'awaiting';
+  })());
+
+  ok('a save claiming more delivered than asked for is trimmed', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1035), gold: 200000 });
+    const com = readyContract(s);
+    const data = C.serializeShop(s);
+    for (const c of data.commissions) { c.delivered = 9999; c.filled = 9999; }
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const got = C.commissionById(back, com.id);
+    return got && got.delivered + got.filled <= got.qty;
+  })());
+}
+
+section('Open Your Forge: a runner on the road');
+{
+  ok('a runner can be sent out with a contract', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1040), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    const e = { id: 1, name: 'Run', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const r = C.runRunner(s, e, { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 99 });
+    return r.ok && r.kind === 'delivery' && r.load === 5 &&
+      com.delivered === 5 && cart.busy === null;
+  })());
+
+  ok('and the phase they spend is theirs, not yours', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1041), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const booked = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    const phase = s.phaseIndex;
+    // booking costs the player nothing at all: same day, same phase
+    return booked.ok && s.phaseIndex === phase && s.day === 1;
+  })());
+
+  ok('booking a delivery takes the cart off the yard', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1042), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    s.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    const second = C.shopAssign(s, 2, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    return first.ok && !second.ok && C.freeVehicles(s).length === 0;
+  })());
+
+  ok('two carts are two runners out at once', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1043), gold: 200000 });
+    const com = readyContract(s);
+    const one = C.shopBuyVehicle(s, 'cart').vehicle;
+    const two = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    s.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: one.id, qty: 5 } });
+    const second = C.shopAssign(s, 2, { order: { kind: 'deliver', commission: com.id,
+      vehicle: two.id, qty: 5 } });
+    return first.ok && second.ok;
+  })());
+
+  ok('one cart cannot fetch ore and deliver goods in the same phase', (() => {
+    const { shop, mine } = minedShop('bronze', 1044);
+    mine.ore = 40;
+    const com = readyContract(shop);
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    shop.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    shop.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const haul = C.shopAssign(shop, 1, { order: { kind: 'ore', mine: mine.id,
+      vehicle: cart.id, qty: 5 } });
+    const ship = C.shopAssign(shop, 2, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    return haul.ok && !ship.ok;
+  })());
+
+  ok('a runner takes one errand a phase and no more', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1045), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    const first = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    const second = C.shopAssign(s, 1, { order: { bronze: 4 } }, C.SHOP.phases[2]);
+    return first.ok && !second.ok;
+  })());
+
+  ok('dropping a delivery puts the cart back in the yard', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1046), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } }, C.SHOP.phases[2]);
+    C.shopUnassign(s, 1);
+    return C.freeVehicles(s).length === 1;
+  })());
+
+  ok('a delivery cannot be booked for a contract still being made', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1047), gold: 200000 });
+    const com = offerOn(s);
+    C.acceptCommission(s, com.id);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    return !C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } }).ok;
+  })());
+
+  ok('the phase closing is what moves the goods', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1048), gold: 200000 });
+    const com = readyContract(s);
+    const cart = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
+      vehicle: cart.id, qty: 5 } });
+    const before = com.delivered || 0;
+    const res = C.shopAdvancePhase(s);
+    return before === 0 && com.delivered === 5 &&
+      res.reports.some((r) => r.kind === 'delivery');
+  })());
+
+  ok('market runs and ore hauls are untouched by any of it', (() => {
+    const { shop, mine } = minedShop('bronze', 1049);
+    mine.ore = 20;
+    shop.gold = 200000;
+    const cart = C.shopBuyVehicle(shop, 'cart').vehicle;
+    const e = { id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 };
+    const bars = shop.materials.bronze;
+    const market = C.runRunner(shop, e, { bronze: 6 });
+    const haul = C.runRunner(shop, e, { kind: 'ore', mine: mine.id,
+      vehicle: cart.id, qty: 5 });
+    return market.ok && shop.materials.bronze === bars + 6 &&
+      haul.ok && haul.kind === 'haul' && shop.ore.bronze === 5;
   })());
 }
 

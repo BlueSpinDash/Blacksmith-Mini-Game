@@ -2785,9 +2785,10 @@ async function run() {
       phase: sh.phaseIndex, day: sh.day,
       assigned: C.assignmentStatus(sh, 801) };
   });
-  ok('picking somebody fills the box with their portrait, rank and status',
+  ok('picking somebody fills the box with their portrait, rank and errand',
     boxFilled.who === '801' && boxFilled.face && boxFilled.rank === 'B' &&
-    /Working now|Booked/.test(boxFilled.state), JSON.stringify(boxFilled));
+    /Counter|Market|Ore run|Delivery|Anvil|Furnace|Stocking|Beside you|Worked/
+      .test(boxFilled.state), JSON.stringify(boxFilled));
   ok('and planning the day costs the player no phase at all',
     boxFilled.phase === beforePlan.phase && boxFilled.day === beforePlan.day,
     JSON.stringify([beforePlan, boxFilled]));
@@ -2989,18 +2990,22 @@ async function run() {
       names: new Set(sh.town.map((o) => o.name)).size,
       faces: cards.filter((c) => c.querySelector('.portrait')).length,
       purses: cards.filter((c) => /\d/.test(c.querySelector('.tc-purse').textContent)).length,
+      hidden: cards.filter((c) => /\?\?\?/.test(c.querySelector('.tc-purse').textContent)).length,
       wants: cards.filter((c) => /after /.test(c.querySelector('.tc-want').textContent)).length,
       wide: panel.scrollWidth > panel.clientWidth + 1 };
   });
   ok('the Town tab lists everybody who shops here, by name',
     town.cards === town.people && town.people > 15 && town.names === town.people,
     JSON.stringify(town).slice(0, 200));
-  ok('each of them has a face, a purse and something they are after',
-    town.faces === town.cards && town.purses === town.cards && town.wants === town.cards,
-    JSON.stringify(town));
+  ok('each of them has a face and something they are after',
+    town.faces === town.cards && town.wants === town.cards, JSON.stringify(town));
+  ok('but what anyone is carrying is never on the card',
+    town.purses === 0, JSON.stringify(town));
+  ok('an unread customer reads ???', town.hidden > 0, JSON.stringify(town));
   ok('and the roster fits a phone without scrolling sideways', town.wide === false);
-  ok('the tab says what the town is worth between them',
-    /within reach/.test(town.cap) && /between them/.test(town.cap), town.cap);
+  ok('the tab counts what the forge has learned, not what the town is worth',
+    /within reach/.test(town.cap) && /learned about them/.test(town.cap) &&
+    !/g between them/.test(town.cap), town.cap);
 
   await page.click('#shPanel [data-town]');
   await page.waitForSelector('#shopSheet:not([hidden])');
@@ -3008,11 +3013,38 @@ async function run() {
     title: document.getElementById('shopSheetTitle').textContent,
     body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ')
   }));
-  ok('reading somebody gives their wage, their purse and their standards',
-    /Carrying/.test(person.body) && /turn of the week/.test(person.body) &&
-    /Will spend/.test(person.body) && /Standards/.test(person.body) &&
-    /After/.test(person.body) && /Bought here/.test(person.body),
-    person.body.slice(0, 260));
+  ok('somebody\u2019s page is what you know and what you do not',
+    /Wealth/.test(person.body) && /Likes/.test(person.body) &&
+    /Has no use for/.test(person.body) && /After/.test(person.body) &&
+    /Bought here/.test(person.body) && /Contracts/.test(person.body),
+    person.body.slice(0, 300));
+  ok('and it never gives a figure for what they are carrying',
+    !/Carrying/.test(person.body) && !/Will spend/.test(person.body),
+    person.body.slice(0, 300));
+
+  // an unread stranger, and the same person once the forge has their measure
+  const knowing = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const one = sh.town[0];
+    one.known = { wealth: false, likes: [], dislikes: [] };
+    F.shopOpenTownsfolk(one.id);
+    await new Promise((r) => setTimeout(r, 120));
+    const blind = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    const taste = C.customerTaste(one.type);
+    C.learnFact(one, { kind: 'wealth' });
+    C.learnFact(one, { kind: 'like', cat: taste.likes[0] });
+    F.shopOpenTownsfolk(one.id);
+    await new Promise((r) => setTimeout(r, 120));
+    const seen = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    return { blind, seen, band: C.wealthBandOf(one).name,
+      like: C.shopCategory(taste.likes[0]).name };
+  });
+  ok('a stranger\u2019s wealth and taste both read ???',
+    /Wealth [\s\S]*\?\?\?/.test(knowing.blind) && /\?\?\?/.test(knowing.blind) &&
+    !knowing.blind.includes(knowing.band), knowing.blind.slice(0, 220));
+  ok('and what has been learned is written in plainly',
+    knowing.seen.includes(knowing.band) && knowing.seen.includes(knowing.like),
+    knowing.seen.slice(0, 260));
   ok('and the sheet is headed with their name',
     person.title.length > 2 && /\w/.test(person.title), person.title);
   await page.click('#shopSheetActions .btn.ghost');
@@ -3099,8 +3131,10 @@ async function run() {
           who: p ? p.name : '', trade: p ? p.trade : '', after: p ? p.after : '',
           named: !!(p && F.core.townsfolkById(F.app.shop, p.who)) };
       });
+      // the head names them and says what brought them in, and the corner
+      // carries what the forge knows of their means - never a figure
       return head.named && head.text.indexOf(head.who) >= 0 &&
-        /after /i.test(head.text) && /\dg/.test(head.text) &&
+        /after /i.test(head.text) && !/\dg/.test(head.text) &&
         head.text.toLowerCase().indexOf(head.after.toLowerCase()) >= 0;
     })());
   await page.evaluate(() => {
@@ -3524,7 +3558,7 @@ async function run() {
     text: document.querySelector('#shPanel .yard-box').innerText.replace(/\n/g, ' ')
   }));
   ok('a bought cart stands in the yard and says what it carries',
-    yard.boxes === 1 && /10/.test(yard.text), JSON.stringify(yard));
+    yard.boxes === 1 && /5/.test(yard.text), JSON.stringify(yard));
 
   // and the runner who fetches it
   const fetched = await page.evaluate(() => {
@@ -3536,8 +3570,8 @@ async function run() {
     return { load: res.load, left: sh.mines[0].ore, yard: sh.ore.bronze,
       text: document.getElementById('shPanel').innerText };
   });
-  ok('a cart brings home ten and leaves the rest down the mine',
-    fetched.load === 10 && fetched.left === 30 && fetched.yard === 10, JSON.stringify(fetched));
+  ok('a handcart brings home five and leaves the rest down the mine',
+    fetched.load === 5 && fetched.left === 35 && fetched.yard === 5, JSON.stringify(fetched));
   ok('the metal page keeps raw ore apart from bar stock',
     /Raw ore/i.test(fetched.text) && /Ingots/i.test(fetched.text),
     fetched.text.slice(0, 200));
@@ -3611,19 +3645,84 @@ async function run() {
   });
   ok('promising goods moves them out of storage rather than copying them',
     promised.filled === promised.qty && promised.storage === 0, JSON.stringify(promised));
-  ok('a full contract offers to be handed over',
-    /Hand it over/i.test(promised.text), promised.text.slice(0, 220));
+  ok('a contract whose goods are made says it is awaiting delivery',
+    /Awaiting delivery/i.test(promised.text), promised.text.slice(0, 260));
+  ok('and it is not paid for merely being made', await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return sh.commissions.length === 1 && !window.CHECKSMITH.core
+      .commissionDone(sh.commissions[0]);
+  }));
 
-  const handed = await page.evaluate(async () => {
-    const F = window.CHECKSMITH, sh = F.app.shop;
-    const before = sh.gold, rep = sh.reputation;
+  // with nothing in the yard there is no way to get it to them
+  const grounded = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    sh.vehicles = [];
+    window.CHECKSMITH.shopRender();
+    const btn = document.querySelector('#shPanel [data-deliver]');
+    return { disabled: !!(btn && btn.disabled),
+      text: btn ? btn.textContent : '' };
+  });
+  ok('a delivery with nothing to cart it in is offered but refused',
+    grounded.disabled && /No vehicle/i.test(grounded.text), JSON.stringify(grounded));
+
+  // a handcart, and a contract too big for one trip
+  const split = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 100000;
+    const cart = C.shopBuyVehicle(sh, 'cart').vehicle;
+    F.shopRender();
+    const com = sh.commissions[0];
+    const trips = Math.ceil(C.commissionToShip(com) / C.vehicleCapacity(cart));
     document.querySelector('#shPanel [data-deliver]').click();
     await new Promise((r) => setTimeout(r, 200));
-    return { open: sh.commissions.length, paid: sh.gold - before,
-      better: sh.reputation > rep };
+    const sheet = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    return { trips, sheet, cap: C.vehicleCapacity(cart), qty: com.qty };
   });
-  ok('handing it over pays the rest and builds the forge a name',
+  ok('taking it out yourself asks which vehicle and says how many trips',
+    /In the crate/i.test(split.sheet) && /Trips to finish/i.test(split.sheet) &&
+    /costs you the phase/i.test(split.sheet), split.sheet.slice(0, 260));
+
+  const firstRun = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const com = sh.commissions[0];
+    const before = sh.gold, phase = sh.phaseIndex, day = sh.day;
+    document.querySelector('#shopSheetActions .btn.primary').click();
+    await new Promise((r) => setTimeout(r, 400));
+    return { delivered: com.delivered || 0, paid: sh.gold - before,
+      moved: sh.phaseIndex !== phase || sh.day !== day,
+      state: C.commissionStateName(sh, com) };
+  });
+  ok('one load goes out, and the phase goes with it',
+    firstRun.delivered === split.cap && firstRun.moved, JSON.stringify(firstRun));
+  ok('a part-delivered contract is not paid yet, and says so',
+    firstRun.paid === 0 && /Partly delivered/i.test(firstRun.state),
+    JSON.stringify(firstRun));
+
+  // drain whatever that phase raised, then cart the rest of it
+  for (let i = 0; i < 60 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.waitForTimeout(80);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+
+  const handed = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const com = sh.commissions[0];
+    const before = sh.gold, rep = sh.reputation;
+    const cart = sh.vehicles[0];
+    let guard = 0, paid = 0;
+    while (!C.commissionDone(com) && guard++ < 20) {
+      cart.busy = null;
+      paid += C.deliverCommission(sh, com.id, cart.id).paid || 0;
+    }
+    F.shopRender();
+    return { open: sh.commissions.length, paid: sh.gold - before, banked: paid,
+      better: sh.reputation > rep, trips: guard };
+  });
+  ok('the last load pays the balance and builds the forge a name',
     handed.open === 0 && handed.paid > 0 && handed.better, JSON.stringify(handed));
+  ok('and the balance is paid once however many trips it took',
+    handed.trips > 1 && handed.paid === handed.banked, JSON.stringify(handed));
 
   const missed = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -3647,6 +3746,100 @@ async function run() {
   ok('a contract whose day has gone is off the books, and it costs you',
     missed.failed === 1 && missed.open === 0 && missed.worse, JSON.stringify(missed));
   await page.screenshot({ path: path.join(SHOTS, '31-ledger.png'), fullPage: true });
+
+  section('Open Your Forge: a runner on the road');
+  const errands = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    // a contract with its goods made, a mine, and two carts in the yard
+    sh.gold = 200000;
+    sh.commissions = []; sh.commissionOffers = [];
+    sh.vehicles = [];
+    C.shopBuyVehicle(sh, 'cart');
+    C.shopBuyVehicle(sh, 'wagon');
+    if (!sh.mines.length) C.shopBuyMine(sh, 'bronze');
+    const one = C.makeTownsfolk(sh, 'farmer');
+    one.gold = 4000;
+    sh.reputation = 60;
+    const rnd = sh.rnd; sh.rnd = () => 0;
+    const com = C.rollCommission(sh, one); sh.rnd = rnd;
+    sh.commissionOffers.push(com);
+    C.acceptCommission(sh, com.id);
+    C.addStorage(sh, com.key, com.qty, 100, 1);
+    C.allocateCommission(sh, com.id, com.qty);
+    // a runner on the books, free this phase
+    sh.staff = sh.staff.filter((e) => e.role !== 'runner');
+    sh.staff.push({ id: sh.nextId++, name: 'Wren Carter', role: 'runner',
+      rank: 'C', power: 3, wage: 30, face: 'traveler' });
+    sh.assignments = {};
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+    return { com: com.id, qty: com.qty, ready: C.commissionReady(com) };
+  });
+  ok('a contract with its goods made is ready for the road', errands.ready);
+
+  await page.click('#shPanel [data-slot-role="runner"]');
+  await page.waitForSelector('#shopSheet:not([hidden])');
+  await page.click('#shopSheetBody [data-pick-hand]');
+  await page.waitForTimeout(200);
+  const choices = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
+  ok('a runner is offered market, ore and a delivery',
+    choices.some((l) => /market/i.test(l)) && choices.some((l) => /Collect ore/i.test(l)) &&
+    choices.some((l) => /Make a delivery/i.test(l)), choices.join(','));
+
+  await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .find((b) => /Make a delivery/i.test(b.textContent));
+    btn.click();
+  });
+  await page.waitForTimeout(220);
+  const ship = await page.evaluate(() => {
+    const body = document.getElementById('shopSheetBody');
+    return { text: body.innerText.replace(/\s+/g, ' '),
+      commissions: body.querySelectorAll('[data-sel="commission"] option').length,
+      vehicles: body.querySelectorAll('[data-sel="vehicle"] option').length,
+      disabled: body.querySelectorAll('[data-sel="vehicle"] option[disabled]').length };
+  });
+  ok('the delivery screen names the contract, the customer and the cart',
+    /Contract/i.test(ship.text) && /Going to/i.test(ship.text) &&
+    /Still owed them/i.test(ship.text) && /holds/i.test(ship.text) &&
+    /Due/i.test(ship.text), ship.text.slice(0, 300));
+  ok('it offers every vehicle owned, and every contract ready to go',
+    ship.commissions >= 1 && ship.vehicles === 2, JSON.stringify(ship));
+
+  const sent = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const phase = sh.phaseIndex, day = sh.day;
+    document.querySelector('#shopSheetActions .btn.primary').click();
+    await new Promise((r) => setTimeout(r, 250));
+    const runner = sh.staff.find((e) => e.role === 'runner');
+    const job = sh.assignments[runner.id];
+    return { booked: !!job, kind: job && job.job.order.kind,
+      yours: sh.phaseIndex === phase && sh.day === day,
+      free: F.core.freeVehicles(sh).length,
+      panel: document.getElementById('shPanel').innerText.replace(/\s+/g, ' ') };
+  });
+  ok('booking a runner costs the player no phase at all',
+    sent.booked && sent.kind === 'deliver' && sent.yours, JSON.stringify(sent).slice(0, 200));
+  ok('and the cart they took is off the yard for that phase',
+    sent.free === 1, JSON.stringify(sent).slice(0, 160));
+  ok('the staff screen says which errand they are on',
+    /deliver/i.test(sent.panel), sent.panel.slice(0, 220));
+
+  const ran = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const com = sh.commissions[0];
+    const before = com.delivered || 0;
+    const res = C.shopAdvancePhase(sh);
+    F.shopRender();
+    return { before, after: com.delivered || 0,
+      report: (res.reports || []).some((r) => r.kind === 'delivery'),
+      free: C.freeVehicles(sh).length };
+  });
+  ok('the phase closing is what puts the goods on the road',
+    ran.before === 0 && ran.after > 0 && ran.report, JSON.stringify(ran));
+  ok('and the cart is back in the yard afterwards', ran.free === 2, JSON.stringify(ran));
+  await page.screenshot({ path: path.join(SHOTS, '32-delivery.png'), fullPage: true });
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());

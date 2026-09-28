@@ -1332,6 +1332,47 @@ input[type=range]{
 }
 .craft-card.picked .cc-name{color:var(--gold);}
 
+/* ---------- what you have found out about people ---------- */
+.unknown{color:#6b727d;letter-spacing:.12em;}
+.know{color:var(--brass);}
+.tc-purse.unknown,.cust-purse.unknown{color:#6b727d;letter-spacing:.1em;}
+.town-card.read{border-color:var(--brass);}
+.learned{
+  display:flex;flex-direction:column;gap:3px;margin:10px 0 0;padding:9px 11px;
+  background:linear-gradient(180deg,#1c2118 0%,#15161b 100%);
+  border:1px solid #3f5a3c;border-left:3px solid #6d8f4e;border-radius:9px;
+}
+.learned b{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#8fb36a;}
+.learned span{font-size:12.5px;color:var(--text);}
+.cust-page{
+  display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:10px;
+  padding-bottom:10px;border-bottom:1px solid var(--edge-soft);
+}
+.cp-name{font-size:17px;color:var(--gold);letter-spacing:.03em;}
+.cp-kind{font-size:11.5px;color:var(--muted);}
+.cp-read{
+  margin-top:3px;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--brass);
+}
+
+/* ---------- a contract on the road ---------- */
+.contract-stage{
+  margin-left:auto;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;
+  padding:2px 7px;border-radius:999px;border:1px solid #9d8a62;color:#5d4f37;
+}
+.contract-stage.awaiting{border-color:#8a6a2e;color:#7a5a1e;background:#e8d9ae;}
+.contract-stage.partial{border-color:#3f7a45;color:#2f6a35;background:#d9e8c6;}
+.contract-bar i.made{position:absolute;inset:0;background:#a8996f;}
+.contract-bar{position:relative;}
+.contract-bar i{position:relative;}
+.contract-haul{
+  font-size:11.5px;line-height:1.45;color:#5d4f37;padding:7px 9px;border-radius:6px;
+  background:rgba(157,138,98,.22);border:1px solid #b5a279;
+}
+.contract-haul.warn{color:#7a3020;background:rgba(194,65,47,.16);border-color:#c2412f;}
+.contract-haul b{color:#3a3024;}
+.contract-haul.warn b{color:#9d2f20;}
+
 /* ---------- title screen ---------- */
 /* Below the top bar on purpose: the title track plays behind this screen, so
    the mute button and the volume slider must still be reachable. Every other
@@ -2142,10 +2183,22 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        shop this is; it becomes one.</p>
     <p><b>The town is people, not rolls.</b> Everyone who shops here has a <b>name</b>, a trade,
        a face, a purse with real money in it and something they are <i>after</i> at the moment.
-       The <b>Town</b> tab lists them all: tap somebody to see what they earn, what they are
-       carrying, the most they will put into one piece, what they came looking for and what they
-       have bought from you before. They come back. The labourer who haggled you down on a hatchet
-       last week is the same labourer this week, with less in his purse for having bought it.</p>
+       They come back. The labourer who haggled you down on a hatchet last week is the same
+       labourer this week, with less in his purse for having bought it.</p>
+    <p><b>But you do not know any of them yet.</b> What somebody is worth, what they have an eye
+       for and what they have no use for are all real from the first day and all steer what they
+       do &mdash; and all of it reads <b>???</b> until you find it out. The <b>Town</b> tab is
+       your book on them: tap anyone to see their page, with everything you have learned and
+       everything you have not. Wealth is never given as a figure, only as a band &mdash;
+       <i>Poor</i>, <i>Modest</i>, <i>Comfortable</i>, <i>Wealthy</i>, <i>Affluent</i> &mdash;
+       because a purse moves week to week and what you are learning is the sort of customer they
+       are.</p>
+    <p><b>Serving somebody is how you learn them.</b> Every customer you take at the counter is a
+       chance to read them, and you may come away knowing what they are worth or what they care
+       for. A <b>salesperson</b> minding the counter does the same, and this is the other half of
+       what they are for: rank buys both better odds and more chances to use them, so an E-rank
+       hand learns less than you would and an S-rank learns far more. Nothing is ever discovered
+       twice, and nothing is ever forgotten.</p>
     <p><b>Money is finite, and it comes back.</b> Nobody offers gold they are not carrying, and a
        purse you empty stays empty until the <b>turn of the week</b> &mdash; the same day your own
        rent falls due &mdash; when everybody in town is paid their wage. So a good week can drain
@@ -2183,6 +2236,15 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        straight into its crate. If a <b>salesperson</b> was minding the counter rather than you,
        they write the order down instead of answering it, and it is waiting in the Ledger when the
        phase closes.</p>
+    <p><b>Making them is not finishing the job.</b> A contract whose goods are all made is
+       <i>Awaiting delivery</i>, and not a penny of the balance is paid until the last piece is in
+       the customer's hands. A delivery needs a <b>vehicle</b> and costs a <b>phase</b>: take it
+       out yourself and that is your action for the phase gone, or book a <b>runner</b> to go
+       instead and your own phase stays yours. A lot bigger than your cart goes out over several
+       trips, and the ledger counts each one &mdash; the deadline is counted against the
+       <i>delivery</i>, so a crate of finished swords with nothing to cart them in is still late.
+       The offer screen warns you how many trips a contract will take before you sign it, and you
+       may take it on anyway.</p>
     <p><b>You can own the ground the metal comes out of.</b> The <b>Property</b> tab sells deeds to
        <b>mines</b> &mdash; a copper seam, a silver lode, gold, mithril, adamantine &mdash; and you
        may own as many of one mineral as you can pay for, each a property of its own with its own
@@ -2194,12 +2256,16 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        ore storage worth buying. Sinking a shaft makes room for more miners, and better gear makes
        every one of them dig more.</p>
     <p><b>Owning a mine hands you nothing.</b> What it digs sits <i>at the mine</i> until somebody
-       goes and fetches it. A <b>Runner</b> can be sent to <b>collect ore</b> instead of going to
-       market, and what they bring back is capped by the vehicle you send them out in: a
-       <b>Cart</b> carries 10, a <b>Wagon</b> 30, and a wagon with a <b>team of horses</b> in front
-       of it 60. Vehicles are bought once in the Property tab and kept &mdash; they are never used
-       up &mdash; but one is out for the phase it is sent out in, so a cart on the road cannot also
-       be somewhere else.</p>
+       goes and fetches it. Vehicles are bought once in the Property tab and kept &mdash; they are
+       never used up &mdash; and one set of them does every job that moves goods: a <b>Handcart</b>
+       carries 5, a <b>Merchant Wagon</b> 15 and a <b>Freight Wagon</b> 30. Any of the three can be
+       bought outright, and anyone with a spare merchant wagon can trade it up for less than the
+       freight wagon costs new. A vehicle is out for the phase it is sent out in, so a cart on the
+       road cannot also be somewhere else &mdash; but two vehicles are two runners out at once.</p>
+    <p><b>A runner has three errands</b>, one a phase: go to <b>market</b> for bar stock at a price
+       their rank argues for, <b>collect ore</b> from a mine of yours, or <b>make a delivery</b> of
+       a finished contract. They are booked on the Staff screen like any other work, and the box
+       says which errand they are on.</p>
     <p><b>Ore is not metal.</b> Raw ore is counted apart from your bar stock, with a yard of its
        own, and the anvil will not take it. A <b>Smith</b> can be put on the furnace for a phase to
        <b>smelt</b> it &mdash; one ore makes one ingot, and a better smith gets through more of it
@@ -4731,6 +4797,38 @@ const SHOP = {
     newcomersPerWeek: 2
   },
 
+  /* ---------- what you know about people ---------------------------------
+     A customer's purse and their taste are real from the first day, and they
+     drive what that person does whether or not you have any idea of them. You
+     start knowing neither. Minding the counter is how a forge finds out, and
+     a good salesperson is worth keeping for that alone.
+
+     Wealth is never given as a figure, only as a band, because a purse moves
+     week to week and what you are learning is the sort of customer they are.
+     Likes and dislikes are read off the trade's own taste, so the book and
+     the customer can never drift apart. */
+  intel: {
+    /* Bands by what somebody earns in a week. Set so the town's trades spread
+       across all five rather than bunching at one end: labourers and farmers
+       are poor, the watch and the rank and file modest, craftsmen and clerics
+       comfortable, merchants and knights wealthy, nobles and collectors
+       affluent. */
+    wealth: [
+      { id: 'poor',        name: 'Poor',        upTo: 31 },
+      { id: 'modest',      name: 'Modest',      upTo: 43 },
+      { id: 'comfortable', name: 'Comfortable', upTo: 70 },
+      { id: 'wealthy',     name: 'Wealthy',     upTo: 200 },
+      { id: 'affluent',    name: 'Affluent',    upTo: Infinity }
+    ],
+    tastes: 3,              // how many likes, and how many dislikes, are learnable
+    playerOdds: 0.34,       // your own eye over the counter
+    playerTries: 1,
+    staffOdds: 0.14,        // what an E-rank salesperson manages
+    staffPerPower: 0.12,    // ...and what each rank above that adds
+    triesPerPower: 3,       // a rank this much higher gets another go
+    maxTries: 3
+  },
+
   /* ---------- the supply chain --------------------------------------
      A mine produces ORE. Ore is not an ingot: it sits at the property until a
      runner fetches it, and a smith smelts it at the forge before anything can
@@ -4776,13 +4874,21 @@ const SHOP = {
 
   /* Carts and wagons. A vehicle is equipment: it is reserved while a delivery
      is out and free again once it is back, never consumed. */
+  /* The yard. One set of vehicles does every job that moves goods: fetching
+     ore from a property and carting a finished contract to its customer. A
+     vehicle is equipment - bought once, never used up, and out for the phase
+     it is sent out in, so the same cart cannot be in two places.
+
+     `from` is a cheaper road to the same vehicle for anyone who already owns
+     the one below it; each tier can also simply be bought outright. */
   vehicles: [
-    { id: 'cart',  name: 'Cart',              capacity: 10, price: 260,
-      blurb: 'One mule and a box. Enough to keep a small forge fed.' },
-    { id: 'wagon', name: 'Wagon',             capacity: 30, price: 980,
+    { id: 'cart',  name: 'Handcart',       capacity: 5,  price: 190,
+      blurb: 'A box and two wheels. Enough to keep a small forge fed.' },
+    { id: 'wagon', name: 'Merchant Wagon', capacity: 15, price: 760,
       blurb: 'Three times the load, and a frame a team can be put in front of.' },
-    { id: 'horse', name: 'Horse-drawn Wagon', capacity: 60, price: 1400, from: 'wagon',
-      blurb: 'Put a team in front of a wagon you own and it carries double.' }
+    { id: 'horse', name: 'Freight Wagon',  capacity: 30, price: 1750, from: 'wagon',
+      upgrade: 1150,
+      blurb: 'A team in front and a long bed behind. What real trade moves on.' }
   ],
 
   /* ---------- commissions --------------------------------------------
@@ -5606,7 +5712,13 @@ function serializeShop(shop) {
     blueprints: Object.assign({}, shop.blueprints),
     ledger: JSON.parse(JSON.stringify(shop.ledger)),
     learned: shop.learned.map(function (l) { return Object.assign({}, l); }),
-    town: shop.town.map(function (one) { return Object.assign({}, one); }),
+    town: shop.town.map(function (one) {
+      const copy = Object.assign({}, one);
+      const known = knownOf(one);
+      copy.known = { wealth: known.wealth === true,
+        likes: known.likes.slice(), dislikes: known.dislikes.slice() };
+      return copy;
+    }),
     ore: Object.assign({}, shop.ore),
     mines: shop.mines.map(function (m) {
       return { id: m.id, def: m.def, name: m.name, ore: m.ore, lastDug: m.lastDug,
@@ -5614,7 +5726,9 @@ function serializeShop(shop) {
         miners: m.miners.map(function (one) { return Object.assign({}, one); }) };
     }),
     vehicles: shop.vehicles.map(function (v) { return Object.assign({}, v); }),
-    commissions: shop.commissions.map(function (c) { return Object.assign({}, c); }),
+    commissions: shop.commissions.map(function (c) {
+      return Object.assign({ delivered: 0 }, c);
+    }),
     commissionOffers: shop.commissionOffers.map(function (c) { return Object.assign({}, c); })
   };
 }
@@ -5879,8 +5993,26 @@ function restoreShop(data, rnd) {
       want: null, wantDay: whole(raw.wantDay, 1, 100000, shop.day),
       bought: whole(raw.bought, 0, 1e6, 0),
       spent: whole(raw.spent, 0, 1e9, 0),
-      lastSeen: whole(raw.lastSeen, 0, 100000, 0)
+      contracts: whole(raw.contracts, 0, 1e6, 0),
+      lastSeen: whole(raw.lastSeen, 0, 100000, 0),
+      known: { wealth: false, likes: [], dislikes: [] }
     };
+    /* What was found out about them, kept only where it could really have
+       been found out: a category that has since gone, or one this trade was
+       never cold on, is dropped rather than believed. */
+    const taste = customerTaste(type.id);
+    const found = raw.known && typeof raw.known === 'object' ? raw.known : {};
+    one.known.wealth = found.wealth === true;
+    for (const cat of Array.isArray(found.likes) ? found.likes : []) {
+      if (taste.likes.indexOf(cat) >= 0 && one.known.likes.indexOf(cat) < 0) {
+        one.known.likes.push(cat);
+      }
+    }
+    for (const cat of Array.isArray(found.dislikes) ? found.dislikes : []) {
+      if (taste.dislikes.indexOf(cat) >= 0 && one.known.dislikes.indexOf(cat) < 0) {
+        one.known.dislikes.push(cat);
+      }
+    }
     // a want naming a category or recipe that no longer exists is no want
     const want = raw.want;
     if (want && typeof want === 'object' && shopCategory(want.cat)) {
@@ -5937,6 +6069,7 @@ function restoreShop(data, rnd) {
   const readCommission = function (raw) {
     if (!raw || !shopItem(raw.item) || !shopMaterial(raw.material)) return null;
     const qty = whole(raw.qty, 1, 1e4, 1);
+    const delivered = whole(raw.delivered, 0, qty, 0);
     return { id: whole(raw.id, 1, 1e9, shop.nextId++),
       who: whole(raw.who, 0, 1e9, 0), name: shopNameOf(raw.name, 'A customer'),
       type: shopCustomerType(raw.type) ? raw.type : SHOP.customers[0].id,
@@ -5945,7 +6078,13 @@ function restoreShop(data, rnd) {
       qty: qty, quality: whole(raw.quality, 0, 100, 0),
       pay: whole(raw.pay, 0, 1e9, 0), days: whole(raw.days, 1, 1000, 1),
       dueDay: whole(raw.dueDay, 1, 1e6, shop.day),
-      filled: whole(raw.filled, 0, qty, 0),
+      /* What has gone out of the door, and what is in the crate waiting for a
+         cart. A save from before deliveries had never sent anything, so
+         everything it had made is still standing in the crate - which is
+         exactly where such a contract ought to resume. Between them they can
+         never come to more than was asked for. */
+      delivered: delivered,
+      filled: Math.min(whole(raw.filled, 0, qty, 0), qty - delivered),
       advance: whole(raw.advance, 0, 1e9, 0),
       offeredDay: whole(raw.offeredDay, 1, 1e6, shop.day),
       takenDay: whole(raw.takenDay, 1, 1e6, shop.day) };
@@ -6327,7 +6466,8 @@ function openCounter(shop, seller) {
   return {
     seller: seller || { kind: 'player', power: 0, name: 'You' },
     queue: queue, at: 0, pending: null,
-    report: { customers: queue.length, sold: 0, revenue: 0, haggles: 0, won: 0, left: 0, lines: {} }
+    report: { customers: queue.length, sold: 0, revenue: 0, haggles: 0, won: 0, left: 0,
+      lines: {}, learned: [] }
   };
 }
 
@@ -6513,6 +6653,139 @@ function townsfolkById(shop, id) {
 /* The most this person will put into a single purchase: what they are
    carrying, less what they will not part with. A purse is real money now, so
    nobody offers what they do not have. */
+/* ---------- what the forge knows about a person -------------------------
+   Everything here is about knowledge, never about the person. A customer's
+   purse, standards and taste are whatever they are from the day they arrive;
+   these functions only answer whether you have found out yet.
+
+   Nothing that draws a customer may read `one.gold`, `one.standards` or the
+   trade's `likes` table directly. It asks here, and gets a band, a name or
+   nothing. */
+
+/* The sort of customer somebody is, as a band rather than a figure. Banded on
+   what they earn rather than what is in their purse today, because a purse
+   empties and comes back and the band is meant to describe the person. */
+function wealthBandOf(one) {
+  const earns = one.income || 0;
+  for (const band of SHOP.intel.wealth) {
+    if (earns <= band.upTo) return band;
+  }
+  return SHOP.intel.wealth[SHOP.intel.wealth.length - 1];
+}
+
+/* What a trade is known for wanting, and what it has no time for, read off
+   the same table the shop floor already uses so the two can never disagree.
+   Only the strongest few of each are learnable: a customer is a person, not
+   a spreadsheet of sixteen numbers. */
+function customerTaste(typeId) {
+  const type = shopCustomerType(typeId);
+  if (!type) return { likes: [], dislikes: [] };
+  const rank = SHOP.categories.map(function (cat) {
+    return { id: cat.id, weight: type.likes[cat.id] || 0 };
+  });
+  const liked = rank.filter(function (c) { return c.weight > 0; })
+    .sort(function (a, b) { return b.weight - a.weight || (a.id < b.id ? -1 : 1); });
+  const cold = rank.filter(function (c) { return c.weight <= 0; })
+    .sort(function (a, b) { return a.id < b.id ? -1 : 1; });
+  const take = SHOP.intel.tastes;
+  return {
+    likes: liked.slice(0, take).map(function (c) { return c.id; }),
+    dislikes: cold.slice(0, take).map(function (c) { return c.id; })
+  };
+}
+
+/* The record of what this forge has found out. Older saves have none, and a
+   person made before there was one is simply a stranger. */
+function knownOf(one) {
+  if (!one.known) one.known = { wealth: false, likes: [], dislikes: [] };
+  if (!Array.isArray(one.known.likes)) one.known.likes = [];
+  if (!Array.isArray(one.known.dislikes)) one.known.dislikes = [];
+  return one.known;
+}
+function knowsWealth(one) { return knownOf(one).wealth === true; }
+function knowsLike(one, catId) { return knownOf(one).likes.indexOf(catId) >= 0; }
+function knowsDislike(one, catId) { return knownOf(one).dislikes.indexOf(catId) >= 0; }
+
+/* What is still to find out about somebody, as a list of facts. An empty list
+   means the forge has their measure and the counter stops rolling for them. */
+function unknownFacts(one) {
+  const known = knownOf(one);
+  const taste = customerTaste(one.type);
+  const out = [];
+  if (!known.wealth) out.push({ kind: 'wealth' });
+  for (const cat of taste.likes) {
+    if (!knowsLike(one, cat)) out.push({ kind: 'like', cat: cat });
+  }
+  for (const cat of taste.dislikes) {
+    if (!knowsDislike(one, cat)) out.push({ kind: 'dislike', cat: cat });
+  }
+  return out;
+}
+function customerRead(one) {
+  const taste = customerTaste(one.type);
+  const known = knownOf(one);
+  const total = 1 + taste.likes.length + taste.dislikes.length;
+  const got = (known.wealth ? 1 : 0) + known.likes.length + known.dislikes.length;
+  return { got: got, total: total, whole: got >= total };
+}
+
+/* Write one fact into the book. Returns false when it was already there, so
+   nothing is ever discovered twice. */
+function learnFact(one, fact) {
+  const known = knownOf(one);
+  if (fact.kind === 'wealth') {
+    if (known.wealth) return false;
+    known.wealth = true;
+    return true;
+  }
+  const list = fact.kind === 'like' ? known.likes : known.dislikes;
+  if (list.indexOf(fact.cat) >= 0) return false;
+  list.push(fact.cat);
+  return true;
+}
+
+/* How well somebody behind the counter reads a customer. The player has their
+   own eye; a salesperson has their rank, which buys both better odds and more
+   chances to use them. */
+function readSkill(seller) {
+  const c = SHOP.intel;
+  if (!seller || seller.kind !== 'staff') {
+    return { odds: c.playerOdds, tries: c.playerTries };
+  }
+  const power = Math.max(1, seller.power || 1);
+  return {
+    odds: Math.min(0.95, c.staffOdds + c.staffPerPower * power),
+    tries: Math.min(c.maxTries, 1 + Math.floor(power / c.triesPerPower))
+  };
+}
+
+/* A conversation over the counter. Whatever is learned is written into the
+   customer's page there and then and is never unlearned. */
+function learnAboutCustomer(shop, one, seller) {
+  const skill = readSkill(seller);
+  const found = [];
+  for (let go = 0; go < skill.tries; go++) {
+    const left = unknownFacts(one);
+    if (!left.length) break;
+    if (shop.rnd() >= skill.odds) continue;
+    const fact = left[Math.floor(shop.rnd() * left.length)];
+    if (learnFact(one, fact)) found.push(fact);
+  }
+  return found;
+}
+
+/* A discovery, in the words the shop would use. */
+function factLine(one, fact) {
+  if (fact.kind === 'wealth') {
+    return one.name + ' is ' + wealthBandOf(one).name.toLowerCase();
+  }
+  const cat = shopCategory(fact.cat);
+  const what = cat ? cat.name.toLowerCase() : fact.cat;
+  return fact.kind === 'like'
+    ? one.name + ' has an eye for ' + what
+    : one.name + ' has no use for ' + what;
+}
+
 function purseFor(one) {
   return Math.max(0, Math.floor(one.gold * SHOP.town.spendCap));
 }
@@ -6574,10 +6847,23 @@ function counterNext(session, shop) {
   if (!one) return counterNext(session, shop);             // they moved away
   const type = shopCustomerType(one.type);
   one.lastSeen = shop.day;
+
+  /* Serving somebody is how a forge comes to know them. It happens on the
+     visit rather than on the sale, because you learn as much from the one who
+     walks out. Whatever is found goes straight into their page. */
+  const learned = learnAboutCustomer(shop, one, session.seller);
+  if (learned.length) {
+    session.report.learned = (session.report.learned || []).concat(
+      learned.map(function (fact) { return factLine(one, fact); }));
+  }
   // what they came in for, said plainly, so a walkout means something
   const after = wantName(one);
   const face = { who: one.id, type: one.type, name: one.name,
-    trade: type.name, after: after, purse: one.gold };
+    trade: type.name, after: after,
+    learned: learned.map(function (fact) { return factLine(one, fact); }),
+    // what they are carrying is theirs to know; the screen is told only what
+    // this forge has found out about them
+    wealth: knowsWealth(one) ? wealthBandOf(one).name : null };
 
   /* Some customers are not here to buy one of something. A commission is put
      to the seller before anything on the floor is looked at, because it is a
@@ -6816,8 +7102,18 @@ function alternativeOffers(shop, session) {
   const out = [];
   for (const stand of stockedStands(shop)) {
     if (stand.key === p.key) continue;
+    /* Whether the forge can say how this will land. A category you have
+       learned their feeling on, either way, you can call; and once you have
+       their whole measure you can call the middling ones too, because there
+       was nothing strong to find out about them. */
+    const one = townsfolkById(shop, p.who);
+    const cat = (shopItem(splitKey(stand.key).item) || {}).cat;
+    const read = one && cat && (knowsLike(one, cat) || knowsDislike(one, cat) ||
+      customerRead(one).whole);
     out.push({ key: stand.key, price: stand.price, qty: stand.qty,
-      odds: alternativeOdds(shop, session, stand.key) });
+      odds: alternativeOdds(shop, session, stand.key),
+      // whether the shop can say how this will land, or is only guessing
+      sure: !!read });
   }
   out.sort(function (a, b) { return b.odds - a.odds; });
   return out;
@@ -7009,8 +7305,17 @@ function shopAssign(shop, staffId, job, phase) {
      runner gives it back when they get home. */
   const order = (job && job.order) || {};
   let cart = null;
-  if (order.kind === 'ore') {
-    if (!mineById(shop, order.mine)) return { ok: false, why: 'no such property' };
+  if (order.kind === 'ore' || order.kind === 'deliver') {
+    if (order.kind === 'ore' && !mineById(shop, order.mine)) {
+      return { ok: false, why: 'no such property' };
+    }
+    if (order.kind === 'deliver') {
+      const com = commissionById(shop, order.commission);
+      if (!com) return { ok: false, why: 'no such contract' };
+      if (commissionToMake(com) > 0) {
+        return { ok: false, why: commissionToMake(com) + ' still to make' };
+      }
+    }
     cart = vehicleById(shop, order.vehicle);
     if (!cart) return { ok: false, why: 'nothing to carry it in' };
     if (!vehicleFree(shop, cart)) return { ok: false, why: 'that ' + vehicleDef(cart.kind).name.toLowerCase() + ' is already out' };
@@ -7028,7 +7333,7 @@ function shopUnassign(shop, staffId) {
   if (status === 'active') return { ok: false, why: 'that phase is already under way' };
   // whatever was promised to that job goes back in the yard
   const order = ((shop.assignments[staffId] || {}).job || {}).order || {};
-  if (order.kind === 'ore') {
+  if (order.kind === 'ore' || order.kind === 'deliver') {
     const cart = vehicleById(shop, order.vehicle);
     if (cart) cart.busy = null;
   }
@@ -7079,6 +7384,19 @@ function runnerScale(shop, power) {
 }
 
 function runRunner(shop, employee, order) {
+  /* Carting a finished contract to its customer. The runner spends the phase;
+     the player does not, which is the whole point of hiring one. */
+  if (order && order.kind === 'deliver') {
+    const vehicle = vehicleById(shop, order.vehicle);
+    const res = deliverCommission(shop, order.commission, order.vehicle, order.qty);
+    if (vehicle) vehicle.busy = null;                 // back in the yard either way
+    if (!res.ok) return { ok: false, why: res.why };
+    return { ok: true, kind: 'delivery', who: employee.name, rank: employee.rank,
+      commission: res.commission.id, customer: res.name, key: res.commission.key,
+      load: res.load, left: res.left, delivered: res.delivered,
+      qty: res.commission.qty, done: res.done, paid: res.paid || 0,
+      capacity: vehicle ? vehicleCapacity(vehicle) : 0 };
+  }
   // a haul from a property you own rather than a trip to the market
   if (order && order.kind === 'ore') {
     const res = collectOre(shop, order.mine, order.vehicle, order.qty);
@@ -7227,7 +7545,7 @@ function shopEndDay(shop) {
       let promised = 0;
       const com = order.commission ? commissionById(shop, order.commission) : null;
       if (com && com.key === order.key && order.quality >= com.quality) {
-        promised = Math.min(order.qty, commissionLeft(com));
+        promised = Math.min(order.qty, commissionToMake(com));
         com.filled += promised;
         com.level = order.level || com.level || 1;
       }
@@ -7318,10 +7636,37 @@ function commissionTakes(com, key, quality) {
   return key === com.key && quality >= com.quality;
 }
 
-/* What is still owed on a contract. */
-function commissionLeft(com) { return Math.max(0, com.qty - com.filled); }
-function commissionDone(com) { return com.filled >= com.qty; }
+/* ---------- where a contract stands ------------------------------------
+   Three numbers, and they mean different things:
+
+     qty        what was asked for
+     filled     made, and standing in the crate waiting for a cart
+     delivered  carted to the customer and out of your hands
+
+   Making the goods is not finishing the job. A contract is done when the last
+   piece has been DELIVERED, and the deadline is counted against that, so a
+   crate of finished swords with no cart to put them in is still late. */
+function commissionMade(com) { return (com.delivered || 0) + com.filled; }
+function commissionToMake(com) { return Math.max(0, com.qty - commissionMade(com)); }
+function commissionToShip(com) { return Math.max(0, com.filled); }
+function commissionLeft(com) { return Math.max(0, com.qty - (com.delivered || 0)); }
+function commissionReady(com) { return commissionToMake(com) <= 0 && com.filled > 0; }
+function commissionDone(com) { return (com.delivered || 0) >= com.qty; }
 function commissionDaysLeft(shop, com) { return com.dueDay - shop.day; }
+
+/* The stage a contract is at, for the ledger and the customer's page. */
+function commissionState(shop, com) {
+  if (commissionDone(com)) return 'done';
+  if ((com.delivered || 0) > 0) return 'partial';
+  if (commissionReady(com)) return 'awaiting';
+  return 'production';
+}
+function commissionStateName(shop, com) {
+  const at = commissionState(shop, com);
+  return at === 'done' ? 'Completed'
+    : at === 'partial' ? 'Partly delivered'
+      : at === 'awaiting' ? 'Awaiting delivery' : 'In production';
+}
 
 /* Everything in storage this contract would accept, as a map of key to how
    many of it are good enough. */
@@ -7438,12 +7783,12 @@ function allocateCommission(shop, id, qty) {
     return { ok: false, why: 'that work is under ' + commissionBand(com.quality).name.toLowerCase() };
   }
   const want = Math.max(0, Math.floor(Number(qty) || 0));
-  const moved = Math.min(want, lot.qty, commissionLeft(com));
+  const moved = Math.min(want, lot.qty, commissionToMake(com));
   if (moved <= 0) return { ok: false, why: 'nothing to promise' };
   lot.qty -= moved;
   if (lot.qty <= 0) delete shop.storage[com.key];
   com.filled += moved;
-  return { ok: true, moved: moved, filled: com.filled, left: commissionLeft(com) };
+  return { ok: true, moved: moved, filled: com.filled, left: commissionToMake(com) };
 }
 
 /* Take goods back out of a contract and into storage, while it is still open.
@@ -7459,23 +7804,75 @@ function releaseCommission(shop, id, qty) {
   return { ok: true, moved: res.stored, lost: res.lost, filled: com.filled };
 }
 
-/* Hand the lot over. Only a full contract may be delivered, and delivering it
-   pays the rest and builds the shop's name. */
-function deliverCommission(shop, id) {
+/* ---------- carting it to the customer ---------------------------------
+   Finishing the goods is not finishing the job. A contract is delivered by
+   the load, in a vehicle, and each load takes a phase of somebody's day. The
+   balance is paid once, on the load that completes it, so splitting a job
+   across three trips pays exactly what one trip would. */
+
+/* How much of a contract a given vehicle could take in one go, and what that
+   means for the trips still to make. */
+function commissionHaul(shop, com, vehicle) {
+  const waiting = commissionToShip(com);
+  const cap = vehicle ? vehicleCapacity(vehicle) : 0;
+  const load = Math.max(0, Math.min(waiting, cap));
+  return {
+    waiting: waiting, capacity: cap, load: load,
+    trips: cap > 0 ? Math.ceil(waiting / cap) : 0
+  };
+}
+
+/* The trips a contract of this size would take in the best vehicle the forge
+   owns, which is what the offer screen warns about. */
+function commissionTrips(shop, qty) {
+  let best = 0;
+  for (const v of shop.vehicles) best = Math.max(best, vehicleCapacity(v));
+  if (best <= 0) return { capacity: 0, trips: 0, warn: true };
+  return { capacity: best, trips: Math.ceil(qty / best), warn: qty > best };
+}
+
+/* Take a load to the customer. `want` is how many pieces to put on the cart;
+   the vehicle and the crate between them decide what actually goes. */
+function deliverCommission(shop, id, vehicleId, want) {
   const at = shop.commissions.findIndex(function (c) { return c.id === id; });
   if (at < 0) return { ok: false, why: 'no such contract' };
   const com = shop.commissions[at];
-  if (!commissionDone(com)) {
-    return { ok: false, why: commissionLeft(com) + ' still owed' };
+  if (commissionToMake(com) > 0) {
+    return { ok: false, why: commissionToMake(com) + ' still to make' };
   }
+  if (commissionToShip(com) <= 0) return { ok: false, why: 'nothing left to take' };
+  const vehicle = vehicleById(shop, vehicleId);
+  if (!vehicle) return { ok: false, why: 'no vehicle for it' };
+  const haul = commissionHaul(shop, com, vehicle);
+  const asked = want === undefined ? haul.load
+    : Math.max(0, Math.floor(Number(want) || 0));
+  const load = Math.min(asked, haul.load);
+  if (load <= 0) {
+    return { ok: false, why: haul.capacity <= 0 ? 'that carries nothing'
+      : 'nothing would go on this trip' };
+  }
+
+  // the goods leave the crate for the customer: counted once, in one place
+  com.filled -= load;
+  com.delivered = (com.delivered || 0) + load;
+
+  const one = townsfolkById(shop, com.who);
+  if (!commissionDone(com)) {
+    return { ok: true, commission: com, load: load, paid: 0, done: false,
+      left: commissionToShip(com), delivered: com.delivered, name: com.name };
+  }
+
+  // the last load: the balance, the reputation and the customer's good word
   const rest = com.pay - com.advance;
   shop.gold += rest;
   nudgeReputation(shop, SHOP.commission.repDone);
   shop.commissions.splice(at, 1);
-  // the customer thinks better of a forge that delivered for them
-  const one = townsfolkById(shop, com.who);
-  if (one) one.bought += com.qty;
-  return { ok: true, commission: com, paid: rest, total: com.pay };
+  if (one) {
+    one.bought += com.qty;
+    one.contracts = (one.contracts || 0) + 1;
+  }
+  return { ok: true, commission: com, load: load, paid: rest, total: com.pay,
+    done: true, left: 0, delivered: com.delivered, name: com.name };
 }
 
 /* The day has turned: anything past its day is gone. The goods promised to it
@@ -7694,25 +8091,45 @@ function freeVehicles(shop) {
   return shop.vehicles.filter(function (v) { return vehicleFree(shop, v); });
 }
 
-function shopBuyVehicle(shop, kind) {
+/* What it would cost to put this vehicle in the yard, and how. Trading a
+   wagon up is cheaper than buying the bigger one outright, but it costs you
+   the wagon - which matters, because two vehicles are two deliveries. */
+function vehicleUpgradeBase(shop, kind) {
+  const def = vehicleDef(kind);
+  if (!def || !def.from) return null;
+  return shop.vehicles.find(function (v) {
+    return v.kind === def.from && vehicleFree(shop, v);
+  }) || null;
+}
+
+function shopBuyVehicle(shop, kind, trade) {
   const def = vehicleDef(kind);
   if (!def) return { ok: false, why: 'no such vehicle' };
-  // a team of horses is an upgrade to a wagon you already own, not a new one
-  if (def.from) {
-    const base = shop.vehicles.find(function (v) {
-      return v.kind === def.from && vehicleFree(shop, v);
-    });
+  // trading the one below it up, for anyone who has a spare
+  if (trade && def.from) {
+    const base = vehicleUpgradeBase(shop, kind);
     if (!base) return { ok: false, why: 'you have no free ' + vehicleDef(def.from).name };
-    if (shop.gold < def.price) return { ok: false, why: 'needs ' + def.price + 'g' };
-    shop.gold -= def.price;
+    const cost = def.upgrade === undefined ? def.price : def.upgrade;
+    if (shop.gold < cost) return { ok: false, why: 'needs ' + cost + 'g' };
+    shop.gold -= cost;
     base.kind = kind;
-    return { ok: true, vehicle: base, spent: def.price, upgraded: true };
+    return { ok: true, vehicle: base, spent: cost, upgraded: true };
   }
   if (shop.gold < def.price) return { ok: false, why: 'needs ' + def.price + 'g' };
   shop.gold -= def.price;
   const vehicle = { id: shop.nextId++, kind: kind, busy: null };
   shop.vehicles.push(vehicle);
   return { ok: true, vehicle: vehicle, spent: def.price };
+}
+
+/* The biggest vehicle standing free right now, which is what a delivery
+   screen offers first. */
+function bestFreeVehicle(shop) {
+  let best = null;
+  for (const v of freeVehicles(shop)) {
+    if (!best || vehicleCapacity(v) > vehicleCapacity(best)) best = v;
+  }
+  return best;
 }
 
 /* ---------- ore at the forge -------------------------------------------
@@ -7893,6 +8310,10 @@ const CHECKSMITH_CORE = {
   rollWant: rollWant, wantName: wantName, driftWants: driftWants, payTown: payTown,
   townsfolkById: townsfolkById, purseFor: purseFor, meetsStandards: meetsStandards,
   standHoldsWant: standHoldsWant, townReach: townReach,
+  wealthBandOf: wealthBandOf, customerTaste: customerTaste, knownOf: knownOf,
+  knowsWealth: knowsWealth, knowsLike: knowsLike, knowsDislike: knowsDislike,
+  unknownFacts: unknownFacts, customerRead: customerRead, learnFact: learnFact,
+  readSkill: readSkill, learnAboutCustomer: learnAboutCustomer, factLine: factLine,
   rollCommission: rollCommission, queueCommission: queueCommission,
   commissionById: commissionById, commissionOfferById: commissionOfferById,
   acceptCommission: acceptCommission, declineCommission: declineCommission,
@@ -7913,6 +8334,11 @@ const CHECKSMITH_CORE = {
   vehicleFree: vehicleFree, freeVehicles: freeVehicles, shopBuyVehicle: shopBuyVehicle,
   oreStorageCap: oreStorageCap, countOre: countOre, addOre: addOre,
   collectOre: collectOre, smeltRate: smeltRate, shopSmelt: shopSmelt,
+  vehicleUpgradeBase: vehicleUpgradeBase, bestFreeVehicle: bestFreeVehicle,
+  commissionMade: commissionMade, commissionToMake: commissionToMake,
+  commissionToShip: commissionToShip, commissionReady: commissionReady,
+  commissionState: commissionState, commissionStateName: commissionStateName,
+  commissionHaul: commissionHaul, commissionTrips: commissionTrips,
   purseLimit: purseLimit, purseAppeal: purseAppeal, alternativeOdds: alternativeOdds,
   autoRespond: autoRespond,
   alternativeOffers: alternativeOffers, counterOfferAlternative: counterOfferAlternative,
@@ -10104,6 +10530,13 @@ function staffPortrait(employee, extra) {
 function jobGap(sh, employee, job) {
   const order = (job && job.order) || {};
   if (employee.role === 'runner') {
+    if (order.kind === 'deliver') {
+      const com = commissionById(sh, order.commission);
+      if (!com) return 'that contract is gone';
+      if (!vehicleById(sh, order.vehicle)) return 'nothing to carry it in';
+      if (commissionToMake(com) > 0) return commissionToMake(com) + ' still to make';
+      return commissionToShip(com) > 0 ? '' : 'nothing left to take';
+    }
     if (order.kind === 'ore') {
       const mine = mineById(sh, order.mine);
       if (!mine) return 'that property is gone';
@@ -10132,6 +10565,12 @@ function jobGap(sh, employee, job) {
 function jobSummary(sh, employee, job) {
   const order = (job && job.order) || {};
   if (employee.role === 'runner') {
+    if (order.kind === 'deliver') {
+      const com = commissionById(sh, order.commission);
+      const cart = vehicleById(sh, order.vehicle);
+      return 'deliver ' + (order.qty || 0) + ' to ' + (com ? com.name : 'a lost contract') +
+        (cart ? ' by ' + vehicleDef(cart.kind).name.toLowerCase() : '');
+    }
     if (order.kind === 'ore') {
       const mine = mineById(sh, order.mine);
       const cart = vehicleById(sh, order.vehicle);
@@ -10162,6 +10601,20 @@ function jobSummary(sh, employee, job) {
   return 'at the anvil beside you';
 }
 
+/* The errand in a word, for the roster box. A runner may be on any of three
+   and a smith on either of two, so "Booked" on its own is not an answer. */
+function jobWord(sh, employee, job) {
+  const order = (job && job.order) || {};
+  if (employee.role === 'runner') {
+    return order.kind === 'deliver' ? 'Delivery'
+      : order.kind === 'ore' ? 'Ore run' : 'Market';
+  }
+  if (employee.role === 'smith') return order.kind === 'smelt' ? 'Furnace' : 'Anvil';
+  if (employee.role === 'salesperson') return 'Counter';
+  if (employee.role === 'storehand') return 'Stocking';
+  return 'Beside you';
+}
+
 function rosterBox(sh, role, phase) {
   const when = '<span class="rb-when">' + esc(SHOP.phaseName[phase]) + '</span>';
   const held = assignmentAt(sh, role.id, phase);
@@ -10181,11 +10634,12 @@ function rosterBox(sh, role, phase) {
   const e = held.staff;
   const status = assignmentStatus(sh, e.id) || 'done';
   const gap = status === 'done' ? '' : jobGap(sh, e, held.job);
-  const word = status === 'done' ? 'Worked' : status === 'active' ? 'Working now' : 'Booked';
+  const errand = jobWord(sh, e, held.job);
+  const word = status === 'done' ? 'Worked' : status === 'active' ? errand : errand;
   return '<button class="roster-box ' + status + (gap ? ' needs' : '') + '" type="button"' +
     ' data-hand="' + e.id + '"' +
     ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + ', ' + e.name +
-      ', rank ' + e.rank + ', ' + (gap ? word + ', ' + gap : word)) + '">' +
+      ', rank ' + e.rank + ', ' + (gap ? errand + ', ' + gap : word)) + '">' +
     when + staffPortrait(e) +
     '<span class="rb-name"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
     esc(e.name.split(' ')[0]) + '</span>' +
@@ -10324,17 +10778,25 @@ function shopOpenAssignment(staffId) {
    Everything the player has to decide about one is on its own card: what is
    owed, what the storeroom could put towards it, and how long is left. */
 function contractCardHtml(sh, com, offer) {
-  const left = commissionLeft(com);
+  const state = offer ? 'offer' : commissionState(sh, com);
+  const toMake = commissionToMake(com);
+  const toShip = commissionToShip(com);
+  const gone = com.delivered || 0;
   const days = offer ? com.days : commissionDaysLeft(sh, com);
-  const ready = commissionDone(com);
   const late = !offer && days <= 1;
   const held = commissionStock(sh, com);
   const band = commissionBand(com.quality);
-  const pct = Math.round((com.filled / Math.max(1, com.qty)) * 100);
+  const pct = Math.round((gone / Math.max(1, com.qty)) * 100);
+  const made = Math.round((commissionMade(com) / Math.max(1, com.qty)) * 100);
+  const trips = commissionTrips(sh, offer ? com.qty : toShip);
+  const cart = bestFreeVehicle(sh);
 
-  let html = '<div class="contract' + (ready ? ' ready' : late ? ' late' : '') + '">' +
+  let html = '<div class="contract' + (state === 'awaiting' || state === 'partial'
+    ? ' ready' : late ? ' late' : '') + '">' +
     '<div class="contract-head"><span class="contract-who">' + esc(com.name) + '</span>' +
-    '<span class="contract-trade">' + esc(com.trade) + '</span></div>' +
+    '<span class="contract-trade">' + esc(com.trade) + '</span>' +
+    (offer ? '' : '<span class="contract-stage ' + state + '">' +
+      esc(commissionStateName(sh, com)) + '</span>') + '</div>' +
     '<div class="contract-body">' + lineSprite(com.key) + '<span>' + com.qty + ' &times; ' +
     esc(lineName(com.key)) + '</span></div>' +
     '<div class="contract-terms">' +
@@ -10344,25 +10806,46 @@ function contractCardHtml(sh, com, offer) {
     '<span>' + (offer ? 'You get' : 'Days left') + '<b>' + days +
     (days === 1 ? ' day' : ' days') + '</b></span></div>';
 
-  if (!offer) {
-    html += '<div class="contract-bar"><i style="width:' + pct + '%"></i></div>' +
-      '<div class="contract-due">' + com.filled + ' of ' + com.qty + ' in the crate' +
-      (ready ? ' — ready to hand over'
-        : held > 0 ? ' · ' + held + ' in storage would do'
-          : ' · nothing in storage is good enough yet') + '</div>';
+  if (offer) {
+    /* What carting it will take, said before the contract is signed. A forge
+       with no cart, or too small a one, may still take the work on - it just
+       has to know what it is agreeing to. */
+    html += '<div class="contract-haul' + (trips.warn ? ' warn' : '') + '">' +
+      (trips.capacity <= 0
+        ? '<b>Transportation warning:</b> you own nothing to cart this in. ' +
+          com.qty + ' units must be delivered before this contract is paid.'
+        : trips.trips > 1
+          ? '<b>Transportation warning:</b> your largest vehicle carries ' +
+            trips.capacity + ' units. This contract is ' + com.qty +
+            ' and will take at least ' + trips.trips + ' deliveries.'
+          : 'One trip in your ' + esc(vehicleDef(cart ? cart.kind : 'cart').name.toLowerCase()) +
+            ' will carry the lot.') + '</div>';
+  } else {
+    html += '<div class="contract-bar"><i class="made" style="width:' + made + '%"></i>' +
+      '<i style="width:' + pct + '%"></i></div>' +
+      '<div class="contract-due">' + gone + ' of ' + com.qty + ' delivered' +
+      (toMake > 0 ? ' · ' + toMake + ' still to make' +
+        (held > 0 ? ', ' + held + ' in storage would do' : '')
+        : toShip > 0 ? ' · ' + toShip + ' in the crate, ' +
+          (trips.capacity > 0
+            ? trips.trips + (trips.trips === 1 ? ' trip' : ' trips') + ' to go'
+            : 'and nothing to cart it in')
+          : '') + '</div>';
   }
 
   html += '<div class="contract-acts">';
   if (offer) {
     html += '<button data-take="' + com.id + '">Accept</button>' +
       '<button data-drop="' + com.id + '">Decline</button>';
-  } else if (ready) {
-    html += '<button data-deliver="' + com.id + '">Hand it over</button>' +
-      '<button data-release="' + com.id + '">Take back</button>';
-  } else {
+  } else if (toMake > 0) {
     html += '<button data-fill="' + com.id + '"' + (held <= 0 ? ' disabled' : '') + '>Promise ' +
-      Math.min(held, left) + ' from storage</button>' +
+      Math.min(held, toMake) + ' from storage</button>' +
       (com.filled > 0 ? '<button data-release="' + com.id + '">Take back</button>' : '');
+  } else {
+    html += '<button data-deliver="' + com.id + '"' + (cart ? '' : ' disabled') + '>' +
+      (cart ? 'Deliver ' + Math.min(toShip, vehicleCapacity(cart)) + ' yourself'
+        : 'No vehicle free') + '</button>' +
+      '<button data-release="' + com.id + '">Take back</button>';
   }
   html += '</div>' + contractSprite('contract-seal') + '</div>';
   return html;
@@ -10393,9 +10876,12 @@ function shopLedgerHtml(sh) {
     return html;
   }
 
-  html += '<p class="ledger-note">A quarter was paid up front. The rest comes when the lot is ' +
-    'handed over — and a missed day costs you the rest and your good name. Goods promised to a ' +
-    'contract are out of the storeroom and off the floor.</p><div class="shop-list">';
+  html += '<p class="ledger-note">A quarter was paid up front. The rest comes when the last ' +
+    'piece is <b>in the customer\u2019s hands</b> — making them is not finishing the job. Each ' +
+    'delivery takes a vehicle and a phase, so a lot too big for your cart goes out over several ' +
+    'trips. Goods promised to a contract are out of the storeroom and off the floor, and a ' +
+    'missed day costs you the balance and your good name whatever is sitting in the crate.' +
+    '</p><div class="shop-list">';
   const sorted = sh.commissions.slice().sort(function (a, b) { return a.dueDay - b.dueDay; });
   for (const com of sorted) html += contractCardHtml(sh, com, false);
   return html + '</div>';
@@ -10474,17 +10960,19 @@ function shopPropertyHtml(sh) {
   html += '<div class="shop-list" style="margin-top:6px">';
   for (const def of SHOP.vehicles) {
     const have = sh.vehicles.filter(function (v) { return v.kind === def.id; }).length;
-    const base = def.from ? sh.vehicles.some(function (v) {
-      return v.kind === def.from && vehicleFree(sh, v);
-    }) : true;
+    const trade = def.from ? vehicleUpgradeBase(sh, def.id) : null;
     html += '<div class="shop-row">' +
       '<span class="nm">' + vehicleSprite(def.id) + ' ' + esc(def.name) +
       (have ? ' <small style="color:var(--muted)">&times;' + have + '</small>' : '') + '</span>' +
       '<button data-buyvehicle="' + def.id + '"' +
-      (sh.gold < def.price || !base ? ' disabled' : '') + '>' + coin(def.price) + 'g</button>' +
-      '<span class="sub">Carries ' + def.capacity + ' ore a trip' +
-      (def.from ? ' · put in front of a ' + esc(vehicleDef(def.from).name.toLowerCase()) +
-        ' you already own' + (base ? '' : ' — you have none free') : '') + '</span></div>';
+      (sh.gold < def.price ? ' disabled' : '') + '>' + coin(def.price) + 'g</button>' +
+      '<span class="sub">Carries ' + def.capacity + ' a trip — ore home from a mine, or ' +
+      'goods out to a contract.' +
+      (trade ? ' <b>Trade a ' + esc(vehicleDef(def.from).name.toLowerCase()) + ' up for ' +
+        coin(def.upgrade) + 'g</b>' : '') + '</span>' +
+      (trade ? '<button data-tradevehicle="' + def.id + '"' +
+        (sh.gold < def.upgrade ? ' disabled' : '') + '>Trade up</button>' : '') +
+      '</div>';
   }
   return html + '</div>';
 }
@@ -11264,24 +11752,36 @@ function townSort(a, b) {
 
 function shopTownHtml(sh) {
   const people = sh.town.slice().sort(townSort);
-  const purses = people.reduce(function (a, one) { return a + one.gold; }, 0);
-  const wages = people.reduce(function (a, one) { return a + one.income; }, 0);
-  let html = '<p class="shop-cap">' + people.length + ' within reach · ' +
-    coin(purses) + 'g between them · ' + coin(wages) +
-    'g a week comes in · tap somebody to read them</p>';
+  let read = 0, whole = 0;
+  for (const one of people) {
+    const got = customerRead(one);
+    read += got.got;
+    if (got.whole) whole++;
+  }
+  let html = '<p class="shop-cap">' + people.length + ' within reach · ' + read +
+    ' things learned about them · ' + whole + ' you have the measure of · ' +
+    'tap somebody to read their page</p>' +
+    '<p class="ledger-note">What anyone is worth and what they care for is ' +
+    'theirs until you find it out. Mind the counter yourself, or keep a ' +
+    'salesperson on it, and the book fills up.</p>';
   if (!people.length) {
     return html + '<p class="shop-empty">Nobody knows this forge yet.</p>';
   }
   html += '<div class="town-grid">';
   for (const one of people) {
     const type = shopCustomerType(one.type);
-    html += '<button class="town-card" type="button" data-town="' + one.id + '"' +
-      ' aria-label="' + esc(one.name + ', ' + type.name + ', after ' + wantName(one)) + '">' +
+    const known = knowsWealth(one);
+    const got = customerRead(one);
+    html += '<button class="town-card' + (got.whole ? ' read' : '') + '" type="button"' +
+      ' data-town="' + one.id + '"' +
+      ' aria-label="' + esc(one.name + ', ' + type.name + ', after ' + wantName(one) +
+        ', ' + (known ? wealthBandOf(one).name : 'wealth unknown')) + '">' +
       portrait(one.type, 'sm') +
       '<span class="tc-name">' + esc(one.name) + '</span>' +
       '<span class="tc-kind">' + esc(type.name) + '</span>' +
       '<span class="tc-want">after ' + esc(wantName(one)) + '</span>' +
-      '<span class="tc-purse">' + coin(one.gold) + 'g</span>' +
+      '<span class="tc-purse' + (known ? '' : ' unknown') + '">' +
+      esc(known ? wealthBandOf(one).name : '???') + '</span>' +
       '</button>';
   }
   return html + '</div>';
@@ -11294,29 +11794,73 @@ function shopOpenTownsfolk(id) {
   const one = townsfolkById(sh, id);
   if (!one) return;
   const type = shopCustomerType(one.type);
-  const band = qualityBand(one.standards);
+  const taste = customerTaste(one.type);
+  const known = knownOf(one);
+  const got = customerRead(one);
   const stocked = standHoldsWant(sh, one);
-  let body = '<div class="shop-list">';
-  body += rowHtml(portrait(one.type, 'sm') + ' <b>' + esc(one.name) + '</b>',
-    esc(type.name), '');
-  body += rowHtml('Carrying', 'and earns ' + coin(one.income) + 'g at the turn of the week',
-    coin(one.gold) + 'g');
-  body += rowHtml('Will spend', 'the most they will put into one piece',
-    coin(purseFor(one)) + 'g');
+  const deals = (sh.commissions || []).concat(sh.commissionOffers || [])
+    .filter(function (com) { return com && com.who === one.id; });
+  const past = (one.contracts || 0);
+
+  let body = '<div class="cust-page">' + portrait(one.type, 'xl') +
+    '<span class="cp-name">' + esc(one.name) + '</span>' +
+    '<span class="cp-kind">' + esc(type.name) + '</span>' +
+    '<span class="cp-read">' + got.got + ' of ' + got.total + ' known' +
+    (got.whole ? ' — you have their measure' : '') + '</span></div>';
+
+  body += '<div class="shop-list">';
+  // wealth, as a band and never as a figure
+  body += rowHtml('Wealth', knowsWealth(one)
+    ? 'what they are worth, near enough'
+    : 'nobody has taken their measure yet',
+    knowsWealth(one)
+      ? '<span class="know">' + esc(wealthBandOf(one).name) + '</span>'
+      : '<span class="unknown">???</span>');
+  // and the standards that go with it, which is the same question asked twice
+  if (knowsWealth(one)) {
+    const band = qualityBand(one.standards);
+    body += rowHtml('Standards', one.standards <= 0
+      ? 'will take whatever works'
+      : 'will not look at work under ' + esc(band.name.toLowerCase()),
+      '<span class="q-' + band.tone + '">' + esc(band.name) + '</span>');
+  }
+
+  const listTaste = function (label, cats, seen, blank) {
+    const found = cats.filter(function (c) { return seen.indexOf(c) >= 0; });
+    const hidden = cats.length - found.length;
+    const names = found.map(function (c) {
+      const cat = shopCategory(c);
+      return cat ? cat.name : c;
+    });
+    for (let i = 0; i < hidden; i++) names.push('???');
+    return rowHtml(label, names.length ? esc(names.join(', ')) : blank,
+      found.length + '/' + cats.length);
+  };
+  body += listTaste('Likes', taste.likes, known.likes, 'nothing found out yet');
+  body += listTaste('Has no use for', taste.dislikes, known.dislikes,
+    'nothing found out yet');
+
   body += rowHtml('After', esc(wantName(one)) +
     (stocked ? ' — and you have some out' : ' — nothing of yours answers it'),
-    stocked ? 'in stock' : '—');
-  body += rowHtml('Standards', one.standards <= 0
-    ? 'will take whatever works'
-    : 'will not look at work under ' + esc(band.name.toLowerCase()) +
-      ' (quality ' + one.standards + ')',
-    '<span class="q-' + band.tone + '">' + esc(band.name) + '</span>');
+    stocked ? 'in stock' : '\u2014');
   body += rowHtml('Bought here', one.bought
     ? one.bought + (one.bought === 1 ? ' piece' : ' pieces') + ', ' +
       coin(one.spent) + 'g in all'
     : 'nothing yet',
     one.lastSeen ? 'day ' + one.lastSeen : '');
+  body += rowHtml('Contracts', deals.length
+    ? deals.map(function (com) {
+      return com.qty + ' \u00d7 ' + lineName(com.key) + ' \u00b7 ' +
+        commissionStateName(sh, com).toLowerCase();
+    }).join(' \u00b7 ')
+    : (past ? 'none open just now' : 'never asked for a lot'),
+    past ? past + ' filled' : '');
   body += '</div>';
+
+  if (!got.whole) {
+    body += '<p class="bp-why">Serve them at the counter and you may learn more. ' +
+      'A salesperson on the counter learns faster the better they are.</p>';
+  }
   shopSheet(one.name, body, [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
 }
 
@@ -11725,12 +12269,12 @@ function custLine(session) {
 }
 
 function custHead(p) {
-  const purse = typeof p.purse === 'number' ? p.purse : null;
   return '<div class="cust-head">' + portrait(p.type) +
     '<span class="whobox"><span class="who">' + esc(p.name) + '</span>' +
     '<span class="kind">' + esc(p.trade || 'at the counter') +
     (p.after ? ' · after ' + esc(p.after) : '') + '</span></span>' +
-    (purse === null ? '' : '<span class="cust-purse">' + coin(purse) + 'g</span>') +
+    '<span class="cust-purse' + (p.wealth ? '' : ' unknown') + '">' +
+    esc(p.wealth || '???') + '</span>' +
     '</div>';
 }
 
@@ -11796,6 +12340,7 @@ function shopCounterContract(event) {
   const band = commissionBand(com.quality);
   const rest = com.pay - com.advance;
   const held = commissionStock(sh, com);
+  const trips = commissionTrips(sh, com.qty);
 
   shopSheet('A word about a large order',
     custLine(session) + custHead(event) +
@@ -11812,6 +12357,18 @@ function shopCounterContract(event) {
       ? 'You have <b>' + held + '</b> in storage good enough for it already.'
       : 'Nothing in storage would do. It would all have to be made.') +
     ' Miss the day and you keep the advance, but not the rest — and word gets round.</p>' +
+    // what carting it will take, before the contract is signed
+    '<div class="contract-haul' + (trips.warn ? ' warn' : '') + '" style="margin-top:8px">' +
+    (trips.capacity <= 0
+      ? '<b>Transportation warning:</b> you own no vehicle. Every one of these ' + com.qty +
+        ' units has to be carted to them before a penny of the balance is paid.'
+      : trips.trips > 1
+        ? '<b>Transportation warning:</b> your largest vehicle carries ' + trips.capacity +
+          ' units. This contract is ' + com.qty + ' units and will need at least ' +
+          trips.trips + ' deliveries — each one a phase.'
+        : 'One trip in your ' + esc(vehicleDef(bestFreeVehicle(sh) ? bestFreeVehicle(sh).kind
+          : SHOP.vehicles[0].id).name.toLowerCase()) + ' will carry the lot.') +
+    '</div>' +
     counterLogHtml(),
     [
       { label: 'Take it on', primary: true,
@@ -11844,7 +12401,14 @@ function shopCounterAlternatives() {
   const p = session.pending;
   const offers = alternativeOffers(sh, session);
   if (!offers.length) { SOUNDS.invalid(); shopToast('Nothing else is on the floor.'); return; }
-  const read = function (odds) {
+  /* How this will land, but only where the forge has actually learned that
+     much about them. Anything you have not found out is a guess, and says so
+     rather than quietly handing you their taste. */
+  const read = function (odds, sure) {
+    if (!sure) {
+      return odds >= 0.40 ? ['warm', 'Worth a try — you do not know their taste']
+        : ['cool', 'A guess; you have not read them'];
+    }
     return odds >= 0.65 ? ['keen', 'Just their sort of thing']
       : odds >= 0.40 ? ['warm', 'They might well take it']
         : odds >= 0.18 ? ['cool', 'It is not what they came for']
@@ -11854,7 +12418,7 @@ function shopCounterAlternatives() {
     '<p class="cust-want">They came in for your <b>' + esc(lineName(p.key)) +
     '</b>. What else would you put in front of them?</p><div class="shop-list">';
   for (const off of offers) {
-    const band = read(off.odds);
+    const band = read(off.odds, off.sure);
     html += '<button class="pick-line" type="button" data-alt="' + esc(off.key) + '">' +
       '<span class="nm">' + lineSprite(off.key) + ' ' + esc(lineName(off.key)) + '</span>' +
       '<span class="cnt">' + coin(off.price) + 'g</span>' +
@@ -11959,7 +12523,13 @@ function shopCounterOutcome(event) {
   // the stamp is the moment the player reads, so the sound lands with it
   if (sold) SOUNDS.coins(Math.min(3, event.price / 60));
   else if (!booked) SOUNDS.walkout();
+  const learned = (event.learned || []);
   const body = custLine(session) +
+    (learned.length
+      ? '<div class="learned"><b>You take their measure</b>' +
+        learned.map(function (line) { return '<span>' + esc(line) + '</span>'; }).join('') +
+        '</div>'
+      : '') +
     '<div class="stamp' + (booked ? ' booked' : sold ? '' : ' lost') + '">' +
     (sold ? lineSprite(event.key, 'xl')
       : booked ? contractSprite('xl') : portrait(event.type)) +
@@ -12028,6 +12598,15 @@ function reportBody(r) {
         keys.map(function (k) { return esc(lineName(k)) + ' ×' + r.lines[k]; }).join(', ') +
         '</p>';
     }
+    // what was learned about the people who came in, which is the other half
+    // of what a good salesperson is for
+    const learned = r.learned || [];
+    if (learned.length) {
+      html += '<div class="learned"><b>' + learned.length +
+        (learned.length === 1 ? ' thing' : ' things') + ' learned about the town</b>' +
+        learned.map(function (line) { return '<span>' + esc(line) + '</span>'; }).join('') +
+        '</div>';
+    }
     return html + '</div>';
   }
   if (r.kind === 'runner') {
@@ -12048,6 +12627,18 @@ function reportBody(r) {
       '<dt>Quality</dt><dd>' + r.quality + '</dd>' +
       '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">In storage tomorrow ' +
       'morning.</p></div>';
+  }
+  if (r.kind === 'delivery') {
+    return '<div class="report"><dl>' +
+      '<dt>Taken to</dt><dd>' + esc(r.customer) + '</dd>' +
+      '<dt>On this trip</dt><dd class="good">' + r.load + ' × ' +
+      esc(lineName(r.key)) + '</dd>' +
+      '<dt>Delivered in all</dt><dd>' + r.delivered + ' of ' + r.qty + '</dd>' +
+      (r.done ? '<dt>Balance paid</dt><dd class="good">' + coin(r.paid) + 'g</dd>'
+        : '<dt>Still in the crate</dt><dd>' + r.left + '</dd>') +
+      '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
+      (r.done ? 'That contract is closed and paid.'
+        : 'Nothing is paid until the last of it arrives.') + '</p></div>';
   }
   if (r.kind === 'haul') {
     return '<div class="report"><dl>' +
@@ -12088,6 +12679,7 @@ function reportTitle(r) {
   if (r.kind === 'smith') return r.who + '’s Production Report';
   if (r.kind === 'storehand') return r.who + '’s Stocking Report';
   if (r.kind === 'haul') return r.who + '’s Haulage Report';
+  if (r.kind === 'delivery') return r.who + '’s Delivery Report';
   if (r.kind === 'smelt') return r.who + '’s Smelting Report';
   return 'Report';
 }
@@ -12175,16 +12767,68 @@ function shopOpenRelease(id) {
   redraw();
 }
 
+/* Taking a load out yourself. It costs the phase - you are the one on the
+   road - which is the whole reason to keep a runner. */
 function shopHandOver(id) {
   const sh = shop();
   const com = commissionById(sh, id);
   if (!com) return;
-  const res = deliverCommission(sh, id);
-  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
-  SOUNDS.coins(Math.min(3, res.paid / 120), true);
-  shopRender();
-  announce(com.name + ' is paid up: ' + coin(res.total) + 'g in all.');
-  shopToast(coin(res.paid) + 'g on delivery. Word of the forge gets round.');
+  if (commissionToMake(com) > 0) {
+    SOUNDS.invalid();
+    shopToast(commissionToMake(com) + ' still to make before anything goes out.');
+    return;
+  }
+  const carts = freeVehicles(sh);
+  if (!carts.length) {
+    SOUNDS.invalid();
+    shopToast(sh.vehicles.length
+      ? 'Every vehicle is already out this phase.'
+      : 'Nothing to cart it in. Buy a vehicle under Property.');
+    return;
+  }
+  const d = SHOPUI.draft = { vehicle: bestFreeVehicle(sh).id };
+  const redraw = function () {
+    const sh2 = shop();
+    const cart = vehicleById(sh2, d.vehicle) || carts[0];
+    const haul = commissionHaul(sh2, com, cart);
+    let html = '<p class="roster-note">You take the road yourself, which costs you the ' +
+      'phase. A runner would go instead and leave the phase yours.</p>' +
+      '<div class="pick-row"><label for="shCart">In</label>' +
+      '<select id="shCart" data-sel="vehicle">';
+    for (const v of freeVehicles(sh2)) {
+      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') + '>' +
+        esc(vehicleDef(v.kind).name) + ' — carries ' + vehicleCapacity(v) + '</option>';
+    }
+    html += '</select></div>' +
+      '<div class="sheet-total"><span>In the crate</span><b>' + haul.waiting + '</b></div>' +
+      '<div class="sheet-total"><span>This trip takes</span><b>' + haul.load + '</b></div>' +
+      '<div class="sheet-total"><span>Trips to finish</span><b>' + haul.trips + '</b></div>' +
+      (haul.load < haul.waiting
+        ? '<p class="roster-note">The rest stays in the crate for another run. Nothing is ' +
+          'paid until the last of it is in their hands.</p>'
+        : '<p class="roster-note">That finishes the contract, and the balance with it.</p>');
+    shopSheet('Deliver to ' + com.name, html, [
+      { label: 'Take it out', primary: true, disabled: haul.load <= 0,
+        onClick: function () {
+          const res = deliverCommission(shop(), id, d.vehicle);
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          shopSheetClose();
+          if (res.done) {
+            SOUNDS.coins(Math.min(3, res.paid / 120), true);
+            announce(com.name + ' is paid up: ' + coin(res.total) + 'g in all.');
+            shopSpendPhase(coin(res.paid) + 'g on delivery. Word of the forge gets round.');
+          } else {
+            SOUNDS.shelve();
+            announce(res.load + ' delivered to ' + com.name + '.');
+            shopSpendPhase(res.delivered + ' of ' + com.qty + ' delivered · ' +
+              res.left + ' still in the crate.');
+          }
+        } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
 }
 
 /* ---------- property --------------------------------------------------- */
@@ -12197,14 +12841,14 @@ function shopBuyDeed(defId) {
   shopToast('Hire miners and it digs every week. Send a runner for what it digs.');
 }
 
-function shopBuyCart(kind) {
-  const res = shopBuyVehicle(shop(), kind);
+function shopBuyCart(kind, trade) {
+  const res = shopBuyVehicle(shop(), kind, trade);
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   SOUNDS.prosper(false);
   shopRender();
   const def = vehicleDef(kind);
-  announce(def.name + (res.upgraded ? ' put to the wagon' : ' bought') + '.');
-  shopToast('Carries ' + def.capacity + ' ore a trip.');
+  announce(def.name + (res.upgraded ? ' made out of the wagon' : ' bought') + '.');
+  shopToast('Carries ' + def.capacity + ' a trip, ore or goods.');
 }
 
 /* One mine, everything about it: who works it, what it has dug, and what can
@@ -12566,7 +13210,10 @@ function shopSendStaff(id, again) {
     return;
   }
   if (e.role === 'runner') {
-    if (sh.mines.length && sh.vehicles.length) { shopOpenErrand(e); return; }
+    const canHaul = sh.mines.length > 0 && sh.vehicles.length > 0;
+    const canShip = sh.vehicles.length > 0 &&
+      sh.commissions.some(function (com) { return commissionReady(com); });
+    if (canHaul || canShip) { shopOpenErrand(e, canHaul, canShip); return; }
     SHOPUI.draft = {};
     shopOpenBuy(e);
     return;
@@ -12581,17 +13228,105 @@ function shopSendStaff(id, again) {
 
 /* A runner who could go either way is asked which. A forge with no property
    never sees this at all. */
-function shopOpenErrand(runner) {
+function shopOpenErrand(runner, canHaul, canShip) {
+  const acts = [
+    { label: 'Go to market', primary: true,
+      onClick: function () { SHOPUI.draft = {}; shopOpenBuy(runner); } }
+  ];
+  if (canHaul) acts.push({ label: 'Collect ore', onClick: function () { shopOpenCollect(runner); } });
+  if (canShip) acts.push({ label: 'Make a delivery', onClick: function () { shopOpenDeliver(runner); } });
+  acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
   shopSheet('What is ' + runner.name.split(' ')[0] + ' doing?',
-    '<p class="roster-note">One errand a phase. The market sells finished bar stock; your own ' +
-    'mines dig raw ore, which has to be carted home and smelted before the anvil will take ' +
-    'it.</p>',
-    [
-      { label: 'Go to market', primary: true,
-        onClick: function () { SHOPUI.draft = {}; shopOpenBuy(runner); } },
-      { label: 'Collect ore', onClick: function () { shopOpenCollect(runner); } },
+    '<p class="roster-note">One errand a phase, and one vehicle each. The market sells finished ' +
+    'bar stock; your own mines dig ore that has to be carted home; and a contract whose goods ' +
+    'are made still has to be taken to the customer before a penny of the balance is paid.</p>',
+    acts);
+}
+
+/* Sending a runner out with a contract. Everything the choice turns on is on
+   one screen: who it is for, what is still owed them, what the cart will
+   hold, and how long is left to get it there. */
+function shopOpenDeliver(runner) {
+  const sh = shop();
+  const ready = sh.commissions.filter(function (com) { return commissionReady(com); });
+  if (!ready.length) {
+    shopSheet('Make a delivery',
+      '<p class="shop-empty">No contract has its goods ready. Finish the making first — the ' +
+      'ledger says what each one is still short.</p>',
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  const carts = freeVehicles(sh);
+  if (!carts.length) {
+    shopSheet('Make a delivery',
+      '<p class="shop-empty">' + (sh.vehicles.length
+        ? 'Every vehicle is already out this phase. Two runners need two vehicles.'
+        : 'You own nothing to cart goods in. Buy a vehicle under Property.') + '</p>',
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  const d = SHOPUI.draft = { commission: ready[0].id, vehicle: bestFreeVehicle(sh).id };
+  const redraw = function () {
+    const sh2 = shop();
+    const com = commissionById(sh2, d.commission) || ready[0];
+    const cart = vehicleById(sh2, d.vehicle) || carts[0];
+    const haul = commissionHaul(sh2, com, cart);
+    const days = commissionDaysLeft(sh2, com);
+    if (!d.qty || d.qty > haul.load) d.qty = haul.load;
+
+    let html = '<div class="pick-row"><label for="shCom">Contract</label>' +
+      '<select id="shCom" data-sel="commission">';
+    for (const c of ready) {
+      html += '<option value="' + c.id + '"' + (c.id === com.id ? ' selected' : '') + '>' +
+        esc(c.name) + ' — ' + commissionToShip(c) + ' of ' + c.qty + ' still to go</option>';
+    }
+    html += '</select></div>';
+
+    html += '<div class="pick-row"><label for="shCart">In</label>' +
+      '<select id="shCart" data-sel="vehicle">';
+    for (const v of sh2.vehicles) {
+      const free = vehicleFree(sh2, v);
+      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') +
+        (free ? '' : ' disabled') + '>' + esc(vehicleDef(v.kind).name) + ' — carries ' +
+        vehicleCapacity(v) + (free ? '' : ' · already out') + '</option>';
+    }
+    html += '</select></div>';
+
+    html += '<div class="pick-row"><label>How many</label>' +
+      stepper('qty', d.qty, 0, Math.max(0, haul.load)) + '</div>' +
+      '<div class="sheet-total"><span>Going to</span><b>' + esc(com.name) + '</b></div>' +
+      '<div class="sheet-total"><span>Still owed them</span><b>' + haul.waiting + ' of ' +
+      com.qty + '</b></div>' +
+      '<div class="sheet-total"><span>The ' +
+      esc(vehicleDef(cart.kind).name.toLowerCase()) + ' holds</span><b>' +
+      haul.capacity + '</b></div>' +
+      '<div class="sheet-total' + (days <= 1 ? ' short' : '') + '"><span>Due</span><b>' +
+      (days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days') + '</b></div>';
+    if (haul.trips > 1) {
+      html += '<p class="roster-note" style="color:var(--ember)">This cart will not take it all ' +
+        'at once — ' + haul.trips + ' trips at this size. Nothing is paid until the last of it ' +
+        'arrives, and the deadline does not wait.</p>';
+    } else {
+      html += '<p class="roster-note">One trip finishes it, and the balance comes with it.</p>';
+    }
+
+    shopSheet('Send ' + runner.name.split(' ')[0] + ' out', html, [
+      { label: 'Send them off', primary: true, disabled: d.qty <= 0,
+        onClick: function () {
+          const res = rosterBook(runner, { order: { kind: 'deliver', commission: d.commission,
+            vehicle: d.vehicle, qty: d.qty } });
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          shopSheetClose();
+          shopRender();
+          announce(runner.name + ' will take ' + d.qty + ' to ' + com.name + ' in the ' +
+            SHOP.phaseName[res.phase].toLowerCase() + '.');
+          shopToast('Booked. Your own phase is still yours.');
+        } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
     ]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
 }
 
 /* Which property, in what, and how much. The amount is capped by all three
@@ -12727,14 +13462,15 @@ function rosterBook(employee, job) {
     const now = (job || {}).order || {};
     // the cart the old order held goes back in the yard before the new one
     // asks for it, so re-picking the same cart is not a clash with itself
-    if (was.kind === 'ore') {
+    const carries = function (o) { return o.kind === 'ore' || o.kind === 'deliver'; };
+    if (carries(was)) {
       const old = vehicleById(sh, was.vehicle);
       if (old) old.busy = null;
     }
-    if (now.kind === 'ore') {
+    if (carries(now)) {
       const cart = vehicleById(sh, now.vehicle);
       if (!cart || !vehicleFree(sh, cart)) {
-        if (was.kind === 'ore') {
+        if (carries(was)) {
           const back = vehicleById(sh, was.vehicle);
           if (back) back.busy = { day: sh.day, phase: a.phase };
         }
@@ -12937,7 +13673,9 @@ function wireShop() {
     const buymine = t.closest('[data-buymine]');
     if (buymine && !buymine.disabled) { shopBuyDeed(buymine.dataset.buymine); return; }
     const buyveh = t.closest('[data-buyvehicle]');
-    if (buyveh && !buyveh.disabled) { shopBuyCart(buyveh.dataset.buyvehicle); return; }
+    if (buyveh && !buyveh.disabled) { shopBuyCart(buyveh.dataset.buyvehicle, false); return; }
+    const tradeveh = t.closest('[data-tradevehicle]');
+    if (tradeveh && !tradeveh.disabled) { shopBuyCart(tradeveh.dataset.tradevehicle, true); return; }
     const smelt = t.closest('[data-smelt]');
     if (smelt) { shopOpenSmelt(smelt.dataset.smelt); return; }
     const up = t.closest('[data-upgrade]');

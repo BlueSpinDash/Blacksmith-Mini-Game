@@ -947,6 +947,32 @@ and save round trips without touching anything else in an old save, and the
 first save afterwards writes it down. The same face follows them through
 recruitment, the roster list, the pickers and their box.
 
+### Everyone is a stranger until you serve them
+
+A townsperson's purse, standards and taste are real from the day they arrive
+and steer everything they do. None of it is visible. `one.known` records what
+this forge has found out — `{ wealth, likes[], dislikes[] }` — and every screen
+that draws a customer asks the knowledge functions rather than reading the
+person, so nothing can leak through a card, a tooltip or the haggle screen.
+A check walks a whole selling phase asserting the counter never even hands the
+purse to the UI.
+
+Wealth reads as one of five bands (`SHOP.intel.wealth`), never a figure,
+because a purse moves week to week and what is being learned is the sort of
+customer somebody is. The bands are cut so all five are populated: labourers
+and farmers poor, the watch and the rank and file modest, craftsmen and clerics
+comfortable, merchants and knights wealthy, nobles and collectors affluent.
+Likes and dislikes come from `customerTaste`, read off the same `likes` table
+the shop floor already uses, so the book and the customer can never drift.
+
+`learnAboutCustomer` runs on every visit, sale or no sale. `readSkill` turns the
+seller into odds and attempts: the player has their own eye, and a salesperson's
+rank buys both better odds and more chances to use them. Measured over 56 visits:
+an E-rank finds 9 facts, the player 18, a C-rank 49, an S-rank 66 — which is the
+point of the feature, since a salesperson was previously only worth their haggle.
+Discoveries are permanent, never repeated, and restored only where they could
+really have been made (a category the trade was never cold on is dropped).
+
 ### Commissions: a lot, a deadline and a price
 
 Once the forge has a reputation worth trusting (`SHOP.commission.minRep`), a
@@ -967,6 +993,26 @@ days, for `premium` above what the pieces would fetch singly.
 A **salesperson** minding the counter never answers one on your behalf. They
 write it down (`queueCommission`) and it is waiting in the **Ledger** tab when
 the phase closes.
+
+**Making the goods is not finishing the job.** Three numbers track a contract
+and they mean different things: `qty` asked for, `filled` made and standing in
+the crate, `delivered` in the customer's hands. The lifecycle runs
+*In production → Awaiting delivery → Partly delivered → Completed*, and
+`commissionState` names it in one place that the ledger, the staff screen and
+the customer's page all read.
+
+A delivery takes a **vehicle** and a **phase**. `deliverCommission(shop, id,
+vehicleId, want)` moves one load, capped by the crate and the cart, out of
+`filled` and into `delivered`; the balance is paid **once**, on the load that
+completes it, so splitting a job across four trips pays exactly what one trip
+would. A check carries a contract out by handcart and asserts the total paid
+equals the balance and nothing is carried twice.
+
+The deadline is counted against **delivery**, so a crate of finished swords with
+nothing to cart them in is still late; `expireCommissions` returns only the
+undelivered crate and the customer keeps whatever already arrived.
+`commissionTrips` warns at the offer screen how many runs a contract will need
+in the best vehicle owned — and the player may sign anyway.
 
 Goods are **allocated**, not counted: `allocateCommission` moves them out of
 `shop.storage` into `com.filled`, so the same piece can never be on a stand and
@@ -1001,15 +1047,25 @@ however the calendar was advanced or a save reloaded. Anything over
 `mineStoreCap` is spoil left on the ground, which is what makes ore sheds worth
 buying.
 
-| Vehicle | Carries | Notes |
-| --- | --- | --- |
-| Cart | 10 | |
-| Wagon | 30 | |
-| Horse-drawn Wagon | 60 | Upgrades a wagon you already own, in place |
+| Vehicle | Carries | Price | Notes |
+| --- | --- | --- | --- |
+| Handcart | 5 | 190g | |
+| Merchant Wagon | 15 | 760g | |
+| Freight Wagon | 30 | 1750g | Or trade a merchant wagon up for 1150g |
 
-Vehicles are **equipment, never consumed**. Booking a haul reserves one for that
-phase (`vehicle.busy`), so two runners cannot be sent out with the same cart;
-the runner gives it back when they get home. `collectOre` caps the load three
+One set of vehicles does **every** job that moves goods — ore home from a mine
+and finished contracts out to customers. Any tier can be bought outright; the
+trade-up is a cheaper road that costs you the wagon, which matters because two
+vehicles are two runners out at once.
+
+Vehicles are **equipment, never consumed**. Booking any haul reserves one for
+that phase (`vehicle.busy`), so the same cart cannot fetch ore and deliver goods
+at once, and the runner gives it back when they get home.
+
+**A runner has three errands**, one a phase, all booked through the existing
+staff roster: `{}` for market, `{kind:'ore'}` for a mine, `{kind:'deliver'}` for
+a contract. `jobGap` and `jobSummary` name each one on the roster box, and
+`shopAssign` refuses a delivery for a contract still being made. `collectOre` caps the load three
 ways — what the mine has, what the vehicle carries, and what the forge can still
 hold — and *moves* the ore rather than copying it, so nothing is created or lost
 by fetching it.
@@ -1286,6 +1342,11 @@ SHOP.legacyRecipes                     // what a pre-craft save is read as havin
 SHOP.stands / SHOP.standHold           // the six fixtures, and how much one holds
 SHOP.customers                         // the trades: budget, haggle, standards, income
 SHOP.town                              // town size, wants, purses and how fast they refill
+SHOP.intel.wealth                      // the five bands a customer's means are read as
+SHOP.intel.tastes                      // how many likes and dislikes are learnable
+SHOP.intel.playerOdds / .staffOdds     // reading somebody over the counter
+SHOP.intel.staffPerPower / .triesPerPower  // what a salesperson's rank buys
+SHOP.vehicles                          // the yard: what each carries, costs and trades up for
 SHOP.quality / SHOP.qualityBands       // what the puzzle result is worth, and its five names
 SHOP.purseBase                         // what a middling customer thinks twice at
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
