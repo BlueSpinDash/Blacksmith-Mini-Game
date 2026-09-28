@@ -653,32 +653,90 @@ becomes the goods' quality, which sets what they are worth.
 Finished work lands in **storage** the next morning. It never goes straight to
 the floor — moving it there costs a phase (or a Store Hand).
 
-### What the forge knows: the Checksmith Almanac
+### The Almanac: sixteen crafts, sixteen trees
 
-A forge opens knowing **eight** recipes out of eighty-two and learns the rest.
-`SHOP.items` is the whole catalogue — sixteen categories, each recipe carrying
-its board size, its bronze price, how deep in the tree it sits, the recipes that
-must come before it, and the customers who come looking for it. `recipeNeeds`
-turns that row into a requirement: the prerequisites that must have been
-*forged*, the reputation the shop must have made, and the premises it must be
-working out of. Nothing branches on a recipe id anywhere.
+A blueprint is not a thing you collect. It is a thing you get better at.
 
-Two paths open a recipe. `discoverRecipes` runs at the turn of the day and
-learns everything the shop has worked its way up to, which is the quiet half of
-the mode's progression and is reported in the morning. `buySchematic` sells the
-rest of the way to anyone who has done the groundwork at the anvil: gold skips
-the waiting, never the anvil work. `shop.ledger` is the book of what the forge
-has actually made — how many, the best quality it ever reached, and every metal
-it has been worked in — and `forgeCheck` refuses anything the shop has no
-blueprint for.
+**Every category is a craft** with its own experience, its own tree and its own
+root — the one recipe in it with no prerequisite, which taking the craft up
+hands you free at level 1. No blueprint waits on one from another craft, so a
+locked discipline can never need its own experience to open, which would be an
+impossible loop. A check enforces that, and another checks every blueprint is
+reachable from its craft's root.
 
-The Almanac screen draws one page a category and the recipes on it as the tree
-they are, elbows and all, as nested lists rather than a laid-out canvas, so it
-reflows to any width. Known nodes carry their best quality, ready ones are
-ringed, and undiscovered ones show the shape of the thing in grey with what it
-would take written under it. Tapping one opens its page: category, best work,
-metals worked, who wants it, which stand it goes on, and either how it was
-learned or the checklist to learn it.
+**A new forge chooses two.** Before the doors open, the smith says what they
+served their apprenticeship at (`SHOP.craft.startingPicks`). They get the first
+blueprint of each, free, and nothing else. A third craft is bought later with
+**reputation and gold** — never that craft's experience — and both climb with
+how many you already hold.
+
+**Experience is earned at the anvil and nowhere else.** `recordCraft` is the
+only place a finished piece is written into the book and the only place
+experience is paid, so the player's own batches and a staff smith's both go
+through it and neither can be counted twice. It runs when the work is done, not
+when it is delivered, so reloading a save with a batch still on the anvil cannot
+pay for it again. Selling, stocking and hauling earn nothing.
+
+`craftXpFor` scales one piece by the board it is worked on, the metal, and the
+quality of the work — with a floor, so crude work still earns. `shop.xp` is a
+map keyed by craft and there is deliberately no shop-wide pool; a check asserts
+every key in it is a real category, and restoring a save drops experience
+banked against a craft the forge never took up.
+
+| | Level 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- |
+| Worth | ×1.00 | ×1.20 | ×1.45 | ×1.75 | ×2.15 |
+
+**A level is money, and it is also the road on.** `blueprintUpgradeCost` takes
+a blueprint one level further; `blueprintUnlockCost` and `requiredParentLevel`
+say what an advanced node costs and how far its parent must have come first,
+both by the node's depth in the tree. Reaching a level often opens a *choice* of
+two, and you need not take both.
+
+**The level and the quality never touch.** The level is bought in the Almanac
+and is permanent; the quality is scored at the anvil, per batch. Taking a
+blueprint further leaves the best work you ever did alone, and a masterwork at
+the anvil leaves the level alone. A finished piece **keeps the level it was made
+on** — stamped on the order, carried into the storage lot (blended by the piece,
+like quality) and onto the stand — so a later upgrade never silently reprices
+stock already on the shelf.
+
+`recommendedPrice(item, material, quality, level)` applies the recipe's price,
+the metal, the work and the blueprint exactly once each. A check multiplies them
+out by hand and compares; another catches the multiplier being applied twice.
+
+**The screen** is two deep. `almanacCraftsHtml` draws the sixteen crafts as
+illustrated cards; picking one opens `almanacCraftHtml`, which heads the page
+with experience in hand, experience ever earned, blueprints unlocked and
+blueprints mastered, then draws the tree. `disciplineTree` does the layout in
+core — leaves take the next free column, a parent sits centred over its own
+children, and each subtree owns a contiguous run of columns, so no two branches
+can overlap. It is checked without a browser: a node per blueprint, no two in
+one place, a line per step, every child one row below its parent, and no tree
+wider than five columns. Nodes read *locked*, *available*, *unlocked* or
+*mastered*, and the connector lights up once the blueprint it leads out of is
+far enough along to follow.
+
+Everything the progression runs on is in `SHOP.craft` and nowhere else.
+
+### A forge becoming something
+
+What the progression actually feels like, played straight through by a check:
+
+```
+chose swords and shields; book: shortsword, buckler
+after 9 days of arming swords: level 3 · sword xp 0 · shield xp 0
+longsword now available for 94 xp
+unlock longsword: { ok: true, spent: 94, level: 1 }
+book now: shortsword, buckler, longsword
+shields untouched: 0 xp, buckler level 1
+take up axes: { ok: true, spent: 900, root: 'hatchet' }
+hatchet level 1 · axe xp 0
+```
+
+The shields pocket is untouched because no buckler was ever made — the two
+trees are entirely independent, which is the whole point. The axes came later,
+bought with the business rather than earned, because there was no other way in.
 
 ### The floor is fixtures, not slots
 
@@ -1216,7 +1274,15 @@ CONFIG.versus.generation               // attempts and mobility tolerance for bo
 SHOP.materials                         // strikes per square, ingot cost and value
 SHOP.categories                        // the sixteen shelves of the catalogue
 SHOP.items                             // every recipe: size, price, tree depth, needs, tags
-SHOP.startingRecipes / SHOP.unlock     // what a forge opens knowing, and what the rest cost
+SHOP.categories[].root / .blurb        // each craft's first blueprint, and its card
+SHOP.craft.maxLevel / .levelValue      // how far a blueprint goes, and what each level is worth
+SHOP.craft.xpBase / .xpPerSize         // experience for one piece, and what a bigger board adds
+SHOP.craft.xpMaterial / .xpQuality     // how hard the metal and the work pull on it
+SHOP.craft.upgradeCost / .upgradeSize  // taking a blueprint a level further
+SHOP.craft.unlockCost / .needLevel     // learning a new one, and how far its parent must come
+SHOP.craft.startingPicks               // how many trades a new forge chooses
+SHOP.craft.disciplineRep / .Cost       // what taking up a further craft asks for
+SHOP.legacyRecipes                     // what a pre-craft save is read as having known
 SHOP.stands / SHOP.standHold           // the six fixtures, and how much one holds
 SHOP.customers                         // the trades: budget, haggle, standards, income
 SHOP.town                              // town size, wants, purses and how fast they refill

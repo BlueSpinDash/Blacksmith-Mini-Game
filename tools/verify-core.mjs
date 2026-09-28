@@ -2419,43 +2419,446 @@ function stock(shop, key, qty, quality, price) {
   return stand;
 }
 
-section('Open Your Forge: the Almanac and what the forge knows');
+/* A forge that has served its apprenticeship at the named trades. Every
+   check about the craft starts here, because a shop with no trade to its
+   name cannot forge anything at all - which is itself one of the checks. */
+function apprenticed(shop, ...crafts) {
+  for (const id of (crafts.length ? crafts : ['swords', 'shields'])) {
+    C.takeUpDiscipline(shop, id, 'apprenticed');
+  }
+  return shop;
+}
+
+/* Experience enough to buy whatever is under test, without forging for it. */
+function schooled(shop, catId, amount) {
+  shop.xp[catId] = amount == null ? 100000 : amount;
+  return shop;
+}
+
+section('Open Your Forge: the crafts and their trees');
 {
-  ok('a new forge knows the starting recipes and nothing else', (() => {
+  ok('a new forge has taken up no craft and knows nothing', (() => {
     const s = C.createShop({ rnd: C.mulberry32(400) });
-    return s.known.length === C.SHOP.startingRecipes.length &&
-      C.SHOP.startingRecipes.every((id) => C.recipeKnown(s, id)) &&
-      !C.recipeKnown(s, 'longsword');
+    return s.disciplines.length === 0 && s.known.length === 0 &&
+      C.knownRecipes(s).length === 0;
   })());
 
-  ok('every starting recipe is a real one that needs nothing first', (() =>
-    C.SHOP.startingRecipes.every((id) => {
-      const it = C.shopItem(id);
-      return it && it.tier === 0 && (it.needs || []).length === 0;
+  ok('every craft names a root that is real and needs nothing first', (() =>
+    C.SHOP.categories.every((c) => {
+      const it = C.shopItem(c.root);
+      return it && it.cat === c.id && C.recipeParents(it.id).length === 0;
     })));
 
-  ok('every recipe names prerequisites that exist', (() =>
-    C.SHOP.items.every((it) => (it.needs || []).every((n) => !!C.shopItem(n)))));
+  ok('every craft has exactly one root, so there is one way in', (() =>
+    C.SHOP.categories.every((c) =>
+      C.disciplineItems(c.id).filter((it) => C.recipeParents(it.id).length === 0).length === 1)));
 
-  ok('no recipe is its own ancestor', (() => {
-    const seen = {};
+  ok('no blueprint waits on one from another craft', (() =>
+    C.SHOP.items.every((it) => (it.needs || []).every((n) => {
+      const parent = C.shopItem(n);
+      return parent && parent.cat === it.cat;
+    }))));
+
+  ok('every blueprint is reachable from its own craft’s root', (() =>
+    C.SHOP.categories.every((c) => {
+      const seen = {};
+      const walk = (id) => {
+        if (seen[id]) return;
+        seen[id] = true;
+        for (const it of C.disciplineItems(c.id)) {
+          if (C.recipeParents(it.id).indexOf(id) >= 0) walk(it.id);
+        }
+      };
+      walk(c.root);
+      return C.disciplineItems(c.id).every((it) => seen[it.id]);
+    })));
+
+  ok('no blueprint is its own ancestor', (() => {
     const walk = (id, trail) => {
       if (trail.indexOf(id) >= 0) return false;
-      const it = C.shopItem(id);
-      return (it.needs || []).every((n) => walk(n, trail.concat([id])));
+      return C.recipeParents(id).every((n) => walk(n, trail.concat([id])));
     };
     return C.SHOP.items.every((it) => walk(it.id, []));
   })());
 
-  ok('the forge will not work a recipe it has never been shown', (() => {
+  ok('taking up a craft hands you its root free, at level one', (() => {
     const s = C.createShop({ rnd: C.mulberry32(401) });
+    C.takeUpDiscipline(s, 'swords');
+    return C.hasDiscipline(s, 'swords') && C.blueprintLevel(s, 'shortsword') === 1 &&
+      C.craftXp(s, 'swords') === 0 && !C.recipeKnown(s, 'buckler');
+  })());
+
+  ok('taking up two leaves the other fourteen shut', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(402) }));
+    return s.disciplines.length === 2 && s.known.length === 2 &&
+      !C.hasDiscipline(s, 'axes') && !C.recipeKnown(s, 'hatchet');
+  })());
+
+  ok('a craft you have not taken up hides its whole tree', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(403) }));
+    const st = C.recipeStatus(s, 'hatchet');
+    return !st.discipline && !st.ready && !st.buyable;
+  })());
+}
+
+section('Open Your Forge: experience is earned at the anvil');
+{
+  ok('forging earns experience in that craft and no other', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(410) }));
+    s.materials.bronze = 40;
+    const res = C.shopFinishForge(s, 'shortsword', 'bronze', 3, 90, 'you');
+    return res.ok && res.xp > 0 && C.craftXp(s, 'swords') === res.xp &&
+      C.craftXp(s, 'shields') === 0;
+  })());
+
+  ok('every blueprint in a craft fills the same pocket', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(411) }));
+    schooled(s, 'swords', 100000);
+    while (C.blueprintLevel(s, 'shortsword') < C.requiredParentLevel('longsword')) {
+      C.upgradeBlueprint(s, 'shortsword');
+    }
+    C.unlockBlueprint(s, 'longsword');
+    s.xp.swords = 0;
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 90, 'you');
+    const one = C.craftXp(s, 'swords');
+    C.shopFinishForge(s, 'longsword', 'bronze', 1, 90, 'you');
+    return one > 0 && C.craftXp(s, 'swords') > one;
+  })());
+
+  ok('a bigger board is worth more experience than a small one', (() =>
+    C.craftXpFor('greatsword', 'bronze', 90) > C.craftXpFor('shortsword', 'bronze', 90)));
+
+  ok('a dearer metal is worth more', (() =>
+    C.craftXpFor('shortsword', 'gold', 90) > C.craftXpFor('shortsword', 'bronze', 90)));
+
+  ok('better work is worth more, and crude work is still worth something', (() =>
+    C.craftXpFor('shortsword', 'bronze', 100) > C.craftXpFor('shortsword', 'bronze', 20) &&
+    C.craftXpFor('shortsword', 'bronze', 0) >= 1));
+
+  ok('an early blueprint never stops earning', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(412) }));
+    schooled(s, 'swords', 100000);
+    while (C.blueprintLevel(s, 'shortsword') < C.requiredParentLevel('longsword')) {
+      C.upgradeBlueprint(s, 'shortsword');
+    }
+    C.unlockBlueprint(s, 'longsword');
+    C.unlockBlueprint(s, 'falchion');
+    s.xp.swords = 0;
+    s.materials.bronze = 20;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    return C.craftXp(s, 'swords') > 0;      // the root still pays, however far you are
+  })());
+
+  ok('a staff smith earns the forge experience too', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(413) }));
+    s.materials.bronze = 40;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
+    const res = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 3 });
+    return res.ok && res.xp > 0 && C.craftXp(s, 'swords') === res.xp;
+  })());
+
+  ok('experience is paid once at the anvil, not again on delivery', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(414) }));
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 90, 'you');
+    const after = C.craftXp(s, 'swords');
+    C.shopEndDay(s);                         // the batch comes off the anvil
+    return after > 0 && C.craftXp(s, 'swords') === after;
+  })());
+
+  ok('putting the forge down and picking it up pays for nothing twice', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(415) }));
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 90, 'you');
+    const after = C.craftXp(s, 'swords');
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    C.shopEndDay(back);
+    return C.craftXp(back, 'swords') === after;
+  })());
+
+  ok('selling, stocking and hauling earn nothing at all', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(416) }));
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 90, 'you');
+    C.shopEndDay(s);
+    const after = C.craftXp(s, 'swords');
+    C.shopMoveToShelf(s, C.lineKey('shortsword', 'bronze'), 3);
+    const stand = s.stands.find((st) => st.key === C.lineKey('shortsword', 'bronze'));
+    stand.qty -= 1;                          // as a sale would leave it
+    return C.craftXp(s, 'swords') === after;
+  })());
+
+  ok('lifetime experience only ever climbs, however much is spent', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(417) }));
+    s.materials.bronze = 200;
+    for (let i = 0; i < 8; i++) C.shopFinishForge(s, 'shortsword', 'bronze', 3, 95, 'you');
+    const total = C.craftXpTotal(s, 'swords');
+    C.upgradeBlueprint(s, 'shortsword');
+    return C.craftXp(s, 'swords') < total && C.craftXpTotal(s, 'swords') === total;
+  })());
+}
+
+section('Open Your Forge: spending it on the tree');
+{
+  ok('a blueprint takes a level, and the level costs what the book says', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(420) }));
+    schooled(s, 'swords', 1000);
+    const cost = C.blueprintUpgradeCost('shortsword', 1);
+    const res = C.upgradeBlueprint(s, 'shortsword');
+    return res.ok && res.level === 2 && res.spent === cost &&
+      C.craftXp(s, 'swords') === 1000 - cost;
+  })());
+
+  ok('each level costs more than the last', (() => {
+    let last = 0;
+    for (let l = 1; l < C.SHOP.craft.maxLevel; l++) {
+      const cost = C.blueprintUpgradeCost('shortsword', l);
+      if (!(cost > last)) return false;
+      last = cost;
+    }
+    return C.blueprintUpgradeCost('shortsword', C.SHOP.craft.maxLevel) === null;
+  })());
+
+  ok('a bigger item costs more to master than a small one', (() =>
+    C.blueprintUpgradeCost('greatsword', 1) > C.blueprintUpgradeCost('shortsword', 1)));
+
+  ok('a blueprint stops at the top of the ladder', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(421) }));
+    schooled(s, 'swords');
+    for (let i = 0; i < 12; i++) C.upgradeBlueprint(s, 'shortsword');
+    return C.blueprintLevel(s, 'shortsword') === C.SHOP.craft.maxLevel &&
+      C.blueprintMastered(s, 'shortsword') &&
+      !C.upgradeBlueprint(s, 'shortsword').ok;
+  })());
+
+  ok('experience you have not got buys nothing', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(422) }));
+    schooled(s, 'swords', 0);
+    const res = C.upgradeBlueprint(s, 'shortsword');
+    return !res.ok && C.blueprintLevel(s, 'shortsword') === 1;
+  })());
+
+  ok('an advanced blueprint waits on its forerunner reaching a level', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(423) }));
+    schooled(s, 'swords');
+    const need = C.requiredParentLevel('longsword');
+    const cold = C.unlockBlueprint(s, 'longsword');
+    while (C.blueprintLevel(s, 'shortsword') < need) C.upgradeBlueprint(s, 'shortsword');
+    const warm = C.unlockBlueprint(s, 'longsword');
+    return !cold.ok && warm.ok && C.blueprintLevel(s, 'longsword') === 1;
+  })());
+
+  ok('unlocking one blueprint can open the choice of two', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(424) }));
+    schooled(s, 'swords');
+    while (C.blueprintLevel(s, 'shortsword') < C.requiredParentLevel('longsword')) {
+      C.upgradeBlueprint(s, 'shortsword');
+    }
+    C.unlockBlueprint(s, 'longsword');
+    while (C.blueprintLevel(s, 'longsword') < C.requiredParentLevel('bastard')) {
+      C.upgradeBlueprint(s, 'longsword');
+    }
+    return C.recipeStatus(s, 'bastard').buyable && C.recipeStatus(s, 'greatsword').buyable;
+  })());
+
+  ok('you may take one branch and leave the other', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(425) }));
+    schooled(s, 'swords');
+    while (C.blueprintLevel(s, 'shortsword') < C.requiredParentLevel('longsword')) {
+      C.upgradeBlueprint(s, 'shortsword');
+    }
+    C.unlockBlueprint(s, 'longsword');
+    return C.recipeKnown(s, 'longsword') && !C.recipeKnown(s, 'falchion');
+  })());
+
+  ok('sword experience cannot buy a shield, or the other way about', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(426) }));
+    schooled(s, 'swords', 100000);
+    schooled(s, 'shields', 0);
+    while (C.blueprintLevel(s, 'buckler') < 5 && C.upgradeBlueprint(s, 'buckler').ok) { /* try */ }
+    const res = C.upgradeBlueprint(s, 'buckler');
+    return !res.ok && C.blueprintLevel(s, 'buckler') === 1 &&
+      C.craftXp(s, 'swords') === 100000;
+  })());
+
+  ok('there is no shop-wide pool to spend instead', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(427) }));
+    return typeof s.xp === 'object' && s.xp.all === undefined &&
+      Object.keys(s.xp).every((k) => !!C.shopCategory(k));
+  })());
+
+  ok('a blueprint outside your crafts cannot be bought at any price', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(428) }));
+    s.xp.axes = 100000;                      // as a hand-edited save might hold
+    const res = C.unlockBlueprint(s, 'handaxe');
+    return !res.ok && !C.recipeKnown(s, 'handaxe');
+  })());
+}
+
+section('Open Your Forge: taking up a third craft');
+{
+  ok('a third craft is bought with a name and money, never its own experience', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(430) }));
+    const terms = C.disciplineTerms(s);
+    s.reputation = terms.rep;
+    s.gold = terms.cost;
+    const res = C.shopTakeUpDiscipline(s, 'axes');
+    return res.ok && C.hasDiscipline(s, 'axes') && s.gold === 0 &&
+      C.blueprintLevel(s, 'hatchet') === 1 && C.craftXp(s, 'axes') === 0;
+  })());
+
+  ok('a forge without the name for it is turned down and pays nothing', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(431) }));
+    s.reputation = 0; s.gold = 1e6;
+    const res = C.shopTakeUpDiscipline(s, 'axes');
+    return !res.ok && !C.hasDiscipline(s, 'axes') && s.gold === 1e6;
+  })());
+
+  ok('a forge without the money is turned down too', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(432) }));
+    s.reputation = 1000; s.gold = 0;
+    return !C.shopTakeUpDiscipline(s, 'axes').ok && !C.hasDiscipline(s, 'axes');
+  })());
+
+  ok('each craft after that asks for more', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(433) }));
+    const third = C.disciplineTerms(s);
+    s.reputation = 1e6; s.gold = 1e9;
+    C.shopTakeUpDiscipline(s, 'axes');
+    const fourth = C.disciplineTerms(s);
+    return fourth.cost > third.cost && fourth.rep > third.rep;
+  })());
+
+  ok('the two you start with are free', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(434), gold: 0 });
+    apprenticed(s, 'swords', 'shields');
+    return s.gold === 0 && s.disciplines.length === 2;
+  })());
+
+  ok('a craft already yours cannot be bought twice', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(435) }));
+    s.reputation = 1e6; s.gold = 1e9;
+    const before = s.gold;
+    return !C.shopTakeUpDiscipline(s, 'swords').ok && s.gold === before &&
+      s.disciplines.length === 2;
+  })());
+}
+
+section('Open Your Forge: a blueprint’s level is worth money');
+{
+  ok('a mastered blueprint is worth better than twice a fresh one', (() => {
+    const one = C.recommendedPrice('shortsword', 'bronze', 100, 1);
+    const five = C.recommendedPrice('shortsword', 'bronze', 100, C.SHOP.craft.maxLevel);
+    return five > one * 2;
+  })());
+
+  ok('the value table climbs and starts at one', (() => {
+    const t = C.SHOP.craft.levelValue;
+    if (t[0] !== 1) return false;
+    for (let i = 1; i < t.length; i++) if (!(t[i] > t[i - 1])) return false;
+    return t.length === C.SHOP.craft.maxLevel;
+  })());
+
+  ok('the metal, the work and the blueprint each count once', (() => {
+    const base = C.shopItem('shortsword').price;
+    const gold = C.shopMaterial('gold').value;
+    const want = Math.round(base * gold * C.qualityFactor(80) * C.levelValue(3));
+    return C.recommendedPrice('shortsword', 'gold', 80, 3) === want;
+  })());
+
+  ok('two of the same piece differ by the blueprint alone', (() => {
+    const crude = C.recommendedPrice('shortsword', 'silver', 74, 1);
+    const master = C.recommendedPrice('shortsword', 'silver', 74, 5);
+    const want = C.levelValue(5) / C.levelValue(1);
+    // both are rounded to whole gold, so the ratio is only ever near-exact
+    return master > crude && Math.abs(master / crude - want) < 0.02;
+  })());
+
+  ok('a piece is priced on the blueprint it was made on, not today’s', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(440) }));
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 90, 'you');
+    C.shopEndDay(s);
+    const key = C.lineKey('shortsword', 'bronze');
+    const made = s.storage[key].level;
+    schooled(s, 'swords');
+    for (let i = 0; i < 4; i++) C.upgradeBlueprint(s, 'shortsword');
+    return made === 1 && s.storage[key].level === 1 &&
+      C.blueprintLevel(s, 'shortsword') === 5;
+  })());
+
+  ok('the stand takes the price the goods were made at', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(441) }));
+    schooled(s, 'swords');
+    for (let i = 0; i < 4; i++) C.upgradeBlueprint(s, 'shortsword');
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 100, 'you');
+    C.shopEndDay(s);
+    const key = C.lineKey('shortsword', 'bronze');
+    C.shopMoveToShelf(s, key, 3);
+    const stand = s.stands.find((st) => st.key === key);
+    return stand.level === 5 &&
+      stand.price === C.recommendedPrice('shortsword', 'bronze', 100, 5);
+  })());
+
+  ok('a blended lot averages the blueprints that made it', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(442) }));
+    const key = C.lineKey('shortsword', 'bronze');
+    C.addStorage(s, key, 2, 90, 1);
+    C.addStorage(s, key, 2, 90, 5);
+    return s.storage[key].qty === 4 && s.storage[key].level === 3;
+  })());
+
+  ok('a level is never counted twice on its way to the counter', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(443) }));
+    schooled(s, 'swords');
+    for (let i = 0; i < 4; i++) C.upgradeBlueprint(s, 'shortsword');
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 100, 'you');
+    C.shopEndDay(s);
+    const key = C.lineKey('shortsword', 'bronze');
+    C.shopMoveToShelf(s, key, 3);
+    const stand = s.stands.find((st) => st.key === key);
+    const plain = C.recommendedPrice('shortsword', 'bronze', 100, 1);
+    const once = C.recommendedPrice('shortsword', 'bronze', 100, 5);
+    // exactly one multiplier: applied twice the price would be half as much
+    // again, which is what this catches
+    return stand.price === once && stand.price < plain * C.levelValue(5) * 1.05;
+  })());
+
+  ok('a blueprint level never changes what stand a thing belongs on', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(444) }));
+    const before = C.standForItem('shortsword');
+    schooled(s, 'swords');
+    for (let i = 0; i < 4; i++) C.upgradeBlueprint(s, 'shortsword');
+    return C.standForItem('shortsword') === before;
+  })());
+}
+
+section('Open Your Forge: the anvil and the book stay separate');
+{
+  ok('the forge will not work a blueprint it has never been shown', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(450) }));
     s.materials.bronze = 20;
     const res = C.shopFinishForge(s, 'longsword', 'bronze', 2, 90, 'you');
     return !res.ok && s.orders.length === 0 && s.materials.bronze === 20;
   })());
 
+  ok('nor one from a craft it never took up', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(451) }));
+    s.materials.bronze = 20;
+    return !C.shopFinishForge(s, 'hatchet', 'bronze', 1, 90, 'you').ok;
+  })());
+
+  ok('only what is in the book is offered at the anvil', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(452) }));
+    const book = C.knownRecipes(s).map((it) => it.id);
+    return book.length === 2 && book.every((id) => C.recipeKnown(s, id));
+  })());
+
   ok('forging writes the book: what was made, the best of it and the metal', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(402) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(453) }));
     s.materials.bronze = 20;
     C.shopFinishForge(s, 'shortsword', 'bronze', 2, 70, 'you');
     C.shopFinishForge(s, 'shortsword', 'bronze', 1, 94, 'you');
@@ -2463,72 +2866,230 @@ section('Open Your Forge: the Almanac and what the forge knows');
     return rec.made === 3 && rec.best === 94 && rec.metals.bronze === 3;
   })());
 
-  ok('a recipe stays locked until its prerequisite has been forged, not just known', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(403) });
-    s.reputation = 90; s.tier = 4;
-    const before = C.recipeStatus(s, 'longsword');
+  ok('taking a blueprint further leaves the best work you ever did alone', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(454) }));
     s.materials.bronze = 20;
-    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
-    const after = C.recipeStatus(s, 'longsword');
-    return !before.ready && after.ready;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 94, 'you');
+    schooled(s, 'swords');
+    C.upgradeBlueprint(s, 'shortsword');
+    const rec = C.forgeRecord(s, 'shortsword');
+    return rec.best === 94 && rec.made === 2 && C.blueprintLevel(s, 'shortsword') === 2;
   })());
 
-  ok('reputation and premises gate the deeper recipes', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(404) });
-    s.materials.bronze = 60;
-    for (const id of ['shortsword']) C.shopFinishForge(s, id, 'bronze', 1, 80, 'you');
-    C.learnRecipe(s, 'longsword', 'study');
-    C.shopFinishForge(s, 'longsword', 'bronze', 1, 80, 'you');
-    s.reputation = 0; s.tier = 1;
-    const cold = C.recipeStatus(s, 'greatsword');
-    s.reputation = 100; s.tier = 4;
-    const warm = C.recipeStatus(s, 'greatsword');
-    return !cold.ready && warm.ready &&
-      cold.blockers.some((b) => b.kind === 'rep') &&
-      cold.blockers.some((b) => b.kind === 'store');
+  ok('a masterwork at the anvil leaves the blueprint’s level alone', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(455) }));
+    schooled(s, 'swords');
+    C.upgradeBlueprint(s, 'shortsword');
+    C.upgradeBlueprint(s, 'shortsword');
+    const level = C.blueprintLevel(s, 'shortsword');
+    s.materials.bronze = 20;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 100, 'you');
+    return level === 3 && C.blueprintLevel(s, 'shortsword') === 3;
   })());
 
-  ok('the turn of the day is when new blueprints arrive', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(405) });
-    s.reputation = 100; s.tier = 4; s.materials.bronze = 40;
-    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+  ok('nothing is learned overnight any more', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(456) }));
+    s.reputation = 1000; s.tier = 4; s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 100, 'you');
     const known = s.known.length;
     const day = C.shopEndDay(s);
-    return s.known.length > known && C.recipeKnown(s, 'longsword') &&
-      day.learned.indexOf('longsword') >= 0;
+    return s.known.length === known && day.learned.length === 0 &&
+      !C.recipeKnown(s, 'longsword');
   })());
+}
 
-  ok('a schematic buys past the name and the premises, never past the anvil', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(406) });
-    s.gold = 100000; s.reputation = 0; s.tier = 1;
-    const cold = C.buySchematic(s, 'longsword');
-    s.materials.bronze = 10;
-    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
-    const warm = C.buySchematic(s, 'longsword');
-    return !cold.ok && warm.ok && C.recipeKnown(s, 'longsword') && s.gold === 100000 - warm.spent;
-  })());
+section('Open Your Forge: the tree draws without overlapping itself');
+{
+  ok('every craft lays out with a node for each blueprint', (() =>
+    C.SHOP.categories.every((c) => {
+      const tree = C.disciplineTree(c.id);
+      return tree.nodes.length === C.disciplineItems(c.id).length;
+    })));
 
-  ok('a schematic nobody can afford is refused and costs nothing', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(407) });
-    s.gold = 0; s.materials.bronze = 10;
-    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
-    const res = C.buySchematic(s, 'longsword');
-    return !res.ok && !C.recipeKnown(s, 'longsword') && s.gold === 0;
-  })());
+  ok('no two nodes share a place on the page', (() =>
+    C.SHOP.categories.every((c) => {
+      const seen = {};
+      for (const n of C.disciplineTree(c.id).nodes) {
+        const at = n.depth + ':' + n.col;
+        if (seen[at]) return false;
+        seen[at] = true;
+      }
+      return true;
+    })));
 
-  ok('what the forge knows survives being put down', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(408) });
-    s.materials.bronze = 10;
-    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 88, 'you');
-    C.learnRecipe(s, 'longsword', 'schematic');
+  ok('a line is drawn for every step of every tree', (() =>
+    C.SHOP.categories.every((c) => {
+      const tree = C.disciplineTree(c.id);
+      const want = C.disciplineItems(c.id)
+        .reduce((n, it) => n + C.recipeParents(it.id).length, 0);
+      return tree.links.length === want;
+    })));
+
+  ok('the root is at the top and nothing sits above it', (() =>
+    C.SHOP.categories.every((c) => {
+      const tree = C.disciplineTree(c.id);
+      const root = tree.nodes.find((n) => n.id === c.root);
+      return root && root.depth === 0 && tree.nodes.every((n) => n.depth >= 0);
+    })));
+
+  ok('a child always hangs below its parent', (() =>
+    C.SHOP.categories.every((c) => {
+      const tree = C.disciplineTree(c.id);
+      const depth = {};
+      for (const n of tree.nodes) depth[n.id] = n.depth;
+      return tree.links.every((l) => depth[l.to] === depth[l.from] + 1);
+    })));
+
+  ok('no tree is too wide to reach on a phone', (() =>
+    C.SHOP.categories.every((c) => C.disciplineTree(c.id).cols <= 5)));
+
+  ok('the book can still name who wants a thing', (() =>
+    C.recipeCustomers('shortsword').length > 0));
+
+  ok('every blueprint names customers who exist', (() =>
+    C.SHOP.items.every((it) => (it.tags || []).every((t) => !!C.shopCustomerType(t)))));
+}
+
+section('Open Your Forge: the craft survives being put down');
+{
+  ok('crafts, experience and levels all come back', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(460) }));
+    schooled(s, 'swords', 900);
+    C.upgradeBlueprint(s, 'shortsword');
+    C.upgradeBlueprint(s, 'shortsword');
+    s.xpTotal.swords = 4000;
     const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
-    return C.recipeKnown(back, 'longsword') && C.forgeRecord(back, 'shortsword').best === 88 &&
-      C.forgeRecord(back, 'shortsword').made === 2 &&
-      back.learned.some((l) => l.id === 'longsword' && l.how === 'schematic');
+    return back.disciplines.join(',') === 'swords,shields' &&
+      C.blueprintLevel(back, 'shortsword') === 3 &&
+      C.craftXp(back, 'swords') === C.craftXp(s, 'swords') &&
+      C.craftXpTotal(back, 'swords') === 4000;
+  })());
+
+  ok('the book of what was made comes back with it', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(461) }));
+    s.materials.bronze = 20;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 88, 'you');
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return C.forgeRecord(back, 'shortsword').best === 88 &&
+      C.forgeRecord(back, 'shortsword').made === 2;
+  })());
+
+  ok('stock comes back priced on the blueprint that made it', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(462) }));
+    schooled(s, 'swords');
+    for (let i = 0; i < 4; i++) C.upgradeBlueprint(s, 'shortsword');
+    s.materials.bronze = 40;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 100, 'you');
+    C.shopEndDay(s);
+    const key = C.lineKey('shortsword', 'bronze');
+    C.shopMoveToShelf(s, key, 3);
+    const price = s.stands.find((st) => st.key === key).price;
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const stand = back.stands.find((st) => st.key === key);
+    return stand.level === 5 && stand.price === price;
+  })());
+
+  ok('a forge saved before the craft existed keeps every recipe it knew', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(463) });
+    const data = C.serializeShop(s);
+    delete data.disciplines; delete data.xp; delete data.xpTotal; delete data.blueprints;
+    data.known = ['shortsword', 'longsword', 'buckler', 'hatchet'];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return ['shortsword', 'longsword', 'buckler', 'hatchet']
+      .every((id) => C.recipeKnown(back, id) && C.blueprintLevel(back, id) === 1);
+  })());
+
+  ok('and is read as having taken up the crafts it could plainly work', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(464) });
+    const data = C.serializeShop(s);
+    delete data.disciplines; delete data.blueprints;
+    data.known = ['shortsword', 'longsword', 'buckler'];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.hasDiscipline(back, 'swords') && C.hasDiscipline(back, 'shields') &&
+      !C.hasDiscipline(back, 'axes');
+  })());
+
+  ok('a save from before recipes were learned at all still opens', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(465) });
+    const data = C.serializeShop(s);
+    data.v = 2;
+    delete data.known; delete data.ledger; delete data.learned;
+    delete data.disciplines; delete data.blueprints;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return !!back && C.SHOP.legacyRecipes.every((id) => C.recipeKnown(back, id)) &&
+      back.disciplines.length > 0;
+  })());
+
+  ok('an older save is never sent back to the specialisation screen', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(466) });
+    const data = C.serializeShop(s);
+    delete data.disciplines; delete data.blueprints;
+    data.known = ['cookknife'];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.disciplines.length === 1 && C.recipeKnown(back, 'cookknife');
+  })());
+
+  ok('a craft is given its root even if the save had lost it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(467) });
+    const data = C.serializeShop(s);
+    data.disciplines = ['swords'];
+    data.blueprints = { longsword: 4 };            // the root is missing
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.recipeKnown(back, 'shortsword') && C.blueprintLevel(back, 'longsword') === 4;
+  })());
+
+  ok('a save whose craft list is rubbish still leaves a forge that can work', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(468) }));
+    const data = C.serializeShop(s);
+    data.disciplines = ['swords', 'not-a-craft', 17, null];
+    data.blueprints = { shortsword: 'lots', 'not-a-recipe': 3, greatsword: 99 };
+    data.xp = { swords: -50, 'not-a-craft': 1e9 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.disciplines.join(',') === 'swords' &&
+      C.recipeKnown(back, 'shortsword') && !C.recipeKnown(back, 'not-a-recipe') &&
+      C.craftXp(back, 'swords') === 0 && C.craftXp(back, 'not-a-craft') === 0 &&
+      C.blueprintLevel(back, 'greatsword') === C.SHOP.craft.maxLevel;
+  })());
+
+  ok('experience cannot be stockpiled against a craft you never took up', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(469) }));
+    const data = C.serializeShop(s);
+    data.xp = { swords: 100, axes: 999999 };
+    data.xpTotal = { swords: 400, axes: 999999 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.craftXp(back, 'swords') === 100 && C.craftXp(back, 'axes') === 0 &&
+      !C.hasDiscipline(back, 'axes');
+  })());
+
+  ok('nor more of it in hand than was ever earned', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(475) }));
+    const data = C.serializeShop(s);
+    data.xp = { swords: 999999 };
+    data.xpTotal = { swords: 60 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.craftXp(back, 'swords') === 60 && C.craftXpTotal(back, 'swords') === 60;
+  })());
+
+  ok('a save from before there was a lifetime figure keeps what it holds', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(476) }));
+    const data = C.serializeShop(s);
+    data.xp = { swords: 250 };
+    delete data.xpTotal;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.craftXp(back, 'swords') === 250 && C.craftXpTotal(back, 'swords') === 250;
+  })());
+
+  ok('a blueprint whose craft was never taken up is not held', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(470) }));
+    const data = C.serializeShop(s);
+    data.blueprints = { shortsword: 2, hatchet: 5 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.blueprintLevel(back, 'shortsword') === 2 &&
+      !C.recipeKnown(back, 'hatchet') && back.known.indexOf('hatchet') < 0;
   })());
 
   ok('a forge saved before there were stands has its shelf put onto stands', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(420) });
+    const s = C.createShop({ rnd: C.mulberry32(471) });
     const data = C.serializeShop(s);
     data.v = 2;
     delete data.stands;
@@ -2548,7 +3109,7 @@ section('Open Your Forge: the Almanac and what the forge knows');
   })());
 
   ok('a shelf too deep for the floor goes into storage rather than vanishing', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(421) });
+    const s = C.createShop({ rnd: C.mulberry32(472) });
     const data = C.serializeShop(s);
     data.v = 2;
     delete data.stands;
@@ -2560,7 +3121,7 @@ section('Open Your Forge: the Almanac and what the forge knows');
   })());
 
   ok('a save whose stands are rubbish still leaves a forge that can trade', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(422) });
+    const s = C.createShop({ rnd: C.mulberry32(473) });
     const data = C.serializeShop(s);
     data.stands = [{ type: 'trebuchet-rack' }, null, 17,
       { type: 'weapon', key: 'plate|bronze', qty: 4, quality: 50, price: 9 },
@@ -2574,60 +3135,26 @@ section('Open Your Forge: the Almanac and what the forge knows');
       back.stands.every((st) => !st.key || C.standTakes(st.type, C.splitKey(st.key).item));
   })());
 
-  ok('a forge saved before recipes had to be learned keeps the catalogue it had', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(409) });
+  ok('a save whose ledger is rubbish still leaves a forge that can work', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(474) }));
     const data = C.serializeShop(s);
-    data.v = 2;
-    delete data.known; delete data.ledger; delete data.learned;
-    const back = C.restoreShop(data, C.mulberry32(1));
-    return !!back && C.SHOP.legacyRecipes.every((id) => C.recipeKnown(back, id)) &&
-      C.SHOP.startingRecipes.every((id) => C.recipeKnown(back, id));
-  })());
-
-  ok('a save whose recipe list is rubbish still leaves a forge that can work', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(410) });
-    const data = C.serializeShop(s);
-    data.known = ['not-a-recipe', 17, null];
     data.ledger = { 'not-a-recipe': { made: 5 }, shortsword: { made: 'lots', best: 900 } };
     const back = C.restoreShop(data, C.mulberry32(1));
-    return !!back && C.SHOP.startingRecipes.every((id) => C.recipeKnown(back, id)) &&
-      !C.recipeKnown(back, 'not-a-recipe') && !C.forgeRecord(back, 'not-a-recipe') &&
+    return !!back && !C.forgeRecord(back, 'not-a-recipe') &&
       C.forgeRecord(back, 'shortsword').best === 100;
   })());
-
-  ok('every recipe is reachable from one the forge starts with', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(411) });
-    s.gold = 1e9; s.reputation = 100; s.tier = 4;
-    for (const m of C.SHOP.materials) s.materials[m.id] = 1e6;
-    for (let round = 0; round < 12; round++) {
-      C.discoverRecipes(s);
-      for (const it of C.SHOP.items) {
-        if (!C.recipeKnown(s, it.id)) { C.buySchematic(s, it.id); continue; }
-        if (!C.forgedEver(s, it.id)) C.shopFinishForge(s, it.id, 'bronze', 1, 80, 'you');
-      }
-    }
-    return C.SHOP.items.every((it) => C.recipeKnown(s, it.id));
-  })());
-
-  ok('every recipe names customers who exist', (() =>
-    C.SHOP.items.every((it) => (it.tags || []).every((t) => !!C.shopCustomerType(t)))));
-
-  ok('the Almanac can name who wants a thing and what follows from it', (() =>
-    C.recipeCustomers('shortsword').length > 0 &&
-    C.recipeChildren('shortsword').some((it) => it.id === 'longsword')));
 }
-
 section('Open Your Forge: production and stock');
 {
   ok('one puzzle makes the whole batch', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(10) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(10) }));
     s.materials.bronze = 10;
     const res = C.shopFinishForge(s, 'shortsword', 'bronze', 3, 90, 'you');
     return res.ok && s.orders.length === 1 && s.orders[0].qty === 3;
   })());
 
   ok('an item costs one ingot of its material', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(11) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(11) }), 'daggers');
     s.materials.silver = 5;
     const qty = Math.min(3, C.batchCapacity(s));
     C.shopFinishForge(s, 'dagger', 'silver', qty, 80, 'you');
@@ -2647,7 +3174,7 @@ section('Open Your Forge: production and stock');
   })());
 
   ok('finished work lands in storage the next day, never on the shelf', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(14) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(14) }), 'boots');
     s.materials.bronze = 9;
     C.shopFinishForge(s, 'boots', 'bronze', 2, 100, 'you');
     if (C.countStorage(s) !== 0) return false;
@@ -3855,7 +4382,7 @@ section('Open Your Forge: employees do the work, not the maths');
   })());
 
   ok('a smith fills an order without the player touching a board', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(35) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(35) }));
     s.materials.bronze = 20;
     const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
     const r = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 3 });
@@ -3904,6 +4431,7 @@ section('Open Your Forge: employees do the work, not the maths');
    dice held still, so a check can say what it is testing rather than shake
    the bag until a bulk order falls out. */
 function contractFor(shop, typeId, gold) {
+  if (!shop.disciplines.length) apprenticed(shop, 'swords', 'farming', 'household');
   shop.reputation = 60;
   const one = C.makeTownsfolk(shop, typeId || 'farmer');
   one.gold = gold == null ? 4000 : gold;
@@ -4103,7 +4631,8 @@ section('Commissions: a lot, a deadline and a price');
   })());
 
   ok('the player is asked about a contract and can take it', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(919), gold: 0 });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(919), gold: 0 }),
+      'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
@@ -4117,7 +4646,8 @@ section('Commissions: a lot, a deadline and a price');
   })());
 
   ok('turning one down at the counter leaves the books as they were', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(920), gold: 0 });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(920), gold: 0 }),
+      'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
@@ -4130,15 +4660,18 @@ section('Commissions: a lot, a deadline and a price');
   })());
 
   ok('a salesperson writes a contract down for you rather than answering it', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(921), gold: 0 });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(921), gold: 0 }),
+      'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
     s.rnd = () => 0.05;
     const e = { id: 1, name: 'Sal', role: 'salesperson', rank: 'C', power: 3, wage: 30 };
     const report = C.runSalesperson(s, e);
+    // nothing taken on your behalf: the only money that moved was over the
+    // counter, never an advance on a contract they had no business accepting
     return report.commissions > 0 && s.commissionOffers.length > 0 &&
-      s.commissions.length === 0 && s.gold === 0;   // nothing taken on your behalf
+      s.commissions.length === 0 && s.gold === report.revenue;
   })());
 
   ok('the offers a salesperson brings back are the ones you answer', (() => {
@@ -4149,7 +4682,8 @@ section('Commissions: a lot, a deadline and a price');
   })());
 
   ok('a salesperson never queues more offers than the desk will hold', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(923) });
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(923) }),
+      'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 12, 100);
     s.reputation = 60;
     for (let i = 0; i < 12; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }

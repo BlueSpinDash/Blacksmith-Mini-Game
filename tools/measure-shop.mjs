@@ -42,10 +42,33 @@ function buyFloorSpace(shop) {
 
 function playWeeks(seed, weeks, opts = {}) {
   const shop = C.createShop({ rnd: C.mulberry32(seed) });
+  /* A forge chooses two trades before it opens. The bot picks the pair a
+     one-star town actually buys from, and spends whatever experience it earns
+     on taking those blueprints further rather than on branching out - the
+     point of the measurement is whether the shop pays its rent, not whether
+     the bot plays the tree well. */
+  for (const id of (opts.crafts || ['tools', 'farming'])) {
+    C.takeUpDiscipline(shop, id, 'apprenticed');
+  }
   const trace = [];
   const weekly = [];
   let guard = 0;
   while (shop.day <= weeks * C.SHOP.weekLength && !shop.closed && guard++ < 400) {
+    /* Spend the day's experience the way a player would: reach for the next
+       blueprint when it is within reach, and otherwise put it into what you
+       already make. Branching out is what pays, so the bot does it. */
+    for (const craft of shop.disciplines) {
+      let spent = true;
+      while (spent) {
+        spent = false;
+        for (const it of C.disciplineItems(craft)) {
+          if (!C.recipeKnown(shop, it.id) && C.unlockBlueprint(shop, it.id).ok) spent = true;
+        }
+        for (const it of C.disciplineItems(craft)) {
+          if (C.recipeKnown(shop, it.id) && C.upgradeBlueprint(shop, it.id).ok) spent = true;
+        }
+      }
+    }
     const phase = C.shopPhase(shop);
     const shelf = C.countShelf(shop);
     const store = C.countStorage(shop);
@@ -93,9 +116,11 @@ function playWeeks(seed, weeks, opts = {}) {
     afterWeek: weekly.map((w) => w.gold).join(' / ') };
 }
 
+const weeks = Number(process.argv[2]) || 4;
+const runs = Number(process.argv[3]) || 8;
 const rows = [];
-for (let s = 0; s < 8; s++) rows.push(playWeeks(100 + s * 17, 4));
+for (let s = 0; s < runs; s++) rows.push(playWeeks(100 + s * 17, weeks));
 console.table(rows);
 const survived = rows.filter((r) => !r.closed).length;
-console.log(`survived 4 weeks: ${survived}/${rows.length}`);
+console.log(`survived ${weeks} weeks: ${survived}/${rows.length}`);
 console.log('median end gold:', rows.map(r => r.gold).sort((a, b) => a - b)[rows.length >> 1]);

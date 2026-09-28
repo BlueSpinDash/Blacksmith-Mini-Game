@@ -75,12 +75,32 @@ const installStock = (page) => page.evaluate(() => {
   };
 });
 
-/* A forge starts knowing eight recipes. Checks that want a deeper one teach
-   it first, which is exactly what the Almanac does when the work is done. */
+/* A forge starts knowing one blueprint per trade it took up. Checks that want
+   a deeper one put it in the book directly, along with the craft it belongs
+   to - which is what the Almanac does once the experience has been earned. */
 const teach = (page, ...ids) => page.evaluate((list) => {
-  const C = window.CHECKSMITH.core;
-  for (const id of list) C.learnRecipe(window.CHECKSMITH.app.shop, id, 'schematic');
+  const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+  for (const id of list) {
+    const cat = C.disciplineOf(id);
+    if (cat && !C.hasDiscipline(sh, cat)) C.takeUpDiscipline(sh, cat, 'apprenticed');
+    C.learnRecipe(sh, id, 'study');
+  }
 }, ids);
+
+/* Every new forge stops to say what two trades it learned. Checks that are
+   about something else answer that and get on with it. */
+async function chooseCrafts(page, a = 'swords', b = 'shields') {
+  if (!(await page.isVisible('#shopSheet'))) return false;
+  const picking = await page.evaluate(() => !!window.CHECKSMITH.shopUi.picking);
+  if (!picking) return false;
+  await page.click(`#shopSheetBody [data-craft="${a}"]`);
+  await page.waitForTimeout(60);
+  await page.click(`#shopSheetBody [data-craft="${b}"]`);
+  await page.waitForTimeout(60);
+  await page.click('#shopSheetActions .btn');
+  await page.waitForTimeout(180);
+  return true;
+}
 
 /* Switching difficulty mid-run raises the discard prompt; answer it. */
 async function pickDifficulty(page, key, size) {
@@ -1685,6 +1705,75 @@ async function run() {
   await page.fill('#nameForgeInput', 'Ashfall Forge');
   await page.click('#nameForgeGo');
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 10000 });
+
+  section('Open Your Forge: choosing the two trades you learned');
+  await page.waitForSelector('#shopSheet:not([hidden])', { timeout: 8000 });
+  const setup = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    cards: document.querySelectorAll('#shopSheetBody [data-craft]').length,
+    crafts: window.CHECKSMITH.core.SHOP.categories.length,
+    go: document.querySelector('#shopSheetActions .btn').disabled,
+    art: Array.from(document.querySelectorAll('#shopSheetBody .cc-art use'))
+      .map((u) => u.getAttribute('href'))
+  }));
+  ok('a new forge asks what the smith served their time at',
+    /What did you learn/i.test(setup.title), setup.title);
+  ok('every craft is offered as a card', setup.cards === setup.crafts,
+    setup.cards + ' of ' + setup.crafts);
+  ok('each card wears the sprite of the blueprint it starts you on',
+    setup.art.length === setup.crafts && setup.art.every((h) => /^#it-/.test(h)),
+    setup.art.slice(0, 3).join(','));
+  ok('the doors stay shut until two are chosen', setup.go === true);
+
+  await page.click('#shopSheetBody [data-craft="swords"]');
+  await page.waitForTimeout(120);
+  const firstPick = await page.evaluate(() => ({
+    picked: document.querySelectorAll('#shopSheetBody .craft-card.picked').length,
+    go: document.querySelector('#shopSheetActions .btn').disabled,
+    count: document.querySelector('#shopSheetBody .pick-count').textContent
+  }));
+  ok('one chosen is not enough', firstPick.picked === 1 && firstPick.go === true &&
+    /1 of 2/.test(firstPick.count), JSON.stringify(firstPick));
+
+  await page.click('#shopSheetBody [data-craft="shields"]');
+  await page.waitForTimeout(120);
+  const bothPicked = await page.evaluate(() => ({
+    picked: document.querySelectorAll('#shopSheetBody .craft-card.picked').length,
+    go: document.querySelector('#shopSheetActions .btn').disabled
+  }));
+  ok('two chosen opens the doors', bothPicked.picked === 2 && bothPicked.go === false,
+    JSON.stringify(bothPicked));
+
+  // a third tap is refused rather than quietly swapping one out
+  await page.click('#shopSheetBody [data-craft="axes"]');
+  await page.waitForTimeout(150);
+  ok('a third trade is refused', await page.evaluate(() =>
+    document.querySelectorAll('#shopSheetBody .craft-card.picked').length === 2));
+  // and tapping a chosen one again gives it back
+  await page.click('#shopSheetBody [data-craft="shields"]');
+  await page.waitForTimeout(120);
+  ok('tapping a chosen trade again changes your mind', await page.evaluate(() =>
+    document.querySelectorAll('#shopSheetBody .craft-card.picked').length === 1));
+  await page.click('#shopSheetBody [data-craft="shields"]');
+  await page.waitForTimeout(120);
+  await page.screenshot({ path: path.join(SHOTS, '13-crafts.png'), fullPage: true });
+
+  await page.click('#shopSheetActions .btn');
+  await page.waitForTimeout(250);
+  const apprenticeship = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    return { crafts: sh.disciplines.slice(), known: sh.known.slice(),
+      levels: sh.known.map((id) => C.blueprintLevel(sh, id)),
+      sheet: document.getElementById('shopSheet').hidden };
+  });
+  ok('the two chosen trades are the forge\u2019s own',
+    apprenticeship.crafts.join(',') === 'swords,shields',
+    JSON.stringify(apprenticeship.crafts));
+  ok('and each hands over its first blueprint, free, at level one',
+    apprenticeship.known.join(',') === 'shortsword,buckler' &&
+    apprenticeship.levels.every((l) => l === 1), JSON.stringify(apprenticeship));
+  ok('the setup screen closes once the doors are open', apprenticeship.sheet === true);
+
   await installStock(page);
   await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 12; });
   ok('the forge is opened under the name the player typed',
@@ -1704,6 +1793,8 @@ async function run() {
   }));
   ok('the shop opens on day one, morning', board.day === '1' && board.phase === 'Morning');
   ok('the mode offers no difficulty to pick', board.noPicker === true);
+  ok('the forge opens knowing only what its two trades taught it',
+    await page.evaluate(() => window.CHECKSMITH.app.shop.known.length === 2));
   ok('the five actions are all offered', board.actions.length === 5 &&
     board.actions.join(',') === 'Forge,Tend the Store,Purchase Materials,Checksmith Almanac,Search for Employees',
     board.actions.join(','));
@@ -2464,7 +2555,7 @@ async function run() {
 
   // Every customer has to be a beat of their own: a banner, an offer, a
   // decision and a stamped outcome. Nothing may resolve off-screen.
-  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, beats: 0 };
+  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, booked: 0, beats: 0 };
   let guard = 0;
   while ((await page.isVisible('#shopSheet')) && guard++ < 60) {
     const view = await page.evaluate(() => ({
@@ -2473,6 +2564,7 @@ async function run() {
       bid: document.querySelector('.cust-bid') ? document.querySelector('.cust-bid').innerText : null,
       stamp: document.querySelector('.stamp') ? document.querySelector('.stamp').innerText : null,
       lost: !!document.querySelector('.stamp.lost'),
+      booked: !!document.querySelector('.stamp.booked'),
       band: document.querySelector('.haggle-box .band')
         ? document.querySelector('.haggle-box .band').textContent : null,
       portrait: !!document.querySelector('.cust-head .portrait'),
@@ -2503,9 +2595,12 @@ async function run() {
       await page.waitForTimeout(70);
       await page.click('#shopSheetActions button:nth-child(1)');
     } else if (view.stamp) {
-      if (view.lost) seen.left++; else seen.sold++;
+      // a contract taken on is its own outcome: neither a sale nor a walkout
+      if (view.booked) seen.booked++;
+      else if (view.lost) seen.left++;
+      else seen.sold++;
       if (!view.stampArt) seen.stampArtMissing = true;
-      if (!seen.shotSold && !view.lost) {
+      if (!seen.shotSold && !view.lost && !view.booked) {
         seen.shotSold = true;
         await page.screenshot({ path: path.join(SHOTS, '16-shop-sold.png'), fullPage: true });
       }
@@ -2533,7 +2628,8 @@ async function run() {
   // failed counter is shown twice.
   ok('every customer ends in exactly one stamp',
     seen.sold === report.tally.sold && seen.left === report.tally.left &&
-    seen.sold + seen.left + (report.tally.taken || 0) + (report.tally.declined || 0) ===
+    seen.booked === (report.tally.taken || 0) &&
+    seen.sold + seen.left + seen.booked + (report.tally.declined || 0) ===
       report.tally.customers,
     JSON.stringify([seen, report.tally]));
   ok('a selling phase ends in a sales report', /Sales Report/.test(report.title), report.title);
@@ -3015,105 +3111,236 @@ async function run() {
   });
   await page.waitForTimeout(150);
 
-  section('Open Your Forge: the Checksmith Almanac');
+  section('Open Your Forge: the Almanac is sixteen skill trees');
   await page.evaluate(() => {
-    const F = window.CHECKSMITH, sh = F.app.shop;
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     sh.gold = 100000;
+    // back to the forge as it opened: two trades, their roots, nothing else
+    sh.disciplines = ['swords', 'shields'];
+    sh.blueprints = { shortsword: 1, buckler: 1 };
+    sh.known = ['shortsword', 'buckler'];
+    sh.xp = { swords: 0, shields: 0 };
+    sh.xpTotal = { swords: 0, shields: 0 };
     F.shopUi.almanacCat = null;
     F.shopRender();
   });
   await page.click('#shActions [data-act="almanac"]');
   await page.waitForSelector('#shopSheet:not([hidden])');
   const book = await page.evaluate(() => {
-    const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
+    const C = window.CHECKSMITH.core;
     const body = document.getElementById('shopSheetBody');
     return { title: document.getElementById('shopSheetTitle').textContent,
-      head: body.querySelector('.alm-head').innerText.replace(/\s+/g, ' '),
-      pages: body.querySelectorAll('[data-alm-cat]').length,
-      cats: C.SHOP.categories.length,
-      nodes: body.querySelectorAll('[data-recipe]').length,
-      known: body.querySelectorAll('.alm-node.known').length,
-      locked: body.querySelectorAll('.alm-node.locked').length,
-      nested: body.querySelectorAll('.alm-tree ul ul .alm-node').length,
-      wide: body.scrollWidth > body.clientWidth + 1,
-      total: C.SHOP.items.length, got: sh.known.length };
+      cards: body.querySelectorAll('[data-craft]').length,
+      crafts: C.SHOP.categories.length,
+      held: body.querySelectorAll('.craft-card:not(.shut)').length,
+      shut: body.querySelectorAll('.craft-card.shut').length,
+      art: body.querySelectorAll('.cc-art .sprite').length,
+      wide: body.scrollWidth > body.clientWidth + 1 };
   });
-  ok('the Almanac opens as a book with a page for every category',
-    /Almanac/.test(book.title) && book.pages === book.cats, JSON.stringify(book));
-  ok('and says how much of it the forge has learned',
-    book.head.indexOf(book.got + ' / ' + book.total) >= 0, book.head);
-  ok('a page draws its recipes as a tree, not a flat list',
-    book.nodes > 1 && book.nested > 0, JSON.stringify(book));
-  ok('what the forge knows and what it does not are told apart on sight',
-    book.known > 0 && book.locked > 0, JSON.stringify(book));
-  ok('and the tree does not push the sheet sideways on a phone', book.wide === false);
+  ok('the Almanac opens on the crafts themselves',
+    /Almanac/.test(book.title) && book.cards === book.crafts, JSON.stringify(book));
+  ok('each craft is a card with the sprite of what it starts you on',
+    book.art === book.crafts, JSON.stringify(book));
+  ok('the crafts you took up are told from the ones you did not',
+    book.held >= 2 && book.shut > 0, JSON.stringify(book));
+  ok('and the crafts do not push the sheet sideways on a phone', book.wide === false);
 
-  await page.click('#shopSheetBody [data-alm-cat="household"]');
-  await page.waitForTimeout(120);
-  const turned = await page.evaluate(() => ({
-    open: document.querySelector('[data-alm-cat="household"]').getAttribute('aria-pressed'),
-    others: document.querySelectorAll('[data-alm-cat][aria-pressed="true"]').length,
-    names: Array.from(document.querySelectorAll('#shopSheetBody .an-name'))
-      .map((n) => n.textContent).join(',')
-  }));
-  ok('turning to another page shows that page and only that page',
-    turned.open === 'true' && turned.others === 1 && /Cooking Knife/.test(turned.names),
-    JSON.stringify(turned).slice(0, 200));
+  await page.click('#shopSheetBody [data-craft="swords"]');
+  await page.waitForTimeout(150);
+  const tree = await page.evaluate(() => {
+    const C = window.CHECKSMITH.core;
+    const body = document.getElementById('shopSheetBody');
+    const nodes = Array.from(body.querySelectorAll('.alm-node'));
+    const boxes = nodes.map((n) => n.getBoundingClientRect());
+    let overlap = false;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) {
+          overlap = true;
+        }
+      }
+    }
+    const canvas = body.querySelector('.alm-canvas');
+    const scroll = body.querySelector('.alm-scroll');
+    return { nodes: nodes.length, want: C.disciplineItems('swords').length,
+      lines: body.querySelectorAll('.alm-line').length,
+      sprites: body.querySelectorAll('.alm-node .sprite').length,
+      bar: body.querySelector('.craft-bar').innerText.replace(/\s+/g, ' '),
+      back: !!body.querySelector('[data-craft-back]'),
+      unlocked: body.querySelectorAll('.alm-node.unlocked').length,
+      locked: body.querySelectorAll('.alm-node.locked').length,
+      overlap: overlap,
+      offscreen: boxes.some((b) => b.width < 30 || b.height < 30),
+      reachable: canvas && scroll ? canvas.scrollWidth <= scroll.clientWidth + 400 : false,
+      sheetWide: body.scrollWidth > body.clientWidth + 1 };
+  });
+  ok('a craft opens as a tree with a node for every blueprint',
+    tree.nodes === tree.want && tree.nodes > 1, JSON.stringify(tree));
+  ok('every node wears its own sprite', tree.sprites === tree.nodes, JSON.stringify(tree));
+  ok('the steps of the progression are drawn as lines', tree.lines >= tree.nodes - 1,
+    JSON.stringify(tree));
+  ok('no two blueprints are drawn on top of each other', tree.overlap === false);
+  ok('every node is a reachable tap target', tree.offscreen === false);
+  ok('a wide tree scrolls in its own frame rather than dragging the sheet',
+    tree.sheetWide === false && tree.reachable, JSON.stringify(tree));
+  ok('the head of the page counts experience, blueprints and masteries',
+    /IN HAND/i.test(tree.bar) && /EVER EARNED/i.test(tree.bar) &&
+    /BLUEPRINTS/i.test(tree.bar) && /MASTERED/i.test(tree.bar), tree.bar);
+  ok('the way back to the crafts is on the page', tree.back === true);
+  ok('what is held and what is out of reach are told apart on sight',
+    tree.unlocked > 0 && tree.locked > 0, JSON.stringify(tree));
+  await page.screenshot({ path: path.join(SHOTS, '26-almanac.png'), fullPage: true });
 
-  // a recipe the forge has not got to yet: the page says what it would take
-  await page.click('#shopSheetBody [data-alm-cat="swords"]');
-  await page.waitForTimeout(100);
+  // a blueprint out of reach says exactly what it is waiting on
   await page.click('#shopSheetBody [data-recipe="greatsword"]');
-  await page.waitForTimeout(120);
-  const locked = await page.evaluate(() => ({
+  await page.waitForTimeout(150);
+  const shut = await page.evaluate(() => ({
     title: document.getElementById('shopSheetTitle').textContent,
     body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    state: document.querySelector('.bp-state') ? document.querySelector('.bp-state').textContent : null,
     actions: Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent)
   }));
-  ok('a locked recipe names its category, its customers and the way to it',
-    /Greatsword/.test(locked.title) && /Swords/.test(locked.body) &&
-    /Wanted by/.test(locked.body) && /To learn it/.test(locked.body),
-    locked.body.slice(0, 260));
-  ok('and is not something the anvil will take yet',
-    !locked.actions.some((a) => /anvil/.test(a)), locked.actions.join(','));
+  ok('a locked blueprint is named as locked', /Greatsword/i.test(shut.title) &&
+    /Locked/i.test(shut.state), JSON.stringify(shut.state));
+  ok('and says which blueprint must reach which level',
+    /must reach level/i.test(shut.body) && /Longsword/i.test(shut.body),
+    shut.body.slice(-300));
+  ok('it names its craft, its customers and what it is worth',
+    /Swords/.test(shut.body) && /Wanted by/.test(shut.body) && /Worth/.test(shut.body),
+    shut.body.slice(0, 300));
+  ok('and offers neither the anvil nor a way to buy past it',
+    !shut.actions.some((a) => /anvil|Learn it|further/i.test(a)), shut.actions.join(','));
 
-  // the groundwork done, a schematic carries the rest of the way
+  // the root of the tree: held, and takeable further with experience
+  await page.click('#shopSheetActions .btn.ghost');
+  await page.waitForTimeout(120);
   await page.evaluate(() => {
-    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
-    sh.materials.bronze = 40;
-    C.learnRecipe(sh, 'longsword', 'schematic');
-    C.recordForged(sh, 'shortsword', 'bronze', 1, 90);
-    C.recordForged(sh, 'longsword', 'bronze', 1, 90);
-    F.shopRender();
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.xp.swords = 100000;
+    if (F.shopUi.redraw) F.shopUi.redraw();
   });
-  await page.click('#shopSheetActions .btn.ghost');           // back to the book
-  await page.waitForTimeout(120);
-  await page.click('#shopSheetBody [data-recipe="greatsword"]');
-  await page.waitForTimeout(120);
-  const buyable = await page.evaluate(() =>
-    Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
-  ok('a recipe whose groundwork is done is offered as a schematic',
-    buyable.some((a) => /schematic/i.test(a)), buyable.join(','));
-  await page.click('#shopSheetActions .btn.primary');
-  await page.waitForTimeout(200);
-  const bought = await page.evaluate(() => {
+  await page.click('#shopSheetBody [data-recipe="shortsword"]');
+  await page.waitForTimeout(150);
+  const root = await page.evaluate(() => ({
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    pips: document.querySelectorAll('.bp-level .an-pips i').length,
+    lit: document.querySelectorAll('.bp-level .an-pips i.on').length,
+    actions: Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent)
+  }));
+  ok('a held blueprint shows its level as pips', root.pips === 5 && root.lit === 1,
+    JSON.stringify(root));
+  ok('and what it is worth now against what the next level would make it',
+    /Worth/.test(root.body) && /At the next level/.test(root.body), root.body.slice(0, 300));
+  ok('an upgrade is offered with its price in experience',
+    root.actions.some((a) => /further/i.test(a) && /xp/.test(a)), root.actions.join(','));
+
+  const levelled = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
-    return { known: C.recipeKnown(sh, 'greatsword'), gold: sh.gold,
-      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    const before = C.craftXp(sh, 'swords');
+    const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .find((b) => /further/i.test(b.textContent));
+    btn.click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { level: C.blueprintLevel(sh, 'shortsword'), spent: before - C.craftXp(sh, 'swords'),
+      shields: C.craftXp(sh, 'shields'),
+      lit: document.querySelectorAll('.bp-level .an-pips i.on').length };
+  });
+  ok('spending experience takes the blueprint a level further',
+    levelled.level === 2 && levelled.spent > 0 && levelled.lit === 2, JSON.stringify(levelled));
+  ok('and it comes out of that craft’s pocket alone', levelled.shields === 0,
+    JSON.stringify(levelled));
+
+  // taking it far enough opens the next node for purchase
+  const nextNode = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    while (C.blueprintLevel(sh, 'shortsword') < C.requiredParentLevel('longsword')) {
+      C.upgradeBlueprint(sh, 'shortsword');
+    }
+    F.shopOpenAlmanac();
+    F.shopUi.almanacCat = 'swords';
+    if (F.shopUi.redraw) F.shopUi.redraw();
+    await new Promise((r) => setTimeout(r, 200));
+    const node = document.querySelector('[data-recipe="longsword"]');
+    return { state: node ? node.className : null,
+      open: document.querySelectorAll('.alm-line.open').length };
+  });
+  ok('reaching the level lights the path and opens the next blueprint',
+    /available/.test(nextNode.state) && nextNode.open > 0, JSON.stringify(nextNode));
+
+  await page.click('#shopSheetBody [data-recipe="longsword"]');
+  await page.waitForTimeout(150);
+  const learn = await page.evaluate(() => ({
+    actions: Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent),
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ')
+  }));
+  ok('an available blueprint is offered to learn, at a price in experience',
+    learn.actions.some((a) => /Learn it/i.test(a) && /xp/.test(a)), learn.actions.join(','));
+  ok('and says what it follows on from', /Follows on from/i.test(learn.body),
+    learn.body.slice(0, 300));
+
+  const learned = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+      .find((b) => /Learn it/i.test(b.textContent));
+    btn.click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { level: C.blueprintLevel(sh, 'longsword'),
+      known: C.recipeKnown(sh, 'longsword'),
+      sibling: C.recipeKnown(sh, 'falchion'),
       actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
         .map((b) => b.textContent).join(',') };
   });
-  ok('buying it puts it in the book and opens the anvil to it',
-    bought.known && bought.gold < 100000 && /anvil/.test(bought.actions),
-    JSON.stringify(bought).slice(0, 240));
-  ok('and the book says how it was learned', /schematic/.test(bought.body),
-    bought.body.slice(0, 200));
+  ok('learning it puts it in the book at level one and opens the anvil to it',
+    learned.known && learned.level === 1 && /anvil/.test(learned.actions),
+    JSON.stringify(learned));
+  ok('the branch you did not take stays untaken', learned.sibling === false);
 
-  // only what the forge knows may go on the anvil
-  await page.click('#shopSheetActions .btn.ghost');
-  await page.waitForTimeout(100);
+  // a craft never taken up cannot be spent into
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopOpenAlmanac();
+    F.shopUi.almanacCat = 'axes';
+    if (F.shopUi.redraw) F.shopUi.redraw();
+  });
+  await page.waitForTimeout(180);
+  const outside = await page.evaluate(() => {
+    const body = document.getElementById('shopSheetBody');
+    return { body: body.innerText.replace(/\s+/g, ' '),
+      buy: !!body.querySelector('[data-takecraft]'),
+      locked: body.querySelectorAll('.alm-node.locked').length,
+      nodes: body.querySelectorAll('.alm-node').length };
+  });
+  ok('a craft you never took up shows its tree entirely shut',
+    outside.locked === outside.nodes && outside.nodes > 0, JSON.stringify(outside));
+  ok('and offers to be taken up for money rather than experience',
+    outside.buy && /Take up/i.test(outside.body) && /\d+g/.test(outside.body),
+    outside.body.slice(0, 220));
+
+  const bought = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.reputation = 200;
+    sh.gold = 100000;
+    if (F.shopUi.redraw) F.shopUi.redraw();
+    await new Promise((r) => setTimeout(r, 120));
+    const before = sh.gold;
+    document.querySelector('[data-takecraft]').click();
+    await new Promise((r) => setTimeout(r, 250));
+    return { held: C.hasDiscipline(sh, 'axes'), root: C.blueprintLevel(sh, 'hatchet'),
+      xp: C.craftXp(sh, 'axes'), paid: before - sh.gold };
+  });
+  ok('taking up a craft costs gold and hands over its root at level one',
+    bought.held && bought.root === 1 && bought.paid > 0, JSON.stringify(bought));
+  ok('and starts it with no experience of its own', bought.xp === 0, JSON.stringify(bought));
+
+  // only what the forge holds may go on the anvil
   await page.click('#shopSheetActions .btn.ghost');
   await page.waitForTimeout(150);
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.app.shop.materials.bronze = 40;
+    F.shopRender();
+  });
   await page.click('#shActions [data-act="forge"]');
   await page.waitForSelector('#shopSheet:not([hidden])');
   const anvil = await page.evaluate(() => {
@@ -3335,6 +3562,9 @@ async function run() {
   const ledger = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     sh.commissions = []; sh.commissionOffers = [];
+    for (const id of ['farming', 'tools', 'household']) {
+      if (!C.hasDiscipline(sh, id)) C.takeUpDiscipline(sh, id, 'apprenticed');
+    }
     sh.reputation = 60;
     const one = C.makeTownsfolk(sh, 'farmer');
     one.gold = 4000;
@@ -3397,6 +3627,9 @@ async function run() {
 
   const missed = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    for (const id of ['farming', 'tools', 'household']) {
+      if (!C.hasDiscipline(sh, id)) C.takeUpDiscipline(sh, id, 'apprenticed');
+    }
     const one = C.makeTownsfolk(sh, 'farmer');
     one.gold = 4000;
     const rnd = sh.rnd;
@@ -3538,6 +3771,7 @@ async function run() {
       () => !document.getElementById('shopView').hidden || !!window.CHECKSMITH.app.game,
       null, { timeout: 15000 });
     await page.waitForTimeout(250);
+    await chooseCrafts(page);
     await installStock(page);
     return { line, begin, rows };
   };
@@ -3703,6 +3937,7 @@ async function run() {
     await page.click('#nameForgeGo');
     await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
     await page.waitForTimeout(200);
+    await chooseCrafts(page);
   };
   const leave = async () => {
     await page.click('#shMenuBtn');
@@ -3718,6 +3953,7 @@ async function run() {
   await page.fill('#nameForgeInput', 'Emberline');
   await page.click('#nameForgeGo');
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await chooseCrafts(page);
   await page.evaluate(() => { window.CHECKSMITH.app.shop.gold = 111; window.CHECKSMITH.shopRender(); });
   await page.waitForTimeout(150);
   await leave();
@@ -3967,6 +4203,7 @@ async function run() {
   await page.click('#beginBtn');
   if (await page.isVisible('#nameForge')) await page.click('#nameForgeGo');
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 15000 });
+  await chooseCrafts(page);
   await page.waitForTimeout(1400);
   const atShop = await playing();
   ok('the forge floor has a track of its own', atShop.track === 'shop' && atShop.on,

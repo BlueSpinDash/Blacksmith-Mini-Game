@@ -1215,6 +1215,123 @@ input[type=range]{
 .yard-box.out{opacity:.5;}
 .yard-box .nm{font-size:12px;color:var(--text);}
 
+/* ---------- the Almanac: crafts and their trees ----------
+   An illustrated book of trades. The cards are plates in it; a tree is the
+   page a plate opens onto, drawn as the shapes themselves with the lines of
+   the progression inked between them. */
+.alm-lead{margin:0 0 10px;font-size:12px;line-height:1.5;color:var(--muted);}
+.craft-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:7px;}
+.craft-card{
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 9px 9px;
+  background:linear-gradient(180deg,#1b1a16 0%,#141519 100%);
+  border:1px solid var(--edge-soft);border-radius:11px;text-align:center;
+  min-height:var(--tap);cursor:pointer;color:var(--text);
+}
+.craft-card:hover{border-color:var(--brass);}
+.craft-card.shut{opacity:.72;}
+.cc-art{display:block;line-height:0;margin-bottom:2px;}
+.craft-card.shut .cc-art{filter:grayscale(1) brightness(.72);}
+.cc-name{font-size:13.5px;color:var(--gold);letter-spacing:.02em;}
+.cc-blurb{font-size:11px;line-height:1.4;color:var(--muted);}
+.cc-stats{font-size:11px;color:var(--brass);font-variant-numeric:tabular-nums;}
+.cc-stats b{color:var(--gold);font-size:13px;}
+.cc-shut{font-size:11px;color:var(--muted);font-style:italic;}
+.cc-eg{font-size:10px;line-height:1.35;color:#6b727d;}
+
+.craft-head{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+.craft-head b{font-size:16px;color:var(--gold);letter-spacing:.03em;}
+.craft-back{
+  min-height:34px;padding:0 11px;font-size:12.5px;border-radius:8px;
+  background:#1b1d23;border:1px solid var(--edge-soft);color:var(--text);
+}
+.craft-bar{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:9px;
+  font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  text-align:center;
+}
+.craft-bar span{
+  display:flex;flex-direction:column;gap:1px;padding:6px 3px;
+  background:#15161b;border:1px solid var(--edge-soft);border-radius:8px;
+}
+.craft-bar b{font-size:15px;color:var(--gold);letter-spacing:0;text-transform:none;
+  font-variant-numeric:tabular-nums;}
+
+/* The tree scrolls inside its own frame, so a wide craft is reachable on a
+   phone without dragging the sheet itself out from under the finger. */
+.alm-scroll{
+  overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  max-height:min(56vh,440px);padding:8px 6px 10px;
+  background:radial-gradient(120% 80% at 50% 0%, #1d1a14 0%, #121318 70%);
+  border:1px solid var(--edge-soft);border-radius:11px;
+}
+.alm-canvas{position:relative;margin:0 auto;}
+.alm-lines{position:absolute;inset:0;pointer-events:none;overflow:visible;}
+.alm-line{fill:none;stroke:#3a3f48;stroke-width:2.4;stroke-linecap:round;}
+.alm-line.open{stroke:var(--brass);stroke-width:2.8;opacity:.92;}
+
+.alm-node{
+  position:absolute;width:74px;height:74px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  padding:4px 3px;border-radius:12px;background:#15161b;
+  border:1px solid var(--edge-soft);color:var(--text);cursor:pointer;
+}
+.alm-node .sprite{flex:0 0 auto;}
+.an-name{
+  font-size:9px;line-height:1.1;text-align:center;color:var(--muted);
+  max-width:68px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+}
+.alm-node.locked{opacity:.55;border-style:dashed;}
+.alm-node.locked .sprite{filter:grayscale(1);}
+.alm-node.available{border-color:var(--brass);box-shadow:0 0 0 1px rgba(197,160,86,.28);}
+.alm-node.unlocked{border-color:#4a5666;background:#171a20;}
+.alm-node.mastered{
+  border-color:var(--gold);background:linear-gradient(180deg,#241f14 0%,#171a20 100%);
+  box-shadow:0 0 12px rgba(243,215,145,.2);
+}
+.alm-node.mastered .an-name{color:var(--gold);}
+.an-pips{display:flex;gap:2px;align-items:center;justify-content:center;height:8px;}
+.an-pips i{
+  display:block;width:6px;height:6px;border-radius:2px;
+  background:#2c3038;border:1px solid #3a3f48;
+}
+.an-pips i.on{background:var(--brass);border-color:var(--brass);}
+.alm-node.mastered .an-pips i.on{background:var(--gold);border-color:var(--gold);}
+.an-pips.new{font-size:9px;color:var(--brass);letter-spacing:.02em;height:auto;}
+.an-pips.locked{font-size:10px;color:#565b66;height:auto;}
+.an-pips.lg{height:auto;gap:4px;}
+.an-pips.lg i{width:13px;height:13px;border-radius:3px;}
+
+.bp-head{
+  display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:10px;
+  padding-bottom:10px;border-bottom:1px solid var(--edge-soft);
+}
+.bp-name{font-size:17px;color:var(--gold);letter-spacing:.03em;}
+.bp-cat{font-size:11.5px;color:var(--muted);}
+.bp-state{
+  margin-top:3px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 9px;border-radius:999px;border:1px solid var(--edge-soft);color:var(--muted);
+}
+.bp-state.available{color:var(--brass);border-color:var(--brass);}
+.bp-state.unlocked{color:#9fb0c4;border-color:#4a5666;}
+.bp-state.mastered{color:var(--gold);border-color:var(--gold);}
+.bp-level{display:flex;align-items:center;justify-content:center;gap:9px;margin-bottom:10px;}
+.bp-level span:last-child{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.bp-why{margin:10px 0 0;font-size:12.5px;line-height:1.5;color:var(--muted);}
+.bp-why b{color:var(--gold);font-variant-numeric:tabular-nums;}
+
+/* ---------- choosing your two crafts ---------- */
+.pick-lead{margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--muted);}
+.pick-count{
+  margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--brass);text-align:center;
+}
+.craft-card.picked{
+  border-color:var(--gold);background:linear-gradient(180deg,#2a2317 0%,#171a20 100%);
+  box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(243,215,145,.18);
+}
+.craft-card.picked .cc-name{color:var(--gold);}
+
 /* ---------- title screen ---------- */
 /* Below the top bar on purpose: the title track plays behind this screen, so
    the mute button and the volume slider must still be reachable. Every other
@@ -1973,16 +2090,38 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        batch alone would ask for &mdash; a single Gold piece is an Apprentice board, not a Novice
        one. Bronze and Silver are worked at whatever the batch asked. Nothing goes above Master.
        The order sheet names the tier, and says when the metal has raised it, before you commit.</p>
-    <p><b>You start with eight blueprints, not eighty.</b> A forge opens knowing how to work an
-       arming sword, a utility knife, a hatchet, a skull cap, reinforced boots, a hammer,
-       horseshoes and a buckler &mdash; and learns the rest. The <b>Checksmith Almanac</b> is the
-       whole catalogue drawn as the tree it is: what you know, what you have made, the best work
-       you have ever done on each, the metals you have worked it in, and who comes looking for it.
-       A recipe opens up once you have <i>forged</i> what comes before it and the shop has the name
-       and the premises to match &mdash; and it goes into the book overnight, so a new blueprint is
-       something the morning tells you about. If you would rather not wait, a recipe whose
-       groundwork is done can be bought as a <b>schematic</b>; gold skips the waiting, never the
-       anvil work.</p>
+    <p><b>You served your time at two trades.</b> Before a new forge opens you choose <b>two</b>
+       of the sixteen crafts &mdash; swords, daggers, axes, spears, maces, hammers, shields,
+       helmets, body armour, gauntlets, boots, ranged gear, tools, farming equipment, household
+       goods, specialty work &mdash; and you begin with the first blueprint of each, free. You do
+       not know how to make anything else, and that is the point: this forge becomes a
+       <i>sword-and-shield</i> shop, or a <i>tools-and-farming</i> one, because of what you chose
+       and what you then went on to learn.</p>
+    <p><b>Every craft keeps its own experience.</b> Forging a piece earns experience in
+       <i>that craft alone</i>. Arming swords, longswords and falchions all fill the same sword
+       pocket; not one point of it will ever buy you a better helmet. Bigger boards, dearer metals
+       and better work at the anvil all earn more &mdash; but an early blueprint never stops
+       paying, so you can always fall back on what you know to build the pocket up. Only the anvil
+       earns it: selling, stocking and hauling earn nothing, because the work was paid for when it
+       was made.</p>
+    <p><b>The Almanac is sixteen skill trees.</b> Open it and each craft is a card; tap one and
+       its tree opens &mdash; the blueprints as their own sprites, joined by the lines of the
+       progression. A blueprint you hold has a <b>level</b>, up to five, and each level is bought
+       with that craft's experience. Levels are money: a level-5 blueprint is worth more than
+       twice a level-1 one, on the same metal at the same quality. Levels are also the road on:
+       an advanced blueprint unlocks once the one before it reaches the level the tree asks for,
+       and then costs experience of its own to learn. Branches fork, so reaching a level often
+       opens a <i>choice</i> of two &mdash; and you need not take both.</p>
+    <p><b>The level and the quality are different things.</b> The <b>level</b> is what you bought
+       in the Almanac, permanent, and it raises what the piece is worth. The <b>quality</b> is
+       what you scored at the anvil on that batch, and it is yours to earn every time. Neither
+       touches the other: taking a blueprint further never erases your best work, and a masterwork
+       at the anvil never moves the level. A finished piece keeps the level it was <i>made</i> on,
+       so taking a blueprint further tomorrow never quietly reprices what is already on the shelf.</p>
+    <p><b>A third craft is bought, not earned.</b> You cannot be asked for experience in a craft
+       you have no way of earning it in, so branching out asks for a <b>name</b> and <b>money</b>
+       instead &mdash; both climbing with how many you already hold. Take one up and its first
+       blueprint goes into the book at level 1, and its tree is yours to walk from there.</p>
     <p><b>The floor is fixtures, not slots.</b> Your premises hold so many <b>display stands</b> and
        no more, and each one is bought separately from the Grow tab: a Weapon Display, an Armour
        Stand, a Shield Rack, a Helmet Stand, a Tool Display or a General Goods table. A stand takes
@@ -4264,23 +4403,43 @@ const SHOP = {
   /* A category is a shelf of the catalogue and the kind of stand that can
      hold it. Adding one is a row here and a stand rule; nothing below names
      a category. */
+  /* A category is a craft you take up, not a shelf you file things on. Each
+     one is its own discipline with its own experience, its own tree and its
+     own root blueprint - `root` is the recipe taking it up gives you free,
+     and it is the one recipe in that discipline with no prerequisite. */
   categories: [
-    { id: 'swords', name: 'Swords', stand: 'weapon' },
-    { id: 'daggers', name: 'Daggers', stand: 'weapon' },
-    { id: 'axes', name: 'Axes', stand: 'weapon' },
-    { id: 'spears', name: 'Spears', stand: 'weapon' },
-    { id: 'maces', name: 'Maces', stand: 'weapon' },
-    { id: 'hammers', name: 'Hammers', stand: 'weapon' },
-    { id: 'shields', name: 'Shields', stand: 'shield' },
-    { id: 'helmets', name: 'Helmets', stand: 'helmet' },
-    { id: 'armor', name: 'Armor', stand: 'armor' },
-    { id: 'gauntlets', name: 'Gauntlets', stand: 'armor' },
-    { id: 'boots', name: 'Boots', stand: 'armor' },
-    { id: 'ranged', name: 'Ranged', stand: 'goods' },
-    { id: 'tools', name: 'Tools', stand: 'tool' },
-    { id: 'farming', name: 'Farming', stand: 'tool' },
-    { id: 'household', name: 'Household', stand: 'goods' },
-    { id: 'specialty', name: 'Specialty', stand: 'goods' }
+    { id: 'swords', name: 'Swords', stand: 'weapon', root: 'shortsword',
+      blurb: 'The blade a town judges a forge by. Long work, long money.' },
+    { id: 'daggers', name: 'Daggers', stand: 'weapon', root: 'dagger',
+      blurb: 'Small boards, quick coin, and the quiet trade that buys them.' },
+    { id: 'axes', name: 'Axes', stand: 'weapon', root: 'hatchet',
+      blurb: 'Wood or war, the same head. Cheap to start, brutal at the top.' },
+    { id: 'spears', name: 'Spears', stand: 'weapon', root: 'spear',
+      blurb: 'What a militia is armed with. Steady, unglamorous, always wanted.' },
+    { id: 'maces', name: 'Maces', stand: 'weapon', root: 'mace',
+      blurb: 'Weight on a stick, done well. Guards and clerics both come for it.' },
+    { id: 'hammers', name: 'Hammers', stand: 'weapon', root: 'smithhammer',
+      blurb: 'Starts on your own bench and ends in a knight\u2019s hands.' },
+    { id: 'shields', name: 'Shields', stand: 'shield', root: 'buckler',
+      blurb: 'Everyone who carries a blade wants something to put in front of it.' },
+    { id: 'helmets', name: 'Helmets', stand: 'helmet', root: 'cap',
+      blurb: 'The piece a labourer buys first and a noble pays most for.' },
+    { id: 'armor', name: 'Body Armor', stand: 'armor', root: 'chainmail',
+      blurb: 'The dearest thing on any floor, and the slowest to learn.' },
+    { id: 'gauntlets', name: 'Gauntlets', stand: 'armor', root: 'gloves',
+      blurb: 'Fiddly work that pays out of all proportion once mastered.' },
+    { id: 'boots', name: 'Boots & Greaves', stand: 'armor', root: 'boots',
+      blurb: 'Everybody walks. Everybody wears them out.' },
+    { id: 'ranged', name: 'Ranged Equipment', stand: 'goods', root: 'arrowheads',
+      blurb: 'Sold by the handful, bought again next week.' },
+    { id: 'tools', name: 'Tools', stand: 'tool', root: 'hammer',
+      blurb: 'No glory in it. It is what keeps a forge open through a lean month.' },
+    { id: 'farming', name: 'Farming Equipment', stand: 'tool', root: 'hoe',
+      blurb: 'The trade a village forge actually lives on.' },
+    { id: 'household', name: 'Household Goods', stand: 'goods', root: 'cookknife',
+      blurb: 'Kitchens and hearths. Modest money, and it never stops coming.' },
+    { id: 'specialty', name: 'Specialty Goods', stand: 'goods', root: 'manacles',
+      blurb: 'Locks, crowns and gatework. The few who can pay, pay handsomely.' }
   ],
 
   /* size is the forge board this item is worked on, price its bronze market
@@ -4350,7 +4509,7 @@ const SHOP = {
     { id: 'barbute',        name: 'Barbute',               cat: 'helmets',   size: 4, price:  68, tier: 2, needs: ['nasal'], tags: ['mercenary', 'knight', 'adventurer'] },
     { id: 'visored',        name: 'Visored Helm',          cat: 'helmets',   size: 5, price: 104, tier: 3, needs: ['helm'], tags: ['knight', 'noble', 'collector'] },
     // Armor
-    { id: 'chainmail',      name: 'Chain Shirt',           cat: 'armor',     size: 5, price:  96, tier: 1, needs: ['cap'], tags: ['soldier', 'guard', 'adventurer', 'mercenary'] },
+    { id: 'chainmail',      name: 'Chain Shirt',           cat: 'armor',     size: 5, price:  96, tier: 0, needs: [], tags: ['soldier', 'guard', 'adventurer', 'mercenary'] },
     { id: 'brigandine',     name: 'Brigandine',            cat: 'armor',     size: 5, price: 110, tier: 1, needs: ['chainmail'], tags: ['mercenary', 'scout', 'adventurer'] },
     { id: 'breastplate',    name: 'Breastplate',           cat: 'armor',     size: 5, price: 128, tier: 2, needs: ['brigandine'], tags: ['knight', 'soldier', 'guard'] },
     { id: 'halfplate',      name: 'Half Plate',            cat: 'armor',     size: 6, price: 148, tier: 2, needs: ['breastplate'], tags: ['knight', 'mercenary', 'noble'] },
@@ -4372,8 +4531,8 @@ const SHOP = {
     { id: 'bolts',          name: 'Crossbow Bolts',        cat: 'ranged',    size: 3, price:  30, tier: 1, needs: ['arrowheads'], tags: ['guard', 'militia', 'mercenary'] },
     { id: 'crossbowmech',   name: 'Crossbow Mechanism',    cat: 'ranged',    size: 5, price: 108, tier: 3, needs: ['bolts'], tags: ['craftsman', 'collector', 'mercenary'] },
     // Tools
-    { id: 'pickaxe',        name: 'Pickaxe',               cat: 'tools',     size: 3, price:  30, tier: 0, needs: [], tags: ['miner', 'laborer', 'craftsman'] },
-    { id: 'woodaxe',        name: 'Wood Axe',              cat: 'tools',     size: 3, price:  28, tier: 0, needs: [], tags: ['laborer', 'craftsman', 'traveler'] },
+    { id: 'pickaxe',        name: 'Pickaxe',               cat: 'tools',     size: 3, price:  30, tier: 1, needs: ['hammer'], tags: ['miner', 'laborer', 'craftsman'] },
+    { id: 'woodaxe',        name: 'Wood Axe',              cat: 'tools',     size: 3, price:  28, tier: 1, needs: ['hammer'], tags: ['laborer', 'craftsman', 'traveler'] },
     { id: 'hammer',         name: 'Hammer',                cat: 'tools',     size: 3, price:  22, tier: 0, needs: [], tags: ['craftsman', 'laborer', 'miner'] },
     { id: 'chisels',        name: 'Chisel Set',            cat: 'tools',     size: 4, price:  40, tier: 1, needs: ['hammer'], tags: ['craftsman', 'collector'] },
     { id: 'miningpick',     name: 'Mining Pick',           cat: 'tools',     size: 4, price:  44, tier: 1, needs: ['pickaxe'], tags: ['miner', 'laborer'] },
@@ -4383,17 +4542,17 @@ const SHOP = {
     { id: 'scythe',         name: 'Scythe',                cat: 'farming',   size: 4, price:  46, tier: 1, needs: ['hoe'], tags: ['farmer', 'laborer'] },
     { id: 'plowblade',      name: 'Plow Blade',            cat: 'farming',   size: 4, price:  54, tier: 1, needs: ['hoe'], tags: ['farmer', 'craftsman'] },
     { id: 'pitchfork',      name: 'Pitchfork',             cat: 'farming',   size: 4, price:  38, tier: 1, needs: ['hoe'], tags: ['farmer', 'laborer'] },
-    { id: 'horseshoes',     name: 'Horseshoes',            cat: 'farming',   size: 3, price:  20, tier: 0, needs: [], tags: ['farmer', 'traveler', 'merchant'] },
+    { id: 'horseshoes',     name: 'Horseshoes',            cat: 'farming',   size: 3, price:  20, tier: 1, needs: ['hoe'], tags: ['farmer', 'traveler', 'merchant'] },
     // Household
     { id: 'cookknife',      name: 'Cooking Knife',         cat: 'household', size: 3, price:  20, tier: 0, needs: [], tags: ['cook', 'merchant', 'traveler'] },
-    { id: 'cleaver',        name: 'Cleaver',               cat: 'household', size: 3, price:  26, tier: 0, needs: [], tags: ['cook', 'merchant', 'laborer'] },
+    { id: 'cleaver',        name: 'Cleaver',               cat: 'household', size: 3, price:  26, tier: 1, needs: ['cookknife'], tags: ['cook', 'merchant', 'laborer'] },
     { id: 'pan',            name: 'Iron Pan',              cat: 'household', size: 4, price:  34, tier: 1, needs: ['cookknife'], tags: ['cook', 'traveler', 'merchant'] },
     { id: 'cauldron',       name: 'Cauldron',              cat: 'household', size: 5, price:  72, tier: 2, needs: ['pan'], tags: ['cook', 'cleric', 'merchant'] },
     { id: 'firetools',      name: 'Fireplace Tools',       cat: 'household', size: 4, price:  42, tier: 1, needs: ['cleaver'], tags: ['merchant', 'noble', 'cook'] },
     // Specialty
-    { id: 'manacles',       name: 'Manacles',              cat: 'specialty', size: 3, price:  36, tier: 1, needs: ['hammer'], tags: ['guard', 'merchant', 'soldier'] },
-    { id: 'gatework',       name: 'Decorative Gatework',   cat: 'specialty', size: 5, price:  98, tier: 2, needs: ['chisels'], tags: ['noble', 'merchant', 'collector'] },
-    { id: 'lockbox',        name: 'Lockbox',               cat: 'specialty', size: 4, price:  66, tier: 2, needs: ['manacles'], tags: ['merchant', 'noble', 'collector'] },
+    { id: 'manacles',       name: 'Manacles',              cat: 'specialty', size: 3, price:  36, tier: 0, needs: [], tags: ['guard', 'merchant', 'soldier'] },
+    { id: 'gatework',       name: 'Decorative Gatework',   cat: 'specialty', size: 5, price:  98, tier: 2, needs: ['lockbox'], tags: ['noble', 'merchant', 'collector'] },
+    { id: 'lockbox',        name: 'Lockbox',               cat: 'specialty', size: 4, price:  66, tier: 1, needs: ['manacles'], tags: ['merchant', 'noble', 'collector'] },
     { id: 'ironcrown',      name: 'Iron Crown',            cat: 'specialty', size: 5, price: 160, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] },
     { id: 'ceremonial',     name: 'Ceremonial Weapon',     cat: 'specialty', size: 6, price: 210, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] }
   ],
@@ -4424,6 +4583,51 @@ const SHOP = {
     rep:       [6, 16, 34, 55],
     store:     [1, 1, 2, 3],
     schematic: 7
+  },
+
+  /* ---------- the craft: experience, blueprint levels and disciplines -----
+     Every number the Almanac runs on lives here, and nowhere else. The UI
+     asks these functions what something costs; it never works it out again
+     itself, so balancing the whole progression is editing this block.
+
+     Experience is earned at the anvil and spent in the Almanac, and it never
+     crosses between disciplines: sword experience buys sword blueprints and
+     nothing else. There is deliberately no shop-wide pool. */
+  craft: {
+    maxLevel: 5,                 // per blueprint, raise freely
+
+    /* What a blueprint is worth at each level, as a multiplier on the item's
+       price. Index 0 is level 1. A mastered blueprint is worth better than
+       twice a fresh one, which is what makes the spending felt at the till. */
+    levelValue: [1.00, 1.20, 1.45, 1.75, 2.15],
+
+    /* Experience for one finished piece. The board it is worked on says how
+       much work it was; the metal and the quality of the work scale it. */
+    xpBase: 5,                   // flat, so a 3x3 is never worthless
+    xpPerSize: 3.5,              // ...times the board's size above 3
+    xpMaterial: 0.45,            // how hard the metal's value pulls
+    xpQuality: 0.6,              // crude work earns less, a masterwork more
+    xpQualityFloor: 0.45,        // ...but never nothing
+
+    /* What it costs to take a blueprint up a level. Index 0 is the step from
+       level 1 to 2. Scaled by the item's own board size, so a greatsword
+       costs more to master than an arming sword. */
+    upgradeCost: [28, 85, 175, 310],
+    upgradeSize: 0.34,           // per board size above 3, as a fraction
+
+    /* What it costs to unlock a blueprint at all, and the level its
+       prerequisite must reach first. Both by the node's depth in the tree. */
+    unlockCost: [0, 70, 160, 300, 520],
+    needLevel:  [0, 3, 3, 4, 4],
+
+    /* Taking up a craft you did not start with. The two you choose at the
+       outset are free; every one after that wants a name and money, and both
+       climb with how many you already hold. */
+    startingPicks: 2,
+    disciplineRep: 18,           // for the third; rises per craft held
+    disciplineRepStep: 12,
+    disciplineCost: 900,
+    disciplineCostStep: 1.7      // ...multiplied per craft held
   },
 
   /* What a display stand is and what it will hold. A stand is a fixture:
@@ -4630,7 +4834,7 @@ const SHOP = {
   /* `staff` is the forge's own hiring capacity. Miners are not on it: they
      are hired against the property they work and counted there. */
   tiers: [
-    { id: 1, name: 'Corner Forge',   rent: 175,  staff: 4,  stands: 4,  storage: 45,  batch: 3,  cost: 0 },
+    { id: 1, name: 'Corner Forge',   rent: 145,  staff: 4,  stands: 4,  storage: 45,  batch: 3,  cost: 0 },
     { id: 2, name: 'Village Smithy', rent: 620,  staff: 6,  stands: 6,  storage: 90,  batch: 5,  cost: 1800 },
     { id: 3, name: 'Town Forge',     rent: 1500, staff: 8,  stands: 9,  storage: 170, batch: 7,  cost: 6500 },
     { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 11, stands: 12, storage: 300, batch: 10, cost: 22000 }
@@ -4735,21 +4939,295 @@ function standForItem(itemId) {
      rep     the name the shop must have made for itself
      store   the premises it must be working out of
      price   what a schematic costs, for the recipes that can be bought */
-function recipeNeeds(item) {
-  const it = typeof item === 'string' ? shopItem(item) : item;
+/* ---------- the craft ---------------------------------------------------
+   A blueprint is not a thing you collect, it is a thing you get better at.
+   Every discipline keeps its own experience, earned at its own anvil, and
+   spent only on its own tree. There is no shop-wide pool on purpose: a
+   sword-smith who has never touched a shield has no business being good at
+   shields, however many swords they have sold.
+
+   Two numbers hang off a blueprint and they are not the same thing:
+
+     level    what you have bought with experience. Permanent, and it is
+              what raises the piece's worth.
+     quality  what you scored at the anvil on a given batch. Per batch, and
+              it never touches the level.
+
+   Nothing here reads the other's number. */
+
+/* How deep in its discipline's tree a blueprint sits: 0 for the root, and
+   one more for each step away from it. Depth decides what it costs to
+   unlock and how good its parent must be first. */
+const DEPTHS = {};
+function recipeDepth(id) {
+  if (DEPTHS[id] !== undefined) return DEPTHS[id];
+  const it = shopItem(id);
+  if (!it) return 0;
+  DEPTHS[id] = 0;                                      // guard against a cycle
+  const parents = (it.needs || []).filter(function (n) {
+    const p = shopItem(n);
+    return p && p.cat === it.cat;
+  });
+  let depth = 0;
+  for (const n of parents) depth = Math.max(depth, recipeDepth(n) + 1);
+  DEPTHS[id] = depth;
+  return depth;
+}
+
+/* The blueprint a discipline hands you for taking it up. */
+function disciplineRoot(catId) {
+  const cat = shopCategory(catId);
+  return cat && shopItem(cat.root) ? cat.root : null;
+}
+function disciplineOf(id) {
+  const it = shopItem(id);
+  return it ? it.cat : null;
+}
+function disciplineItems(catId) {
+  return SHOP.items.filter(function (it) { return it.cat === catId; });
+}
+
+/* Which crafts this forge has taken up. */
+function hasDiscipline(shop, catId) {
+  return (shop.disciplines || []).indexOf(catId) >= 0;
+}
+
+/* Unspent and lifetime experience, per discipline. Reading either one never
+   creates it, so an untouched craft honestly reads zero. */
+function craftXp(shop, catId) { return (shop.xp && shop.xp[catId]) || 0; }
+function craftXpTotal(shop, catId) { return (shop.xpTotal && shop.xpTotal[catId]) || 0; }
+
+/* A blueprint's level, or 0 when the forge does not hold it at all. Holding
+   it and being at level 1 are the same thing. */
+function blueprintLevel(shop, id) {
+  const level = (shop.blueprints && shop.blueprints[id]) || 0;
+  return Math.max(0, Math.min(SHOP.craft.maxLevel, level));
+}
+function recipeKnown(shop, id) { return blueprintLevel(shop, id) > 0; }
+function blueprintMastered(shop, id) {
+  return blueprintLevel(shop, id) >= SHOP.craft.maxLevel;
+}
+
+/* What a blueprint at this level is worth, as a multiplier on the item's
+   price. Level 0 is priced as level 1 so a piece from an old save, or one
+   whose blueprint was somehow let go, never prices at zero. */
+function levelValue(level) {
+  const table = SHOP.craft.levelValue;
+  const at = Math.max(1, Math.min(table.length, Math.round(level) || 1));
+  return table[at - 1];
+}
+
+/* What the next level would cost, or null at the top of the ladder. Bigger
+   boards cost more to master, so a greatsword is a longer road than a
+   dagger even inside the same discipline. */
+function blueprintUpgradeCost(id, level) {
+  const it = shopItem(id);
   if (!it) return null;
-  const tier = Math.max(0, Math.min(SHOP.unlock.rep.length - 1, it.tier || 0));
-  const starting = SHOP.startingRecipes.indexOf(it.id) >= 0;
+  const at = level === undefined ? 1 : level;
+  if (at < 1 || at >= SHOP.craft.maxLevel) return null;
+  const base = SHOP.craft.upgradeCost[at - 1];
+  const size = 1 + Math.max(0, it.size - 3) * SHOP.craft.upgradeSize;
+  return Math.round(base * size);
+}
+
+/* What unlocking a blueprint costs, and how good its parent has to be. A
+   root costs nothing: it comes with the craft. */
+function blueprintUnlockCost(id) {
+  const it = shopItem(id);
+  if (!it) return 0;
+  const depth = Math.min(SHOP.craft.unlockCost.length - 1, recipeDepth(id));
+  const size = 1 + Math.max(0, it.size - 3) * SHOP.craft.upgradeSize;
+  return Math.round(SHOP.craft.unlockCost[depth] * size);
+}
+function requiredParentLevel(id) {
+  const depth = Math.min(SHOP.craft.needLevel.length - 1, recipeDepth(id));
+  return SHOP.craft.needLevel[depth];
+}
+
+/* The blueprints that must be held, and how far taken, before this one may
+   be bought. Only ever inside its own discipline. */
+function recipeParents(id) {
+  const it = shopItem(id);
+  if (!it) return [];
+  return (it.needs || []).filter(function (n) {
+    const p = shopItem(n);
+    return p && p.cat === it.cat;
+  });
+}
+
+/* Everything standing between the forge and a blueprint, named so the
+   Almanac can print it rather than guess at it. */
+function recipeStatus(shop, id) {
+  const it = shopItem(id);
+  if (!it) return null;
+  const level = blueprintLevel(shop, id);
+  const known = level > 0;
+  const craft = hasDiscipline(shop, it.cat);
+  const need = requiredParentLevel(id);
+  const parents = recipeParents(id).map(function (n) {
+    return { id: n, level: blueprintLevel(shop, n), need: need };
+  });
+  const short = parents.filter(function (p) { return p.level < p.need; });
+  const cost = blueprintUnlockCost(id);
+  // a craft you have not taken up hides its whole tree behind that one fact
+  const ready = craft && !short.length;
   return {
-    starting: starting,
-    forged: (it.needs || []).slice(),
-    rep: starting ? 0 : SHOP.unlock.rep[tier],
-    store: starting ? 1 : SHOP.unlock.store[tier],
-    price: starting ? 0 : Math.round(it.price * SHOP.unlock.schematic)
+    id: id, cat: it.cat, known: known, level: level,
+    mastered: level >= SHOP.craft.maxLevel,
+    discipline: craft, depth: recipeDepth(id),
+    parents: parents, short: short,
+    ready: ready,
+    // buyable means the experience is the only thing left to find
+    buyable: !known && ready,
+    affordable: !known && ready && craftXp(shop, it.cat) >= cost,
+    cost: cost,
+    next: known ? blueprintUpgradeCost(id, level) : null,
+    value: levelValue(Math.max(1, level)),
+    nextValue: level > 0 && level < SHOP.craft.maxLevel ? levelValue(level + 1) : null
   };
 }
 
-function recipeKnown(shop, id) { return (shop.known || []).indexOf(id) >= 0; }
+/* Put a blueprint in the book at level 1. Returns false if it was already
+   there, so callers report only what actually changed. */
+function learnRecipe(shop, id, how) {
+  if (!shopItem(id) || recipeKnown(shop, id)) return false;
+  if (!shop.blueprints) shop.blueprints = {};
+  shop.blueprints[id] = 1;
+  if (shop.known.indexOf(id) < 0) shop.known.push(id);
+  shop.learned.push({ id: id, day: shop.day, how: how || 'study' });
+  if (shop.learned.length > 60) shop.learned.shift();
+  return true;
+}
+
+/* Take up a craft. The blueprint at its root comes with it, free and at
+   level 1, which is what stops a locked discipline needing its own
+   experience to open - an impossible loop. */
+function takeUpDiscipline(shop, catId, how) {
+  const cat = shopCategory(catId);
+  if (!cat || hasDiscipline(shop, catId)) return false;
+  shop.disciplines.push(catId);
+  if (!shop.xp[catId]) shop.xp[catId] = 0;
+  if (!shop.xpTotal[catId]) shop.xpTotal[catId] = 0;
+  const root = disciplineRoot(catId);
+  if (root) learnRecipe(shop, root, how || 'craft');
+  return true;
+}
+
+/* What taking up one more craft asks of the forge. Both climb with how many
+   it already holds, so the fifth is a real decision and the third is not
+   out of reach. */
+function disciplineTerms(shop) {
+  const held = (shop.disciplines || []).length;
+  const beyond = Math.max(0, held - SHOP.craft.startingPicks);
+  return {
+    rep: SHOP.craft.disciplineRep + beyond * SHOP.craft.disciplineRepStep,
+    cost: Math.round(SHOP.craft.disciplineCost *
+      Math.pow(SHOP.craft.disciplineCostStep, beyond))
+  };
+}
+function disciplineStatus(shop, catId) {
+  const cat = shopCategory(catId);
+  if (!cat) return null;
+  const held = hasDiscipline(shop, catId);
+  const terms = disciplineTerms(shop);
+  return {
+    id: catId, held: held, terms: terms,
+    repShort: !held && shop.reputation < terms.rep,
+    goldShort: !held && shop.gold < terms.cost,
+    ready: !held && shop.reputation >= terms.rep && shop.gold >= terms.cost
+  };
+}
+
+/* Buy into a craft the forge did not start with. Reputation and gold only -
+   never that craft's own experience, which it has no way of having. */
+function shopTakeUpDiscipline(shop, catId) {
+  const st = disciplineStatus(shop, catId);
+  if (!st) return { ok: false, why: 'no such craft' };
+  if (st.held) return { ok: false, why: 'already yours' };
+  if (st.repShort) return { ok: false, why: 'needs a name worth ' + st.terms.rep };
+  if (st.goldShort) return { ok: false, why: 'needs ' + st.terms.cost + 'g' };
+  shop.gold -= st.terms.cost;
+  takeUpDiscipline(shop, catId, 'bought');
+  return { ok: true, spent: st.terms.cost, root: disciplineRoot(catId) };
+}
+
+/* ---------- earning it -------------------------------------------------
+   Experience comes off the anvil and nowhere else. Selling a piece, carrying
+   it to a stand or shipping it to a contract earns nothing: the work was
+   already paid for in experience when it was made. */
+function craftXpFor(itemId, materialId, quality) {
+  const it = shopItem(itemId), mt = shopMaterial(materialId);
+  if (!it) return 0;
+  const c = SHOP.craft;
+  const size = c.xpBase + Math.max(0, it.size - 3) * c.xpPerSize;
+  const metal = 1 + (mt ? Math.max(0, mt.value - 1) * c.xpMaterial : 0);
+  const q = Math.max(0, Math.min(100, quality === undefined ? 100 : quality)) / 100;
+  const work = c.xpQualityFloor + q * c.xpQuality;
+  return Math.max(1, Math.round(size * metal * work));
+}
+
+/* Put experience in a discipline's pocket. Nothing else in the game may add
+   to shop.xp, so there is exactly one place experience can come from. */
+function awardCraftXp(shop, itemId, materialId, qty, quality) {
+  const cat = disciplineOf(itemId);
+  if (!cat || !(qty > 0)) return 0;
+  const gained = craftXpFor(itemId, materialId, quality) * Math.floor(qty);
+  shop.xp[cat] = craftXp(shop, cat) + gained;
+  shop.xpTotal[cat] = craftXpTotal(shop, cat) + gained;
+  return gained;
+}
+
+/* Spend experience to put a blueprint in the book at level 1. */
+function unlockBlueprint(shop, id) {
+  const st = recipeStatus(shop, id);
+  if (!st) return { ok: false, why: 'no such blueprint' };
+  if (st.known) return { ok: false, why: 'already in the book' };
+  if (!st.discipline) {
+    const cat = shopCategory(st.cat);
+    return { ok: false, why: 'you have not taken up ' + (cat ? cat.name : 'that craft') };
+  }
+  if (st.short.length) {
+    const first = st.short[0];
+    const name = (shopItem(first.id) || {}).name || first.id;
+    return { ok: false, why: name + ' must reach level ' + first.need };
+  }
+  if (craftXp(shop, st.cat) < st.cost) {
+    return { ok: false, why: 'needs ' + st.cost + ' experience' };
+  }
+  shop.xp[st.cat] = craftXp(shop, st.cat) - st.cost;
+  learnRecipe(shop, id, 'study');
+  return { ok: true, spent: st.cost, level: 1 };
+}
+
+/* Spend experience to take a blueprint you already hold one level further. */
+function upgradeBlueprint(shop, id) {
+  const st = recipeStatus(shop, id);
+  if (!st) return { ok: false, why: 'no such blueprint' };
+  if (!st.known) return { ok: false, why: 'not in the book yet' };
+  if (st.mastered) return { ok: false, why: 'already mastered' };
+  const cost = blueprintUpgradeCost(id, st.level);
+  if (craftXp(shop, st.cat) < cost) {
+    return { ok: false, why: 'needs ' + cost + ' experience' };
+  }
+  shop.xp[st.cat] = craftXp(shop, st.cat) - cost;
+  shop.blueprints[id] = st.level + 1;
+  return { ok: true, spent: cost, level: shop.blueprints[id],
+    value: levelValue(shop.blueprints[id]) };
+}
+
+/* What this discipline's page of the book comes to, for the header. */
+function disciplineSummary(shop, catId) {
+  const mine = disciplineItems(catId);
+  let unlocked = 0, mastered = 0;
+  for (const it of mine) {
+    const level = blueprintLevel(shop, it.id);
+    if (level > 0) unlocked++;
+    if (level >= SHOP.craft.maxLevel) mastered++;
+  }
+  return { id: catId, held: hasDiscipline(shop, catId),
+    xp: craftXp(shop, catId), total: craftXpTotal(shop, catId),
+    unlocked: unlocked, mastered: mastered, count: mine.length };
+}
 
 /* How many of a recipe have ever come off this shop's anvil, and the best
    work it has ever done on one. The Almanac reads both. */
@@ -4759,78 +5237,6 @@ function forgeRecord(shop, id) {
 function forgedEver(shop, id) {
   const rec = forgeRecord(shop, id);
   return !!(rec && rec.made > 0);
-}
-
-/* Everything standing between the shop and a recipe, named so the Almanac
-   can print it rather than guess at it. `ready` means studying it is all
-   that is left; `buyable` means the schematic would carry it the rest of
-   the way. */
-function recipeStatus(shop, id) {
-  const it = shopItem(id);
-  if (!it) return null;
-  const needs = recipeNeeds(it);
-  const known = recipeKnown(shop, id);
-  const missing = [];
-  const unforged = [];
-  for (const req of needs.forged) {
-    if (!recipeKnown(shop, req)) { missing.push({ kind: 'known', id: req }); continue; }
-    if (!forgedEver(shop, req)) unforged.push({ kind: 'forged', id: req });
-  }
-  const short = missing.concat(unforged);
-  const repShort = shop.reputation < needs.rep;
-  const storeShort = shop.tier < needs.store;
-  const ready = !short.length && !repShort && !storeShort;
-  return {
-    id: id, known: known, needs: needs, ready: ready,
-    blockers: short.concat(repShort ? [{ kind: 'rep', value: needs.rep }] : [])
-      .concat(storeShort ? [{ kind: 'store', value: needs.store }] : []),
-    // a schematic is sold to anyone who has done the groundwork on the anvil
-    buyable: !known && !short.length && !needs.starting,
-    price: needs.price
-  };
-}
-
-/* Learn a recipe. Returns false if it was already known, so callers can
-   report only what actually changed. */
-function learnRecipe(shop, id, how) {
-  if (!shopItem(id) || recipeKnown(shop, id)) return false;
-  shop.known.push(id);
-  shop.learned.push({ id: id, day: shop.day, how: how || 'study' });
-  if (shop.learned.length > 60) shop.learned.shift();
-  return true;
-}
-
-/* Every recipe the shop has worked its way up to, learned at once. Called
-   at the turn of the day, so learning something new is a thing the player
-   is told about rather than something they trip over in a menu. */
-function discoverRecipes(shop) {
-  const found = [];
-  // one pass is not enough: learning a recipe can put its own children in
-  // reach, and a shop that has been away a while should catch all the way up
-  for (let round = 0; round < SHOP.items.length; round++) {
-    let any = false;
-    for (const it of SHOP.items) {
-      if (recipeKnown(shop, it.id)) continue;
-      const st = recipeStatus(shop, it.id);
-      if (!st || !st.ready) continue;
-      if (learnRecipe(shop, it.id, 'study')) { found.push(it.id); any = true; }
-    }
-    if (!any) break;
-  }
-  return found;
-}
-
-/* Buy the schematic for something the shop could make but has never been
-   shown how to. */
-function buySchematic(shop, id) {
-  const st = recipeStatus(shop, id);
-  if (!st) return { ok: false, why: 'no such recipe' };
-  if (st.known) return { ok: false, why: 'already known' };
-  if (!st.buyable) return { ok: false, why: 'the groundwork is not done' };
-  if (shop.gold < st.price) return { ok: false, why: 'needs ' + st.price + 'g' };
-  shop.gold -= st.price;
-  learnRecipe(shop, id, 'schematic');
-  return { ok: true, spent: st.price };
 }
 
 /* The book of what this forge has actually made. One entry a recipe, with
@@ -4846,6 +5252,56 @@ function recordForged(shop, itemId, materialId, qty, quality) {
     rec.metals[materialId] = (rec.metals[materialId] || 0) + Math.max(0, qty | 0);
   }
   return rec;
+}
+
+/* The shape of a discipline's tree, worked out once here so the Almanac only
+   has to draw it. Slots are abstract - the screen turns a column and a depth
+   into pixels - so the layout can be checked without a browser.
+
+   Leaves take the next free column in order; a parent sits centred over its
+   own children. Each subtree owns a contiguous run of columns, so no two
+   branches can ever be drawn on top of each other. */
+function disciplineTree(catId) {
+  const items = disciplineItems(catId);
+  const kids = {};
+  for (const it of items) {
+    for (const parent of recipeParents(it.id)) {
+      (kids[parent] = kids[parent] || []).push(it.id);
+    }
+  }
+  const nodes = [];
+  const links = [];
+  let next = 0;
+  const place = function (id, depth) {
+    const mine = kids[id] || [];
+    let col;
+    if (!mine.length) col = next++;
+    else {
+      const spread = mine.map(function (k) { return place(k, depth + 1); });
+      col = (spread[0] + spread[spread.length - 1]) / 2;
+      for (const k of mine) links.push({ from: id, to: k });
+    }
+    nodes.push({ id: id, depth: depth, col: col });
+    return col;
+  };
+  const root = disciplineRoot(catId);
+  if (root) place(root, 0);
+  let rows = 0;
+  for (const n of nodes) rows = Math.max(rows, n.depth + 1);
+  nodes.sort(function (a, b) { return a.depth - b.depth || a.col - b.col; });
+  return { cat: catId, nodes: nodes, links: links,
+    cols: Math.max(1, next), rows: rows };
+}
+
+/* Work came off the anvil. This is the ONLY place a finished piece is
+   written into the book and the only place experience is earned, so both the
+   player's own batches and a smith's go through it and neither can be
+   counted twice. It is called when the work is done, not when it is
+   delivered, so reloading a save with a batch still on the anvil cannot pay
+   for it a second time. */
+function recordCraft(shop, itemId, materialId, qty, quality) {
+  recordForged(shop, itemId, materialId, qty, quality);
+  return awardCraftXp(shop, itemId, materialId, qty, quality);
 }
 
 /* The recipes the forge may put on the anvil today, in catalogue order. */
@@ -5003,10 +5459,17 @@ function qualityBand(quality) {
   return found;
 }
 function qualityBandName(quality) { return qualityBand(quality).name; }
-function recommendedPrice(itemId, materialId, quality) {
+/* What a piece is worth. Four things decide it and each is applied once:
+   the recipe's own price, the metal it is worked in, how well the board was
+   worked, and how good the smith is at that blueprint. The level is the one
+   the piece was MADE on - it travels with the goods rather than being looked
+   up now - so taking a blueprint further never silently reprices stock that
+   is already on the shelf. Left out, it prices as a fresh blueprint. */
+function recommendedPrice(itemId, materialId, quality, level) {
   const it = shopItem(itemId), mt = shopMaterial(materialId);
   if (!it || !mt) return 0;
-  return Math.max(1, Math.round(it.price * mt.value * qualityFactor(quality)));
+  return Math.max(1, Math.round(
+    it.price * mt.value * qualityFactor(quality) * levelValue(level)));
 }
 function ingotPrice(shop, materialId) {
   const mt = shopMaterial(materialId);
@@ -5040,7 +5503,11 @@ function createShop(opts) {
     stands: [],           // the fixtures on the shop floor, one line each
     staff: [],
     orders: [],           // batches in production, delivered next day
-    known: SHOP.startingRecipes.slice(),   // the recipes this forge can work
+    known: [],            // the recipes this forge can work, derived from blueprints
+    disciplines: [],      // the crafts taken up; empty until the smith chooses two
+    xp: {},               // discipline -> experience in hand, spent in the Almanac
+    xpTotal: {},          // discipline -> experience ever earned, which never falls
+    blueprints: {},       // recipe id -> level 1..maxLevel; absent means not held
     ledger: {},           // recipe id -> { made, best, metals } - what it has made
     learned: [],          // recipe id -> when and how it was learned
     town: [],             // the named people who shop here, purses and all
@@ -5126,13 +5593,17 @@ function serializeShop(shop) {
     upgrades: Object.assign({}, shop.upgrades),
     materials: Object.assign({}, shop.materials),
     storage: JSON.parse(JSON.stringify(shop.storage)),
-    stands: shop.stands.map(function (st) { return Object.assign({}, st); }),
+    stands: shop.stands.map(function (st) { return Object.assign({ level: 1 }, st); }),
     staff: shop.staff.map(function (e) {
       return Object.assign({}, e, { face: staffFace(e) });
     }),
     orders: shop.orders.map(function (o) { return Object.assign({}, o); }),
     assignments: JSON.parse(JSON.stringify(shop.assignments)),
     known: shop.known.slice(),
+    disciplines: shop.disciplines.slice(),
+    xp: Object.assign({}, shop.xp),
+    xpTotal: Object.assign({}, shop.xpTotal),
+    blueprints: Object.assign({}, shop.blueprints),
     ledger: JSON.parse(JSON.stringify(shop.ledger)),
     learned: shop.learned.map(function (l) { return Object.assign({}, l); }),
     town: shop.town.map(function (one) { return Object.assign({}, one); }),
@@ -5193,10 +5664,14 @@ function restoreShop(data, rnd) {
       if (qty <= 0) continue;
       const parts = splitKey(key);
       const quality = num(lot && lot.quality, 0, 100, 100);
+      // the blueprint the lot was made on, kept so a later upgrade cannot
+      // reprice it; a save from before levels existed reads as a fresh one
+      const made = num(lot && lot.level, 1, SHOP.craft.maxLevel, 1);
       into[key] = withPrice
-        ? { qty: qty, quality: quality,
-            price: whole(lot && lot.price, 1, 1e9, recommendedPrice(parts.item, parts.material, quality)) }
-        : { qty: qty, quality: quality };
+        ? { qty: qty, quality: quality, level: made,
+            price: whole(lot && lot.price, 1, 1e9,
+              recommendedPrice(parts.item, parts.material, quality, made)) }
+        : { qty: qty, quality: quality, level: made };
     }
   };
   lots(data.storage, shop.storage, false);
@@ -5219,8 +5694,10 @@ function restoreShop(data, rnd) {
           stand.key = key;
           stand.qty = qty;
           stand.quality = num(raw.quality, 0, 100, 100);
+          stand.level = num(raw.level, 1, SHOP.craft.maxLevel, 1);
           stand.price = whole(raw.price, 1, 1e9,
-            recommendedPrice(splitKey(key).item, splitKey(key).material, stand.quality));
+            recommendedPrice(splitKey(key).item, splitKey(key).material,
+              stand.quality, stand.level));
         }
       }
       shop.stands.push(stand);
@@ -5233,8 +5710,9 @@ function restoreShop(data, rnd) {
       const qty = whole(lot && lot.qty, 0, 1e6, 0);
       if (qty <= 0) continue;
       const quality = num(lot && lot.quality, 0, 100, 100);
+      // a shelf from before blueprints had levels was made on fresh ones
       const price = whole(lot && lot.price, 1, 1e9,
-        recommendedPrice(splitKey(key).item, splitKey(key).material, quality));
+        recommendedPrice(splitKey(key).item, splitKey(key).material, quality, 1));
       const type = standForItem(splitKey(key).item);
       if (!type) continue;
       const room = Math.min(qty, standHold());
@@ -5287,23 +5765,80 @@ function restoreShop(data, rnd) {
       job: a.job && typeof a.job === 'object' ? a.job : {}, done: a.done === true };
   }
 
-  /* What the forge knows. A save from before recipes had to be learned has
-     no list at all, and is given the catalogue it could work back then. */
-  if (Array.isArray(data.known)) {
-    shop.known = [];
-    for (const id of data.known) {
-      if (shopItem(id) && shop.known.indexOf(id) < 0) shop.known.push(id);
-    }
-    // a save that lost its list entirely still has to be able to forge
-    for (const id of SHOP.startingRecipes) {
-      if (shop.known.indexOf(id) < 0) shop.known.push(id);
-    }
-  } else {
-    shop.known = SHOP.legacyRecipes.filter(function (id) { return !!shopItem(id); });
-    for (const id of SHOP.startingRecipes) {
-      if (shop.known.indexOf(id) < 0) shop.known.push(id);
+  /* What the forge knows, and how good it is at it.
+
+     Three shapes of save arrive here. One from this build carries its own
+     blueprints and disciplines. One from after recipes had to be learned but
+     before they had levels carries a flat `known` list: every recipe on it
+     comes back at level 1, and the crafts it had clearly taken up are read
+     off the list, so nothing is lost and nothing is invented. One from
+     before either carries neither, and gets the catalogue it could work back
+     then. In no case is a forge sent back to the specialisation screen with
+     stock on its shelves. */
+  shop.blueprints = {};
+  shop.known = [];
+  const levels = data.blueprints && typeof data.blueprints === 'object' ? data.blueprints : null;
+  const flat = Array.isArray(data.known) ? data.known
+    : (levels ? [] : SHOP.legacyRecipes.concat(SHOP.startingRecipes));
+  if (levels) {
+    for (const id in levels) {
+      if (!shopItem(id)) continue;
+      const level = whole(levels[id], 0, SHOP.craft.maxLevel, 0);
+      if (level > 0) shop.blueprints[id] = level;
     }
   }
+  for (const id of flat) {
+    if (shopItem(id) && !shop.blueprints[id]) shop.blueprints[id] = 1;
+  }
+  for (const id in shop.blueprints) shop.known.push(id);
+
+  /* The crafts taken up. A save that says which is believed; an older one is
+     read off the blueprints it holds, because a forge that could make chain
+     shirts had plainly taken up armour. Every craft is given its root, so a
+     tree can never be left with no way into it. */
+  shop.disciplines = [];
+  shop.xp = {};
+  shop.xpTotal = {};
+  const claimed = Array.isArray(data.disciplines) ? data.disciplines : null;
+  const wanted = {};
+  for (const id of claimed || []) if (shopCategory(id)) wanted[id] = true;
+  if (!claimed) {
+    for (const id in shop.blueprints) {
+      const cat = disciplineOf(id);
+      if (cat) wanted[cat] = true;
+    }
+  }
+  for (const c of SHOP.categories) {
+    if (!wanted[c.id]) continue;
+    shop.disciplines.push(c.id);
+    const root = disciplineRoot(c.id);
+    if (root && !shop.blueprints[root]) {
+      shop.blueprints[root] = 1;
+      shop.known.push(root);
+    }
+  }
+  /* Experience only counts for a craft actually held, so a hand-edited save
+     cannot stockpile it against a tree it has no way into.
+
+     Lifetime earnings are the ceiling: you can never have more in hand than
+     you ever earned. An honest save always satisfies that, so clamping the
+     pocket down to the total costs a real forge nothing and stops an edited
+     one claiming experience it never worked for. A save written before there
+     was a lifetime figure has one taken from what it holds. */
+  for (const c of shop.disciplines) {
+    const held = whole(data.xp && data.xp[c], 0, 1e9, 0);
+    const ever = data.xpTotal && data.xpTotal[c] !== undefined
+      ? whole(data.xpTotal[c], 0, 1e9, 0) : held;
+    shop.xpTotal[c] = ever;
+    shop.xp[c] = Math.min(held, ever);
+  }
+  // a blueprint whose craft was never taken up is not holdable
+  for (const id in shop.blueprints) {
+    if (!hasDiscipline(shop, disciplineOf(id))) delete shop.blueprints[id];
+  }
+  shop.known = shop.known.filter(function (id, at) {
+    return !!shop.blueprints[id] && shop.known.indexOf(id) === at;
+  });
 
   const book = data.ledger && typeof data.ledger === 'object' ? data.ledger : {};
   for (const id in book) {
@@ -5466,17 +6001,20 @@ function shopLog(shop, report) {
 /* ---------- inventory movement ------------------------------------------
    Finished goods land in storage and stay there until somebody carries them
    out to the shelves. Nothing ever skips that step. */
-function addStorage(shop, key, qty, quality) {
+function addStorage(shop, key, qty, quality, level) {
   const room = storageCapacity(shop) - countStorage(shop);
   const taken = Math.max(0, Math.min(qty, room));
+  const made = Math.max(1, Math.min(SHOP.craft.maxLevel, Math.round(level) || 1));
   if (taken > 0) {
     const lot = shop.storage[key];
     if (lot) {
-      // storage holds a blended lot, so quality averages by the piece
+      // storage holds a blended lot, so both the work and the blueprint it
+      // was made on average by the piece
+      lot.level = ((lot.level || 1) * lot.qty + made * taken) / (lot.qty + taken);
       lot.quality = (lot.quality * lot.qty + quality * taken) / (lot.qty + taken);
       lot.qty += taken;
     } else {
-      shop.storage[key] = { qty: taken, quality: quality };
+      shop.storage[key] = { qty: taken, quality: quality, level: made };
     }
   }
   return { stored: taken, lost: qty - taken };
@@ -5499,14 +6037,18 @@ function shopStockStand(shop, standId, key, qty) {
   const room = standRoom(shop, stand.key === key ? stand : { qty: 0 });
   if (room <= 0) return { moved: 0, why: 'that stand is full' };
   const moved = Math.min(qty, lot.qty, room);
+  const lotLevel = lot.level || 1;
   if (stand.key === key && stand.qty > 0) {
+    stand.level = ((stand.level || 1) * stand.qty + lotLevel * moved) / (stand.qty + moved);
     stand.quality = (stand.quality * stand.qty + lot.quality * moved) / (stand.qty + moved);
     stand.qty += moved;
   } else {
     stand.key = key;
     stand.qty = moved;
     stand.quality = lot.quality;
-    stand.price = recommendedPrice(splitKey(key).item, splitKey(key).material, lot.quality);
+    stand.level = lotLevel;
+    stand.price = recommendedPrice(splitKey(key).item, splitKey(key).material,
+      lot.quality, lotLevel);
   }
   lot.qty -= moved;
   if (lot.qty <= 0) delete shop.storage[key];
@@ -5561,7 +6103,8 @@ function shopSetPrice(shop, key, price) {
 
 /* ---------- buying, selling and re-purposing stands -------------------- */
 function newStand(shop, type) {
-  return { id: shop.nextId++, type: type, key: null, qty: 0, quality: 100, price: 0 };
+  return { id: shop.nextId++, type: type, key: null, qty: 0, quality: 100,
+    level: 1, price: 0 };
 }
 
 function shopBuyStand(shop, type) {
@@ -5708,12 +6251,13 @@ function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
   shop.materials[materialId] -= qty;
   const order = {
     id: shop.nextId++, key: lineKey(itemId, materialId), item: itemId, material: materialId,
-    qty: qty, quality: quality, maker: maker || 'you', dueDay: shop.day + 1
+    qty: qty, quality: quality, maker: maker || 'you', dueDay: shop.day + 1,
+    // the blueprint as it stood when the work was done, kept with the batch
+    level: Math.max(1, blueprintLevel(shop, itemId))
   };
   shop.orders.push(order);
-  // the book of what this forge has made, which is what later recipes read
-  recordForged(shop, itemId, materialId, qty, quality);
-  return { ok: true, order: order };
+  const xp = recordCraft(shop, itemId, materialId, qty, quality);
+  return { ok: true, order: order, xp: xp, level: order.level };
 }
 
 /* ---------- the counter --------------------------------------------------
@@ -6014,7 +6558,7 @@ function chooseGoods(shop, who) {
       if (one.want.item === it.id) taste += 4;
       else if (one.want.cat === it.cat) taste += 1.6;
     }
-    const rec = recommendedPrice(parts.item, parts.material, stand.quality);
+    const rec = recommendedPrice(parts.item, parts.material, stand.quality, stand.level);
     const weight = taste * priceAppeal(stand.price, rec) * purseAppeal(shop, type, stand.price);
     if (weight > 0) entries.push({ value: key, weight: weight });
   }
@@ -6064,7 +6608,7 @@ function counterNext(session, shop) {
   }
   const line = shelfLine(shop, key);
   const parts = splitKey(key);
-  const rec = recommendedPrice(parts.item, parts.material, line.quality);
+  const rec = recommendedPrice(parts.item, parts.material, line.quality, line.level);
   const spread = 0.82 + shop.rnd() * 0.5;                  // what this one will bear
   // wanting a thing makes it worth more to you, and nobody offers money they
   // are not carrying however much they want it
@@ -6126,7 +6670,7 @@ function settleSale(session, shop, key, price, how) {
   const line = shelfLine(shop, key);
   const quality = line.quality;
   line.qty -= 1;
-  const rec = recommendedPrice(splitKey(key).item, splitKey(key).material, quality);
+  const rec = recommendedPrice(splitKey(key).item, splitKey(key).material, quality, line.level);
   // the stand stays; only what was standing on it is gone
   if (line.qty <= 0) { line.key = null; line.qty = 0; line.price = 0; }
   shop.gold += price;
@@ -6248,7 +6792,7 @@ function alternativeOdds(shop, session, key) {
   // work below their standards, or past their purse, is not an offer at all
   if (one && !meetsStandards(one, line.quality)) return 0;
   if (one && line.price > purseFor(one)) return 0;
-  const rec = recommendedPrice(parts.item, parts.material, line.quality);
+  const rec = recommendedPrice(parts.item, parts.material, line.quality, line.level);
   const budget = Math.max(1, Math.round(rec * type.budget * (p.spread || 1)));
   // 1 when the whole category is theirs, 0 when they never wanted any of it
   let taste = Math.min(1, (type.likes[it.cat] || 0) / 3);
@@ -6583,14 +7127,18 @@ function runSmith(shop, employee, order) {
   shop.materials[order.material] -= order.qty;        // the metal is spent either way
   const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
     item: order.item, material: order.material, qty: made, quality: quality,
-    maker: employee.name, dueDay: shop.day + 1 };
+    maker: employee.name, dueDay: shop.day + 1,
+    level: Math.max(1, blueprintLevel(shop, order.item)) };
+  // work is work, whoever swung the hammer: the forge learns from it either way
+  const xp = recordCraft(shop, order.item, order.material, made, quality);
   // Work promised to a contract is marked as such, so when it comes off the
   // anvil tomorrow it goes into the crate rather than onto a stand.
   if (order.commission) batch.commission = order.commission;
   shop.orders.push(batch);
   return { ok: true, kind: 'smith', who: employee.name, rank: employee.rank,
     item: order.item, material: order.material, ordered: order.qty, made: made,
-    quality: quality, spoiled: order.qty - made, commission: order.commission || null };
+    quality: quality, spoiled: order.qty - made, commission: order.commission || null,
+    xp: xp, level: batch.level };
 }
 
 /* A store hand carries out whatever the player told them to prioritise, then
@@ -6681,12 +7229,13 @@ function shopEndDay(shop) {
       if (com && com.key === order.key && order.quality >= com.quality) {
         promised = Math.min(order.qty, commissionLeft(com));
         com.filled += promised;
+        com.level = order.level || com.level || 1;
       }
       const rest = order.qty - promised;
-      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality)
+      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality, order.level)
         : { stored: 0, lost: 0 };
       delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
-        quality: order.quality, maker: order.maker,
+        quality: order.quality, level: order.level || 1, maker: order.maker,
         promised: promised, commission: com ? com.id : null });
     } else still.push(order);
   }
@@ -6719,7 +7268,9 @@ function shopEndDay(shop) {
 
   // a night's thinking over the day's work: anything the forge has now done
   // the groundwork for is in the book by morning
-  const learned = discoverRecipes(shop);
+  // Nothing is learned overnight any more: a blueprint is bought with the
+  // experience of having made its forerunner, in the Almanac, by hand.
+  const learned = [];
 
   const report = { kind: 'day', delivered: delivered, bill: bill, learned: learned,
     wages: wages, drifted: drifted.length, dug: dug, failed: failed,
@@ -6817,7 +7368,8 @@ function rollCommission(shop, one) {
     Math.floor(shop.rnd() * (metals.length || 1))];
 
   const quality = Math.max(0, Math.min(95, Math.round(one.standards + shop.rnd() * 12)));
-  const unit = recommendedPrice(item.id, material.id, Math.max(quality, 60));
+  const unit = recommendedPrice(item.id, material.id, Math.max(quality, 60),
+    blueprintLevel(shop, item.id));
   const budget = one.gold * c.qtyPerPurse;
   const qty = Math.max(c.minQty, Math.min(c.maxQty, Math.round(budget / Math.max(1, unit)) + 3));
   const pay = Math.round(unit * qty * c.premium);
@@ -6837,6 +7389,7 @@ function rollCommission(shop, one) {
 /* An employee at the counter writes a contract down rather than answering it.
    The player sees the lot when the phase closes. */
 function queueCommission(shop, offer) {
+  if (!offer || !shopItem(offer.item)) return false;
   if (shop.commissionOffers.length >= SHOP.commission.maxOffers) return false;
   shop.commissionOffers.push(offer);
   return true;
@@ -6880,6 +7433,7 @@ function allocateCommission(shop, id, qty) {
   if (!com) return { ok: false, why: 'no such contract' };
   const lot = shop.storage[com.key];
   if (!lot) return { ok: false, why: 'none of that in storage' };
+  com.level = lot.level || 1;                // what was promised, as it was made
   if (lot.quality < com.quality) {
     return { ok: false, why: 'that work is under ' + commissionBand(com.quality).name.toLowerCase() };
   }
@@ -6900,7 +7454,7 @@ function releaseCommission(shop, id, qty) {
   const want = Math.max(0, Math.floor(Number(qty) || 0));
   const moved = Math.min(want, com.filled);
   if (moved <= 0) return { ok: false, why: 'nothing promised to take back' };
-  const res = addStorage(shop, com.key, moved, Math.max(com.quality, 60));
+  const res = addStorage(shop, com.key, moved, Math.max(com.quality, 60), com.level);
   com.filled -= res.stored;
   return { ok: true, moved: res.stored, lost: res.lost, filled: com.filled };
 }
@@ -6932,7 +7486,9 @@ function expireCommissions(shop) {
   const kept = [];
   for (const com of shop.commissions) {
     if (shop.day <= com.dueDay) { kept.push(com); continue; }
-    if (com.filled > 0) addStorage(shop, com.key, com.filled, Math.max(com.quality, 60));
+    if (com.filled > 0) {
+      addStorage(shop, com.key, com.filled, Math.max(com.quality, 60), com.level);
+    }
     nudgeReputation(shop, SHOP.commission.repFailed);
     failed.push(com);
   }
@@ -7297,9 +7853,21 @@ const CHECKSMITH_CORE = {
   standRoom: standRoom, standFor: standFor, newStand: newStand,
   shopStockStand: shopStockStand, shopBuyStand: shopBuyStand,
   shopSellStand: shopSellStand, shopSetStandType: shopSetStandType,
-  recipeNeeds: recipeNeeds, recipeKnown: recipeKnown, recipeStatus: recipeStatus,
+  recipeKnown: recipeKnown, recipeStatus: recipeStatus,
+  recipeDepth: recipeDepth, recipeParents: recipeParents,
+  disciplineRoot: disciplineRoot, disciplineOf: disciplineOf,
+  disciplineItems: disciplineItems, hasDiscipline: hasDiscipline,
+  craftXp: craftXp, craftXpTotal: craftXpTotal, craftXpFor: craftXpFor,
+  awardCraftXp: awardCraftXp, blueprintLevel: blueprintLevel,
+  blueprintMastered: blueprintMastered, levelValue: levelValue,
+  blueprintUpgradeCost: blueprintUpgradeCost, blueprintUnlockCost: blueprintUnlockCost,
+  requiredParentLevel: requiredParentLevel,
+  unlockBlueprint: unlockBlueprint, upgradeBlueprint: upgradeBlueprint,
+  takeUpDiscipline: takeUpDiscipline, shopTakeUpDiscipline: shopTakeUpDiscipline,
+  disciplineTerms: disciplineTerms, disciplineStatus: disciplineStatus,
+  disciplineSummary: disciplineSummary, disciplineTree: disciplineTree,
   forgeRecord: forgeRecord, forgedEver: forgedEver, learnRecipe: learnRecipe,
-  discoverRecipes: discoverRecipes, buySchematic: buySchematic, recordForged: recordForged,
+  recordForged: recordForged,
   knownRecipes: knownRecipes, recipeCustomers: recipeCustomers, recipeChildren: recipeChildren,
   batchCapacity: batchCapacity, apprenticeBonus: apprenticeBonus, haggleSkill: haggleSkill,
   countShelf: countShelf, countStorage: countStorage,
@@ -9164,7 +9732,8 @@ const SHOPUI = {
   planPhase: null,    // the phase the roster is booking into
   replacing: null,    // whoever is being swapped out, while the picker is open
   reorder: false,     // changing a booking's orders rather than making one
-  mineOpen: null      // the property whose sheet is open
+  mineOpen: null,     // the property whose sheet is open
+  picking: null       // the crafts chosen so far, while the setup screen is up
 };
 
 function shop() { return App.shop; }
@@ -9436,6 +10005,8 @@ const SHOP_ACTIONS = [
 function shopActionState(id) {
   const sh = shop();
   if (id === 'forge') {
+    // a forge with nothing in its book has nothing to put on the anvil
+    if (!knownRecipes(sh).length) return 'no blueprints yet';
     let any = false;
     for (const m of SHOP.materials) if (sh.materials[m.id] > 0) any = true;
     return any ? null : 'no ingots to work';
@@ -9804,11 +10375,14 @@ function shopLedgerHtml(sh) {
     (due ? ' · next falls due in ' + commissionDaysLeft(sh, due) + ' days' : '') +
     ' · reputation ' + Math.round(sh.reputation) + '</p>';
 
-  if (sh.commissionOffers.length) {
+  const offers = sh.commissionOffers.filter(function (com) {
+    return com && shopItem(com.item);
+  });
+  if (offers.length) {
     html += '<p class="ledger-note"><b>Left for you to consider.</b> Somebody came in while ' +
       'your people were minding the counter. Nothing is owed until you accept.</p>' +
       '<div class="shop-list">';
-    for (const com of sh.commissionOffers) html += contractCardHtml(sh, com, true);
+    for (const com of offers) html += contractCardHtml(sh, com, true);
     html += '</div>';
   }
 
@@ -10192,7 +10766,7 @@ function shopConfirmBuy(runner) {
    the shop does not have. */
 function firstKnownRecipe() {
   const book = knownRecipes(shop());
-  return book.length ? book[0].id : SHOP.startingRecipes[0];
+  return book.length ? book[0].id : null;
 }
 
 function shopForgeBody(smith) {
@@ -10287,7 +10861,7 @@ function shopForgeBody(smith) {
   const check = forgeCheck(sh, d.item, d.material, d.qty || 1);
   const it = shopItem(d.item), mt = shopMaterial(d.material);
   if (it && mt) {
-    const rec = recommendedPrice(d.item, d.material, 100);
+    const rec = recommendedPrice(d.item, d.material, 100, blueprintLevel(sh, d.item));
     html += '<div class="sheet-total' + (check.ok ? '' : ' short') + '"><span>' +
       itemSprite(d.item, d.material, 'lg') + ' ' + (d.qty || 1) + ' × ' +
       esc(mt.name) + ' ' + esc(it.name) + '</span><b>' +
@@ -10375,7 +10949,7 @@ function standBoxHtml(stand, attr, cls) {
   }
   const p = splitKey(stand.key);
   const item = shopItem(p.item), mt = shopMaterial(p.material);
-  const rec = recommendedPrice(p.item, p.material, stand.quality);
+  const rec = recommendedPrice(p.item, p.material, stand.quality, stand.level);
   const band = qualityBand(stand.quality);
   return '<button class="shelf-box full ' + (stand.price > rec ? 'over ' : '') + (cls || '') +
     '" type="button" ' + attr + ' aria-label="' + esc(name + ': ' + stand.qty + ' ' +
@@ -10398,7 +10972,7 @@ function shopOpenStand(standId) {
   const def = shopStandDef(stand.type);
   const filled = !!(stand.key && stand.qty > 0);
   const p = filled ? splitKey(stand.key) : null;
-  const rec = filled ? recommendedPrice(p.item, p.material, stand.quality) : 0;
+  const rec = filled ? recommendedPrice(p.item, p.material, stand.quality, stand.level) : 0;
 
   let body = '<div class="shop-list">';
   body += rowHtml(standSprite(stand.type) + ' <b>' + esc(def.name) + '</b>',
@@ -10563,7 +11137,7 @@ function shopStockPicker(sh) {
       '<span class="cnt">' + left + ' left</span>' +
       '<span class="sub"><span class="q-' + qualityBand(lot.quality).tone + '">' +
       esc(qualityBandName(lot.quality)) + '</span> work · sells around ' +
-      coin(recommendedPrice(p.item, p.material, lot.quality)) + 'g</span>' +
+      coin(recommendedPrice(p.item, p.material, lot.quality, lot.level)) + 'g</span>' +
       '</button>';
   }
   return html + '</div>';
@@ -10594,9 +11168,11 @@ function shopStockBody(hand) {
     if (mine.length) {
       // shown as it will stand once the pieces are carried out
       const shown = { id: stand.id, type: stand.type, key: mine[0].key,
-        qty: stand.qty + mine.length, quality: stand.quality, price: stand.price ||
+        qty: stand.qty + mine.length, quality: stand.quality, level: stand.level,
+        price: stand.price ||
           recommendedPrice(splitKey(mine[0].key).item, splitKey(mine[0].key).material,
-            sh.storage[mine[0].key] ? sh.storage[mine[0].key].quality : 100) };
+            sh.storage[mine[0].key] ? sh.storage[mine[0].key].quality : 100,
+            sh.storage[mine[0].key] ? sh.storage[mine[0].key].level : 1) };
       html += standBoxHtml(shown, 'data-unpick="' + stand.id + '"', 'pick');
     } else if (stand.key && stand.qty > 0 && room <= 0) {
       html += standBoxHtml(stand, 'disabled', 'done');
@@ -10752,32 +11328,37 @@ function shopOpenTownsfolk(id) {
 /* The recipes that begin a category's tree. A recipe whose prerequisite is
    on another page - plate armour follows on from a skull cap - is a root
    here too, and says where it came from. */
-function almanacRoots(catId) {
-  const mine = SHOP.items.filter(function (it) { return it.cat === catId; });
-  const ids = mine.map(function (it) { return it.id; });
-  return mine.filter(function (it) {
-    return !(it.needs || []).some(function (n) { return ids.indexOf(n) >= 0; });
-  });
+/* ---------- the Checksmith Almanac -------------------------------------
+   The book is not a list of recipes any more. It is sixteen crafts, each
+   with its own experience, its own tree and its own road from a first rough
+   piece to a mastered one. You earn experience at the anvil and spend it
+   here, and it never crosses between crafts: swords buy swords.
+
+   The screen has two depths. The first is the crafts themselves, as cards.
+   The second is one craft's tree, drawn as its own sprites joined by the
+   lines of the progression, which is the part the player navigates. */
+
+/* Where a node stands, in the four words the tree is drawn in. */
+function almanacState(sh, id) {
+  const st = recipeStatus(sh, id);
+  if (!st) return 'locked';
+  if (st.mastered) return 'mastered';
+  if (st.known) return 'unlocked';
+  return st.ready ? 'available' : 'locked';
 }
 
 /* The one thing standing in the way, in the words the shop would use. */
 function almanacBlocker(sh, st) {
-  const first = st.blockers[0];
-  if (!first) return 'ready to study';
-  if (first.kind === 'known') {
-    const it = shopItem(first.id);
-    return 'after ' + (it ? it.name : first.id);
+  if (!st.discipline) {
+    const cat = shopCategory(st.cat);
+    return 'you have not taken up ' + (cat ? cat.name.toLowerCase() : 'this craft');
   }
-  if (first.kind === 'forged') {
-    const name = (shopItem(first.id) || {}).name || first.id;
-    return 'forge ' + article(name) + ' ' + name + ' first';
+  const first = st.short[0];
+  if (!first) {
+    return st.affordable ? 'ready to learn' : 'needs ' + st.cost + ' experience';
   }
-  if (first.kind === 'rep') return 'needs a name worth ' + first.value;
-  if (first.kind === 'store') {
-    const tier = SHOP.tiers[first.value - 1];
-    return 'needs ' + (tier ? article(tier.name) + ' ' + tier.name : 'bigger premises');
-  }
-  return 'not yet';
+  const name = (shopItem(first.id) || {}).name || first.id;
+  return name + ' must reach level ' + first.need + ' — it is ' + first.level;
 }
 
 /* The metals a recipe has actually been worked in, which is the part of the
@@ -10787,85 +11368,143 @@ function almanacMetals(rec) {
   return SHOP.materials.filter(function (m) { return rec.metals[m.id] > 0; });
 }
 
-function almanacNodeHtml(sh, item) {
-  const st = recipeStatus(sh, item.id);
-  const rec = forgeRecord(sh, item.id);
-  const made = !!(rec && rec.made > 0);
-  const cls = st.known ? 'known' : st.ready ? 'ready' : 'locked';
-  const tag = st.known ? (made ? 'q' + rec.best : 'known') : st.ready ? 'ready' : 'locked';
-  const metals = almanacMetals(rec);
-  const sub = st.known
-    ? (made
-      ? metals.map(function (m) { return m.name; }).join(', ') + ' · ' + rec.made + ' made'
-      : 'never off the anvil')
-    : almanacBlocker(sh, st);
-  // an undiscovered recipe shows its shape and none of its metal
-  const sprite = st.known
-    ? itemSprite(item.id, 'bronze')
-    : '<svg class="sprite" viewBox="0 0 24 24" style="color:#565b66" role="img" ' +
-      'aria-label="' + esc(item.name) + ', not yet known"><use href="#it-' + item.id +
-      '"></use></svg>';
-  return '<button class="alm-node ' + cls + '" type="button" data-recipe="' + esc(item.id) + '"' +
-    ' aria-label="' + esc(item.name + ', ' + tag) + '">' + sprite +
-    '<span class="an-name">' + esc(item.name) + '</span>' +
-    '<span class="an-tag">' + esc(tag) + '</span>' +
-    '<span class="an-sub">' + esc(sub) + '</span></button>';
+/* A sprite that greys out until the forge holds the blueprint, so a tree you
+   have not walked yet still reads as its own shapes. */
+function blueprintSprite(sh, id, extra) {
+  const item = shopItem(id);
+  if (!item) return '';
+  if (recipeKnown(sh, id)) return itemSprite(id, 'bronze', extra);
+  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+    'style="color:#565b66" role="img" aria-label="' + esc(item.name) +
+    ', not yet known"><use href="#it-' + id + '"></use></svg>';
 }
 
-function almanacBranchHtml(sh, item, catId, depth) {
-  let html = '<li>' + almanacNodeHtml(sh, item);
-  const kids = depth > 6 ? [] : recipeChildren(item.id).filter(function (k) {
-    return k.cat === catId;
-  });
-  if (kids.length) {
-    html += '<ul>';
-    for (const kid of kids) html += almanacBranchHtml(sh, kid, catId, depth + 1);
-    html += '</ul>';
+/* ---------- the crafts, as cards ---------- */
+function almanacCraftsHtml(sh) {
+  const terms = disciplineTerms(sh);
+  let html = '<p class="alm-lead">Every craft keeps its own experience, earned at its own ' +
+    'anvil. Sword experience buys sword blueprints and nothing else.</p><div class="craft-grid">';
+  for (const c of SHOP.categories) {
+    const sum = disciplineSummary(sh, c.id);
+    const st = disciplineStatus(sh, c.id);
+    const root = shopItem(disciplineRoot(c.id));
+    const examples = disciplineItems(c.id).slice(-3).map(function (it) { return it.name; });
+    html += '<button class="craft-card' + (sum.held ? '' : ' shut') + '" type="button"' +
+      ' data-craft="' + esc(c.id) + '" aria-label="' + esc(c.name + ', ' +
+        (sum.held ? sum.unlocked + ' of ' + sum.count + ' blueprints, ' + sum.xp +
+          ' experience in hand' : 'not taken up')) + '">' +
+      '<span class="cc-art">' + blueprintSprite(sh, disciplineRoot(c.id), 'xl') + '</span>' +
+      '<span class="cc-name">' + esc(c.name) + '</span>' +
+      '<span class="cc-blurb">' + esc(c.blurb) + '</span>' +
+      (sum.held
+        ? '<span class="cc-stats"><b>' + sum.xp + '</b> experience · ' +
+          sum.unlocked + '/' + sum.count + ' known' +
+          (sum.mastered ? ' · ' + sum.mastered + ' mastered' : '') + '</span>'
+        : '<span class="cc-shut">' + (st.repShort
+          ? 'Needs a name worth ' + terms.rep + ' — yours is ' + Math.round(sh.reputation)
+          : 'Take it up for ' + coin(terms.cost) + 'g') + '</span>') +
+      '<span class="cc-eg">' + esc((root ? root.name + ' … ' : '') + examples.join(', ')) +
+      '</span></button>';
   }
-  return html + '</li>';
+  return html + '</div>';
+}
+
+/* ---------- one craft's tree ---------- */
+const ALM_NODE = 74, ALM_GAP = 16, ALM_ROW = 104;
+
+function almanacTreeHtml(sh, catId) {
+  const tree = disciplineTree(catId);
+  const stepX = ALM_NODE + ALM_GAP;
+  const width = Math.max(tree.cols, 1) * stepX;
+  const height = tree.rows * ALM_ROW;
+  const at = {};
+  for (const n of tree.nodes) {
+    at[n.id] = { x: n.col * stepX + ALM_NODE / 2, y: n.depth * ALM_ROW + ALM_NODE / 2 };
+  }
+
+  // the lines of the progression, drawn behind the sprites. A line lights up
+  // once the blueprint it leads out of is far enough along to be followed.
+  let svg = '<svg class="alm-lines" width="' + width + '" height="' + height +
+    '" viewBox="0 0 ' + width + ' ' + height + '" aria-hidden="true">';
+  for (const link of tree.links) {
+    const a = at[link.from], b = at[link.to];
+    if (!a || !b) continue;
+    const need = requiredParentLevel(link.to);
+    const open = blueprintLevel(sh, link.from) >= need;
+    const mid = (a.y + b.y) / 2;
+    svg += '<path class="alm-line' + (open ? ' open' : '') + '" d="M' + a.x + ' ' + a.y +
+      ' C' + a.x + ' ' + mid + ' ' + b.x + ' ' + mid + ' ' + b.x + ' ' + b.y + '"/>';
+  }
+  svg += '</svg>';
+
+  let nodes = '';
+  for (const n of tree.nodes) {
+    const item = shopItem(n.id);
+    const state = almanacState(sh, n.id);
+    const level = blueprintLevel(sh, n.id);
+    const pos = at[n.id];
+    const pips = [];
+    for (let i = 1; i <= SHOP.craft.maxLevel; i++) {
+      pips.push('<i' + (i <= level ? ' class="on"' : '') + '></i>');
+    }
+    nodes += '<button class="alm-node ' + state + '" type="button" data-recipe="' +
+      esc(n.id) + '" style="left:' + (pos.x - ALM_NODE / 2) + 'px;top:' +
+      (pos.y - ALM_NODE / 2) + 'px" aria-label="' + esc(item.name + ', ' +
+        (state === 'locked' ? 'locked' : state === 'available' ? 'ready to learn'
+          : 'level ' + level + ' of ' + SHOP.craft.maxLevel +
+            (state === 'mastered' ? ', mastered' : ''))) + '">' +
+      blueprintSprite(sh, n.id, 'lg') +
+      '<span class="an-name">' + esc(item.name) + '</span>' +
+      (state === 'locked' ? '<span class="an-pips locked">✕</span>'
+        : state === 'available'
+          ? '<span class="an-pips new">' + blueprintUnlockCost(n.id) + ' xp</span>'
+          : '<span class="an-pips">' + pips.join('') + '</span>') +
+      '</button>';
+  }
+
+  return '<div class="alm-canvas" style="width:' + width + 'px;height:' + height + 'px">' +
+    svg + nodes + '</div>';
+}
+
+function almanacCraftHtml(sh, catId) {
+  const cat = shopCategory(catId);
+  const sum = disciplineSummary(sh, catId);
+  let html = '<div class="craft-head">' +
+    '<button class="craft-back" type="button" data-craft-back="1" ' +
+    'aria-label="Back to the crafts">‹ Crafts</button>' +
+    '<b>' + esc(cat.name) + '</b></div>' +
+    '<div class="craft-bar">' +
+    '<span>In hand<b>' + sum.xp + '</b></span>' +
+    '<span>Ever earned<b>' + sum.total + '</b></span>' +
+    '<span>Blueprints<b>' + sum.unlocked + '/' + sum.count + '</b></span>' +
+    '<span>Mastered<b>' + sum.mastered + '</b></span></div>';
+  if (!sum.held) {
+    const st = disciplineStatus(sh, catId);
+    html += '<p class="alm-lead">You have not taken this craft up. Doing so puts its first ' +
+      'blueprint in the book at level 1 — you cannot be asked for experience in a craft you ' +
+      'have no way of earning it in.</p>';
+    html += '<div class="shop-row"><span class="nm">Take up ' + esc(cat.name) + '</span>' +
+      '<button data-takecraft="' + esc(catId) + '"' + (st.ready ? '' : ' disabled') + '>' +
+      coin(st.terms.cost) + 'g</button><span class="sub">' +
+      (st.repShort ? 'Needs a name worth ' + st.terms.rep + ' — yours is ' +
+        Math.round(sh.reputation)
+        : st.goldShort ? 'You are short of the money' : 'Starts you on ' +
+          esc((shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint')) +
+      '</span></div>';
+  }
+  html += '<div class="alm-scroll">' + almanacTreeHtml(sh, catId) + '</div>';
+  html += '<p class="alm-lead" style="margin-top:8px">Tap a blueprint to learn it, take it ' +
+    'further, or see what it is waiting on.</p>';
+  return html;
 }
 
 function shopAlmanacBody() {
   const sh = shop();
-  const cat = shopCategory(SHOPUI.almanacCat) || SHOP.categories[0];
-  SHOPUI.almanacCat = cat.id;
-  const known = sh.known.length;
-
-  let html = '<div class="alm-head"><span>Blueprints known</span>' +
-    '<b>' + known + ' / ' + SHOP.items.length + '</b></div>';
-  html += '<div class="alm-cats">';
-  for (const c of SHOP.categories) {
-    const mine = SHOP.items.filter(function (it) { return it.cat === c.id; });
-    const got = mine.filter(function (it) { return recipeKnown(sh, it.id); }).length;
-    html += '<button class="alm-cat" type="button" data-alm-cat="' + esc(c.id) + '"' +
-      ' aria-pressed="' + (c.id === cat.id ? 'true' : 'false') + '">' + esc(c.name) +
-      '<small>' + got + '/' + mine.length + '</small></button>';
-  }
-  html += '</div>';
-
-  html += '<div class="alm-tree"><ul>';
-  for (const root of almanacRoots(cat.id)) {
-    const from = (root.needs || []).map(function (n) {
-      const it = shopItem(n);
-      return it ? it.name : null;
-    }).filter(Boolean);
-    html += '<li>' + (from.length
-      ? '<p class="alm-from">follows on from ' + esc(from.join(', ')) + '</p>' : '') +
-      almanacNodeHtml(sh, root);
-    const kids = recipeChildren(root.id).filter(function (k) { return k.cat === cat.id; });
-    if (kids.length) {
-      html += '<ul>';
-      for (const kid of kids) html += almanacBranchHtml(sh, kid, cat.id, 1);
-      html += '</ul>';
-    }
-    html += '</li>';
-  }
-  html += '</ul></div>';
-  return html;
+  if (SHOPUI.almanacCat && !shopCategory(SHOPUI.almanacCat)) SHOPUI.almanacCat = null;
+  return SHOPUI.almanacCat ? almanacCraftHtml(sh, SHOPUI.almanacCat) : almanacCraftsHtml(sh);
 }
 
 function shopOpenAlmanac() {
-  if (!shopCategory(SHOPUI.almanacCat)) SHOPUI.almanacCat = SHOP.categories[0].id;
   const redraw = function () {
     shopSheet('Checksmith Almanac', shopAlmanacBody(),
       [{ label: 'Close the book', ghost: true, onClick: shopSheetClose }]);
@@ -10874,8 +11513,9 @@ function shopOpenAlmanac() {
   redraw();
 }
 
-/* One page of the book: everything the Almanac knows about a single recipe,
-   including the way to it when the forge has not got there yet. */
+/* ---------- one blueprint ----------------------------------------------
+   Everything the book knows about a single item, and the one button that
+   moves it along. */
 function shopOpenRecipe(id) {
   const sh = shop();
   const item = shopItem(id);
@@ -10887,82 +11527,119 @@ function shopOpenRecipe(id) {
   const stand = shopStandDef(cat ? cat.stand : null);
   const metals = almanacMetals(rec);
   const wants = recipeCustomers(id);
-  const learned = (sh.learned || []).filter(function (l) { return l.id === id; }).pop();
+  const state = almanacState(sh, id);
+  const xp = craftXp(sh, item.cat);
+  const opens = SHOP.items.filter(function (k) {
+    return k.cat === item.cat && recipeParents(k.id).indexOf(id) >= 0;
+  });
 
-  let body = '<div class="shop-list">';
-  const headSprite = st.known ? itemSprite(id, 'bronze')
-    : '<svg class="sprite" viewBox="0 0 24 24" style="color:#565b66" role="img" aria-label="' +
-      esc(item.name) + ', not yet known"><use href="#it-' + item.id + '"></use></svg>';
-  body += rowHtml(headSprite + ' <b>' + esc(item.name) + '</b>',
-    esc(cat ? cat.name : item.cat) + ' · ' + item.size + '×' + item.size + ' board · ' +
-    coin(item.price) + 'g in bronze',
-    st.known ? 'known' : st.ready ? 'ready' : 'locked');
+  let body = '<div class="bp-head">' + blueprintSprite(sh, id, 'xl') +
+    '<span class="bp-name">' + esc(item.name) + '</span>' +
+    '<span class="bp-cat">' + esc(cat ? cat.name : item.cat) + ' · ' +
+    item.size + '×' + item.size + ' board</span>' +
+    '<span class="bp-state ' + state + '">' + esc(state === 'mastered' ? 'Mastered'
+      : state === 'unlocked' ? 'Level ' + st.level + ' of ' + SHOP.craft.maxLevel
+        : state === 'available' ? 'Ready to learn' : 'Locked') + '</span></div>';
+
+  if (st.known) {
+    const pips = [];
+    for (let i = 1; i <= SHOP.craft.maxLevel; i++) {
+      pips.push('<i' + (i <= st.level ? ' class="on"' : '') + '></i>');
+    }
+    body += '<div class="bp-level"><span class="an-pips lg">' + pips.join('') + '</span>' +
+      '<span>' + st.level + ' / ' + SHOP.craft.maxLevel + '</span></div>';
+  }
+
+  body += '<div class="shop-list">';
+  body += rowHtml('Worth', 'the blueprint’s own share of the price, on top of the metal ' +
+    'and the work', '×' + st.value.toFixed(2));
+  if (st.nextValue) {
+    body += rowHtml('At the next level', 'what one more level would make it worth',
+      '×' + st.nextValue.toFixed(2));
+  }
+  body += rowHtml('In bronze at this level',
+    'before the quality of the board is counted',
+    coin(recommendedPrice(id, 'bronze', 100, Math.max(1, st.level))) + 'g');
   body += rowHtml('Best work',
     made ? 'quality ' + rec.best + ' · ' + rec.made + ' made in all' : 'never off the anvil',
     made ? String(rec.best) : '—');
   body += rowHtml('Worked in',
     metals.length ? esc(metals.map(function (m) { return m.name; }).join(', '))
       : 'no metal yet', '');
+  // every metal takes every blueprint; the dear ones are simply harder boards
+  body += rowHtml('Takes any metal',
+    esc(SHOP.materials.map(function (m) { return m.name; }).join(', ')) +
+    ' \u00b7 a dearer metal is a harder board and a better price',
+    '\u00d7' + SHOP.materials[SHOP.materials.length - 1].value.toFixed(1) + ' at best');
+  body += rowHtml('Earns', 'experience for one piece in bronze, worked well',
+    craftXpFor(id, 'bronze', 100) + ' ' + esc((cat ? cat.name : '').toLowerCase()));
   body += rowHtml('Wanted by', wants.length ? esc(wants.join(', ')) : 'nobody in particular', '');
   body += rowHtml('Goes on', esc(stand ? stand.name : 'no stand'), '');
-  if (st.known) {
-    body += rowHtml('Learned', learned
-      ? (learned.how === 'schematic' ? 'bought as a schematic' : 'worked out') +
-        ' on day ' + learned.day
-      : 'from the day the forge opened', '');
-  } else {
-    const needs = st.needs;
-    const tick = function (done, text) {
-      return (done ? '\u2713 ' : '\u25cb ') + text;
-    };
-    const steps = [];
-    for (const req of needs.forged) {
-      const name = (shopItem(req) || {}).name || req;
-      steps.push(tick(forgedEver(sh, req), 'forge ' + article(name) + ' ' + name));
-    }
-    if (needs.rep > 0) {
-      steps.push(tick(sh.reputation >= needs.rep,
-        'a name worth ' + needs.rep + ' — yours is ' + Math.round(sh.reputation)));
-    }
-    if (needs.store > 1) {
-      const tier = SHOP.tiers[needs.store - 1];
-      const name = tier ? tier.name : 'bigger forge';
-      steps.push(tick(sh.tier >= needs.store, 'work out of ' + article(name) + ' ' + name));
-    }
-    body += rowHtml('To learn it',
-      steps.length ? esc(steps.join('   ')) : 'nothing at all', '');
+  if (st.parents.length) {
+    const p = st.parents[0];
+    const name = (shopItem(p.id) || {}).name || p.id;
+    body += rowHtml('Follows on from', esc(name) + ' at level ' + p.need,
+      p.level + '/' + p.need);
+  }
+  if (opens.length) {
+    body += rowHtml('Leads on to',
+      esc(opens.map(function (k) { return k.name; }).join(', ')) +
+      ' · at level ' + requiredParentLevel(opens[0].id), '');
   }
   body += '</div>';
-  if (!st.known) {
-    body += '<p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' + (st.ready
-      ? 'The groundwork is done. It goes into the book overnight.'
-      : st.buyable
-        ? 'A schematic would save the waiting, but never the anvil work.'
-        : 'Work your way up to it — the steps above are the whole of it.') + '</p>';
+
+  // what the player is actually looking at, said plainly
+  if (state === 'locked') {
+    body += '<p class="bp-why">' + esc(almanacBlocker(sh, st)) + '.</p>';
+  } else if (state === 'available') {
+    body += '<p class="bp-why">Costs <b>' + st.cost + '</b> ' +
+      esc((cat ? cat.name : '').toLowerCase()) + ' experience. You have <b>' + xp +
+      '</b>.</p>';
+  } else if (!st.mastered) {
+    body += '<p class="bp-why">The next level costs <b>' + st.next + '</b> ' +
+      esc((cat ? cat.name : '').toLowerCase()) + ' experience. You have <b>' + xp +
+      '</b>. Forge ' + esc(item.name.toLowerCase()) + 's — or anything else in this craft — ' +
+      'to earn more.</p>';
+  } else {
+    body += '<p class="bp-why">Nothing left to learn here. Work in a dearer metal, or take ' +
+      'the craft further along another branch.</p>';
   }
 
   const acts = [];
-  if (!st.known && st.buyable) {
-    acts.push({ label: 'Buy the schematic · ' + coin(st.price) + 'g', primary: true,
-      disabled: sh.gold < st.price,
+  if (state === 'available') {
+    acts.push({ label: 'Learn it · ' + st.cost + ' xp', primary: true,
+      disabled: xp < st.cost,
       onClick: function () {
-        const res = buySchematic(shop(), id);
+        const res = unlockBlueprint(shop(), id);
         if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
         SOUNDS.prosper(true);
         shopRender();
-        announce('Bought the schematic for the ' + item.name + '.');
+        announce(item.name + ' is in the book at level 1.');
+        shopOpenRecipe(id);
+      } });
+  }
+  if (st.known && !st.mastered) {
+    acts.push({ label: 'Take it further · ' + st.next + ' xp', primary: true,
+      disabled: xp < st.next,
+      onClick: function () {
+        const res = upgradeBlueprint(shop(), id);
+        if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+        SOUNDS.prosper(res.level >= SHOP.craft.maxLevel);
+        shopRender();
+        announce(item.name + ' is level ' + res.level + ' — worth ×' +
+          res.value.toFixed(2) + ' now.');
         shopOpenRecipe(id);
       } });
   }
   if (st.known) {
     const why = shopActionState('forge');
-    acts.push({ label: 'Work one at the anvil', primary: true, disabled: !!why,
+    acts.push({ label: 'Work one at the anvil', disabled: !!why,
       onClick: function () {
         SHOPUI.draft = { item: id, material: 'bronze', qty: 1 };
         shopOpenForge(null);
       } });
   }
-  acts.push({ label: 'Back to the book', ghost: true, onClick: shopOpenAlmanac });
+  acts.push({ label: 'Back to the tree', ghost: true, onClick: shopOpenAlmanac });
   shopSheet(item.name, body, acts);
 }
 
@@ -10972,7 +11649,7 @@ function shopOpenPrice(key) {
   const line = shelfLine(sh, key);
   if (!line) return;
   const p = splitKey(key);
-  const rec = recommendedPrice(p.item, p.material, line.quality);
+  const rec = recommendedPrice(p.item, p.material, line.quality, line.level);
   SHOPUI.draft = { price: line.price };
   const redraw = function () {
     const price = SHOPUI.draft.price;
@@ -11283,7 +11960,7 @@ function shopCounterOutcome(event) {
   if (sold) SOUNDS.coins(Math.min(3, event.price / 60));
   else if (!booked) SOUNDS.walkout();
   const body = custLine(session) +
-    '<div class="stamp' + (sold || booked ? '' : ' lost') + '">' +
+    '<div class="stamp' + (booked ? ' booked' : sold ? '' : ' lost') + '">' +
     (sold ? lineSprite(event.key, 'xl')
       : booked ? contractSprite('xl') : portrait(event.type)) +
     '<span class="word">' + (sold ? 'Sold' : booked ? 'On the books' : 'Walked out') + '</span>' +
@@ -11844,7 +12521,8 @@ function shopForgeComplete(result) {
     '<dt>Quality</dt><dd class="good">' + result.quality + ' · ' + esc(result.label) + '</dd>' +
     '<dt>Ingots spent</dt><dd>' + order.qty + '</dd>' +
     '<dt>Worth about</dt><dd class="good">' +
-    coin(recommendedPrice(order.item, order.material, result.quality) * order.qty) + 'g</dd>' +
+    coin(recommendedPrice(order.item, order.material, result.quality,
+      order.level || blueprintLevel(shop(), order.item)) * order.qty) + 'g</dd>' +
     '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
     (res.ok ? 'In storage tomorrow morning.' : esc(res.why)) + '</p></div>';
   shopSheet('Off the anvil', body,
@@ -12089,6 +12767,12 @@ function startShop(resume, name) {
     $('shopView').hidden = false;
     syncModeChrome();
     shopRender();
+    if (!App.shop.disciplines.length) {
+      shopOpenPicker(function () {
+        shopToast('Day ' + App.shop.day + '. Your trades are chosen.');
+      });
+      return;
+    }
     if (resume.anvil && resumeAnvil(resume.anvil)) {
       announce('Back at the anvil, the batch as you left it.');
       return;
@@ -12110,7 +12794,87 @@ function startShop(resume, name) {
   $('shopView').hidden = false;
   syncModeChrome();
   shopRender();
+  // a forge with no trade to its name has not opened yet: the smith says
+  // what they served their time at before the first customer walks in
+  if (!App.shop.disciplines.length) {
+    shopOpenPicker(function () {
+      const names = App.shop.disciplines.map(function (id) {
+        return shopCategory(id).name.toLowerCase();
+      });
+      announce(App.shop.name + ' opens: a ' + names.join(' and ') + ' shop.');
+      shopToast(App.shop.name + ', day one. Ten bronze ingots and the rent already ticking.');
+    });
+    return;
+  }
   shopToast(App.shop.name + ', day one. Ten bronze ingots and the rent already ticking.');
+}
+
+/* ---------- choosing your two crafts -----------------------------------
+   A smith is not good at everything on their first day. A new forge picks
+   two trades to have learned, and gets the first blueprint of each free; the
+   rest of the book stays shut until the business can pay its way into it. */
+function shopPickBody() {
+  const sh = shop();
+  const picked = SHOPUI.picking || [];
+  const want = SHOP.craft.startingPicks;
+  let html = '<p class="pick-lead">You served your apprenticeship somewhere. Choose <b>two</b> ' +
+    'trades you came out of it knowing — you begin with the first blueprint of each, and ' +
+    'every other blueprint in them is earned at your own anvil.</p>' +
+    '<p class="pick-count">' + (picked.length >= want
+      ? 'Two chosen. Open the doors.'
+      : picked.length + ' of ' + want + ' chosen') + '</p>';
+  html += '<div class="craft-grid">';
+  for (const c of SHOP.categories) {
+    const on = picked.indexOf(c.id) >= 0;
+    const root = shopItem(c.root);
+    const examples = disciplineItems(c.id).slice(-3).map(function (it) { return it.name; });
+    html += '<button class="craft-card' + (on ? ' picked' : '') + '" type="button"' +
+      ' data-craft="' + esc(c.id) + '" aria-pressed="' + (on ? 'true' : 'false') + '"' +
+      ' aria-label="' + esc(c.name + (on ? ', chosen' : '')) + '">' +
+      '<span class="cc-art">' + itemSprite(c.root, 'bronze', 'xl') + '</span>' +
+      '<span class="cc-name">' + esc(c.name) + '</span>' +
+      '<span class="cc-blurb">' + esc(c.blurb) + '</span>' +
+      '<span class="cc-stats">Start with ' + esc(root ? root.name : '') + '</span>' +
+      '<span class="cc-eg">later: ' + esc(examples.join(', ')) + '</span></button>';
+  }
+  return html + '</div>';
+}
+
+function shopTogglePick(catId) {
+  if (!shopCategory(catId) || !SHOPUI.picking) return;
+  const at = SHOPUI.picking.indexOf(catId);
+  if (at >= 0) SHOPUI.picking.splice(at, 1);
+  else {
+    if (SHOPUI.picking.length >= SHOP.craft.startingPicks) {
+      SOUNDS.invalid();
+      shopToast('Two trades, no more. Tap one again to change your mind.');
+      return;
+    }
+    SHOPUI.picking.push(catId);
+  }
+  SOUNDS.shelve();
+  if (SHOPUI.redraw) SHOPUI.redraw();
+}
+
+function shopOpenPicker(done) {
+  SHOPUI.picking = [];
+  const redraw = function () {
+    const ready = SHOPUI.picking.length === SHOP.craft.startingPicks;
+    shopSheet('What did you learn?', shopPickBody(),
+      [{ label: ready ? 'Open the doors' : 'Choose two trades', primary: true,
+        disabled: !ready,
+        onClick: function () {
+          const sh = shop();
+          for (const id of SHOPUI.picking) takeUpDiscipline(sh, id, 'apprenticed');
+          SHOPUI.picking = null;
+          SHOPUI.redraw = null;
+          shopSheetClose();
+          shopRender();
+          if (done) done();
+        } }]);
+  };
+  SHOPUI.redraw = redraw;
+  redraw();
 }
 
 function shopAct(id) {
@@ -12279,11 +13043,31 @@ function wireShop() {
       shopToast(mineUpgradeDef(minebuy.dataset.minebuy).name + ' — level ' + res.level + '.');
       return;
     }
-    // the Almanac: a page of the book, and a recipe on it
-    const almCat = e.target.closest ? e.target.closest('[data-alm-cat]') : null;
-    if (almCat) {
-      SHOPUI.almanacCat = almCat.dataset.almCat;
+    // the Almanac: a craft, the way back out of one, and a blueprint in it
+    const craft = e.target.closest ? e.target.closest('[data-craft]') : null;
+    if (craft) {
+      if (SHOPUI.picking) { shopTogglePick(craft.dataset.craft); return; }
+      SHOPUI.almanacCat = craft.dataset.craft;
       if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const craftBack = e.target.closest ? e.target.closest('[data-craft-back]') : null;
+    if (craftBack) {
+      SHOPUI.almanacCat = null;
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const takecraft = e.target.closest ? e.target.closest('[data-takecraft]') : null;
+    if (takecraft && !takecraft.disabled) {
+      const id = takecraft.dataset.takecraft;
+      const res = shopTakeUpDiscipline(shop(), id);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(true);
+      shopRender();
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      const cat = shopCategory(id);
+      announce('You take up ' + cat.name.toLowerCase() + '.');
+      shopToast((shopItem(res.root) || {}).name + ' is in the book at level 1.');
       return;
     }
     const recipe = e.target.closest ? e.target.closest('[data-recipe]') : null;
