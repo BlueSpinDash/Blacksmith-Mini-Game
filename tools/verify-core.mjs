@@ -4248,7 +4248,7 @@ section('Open Your Forge: the day’s roster');
   /* portraits */
   ok('every hire is given a face, and keeps it', (() => {
     const s = C.createShop({ rnd: C.mulberry32(12) });
-    const a = C.makeApplicant(s, 'runner', 'C');
+    const a = C.makeApplicant(s, 'runner');
     return !!a.face && C.staffFace(a) === a.face &&
       C.SHOP.customers.some((c) => c.id === a.face);
   })());
@@ -4305,21 +4305,25 @@ section('Open Your Forge: employees do the work, not the maths');
     for (const r of C.SHOP.ranks) { if (r.wage <= last) return false; last = r.wage; }
     return ids === 'E,D,C,B,A,S';
   })());
-  ok('better ranks are rarer', (() => {
-    let last = Infinity;
-    for (const r of C.SHOP.ranks) { if (r.weight > last) return false; last = r.weight; }
-    return true;
+  ok('each rank asks more work than the one below, and S asks none', (() => {
+    let last = 0;
+    for (const r of C.SHOP.ranks) {
+      if (r.id === 'S') return r.up === 0;
+      if (r.up <= last) return false;
+      last = r.up;
+    }
+    return false;
   })());
   ok('an applicant carries a name, role, rank and wage', (() => {
     const s = C.createShop({ rnd: C.mulberry32(28) });
-    const list = C.shopSearchStaff(s, 3);
+    const list = C.shopSearchStaff(s, 'runner', 3);
     return list.length === 3 && list.every((a) => a.name && a.role && a.rank && a.wage > 0);
   })());
   ok('the shop can only hold so many', (() => {
     const s = C.createShop({ rnd: C.mulberry32(29) });
     let hired = 0;
     for (let i = 0; i < 10; i++) {
-      const list = C.shopSearchStaff(s, 1);
+      const list = C.shopSearchStaff(s, 'runner', 1);
       if (C.shopHire(s, list[0].id).ok) hired++;
     }
     return hired === C.staffCapacity(s);
@@ -5135,7 +5139,7 @@ section('Staff room: four hands at the start');
     const s = C.createShop({ rnd: C.mulberry32(981), gold: 500000 });
     let hired = 0;
     for (let i = 0; i < 8; i++) {
-      const list = C.shopSearchStaff(s, 3);
+      const list = C.shopSearchStaff(s, 'runner', 3);
       if (!list.length) break;
       if (C.shopHire(s, list[0].id).ok) hired++;
     }
@@ -5145,7 +5149,7 @@ section('Staff room: four hands at the start');
   ok('miners are not counted against the forge at all', (() => {
     const s = C.createShop({ rnd: C.mulberry32(982), gold: 500000 });
     for (let i = 0; i < 4; i++) {
-      const list = C.shopSearchStaff(s, 3);
+      const list = C.shopSearchStaff(s, 'runner', 3);
       C.shopHire(s, list[0].id);
     }
     const mine = C.shopBuyMine(s, 'bronze').mine;
@@ -6138,6 +6142,301 @@ section('Open Your Forge: the day the book made');
     return day.roster.length === 2 &&
       day.roster.some((r) => r.ok && r.who) &&
       day.roster.some((r) => !r.ok && typeof r.why === 'string' && r.why.length > 0);
+  })());
+}
+
+section('Open Your Forge: a hand earns their rank');
+{
+  /* A hand on the books at E with a clean slate, by trade. */
+  function green(shop, role) {
+    const list = C.shopSearchStaff(shop, role, 1);
+    C.shopHire(shop, list[0].id);
+    return shop.staff[shop.staff.length - 1];
+  }
+
+  ok('everybody who comes to the door starts at E, whatever the trade', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1300) });
+    for (const role of C.SHOP.roles) {
+      const list = C.shopSearchStaff(s, role.id, 6);
+      if (!list.every((a) => a.rank === 'E' && a.power === 1 && a.xp === 0)) return false;
+    }
+    return true;
+  })());
+
+  ok('asking after a trade turns up only that trade', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1301) });
+    const smiths = C.shopSearchStaff(s, 'smith', 5);
+    const runners = C.shopSearchStaff(s, 'runner', 5);
+    return smiths.length === 5 && smiths.every((a) => a.role === 'smith') &&
+      runners.length === 5 && runners.every((a) => a.role === 'runner');
+  })());
+
+  ok('asking after no trade at all turns up nobody', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1302) });
+    return C.shopSearchStaff(s, null).length === 0 &&
+      C.shopSearchStaff(s, 'wizard').length === 0;
+  })());
+
+  ok('a miner is hired at E as well', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1303), gold: 90000 });
+    const mine = C.shopBuyMine(s, C.SHOP.mines[0].id).mine;
+    const list = C.shopSearchMiners(s, mine.id, 4);
+    return list.length === 4 && list.every((m) => m.rank === 'E' && m.xp === 0);
+  })());
+
+  ok('the ladder runs E to S and stops there', (() => {
+    const ids = C.SHOP.ranks.map((r) => r.id).join('');
+    return ids === 'EDCBAS' && C.nextRank('S') === null && C.nextRank('E').id === 'D';
+  })());
+
+  ok('a hand is not ready until the work is actually behind them', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1304) });
+    const e = green(s, 'storehand');
+    const need = C.rankUpAt(e);
+    C.awardXp(e, need - 1);
+    if (C.rankReady(e) || C.promote(s, e).ok) return false;    // one short, and refused
+    C.awardXp(e, 1);
+    return C.rankReady(e) && C.promote(s, e).ok;
+  })());
+
+  ok('promoting carries the surplus over rather than dropping it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1305) });
+    const e = green(s, 'smith');
+    const need = C.rankUpAt(e);
+    C.awardXp(e, need + 23);
+    const res = C.promote(s, e);
+    return res.ok && res.rank === 'D' && e.xp === 23 && res.carried === 23;
+  })());
+
+  ok('a promotion raises what they can do, not just their letter', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1306) });
+    const e = green(s, 'storehand');
+    const was = e.power;
+    C.awardXp(e, C.rankUpAt(e));
+    C.promote(s, e);
+    return e.power === was + 1 && e.rank === 'D';
+  })());
+
+  ok('a wage keeps its own scatter across a promotion', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1307) });
+    const e = green(s, 'runner');
+    const scatter = e.wage / C.SHOP.ranks[0].wage;
+    C.awardXp(e, C.rankUpAt(e));
+    C.promote(s, e);
+    // dearer than they were, and still dear in the same proportion
+    return e.wage > C.SHOP.ranks[0].wage &&
+      Math.abs(e.wage / C.SHOP.ranks[1].wage - scatter) < 0.02;
+  })());
+
+  ok('S-rank is the end of the road, and nothing is banked past it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1308) });
+    const e = green(s, 'smith');
+    for (let i = 0; i < 5; i++) { C.awardXp(e, C.rankUpAt(e)); C.promote(s, e); }
+    if (e.rank !== 'S') return false;
+    return C.awardXp(e, 5000) === 0 && e.xp === 0 && C.rankUpAt(e) === 0 &&
+      !C.rankReady(e) && !C.promote(s, e).ok;
+  })());
+
+  ok('a hand nobody rostered earns nothing at all', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1309) });
+    const e = green(s, 'storehand');
+    s.storage['dagger|bronze'] = { qty: 20, quality: 60, level: 1 };
+    C.shopAdvancePhase(s);
+    C.shopAdvancePhase(s);
+    return e.xp === 0;
+  })());
+
+  ok('a phase that shifted nothing pays nothing', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1310) });
+    const e = green(s, 'storehand');
+    // storage is empty, so there is nothing to put on a stand
+    C.shopAssign(s, e.id, { job: 'storehand', order: { keys: [] } }, PH[0]);
+    C.shopAdvancePhase(s);
+    return e.xp === 0;
+  })());
+
+  ok('a phase that did the work pays for it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1311) });
+    const e = green(s, 'storehand');
+    s.storage['dagger|bronze'] = { qty: 20, quality: 60, level: 1 };
+    C.shopAssign(s, e.id, { job: 'storehand', order: { keys: ['dagger|bronze'] } }, PH[0]);
+    C.shopAdvancePhase(s);
+    return e.xp > 0;
+  })());
+
+  ok('a failed job pays nothing even though the phase was spent', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1312) });
+    const e = green(s, 'runner');
+    // no gold, so the trip comes back with nothing
+    s.gold = 0;
+    C.shopAssign(s, e.id, { job: 'runner', order: { bronze: 5 } }, PH[0]);
+    C.shopAdvancePhase(s);
+    return e.xp === 0;
+  })());
+
+  ok('the same phase is never paid for twice', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1313) });
+    const e = green(s, 'storehand');
+    s.storage['dagger|bronze'] = { qty: 20, quality: 60, level: 1 };
+    C.shopAssign(s, e.id, { job: 'storehand', order: { keys: ['dagger|bronze'] } }, PH[0]);
+    C.runAssignments(s);
+    const once = e.xp;
+    C.runAssignments(s);
+    C.runAssignments(s);
+    return once > 0 && e.xp === once;
+  })());
+
+  ok('the roster pays exactly what the player’s own hand does', (() => {
+    function run(byBook) {
+      const s = C.createShop({ rnd: C.mulberry32(1314), gold: 4000 });
+      const e = green(s, 'storehand');
+      s.storage['dagger|bronze'] = { qty: 20, quality: 60, level: 1 };
+      if (byBook) {
+        C.setStanding(s, 'storehand', PH[0], null, { kind: 'shelve' });
+        C.shopEndDay(s);
+        C.shopAdvancePhase(s);
+      } else {
+        C.shopAssign(s, e.id, { job: 'storehand', order: { keys: ['dagger|bronze'] } }, PH[0]);
+        C.shopAdvancePhase(s);
+      }
+      return s.staff[0].xp;
+    }
+    const byHand = run(false), byBook = run(true);
+    return byHand > 0 && byHand === byBook;
+  })());
+
+  ok('an apprentice earns from the batch, not from standing at the bench', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1315) }));
+    s.materials.bronze = 40;
+    const e = green(s, 'apprentice');
+    C.shopAssign(s, e.id, { job: 'apprentice' }, PH[0]);
+    if (e.xp !== 0) return false;                 // rostered, but nothing forged yet
+    const bp = Object.keys(s.blueprints)[0];
+    C.shopFinishForge(s, bp, 'bronze', 3, 70, 'you');
+    return e.xp > 0;
+  })());
+
+  ok('an apprentice off the bench earns nothing from your anvil', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1316) }));
+    s.materials.bronze = 40;
+    const e = green(s, 'apprentice');
+    C.shopFinishForge(s, Object.keys(s.blueprints)[0], 'bronze', 3, 70, 'you');
+    return e.xp === 0;
+  })());
+
+  ok('a miner is paid when the week’s dig finishes, and once', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1317), gold: 90000 });
+    const mine = C.shopBuyMine(s, C.SHOP.mines[0].id).mine;
+    const list = C.shopSearchMiners(s, mine.id, 1);
+    C.shopHireMiner(s, mine.id, list[0].id);
+    const m = mine.miners[0];
+    C.runMines(s, 1);
+    const week = m.xp;
+    C.runMines(s, 1);                              // the same week again
+    if (week <= 0 || m.xp !== week) return false;
+    C.runMines(s, 2);
+    return m.xp > week;
+  })());
+
+  ok('a shaft nobody works pays nobody', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1318), gold: 90000 });
+    C.shopBuyMine(s, C.SHOP.mines[0].id);
+    return C.runMines(s, 1).length === 1;          // it reports, and nothing throws
+  })());
+
+  ok('the screen can name everybody who has earned a promotion', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1319), gold: 90000 });
+    const a = green(s, 'smith'), b = green(s, 'runner');
+    const mine = C.shopBuyMine(s, C.SHOP.mines[0].id).mine;
+    const list = C.shopSearchMiners(s, mine.id, 1);
+    C.shopHireMiner(s, mine.id, list[0].id);
+    const m = mine.miners[0];
+    if (C.readyToRank(s).length !== 0) return false;
+    C.awardXp(a, C.rankUpAt(a));
+    C.awardXp(m, C.rankUpAt(m));
+    const due = C.readyToRank(s).map((one) => one.id).sort();
+    return due.length === 2 && due.indexOf(a.id) >= 0 && due.indexOf(m.id) >= 0 &&
+      due.indexOf(b.id) < 0;
+  })());
+
+  ok('a miner can be ranked up by id the same as a forge hand', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1320), gold: 90000 });
+    const mine = C.shopBuyMine(s, C.SHOP.mines[0].id).mine;
+    const list = C.shopSearchMiners(s, mine.id, 1);
+    C.shopHireMiner(s, mine.id, list[0].id);
+    const m = mine.miners[0];
+    C.awardXp(m, C.rankUpAt(m));
+    const res = C.shopPromote(s, m.id);
+    return res.ok && m.rank === 'D' && C.crewById(s, m.id) === m;
+  })());
+
+  ok('a rank buys more of the job, not just a letter', (() => {
+    /* The panel quotes 4 + power*2 for a store hand; this is the job itself
+       doing it, so the promise and the work cannot drift apart. */
+    function shifted(power) {
+      const s = C.createShop({ rnd: C.mulberry32(1321) });
+      const e = green(s, 'storehand');
+      e.power = power;
+      s.storage['dagger|bronze'] = { qty: 60, quality: 60, level: 1 };
+      C.shopAssign(s, e.id, { job: 'storehand', order: { keys: ['dagger|bronze'] } }, PH[0]);
+      return C.runAssignments(s)[0].capacity;
+    }
+    return shifted(1) === 6 && shifted(3) === 10 && shifted(6) === 16;
+  })());
+
+  ok('taking somebody new on never displaces a kept box', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1326), gold: 4000 });
+    const held = green(s, 'storehand');
+    C.setStanding(s, 'storehand', PH[0], held.id, { kind: 'shelve' });
+    s.storage['dagger|bronze'] = { qty: 40, quality: 60, level: 1 };
+    C.shopEndDay(s);
+    const booked = C.assignedThisDay(s, held.id);
+    // a second store hand comes on the books mid-day
+    const fresh = green(s, 'storehand');
+    const after = C.assignedThisDay(s, held.id);
+    const slot = C.standingAt(s, 'storehand', PH[0]);
+    return !!booked && !!after && after.phase === booked.phase &&
+      slot.staff === held.id && !C.assignedThisDay(s, fresh.id);
+  })());
+
+  ok('an established hand keeps the rank they were hired at', (() => {
+    /* A save written before there was a ladder. The climb is how ranks are
+       EARNED from here - it is not a reason to take back one already held. */
+    const s = C.createShop({ rnd: C.mulberry32(1322) });
+    const data = C.serializeShop(s);
+    data.staff = [{ id: 5, name: 'Mara Ashford', role: 'smith', rank: 'A',
+      power: 5, wage: 120 }];
+    const back = C.restoreShop(data, C.mulberry32(9));
+    const hand = back.staff[0];
+    return !!hand && hand.rank === 'A' && hand.power === 5 && hand.xp === 0;
+  })());
+
+  ok('a miner established before the ladder keeps their rank too', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1323), gold: 90000 });
+    C.shopBuyMine(s, C.SHOP.mines[0].id);
+    const data = C.serializeShop(s);
+    data.mines[0].miners = [{ id: 8, name: 'Dorn Pike', rank: 'B', power: 4, wage: 70 }];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const m = back.mines[0].miners[0];
+    return !!m && m.rank === 'B' && m.power === 4 && m.xp === 0;
+  })());
+
+  ok('a pool saved with a hand comes back with them', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1324) });
+    const e = green(s, 'smith');
+    C.awardXp(e, 47);
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    const same = back.staff.find((one) => one.name === e.name);
+    return !!same && same.xp === 47 && same.rank === 'E';
+  })());
+
+  ok('a tampered pool cannot be brought back as a negative', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1325) });
+    green(s, 'smith');
+    const data = C.serializeShop(s);
+    data.staff[0].xp = -9999;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.staff.length === 1 && back.staff[0].xp === 0;
   })());
 }
 

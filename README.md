@@ -879,11 +879,74 @@ rather than send away a customer standing there with money in their hand.
 | Smith | Fills a production order alone — you keep the phase, they keep the hammer — or stands at the furnace smelting ore |
 | Store Hand | Carries finished goods out to the shelves |
 
-Ranks E→S set `power`, which drives every rank-sensitive roll, and wage. Better
-ranks are rarer among applicants as well as dearer. Everyone takes **one job a
-day**, which is why keeping the shop open all day takes two salespeople plus
-you. A new forge has room for **four** of them; **miners** are hired against a
-property rather than the forge and are counted apart from that four entirely.
+Ranks E→S set `power`, which drives every rank-sensitive roll, and wage.
+Everyone takes **one job a day**, which is why keeping the shop open all day
+takes two salespeople plus you. A new forge has room for **four** of them;
+**miners** are hired against a property rather than the forge and are counted
+apart from that four entirely.
+
+### Nobody is hired good
+
+There is no market in ready-made talent. `makeApplicant` and `makeMiner` both
+take `SHOP.ranks[0]`, so **every** hire — forge hand or miner — arrives at E
+with an empty pool, and the only thing that varies between two applicants is
+the wage scatter and the face. `shopSearchStaff(shop, roleId, count)` refuses a
+role it does not recognise and returns only that role, which is what lets the
+hiring screen ask which trade first.
+
+Asking is free. `shopAct('hire')` opens the sheet with no trade chosen and
+turns up nobody; picking a trade, switching trade, re-asking and leaving are
+all plain redraws. Exactly one path spends a phase — a `data-hire` or
+`data-minehire` click that *succeeded* — so a refusal for want of room or coin
+leaves the day untouched.
+
+### Rank is earned at the work
+
+`SHOP.ranks[].up` is the pool a hand must fill to leave that rank (60 / 150 /
+320 / 640 / 1200, S has none), so each step asks about twice the one below it.
+
+`xpFromReport(report)` is the whole rule, and it reads the **report a job
+produced** rather than the fact somebody was rostered:
+
+| Report | Pays |
+| --- | --- |
+| `sales` | per sale, per haggle won, per customer read, per contract taken down |
+| `runner` / `haul` / `delivery` | a trip fee plus what was actually carried |
+| `smith` / `smelt` | per piece made, per ingot smelted |
+| `storehand` | per piece that reached a stand |
+| anything with `ok: false`, or a zero count | **nothing** |
+
+That last row is the rule the spec cares about: a phase that sold nothing,
+shifted nothing or came back empty pays nothing, and a hand nobody rostered
+never produces a report at all. `payCrewXp` is called once per report inside
+`runAssignments`, behind the same `a.done` guard that stops a phase running
+twice — so a job cannot be paid for twice, and a job the standing roster booked
+pays exactly what one the player booked does. A check runs both paths and
+compares the pools.
+
+Two roles are paid away from that chokepoint, because their work happens
+elsewhere:
+
+- an **apprentice** earns in `shopFinishForge` — their work is the player's
+  batch, so `apprenticeOnBench` has to find them rostered *and* a batch has to
+  come off the anvil. Rostered with nothing forged pays nothing.
+- a **miner** earns in `runMines`, at the turn of the week, on what came out of
+  the ground rather than what the sheds had room for. `lastDug` already stops a
+  week being dug twice, so it stops it being paid twice.
+
+`promote()` subtracts the threshold rather than zeroing the pool, so a surplus
+carries; it raises `power` (which is what every rank-sensitive roll already
+reads) and rescales the wage by the hand's own scatter, so somebody who was
+dear for an E stays dear as a D. S is a hard ceiling: `awardXp` returns 0 for
+an S-rank hand, so nothing is banked against a rank that does not exist.
+
+`readyToRank(shop)` sweeps the forge's books *and* every shaft, which is what
+lets the Staff screen name who has earned a promotion instead of making the
+player open six people. Ranking up costs no phase.
+
+Old saves keep what they had: a hand restored at A stays at A and simply starts
+their pool at nothing. The climb is how ranks are earned from here, never a
+reason to take back one already held.
 
 A Smith never quite matches a good run at the anvil — even an S-rank tops out
 short of 100 quality, verified by a check — so delegating production is a real

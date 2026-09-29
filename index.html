@@ -1117,6 +1117,61 @@ input[type=range]{
 /* the face spans both rows, the way the counter draws a customer */
 .applicant .portrait{width:38px;height:38px;border-radius:10px;grid-row:span 2;}
 .applicant .role{font-size:11px;color:var(--muted);grid-column:2/-1;}
+/* a hand on the books is a button now: it opens what they can do */
+.applicant.crew{width:100%;text-align:left;cursor:pointer;}
+.applicant.crew:hover{border-color:var(--ember);}
+.applicant.crew.ready{border-color:var(--ember);background:rgba(224,122,63,0.10);}
+.up-flag{
+  margin-left:7px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:700;
+  background:var(--ember);color:#12131a;vertical-align:1px;
+}
+/* the work behind them, and how much is left before the next rank */
+.xp-wrap{grid-column:2/-1;display:flex;align-items:center;gap:8px;margin:1px 0 2px;}
+.xp-bar{
+  flex:1 1 auto;height:5px;border-radius:999px;background:var(--panel);
+  border:1px solid var(--edge);overflow:hidden;
+}
+.xp-bar i{display:block;height:100%;background:var(--muted);border-radius:999px;}
+.xp-bar.full i{background:var(--ember);}
+.xp-fig{flex:0 0 auto;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.xp-wrap.big{margin:10px 0 4px;}
+.xp-wrap.big .xp-bar{height:8px;}
+.xp-wrap.big .xp-fig{font-size:12px;}
+/* who has earned a promotion, said once at the top rather than hidden in six cards */
+.rank-call{
+  display:flex;flex-direction:column;gap:2px;margin:0 0 10px;padding:9px 11px;
+  border-radius:10px;background:rgba(224,122,63,0.12);border:1px solid var(--ember);
+}
+.rank-call b{font-size:13px;color:var(--text);}
+.rank-call span{font-size:11.5px;color:var(--muted);line-height:1.45;}
+/* what the rank buys, now and next */
+.hand-head{display:flex;align-items:center;gap:11px;margin:0 0 4px;}
+.hand-head .portrait{width:52px;height:52px;border-radius:12px;}
+.hh-name{display:block;font-size:16px;color:var(--text);}
+.hh-role{display:block;font-size:12px;color:var(--muted);margin-top:3px;}
+.perks{
+  margin:9px 0 0;padding:9px 11px;border-radius:10px;
+  background:var(--panel-2);border:1px solid var(--edge);
+}
+.perks.next{border-color:var(--ember);}
+.perks b{font-size:12px;color:var(--text);}
+.perks ul{margin:5px 0 0;padding-left:17px;}
+.perks li{font-size:12px;color:var(--muted);line-height:1.5;}
+.perk-wage{display:block;margin-top:6px;font-size:11.5px;color:var(--muted);}
+.sack-row{
+  width:100%;margin:-3px 0 0;padding:6px;border-radius:9px;font-size:11.5px;
+  background:transparent;border:1px solid var(--edge);color:var(--muted);
+}
+/* asking after a trade: the chips across the top of the hiring sheet */
+.trade-pick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;}
+.trade-pick.sub{margin-top:-4px;}
+.trade-pick .trade{
+  padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--muted);
+}
+.trade-pick .trade.on{background:var(--ember);border-color:var(--ember);color:#12131a;}
+.hire-note{margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.45;}
+.hire-warn{margin:0 0 9px;font-size:12.5px;color:var(--ember);}
 .rank{
   display:inline-block;min-width:19px;padding:0 4px;border-radius:5px;margin-right:5px;
   font-size:11px;font-weight:700;text-align:center;color:#12131a;background:var(--muted);
@@ -2238,8 +2293,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <p><b>Serving somebody is how you learn them.</b> Every customer you take at the counter is a
        chance to read them, and you may come away knowing what they are worth or what they care
        for. A <b>salesperson</b> minding the counter does the same, and this is the other half of
-       what they are for: rank buys both better odds and more chances to use them, so an E-rank
-       hand learns less than you would and an S-rank learns far more. Nothing is ever discovered
+       what they are for: rank buys both better odds and more chances to use them, so the E-rank
+       hand you took on last week learns less than you would, and the same person at S &mdash;
+       once the counter has made them one &mdash; learns far more. Nothing is ever discovered
        twice, and nothing is ever forgotten.</p>
     <p><b>Money is finite, and it comes back.</b> Nobody offers gold they are not carrying, and a
        purse you empty stays empty until the <b>turn of the week</b> &mdash; the same day your own
@@ -2322,6 +2378,26 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        they cannot also spend at the anvil. A <b>Store Hand</b> carries stock out to the stands for you. Only the <b>Apprentice</b>
        works beside you, making every batch you forge yourself larger. Each of the others takes one
        job a day, and every one of them draws a wage on rent day.</p>
+    <p><b>Nobody is hired good.</b> You do not shop for talent &mdash; you grow it. Everybody who
+       comes to the door arrives at <b>E-rank</b>, whatever their trade, and what you are choosing
+       between is a wage and a face rather than a ready-made expert. <b>Search for Employees</b>
+       asks which trade you are short of and shows only those; looking, changing your mind and
+       walking away all cost <b>nothing</b>. The phase is spent at one moment only: when somebody
+       is actually taken on.</p>
+    <p><b>Rank is earned at the work.</b> A hand climbs <b>E &rarr; D &rarr; C &rarr; B &rarr; A
+       &rarr; S</b> by doing their own trade &mdash; a salesperson by selling, haggling and
+       reading customers; a runner by buying, hauling and delivering; a smith by the pieces they
+       finish; a store hand by what they carry out; an apprentice by the batches they help you
+       make; a miner by the week's dig. It is the <i>work</i> that pays, never the slot: a phase
+       that sold nothing, shifted nothing or came back empty earns nothing, and a hand nobody
+       rostered earns nothing at all. A job the standing roster booked pays exactly what one you
+       booked yourself does.</p>
+    <p>Each rank asks about twice the work of the one below, so the first promotion comes within a
+       few days and S is a season's project. When a hand has earned one the <b>Staff</b> screen
+       says so at the top, by name, so you never have to open six people to find the one who is
+       ready. Open them for what they can do now, what the next rank buys, and the <b>Rank up</b>
+       button &mdash; which <b>costs no phase</b>. Anything earned past the threshold carries over,
+       and a promotion raises their wage in the same proportion they were always dear or cheap.</p>
     <p><b>A roster that keeps itself.</b> Once a forge has hands enough, re-booking them every
        morning is a chore rather than a decision. Tap any box on the <b>Staff</b> screen and
        choose <b>Keep this box every day</b>: say who holds it &mdash; a named employee, or
@@ -4985,16 +5061,42 @@ const SHOP = {
       blurb: 'Moves finished goods out of storage and onto the shelves.' }
   ],
 
-  /* power drives every rank-sensitive roll; weight is how often that rank
-     turns up among applicants, so S-rank staff are rare as well as dear. */
+  /* power drives every rank-sensitive roll. Nobody is hired at a rank any
+     more - every hand starts at E - so `up` is what matters now: the work a
+     hand must put in to leave that rank. S is the end of the road and has
+     none. The curve roughly doubles each step, so the first promotion comes
+     within a few days of honest work and the last is a season's project. */
   ranks: [
-    { id: 'E', power: 1, wage: 9,   weight: 32 },
-    { id: 'D', power: 2, wage: 18,  weight: 26 },
-    { id: 'C', power: 3, wage: 34,  weight: 20 },
-    { id: 'B', power: 4, wage: 60,  weight: 13 },
-    { id: 'A', power: 5, wage: 104, weight: 6 },
-    { id: 'S', power: 6, wage: 180, weight: 3 }
+    { id: 'E', power: 1, wage: 9,   up: 60 },
+    { id: 'D', power: 2, wage: 18,  up: 150 },
+    { id: 'C', power: 3, wage: 34,  up: 320 },
+    { id: 'B', power: 4, wage: 60,  up: 640 },
+    { id: 'A', power: 5, wage: 104, up: 1200 },
+    { id: 'S', power: 6, wage: 180, up: 0 }
   ],
+
+  /* What a hand earns for doing their trade. Every figure here is paid for
+     WORK THAT HAPPENED: a phase that sold nothing, moved nothing or came
+     back empty pays nothing, and a hand nobody rostered earns nothing at
+     all. The rates are set so a busy hand takes roughly 20-30 a day, which
+     puts E behind them in a few days and S a long way off. */
+  crew: {
+    found: 3,              // candidates a search turns up
+    xp: {
+      /* A counter never runs out of customers the way a store hand runs out
+         of shelf space, so the seller's figures are set lower than the rest
+         to stop the busiest job also being much the fastest to S. */
+      salesperson: { sale: 4, haggle: 2, learned: 3, offer: 8 },
+      apprentice:  { batch: 8, piece: 2 },
+      runner:      { trip: 10, ingot: 0.4, haul: 10, ore: 0.2, delivery: 14, piece: 0.5 },
+      smith:       { order: 6, piece: 5, smelted: 1.5 },
+      storehand:   { shift: 4, piece: 4 },
+      /* A miner's cycle is a week, not a phase, so their figure has to cover
+         one against the others' seven. It is set a little under what a hand
+         worked every day earns, because a shaft asks nothing of the player. */
+      miner:       { week: 80, ore: 1 }
+    }
+  },
 
   /* `stands` is floor space, not stock: it is how many fixtures the premises
      will physically hold. Moving up does not put anything on the floor - it
@@ -5569,15 +5671,19 @@ function batchCapacity(shop) {
    and nowhere else - an apprentice standing idle in the afternoon is no use
    to a morning at the anvil. The best one on the bench that phase is the one
    who counts; two do not stack. */
-function apprenticeBonus(shop) {
-  let best = 0;
+function apprenticeOnBench(shop) {
+  let best = null;
   for (const e of shop.staff) {
     if (e.role !== 'apprentice') continue;
     const a = assignmentFor(shop, e.id);
     if (!a || a.done) continue;
-    best = Math.max(best, Math.ceil(shopRank(e.rank).power / 2));
+    if (!best || e.power > best.power) best = e;
   }
   return best;
+}
+function apprenticeBonus(shop) {
+  const one = apprenticeOnBench(shop);
+  return one ? Math.ceil(shopRank(one.rank).power / 2) : 0;
 }
 /* 0-1ish. Everyone in the shop haggles off the same skill, raised by the
    ledger; an employee's own rank is added on top when they are the one at
@@ -5925,9 +6031,15 @@ function restoreShop(data, rnd) {
     const role = shopRole(raw && raw.role), rank = shopRank(raw && raw.rank);
     if (!role || !rank) continue;
     if (shop.staff.length >= staffCapacity(shop)) break;
+    /* A hand established before there was a ladder keeps the rank they were
+       hired at - the climb is how ranks are EARNED from here, not a reason
+       to take one away - and simply starts their pool at nothing. A pool
+       past what the next rank asks is left alone: it is owed to them, and
+       the player collects it by pressing Rank Up. */
     const hand = { id: whole(raw.id, 1, 1e9, shop.nextId++), name: String(raw.name || 'Hand'),
       role: role.id, rank: rank.id, power: rank.power,
-      wage: whole(raw.wage, 1, 1e6, rank.wage), face: null };
+      wage: whole(raw.wage, 1, 1e6, rank.wage),
+      xp: whole(raw.xp, 0, 1e7, 0), face: null };
     // a hire from before there were faces is given one and keeps it from here
     hand.face = staffFace(hand);
     shop.staff.push(hand);
@@ -6155,6 +6267,7 @@ function restoreShop(data, rnd) {
       if (mine.miners.length >= mineMinerCap(mine)) break;
       mine.miners.push({ id: whole(hand.id, 1, 1e9, shop.nextId++),
         name: shopNameOf(hand.name, 'Miner'), rank: rank.id, power: rank.power,
+        role: 'miner', xp: whole(hand.xp, 0, 1e7, 0),
         wage: whole(hand.wage, 1, 1e6, rank.wage),
         face: shopCustomerType(hand.face) ? hand.face : SHOP.customers[0].id });
     }
@@ -6512,7 +6625,19 @@ function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
   };
   shop.orders.push(order);
   const xp = recordCraft(shop, itemId, materialId, qty, quality);
-  return { ok: true, order: order, xp: xp, level: order.level };
+  /* The apprentice at the bench earns from the batch they helped make. This
+     is the only place they earn anything: standing them in a slot the player
+     never forged in is a phase of nobody learning anything, and reads here
+     as no batch and so no XP. */
+  const helper = apprenticeOnBench(shop);
+  let helped = null;
+  if (helper) {
+    const rate = SHOP.crew.xp.apprentice;
+    const gained = awardXp(helper, rate.batch + qty * rate.piece);
+    if (gained) helped = { id: helper.id, who: helper.name, gained: gained,
+      ready: rankReady(helper) };
+  }
+  return { ok: true, order: order, xp: xp, level: order.level, helper: helped };
 }
 
 /* ---------- the counter --------------------------------------------------
@@ -7309,22 +7434,96 @@ function runCounter(shop, seller) {
    Staff are not a shelf of percentages. Their point is that they take a job
    off your hands so your three phases go further: the shop does more in a
    day because more hands are working it, not because a number went up. */
-function rollRank(shop, floor) {
-  const entries = SHOP.ranks
-    .filter(function (r) { return r.power >= (floor || 1); })
-    .map(function (r) { return { value: r.id, weight: r.weight }; });
-  return pickWeighted(entries, shop.rnd) || 'E';
+/* ---------- the ladder --------------------------------------------------
+   A hand is not bought ready-made. Everyone starts at E and climbs by doing
+   the work of their trade, so the interesting question stopped being "who
+   can I afford?" and became "who have I brought on?".
+
+   `xp` is the pool towards the NEXT rank only; what spills past a promotion
+   is carried, never dropped. */
+function rankIndex(rankId) {
+  return SHOP.ranks.findIndex(function (r) { return r.id === rankId; });
+}
+function nextRank(rankId) {
+  const i = rankIndex(rankId);
+  return i < 0 || i >= SHOP.ranks.length - 1 ? null : SHOP.ranks[i + 1];
+}
+/* What this hand must reach to be promoted; 0 once there is nowhere to go. */
+function rankUpAt(employee) {
+  const rank = shopRank(employee && employee.rank);
+  return rank && nextRank(rank.id) ? rank.up : 0;
+}
+function rankReady(employee) {
+  const need = rankUpAt(employee);
+  return need > 0 && (employee.xp || 0) >= need;
+}
+/* Anyone with the work behind them, so the screen can say so without the
+   player opening every hand in the shop. */
+function readyToRank(shop) {
+  const out = shop.staff.filter(rankReady);
+  for (const mine of shop.mines) {
+    for (const m of mine.miners) if (rankReady(m)) out.push(m);
+  }
+  return out;
 }
 
-function makeApplicant(shop, roleId, rankId) {
+/* Work earns the pool. Paid only where work actually happened - the callers
+   are careful to pass 0 for an idle or failed phase, and this refuses
+   anything that is not a positive number besides. */
+function awardXp(employee, amount) {
+  if (!employee || !rankUpAt(employee)) return 0;      // S has nowhere to put it
+  const gain = Math.max(0, Math.round(Number(amount) || 0));
+  if (!gain) return 0;
+  employee.xp = (employee.xp || 0) + gain;
+  return gain;
+}
+
+/* The promotion itself. The player presses it; it costs no phase. Whatever
+   they earned past the threshold carries over towards the rank after. A
+   wage keeps its own scatter - the hand who was dear for a D is dear for a
+   C too - so the books move with the rank rather than being reset by it. */
+function promote(shop, employee) {
+  if (!employee) return { ok: false, why: 'nobody there' };
+  const rank = shopRank(employee.rank);
+  const up = rank && nextRank(rank.id);
+  if (!up) return { ok: false, why: 'S-rank is as far as anyone goes' };
+  if (!rankReady(employee)) {
+    return { ok: false, why: 'not enough work behind them yet' };
+  }
+  const scatter = rank.wage > 0 ? employee.wage / rank.wage : 1;
+  const was = { rank: rank.id, power: rank.power, wage: employee.wage };
+  employee.xp = Math.max(0, (employee.xp || 0) - rank.up);
+  employee.rank = up.id;
+  employee.power = up.power;
+  employee.wage = Math.max(1, Math.round(up.wage * scatter));
+  return { ok: true, who: employee.name, was: was, rank: up.id,
+    power: up.power, wage: employee.wage, carried: employee.xp };
+}
+
+/* By id, wherever they work: the forge's own books or a shaft somewhere. */
+function crewById(shop, id) {
+  const hand = staffById(shop, id);
+  if (hand) return hand;
+  for (const mine of shop.mines) {
+    const m = mine.miners.find(function (one) { return one.id === id; });
+    if (m) return m;
+  }
+  return null;
+}
+
+function shopPromote(shop, id) {
+  return promote(shop, crewById(shop, id));
+}
+
+function makeApplicant(shop, roleId) {
   const role = shopRole(roleId) || SHOP.roles[Math.floor(shop.rnd() * SHOP.roles.length)];
-  const rank = shopRank(rankId) || shopRank(rollRank(shop));
+  const rank = SHOP.ranks[0];                          // everybody starts at E
   const first = SHOP.firstNames[Math.floor(shop.rnd() * SHOP.firstNames.length)];
   const last = SHOP.lastNames[Math.floor(shop.rnd() * SHOP.lastNames.length)];
-  // a little scatter so two C-rank runners are not the same hire
+  // a little scatter so two new runners are not the same hire
   const wage = Math.max(1, Math.round(rank.wage * (0.88 + shop.rnd() * 0.24)));
   return { id: shop.nextId++, name: first + ' ' + last, role: role.id,
-    rank: rank.id, power: rank.power, wage: wage,
+    rank: rank.id, power: rank.power, wage: wage, xp: 0,
     face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id };
 }
 
@@ -7345,15 +7544,16 @@ function staffFace(employee) {
   return SHOP.customers[h % SHOP.customers.length].id;
 }
 
-/* A better-known shop is worth applying to, so its pool starts higher up. */
-function shopSearchStaff(shop, count) {
-  const n = count || 3;
-  const floor = shopStars(shop) >= 4 ? 2 : 1;
+/* You ask after a trade, not after people in general: the player says which
+   profession they want and only those come to the door. Asking costs
+   nothing - it is taking somebody on that costs the phase - so the list can
+   be rebuilt as often as they like, and switching trade just asks again. */
+function shopSearchStaff(shop, roleId, count) {
+  const role = shopRole(roleId);
+  if (!role) return [];
+  const n = count || SHOP.crew.found;
   const out = [];
-  for (let i = 0; i < n; i++) {
-    const role = SHOP.roles[Math.floor(shop.rnd() * SHOP.roles.length)];
-    out.push(makeApplicant(shop, role.id, rollRank(shop, floor)));
-  }
+  for (let i = 0; i < n; i++) out.push(makeApplicant(shop, role.id));
   shop.applicants = out;
   return out;
 }
@@ -7863,6 +8063,66 @@ function runApprentice(shop, employee) {
     bonus: Math.ceil(shopRank(employee.rank).power / 2) };
 }
 
+/* ---------- what the work was worth to them -----------------------------
+   XP is read off the REPORT a job produced, never off the fact that
+   somebody was rostered. A phase that sold nothing, moved nothing, bought
+   nothing or failed outright reads as zero here, which is exactly what
+   "an idle hand gains nothing" has to mean in code.
+
+   Reading it off the report is also what keeps a hand the roster booked and
+   a hand the player booked worth precisely the same: both arrive here as
+   one report, by one path, and are paid once. */
+function xpFromReport(report) {
+  if (!report || !report.ok) return 0;
+  const rate = SHOP.crew.xp;
+  const r = report;
+  if (r.kind === 'sales') {
+    const t = rate.salesperson;
+    return (r.sold || 0) * t.sale + (r.won || 0) * t.haggle +
+      ((r.learned || []).length) * t.learned + (r.offers || 0) * t.offer;
+  }
+  if (r.kind === 'runner') {
+    // a trip that bought nothing was not a trip
+    if (!(r.ingots > 0)) return 0;
+    return rate.runner.trip + r.ingots * rate.runner.ingot;
+  }
+  if (r.kind === 'haul') {
+    if (!(r.load > 0)) return 0;
+    return rate.runner.haul + r.load * rate.runner.ore;
+  }
+  if (r.kind === 'delivery') {
+    if (!(r.load > 0)) return 0;
+    return rate.runner.delivery + r.load * rate.runner.piece;
+  }
+  if (r.kind === 'smith') {
+    if (!(r.made > 0)) return 0;
+    return rate.smith.order + r.made * rate.smith.piece;
+  }
+  if (r.kind === 'smelt') {
+    if (!(r.made > 0)) return 0;
+    return r.made * rate.smith.smelted;
+  }
+  if (r.kind === 'storehand') {
+    // nothing left storage, so nothing was learned about stocking it
+    if (!(r.moved > 0)) return 0;
+    return rate.storehand.shift + r.moved * rate.storehand.piece;
+  }
+  /* An apprentice is paid at the anvil, in shopFinishForge, because their
+     work is the player's batch - not this phase-closing note. */
+  return 0;
+}
+
+/* Pay a hand for one report and say so on it, so the screen can show what
+   the phase was worth without working it out a second time. */
+function payCrewXp(shop, employee, report) {
+  const gain = awardXp(employee, xpFromReport(report));
+  if (gain && report) {
+    report.gained = gain;
+    if (rankReady(employee)) report.ready = employee.name;
+  }
+  return gain;
+}
+
 function runAssignments(shop) {
   const reports = [];
   for (const e of shop.staff) {
@@ -7875,6 +8135,9 @@ function runAssignments(shop) {
     else if (e.role === 'smith') report = runSmith(shop, e, a.job.order || {});
     else if (e.role === 'storehand') report = runStoreHand(shop, e, a.job.order || {});
     else if (e.role === 'apprentice') report = runApprentice(shop, e);
+    // one job, one report, one payment: `a.done` above is what stops a phase
+    // being run - and so paid for - twice
+    if (report) payCrewXp(shop, e, report);
     if (report) reports.push(shopLog(shop, report));
   }
   return reports;
@@ -8384,12 +8647,13 @@ function shopBuyMineUpgrade(shop, mineId, id) {
 
 /* Miners are hired against the property they work, so they never take a slot
    from the forge's own staff. A mine's shafts are what limit them. */
-function makeMiner(shop, mine, rankId) {
+function makeMiner(shop, mine) {
   const def = mineDef(mine.def);
-  const rank = shopRank(rankId) || shopRank(rollRank(shop));
+  const rank = SHOP.ranks[0];                          // down the shaft at E, like everyone
   const first = SHOP.firstNames[Math.floor(shop.rnd() * SHOP.firstNames.length)];
   const last = SHOP.lastNames[Math.floor(shop.rnd() * SHOP.lastNames.length)];
   return { id: shop.nextId++, name: first + ' ' + last, rank: rank.id, power: rank.power,
+    role: 'miner', xp: 0,
     wage: Math.max(1, Math.round(def.wage * (0.7 + rank.power * 0.22))),
     face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id };
 }
@@ -8397,9 +8661,8 @@ function makeMiner(shop, mine, rankId) {
 function shopSearchMiners(shop, mineId, count) {
   const mine = mineById(shop, mineId);
   if (!mine) return [];
-  const floor = shopStars(shop) >= 4 ? 2 : 1;
   const out = [];
-  for (let i = 0; i < (count || 3); i++) out.push(makeMiner(shop, mine, rollRank(shop, floor)));
+  for (let i = 0; i < (count || SHOP.crew.found); i++) out.push(makeMiner(shop, mine));
   mine.applicants = out;
   return out;
 }
@@ -8444,10 +8707,21 @@ function runMines(shop, week) {
     const room = Math.max(0, mineStoreCap(mine) - mine.ore);
     const kept = Math.min(dug, room);
     mine.ore += kept;
+    /* A miner's cycle is the week, so this is where their week's work is
+       paid for. They are paid on what came OUT of the ground, not on what
+       the sheds had room for: filling a full mine is still a week swinging
+       a pick. A shaft with nobody down it pays nobody. */
+    const rate = SHOP.crew.xp.miner;
+    const share = mine.miners.length ? dug / mine.miners.length : 0;
+    const promoted = [];
+    for (const m of mine.miners) {
+      if (!dug) continue;
+      if (awardXp(m, rate.week + share * rate.ore) && rankReady(m)) promoted.push(m.name);
+    }
     rows.push({ id: mine.id, name: mine.name, material: mineDef(mine.def).material,
       dug: dug, kept: kept, lost: dug - kept, ore: mine.ore,
       cap: mineStoreCap(mine), full: mine.ore >= mineStoreCap(mine),
-      miners: mine.miners.length });
+      miners: mine.miners.length, ready: promoted });
   }
   return rows;
 }
@@ -8756,7 +9030,10 @@ const CHECKSMITH_CORE = {
   alternativeOffers: alternativeOffers, counterOfferAlternative: counterOfferAlternative,
   autoRespond: autoRespond, autoCounterPrice: autoCounterPrice, runCounter: runCounter,
   counterBounds: counterBounds, counterOdds: counterOdds,
-  rollRank: rollRank, makeApplicant: makeApplicant, shopSearchStaff: shopSearchStaff,
+  rankIndex: rankIndex, nextRank: nextRank, rankUpAt: rankUpAt, rankReady: rankReady,
+  readyToRank: readyToRank, awardXp: awardXp, promote: promote, shopPromote: shopPromote,
+  crewById: crewById, xpFromReport: xpFromReport, payCrewXp: payCrewXp,
+  makeApplicant: makeApplicant, shopSearchStaff: shopSearchStaff,
   shopHire: shopHire, shopFire: shopFire, staffById: staffById, staffOfRole: staffOfRole,
   shopAssign: shopAssign, shopUnassign: shopUnassign, assignmentFor: assignmentFor,
   assignmentStatus: assignmentStatus, assignmentAt: assignmentAt,
@@ -11095,6 +11372,15 @@ function shopRosterHtml(sh) {
     return html + '<p class="shop-empty">You work alone. Search for employees and their day is ' +
       'planned here.</p>';
   }
+  /* Nobody should have to open six people to find the one who has earned a
+     promotion, so the screen says who up front. */
+  const due = readyToRank(sh);
+  if (due.length) {
+    html += '<div class="rank-call"><b>' + due.length +
+      (due.length === 1 ? ' hand has' : ' hands have') + ' earned a promotion</b><span>' +
+      esc(due.map(function (one) { return one.name; }).join(', ')) +
+      ' — open them to rank them up. It costs no phase.</span></div>';
+  }
   const kept = (sh.standing || []).filter(function (slot) { return slot.on; }).length;
   html += '<p class="roster-note">Plan the whole day at once. Booking work costs you ' +
     '<b>nothing</b> — your own one action a phase is untouched, and each job runs by itself ' +
@@ -11127,14 +11413,134 @@ function shopRosterHtml(sh) {
       ? (assignmentStatus(sh, e.id) === 'done' ? 'worked the ' : 'down for the ') +
         SHOP.phaseName[held.phase].toLowerCase()
       : 'free today';
-    html += '<div class="applicant">' + staffPortrait(e) +
-      '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
-      ' rank">' + e.rank + '</span> ' + esc(e.name) + '</span>' +
-      '<button data-fire="' + e.id + '">Let go</button>' +
-      '<span class="role">' + esc(shopRole(e.role).name) + ' · ' + coin(e.wage) +
-      'g a week · ' + esc(state) + '</span></div>';
+    html += crewCard(e, shopRole(e.role).name, state);
   }
   return html + '</div>';
+}
+
+/* ---------- what a rank is actually worth --------------------------------
+   Every one of these reads the same figures the job itself uses, so what the
+   panel promises and what the hand then does cannot drift apart. */
+function rankPerks(roleId, power) {
+  const p = Math.max(1, power);
+  if (roleId === 'salesperson') {
+    const odds = Math.round((SHOP.intel.staffOdds + SHOP.intel.staffPerPower * (p - 1)) * 100);
+    const tries = Math.max(1, Math.min(SHOP.intel.maxTries,
+      1 + Math.floor((p - 1) / SHOP.intel.triesPerPower)));
+    return ['Haggles with the nerve of a ' + p + '-power seller',
+      odds + '% to read a customer, ' + tries + (tries === 1 ? ' try' : ' tries') + ' a visit'];
+  }
+  if (roleId === 'apprentice') {
+    return ['Every batch you forge yourself comes out ' + Math.ceil(p / 2) + ' larger'];
+  }
+  if (roleId === 'runner') {
+    const bias = Math.round((0.035 * p - 0.06) * 100);
+    const swing = Math.round((0.22 - 0.025 * p) * 100);
+    return [(bias >= 0 ? bias + '% under' : Math.abs(bias) + '% over') + ' the asking price on average',
+      'Prices come back within about ' + swing + '%'];
+  }
+  if (roleId === 'smith') {
+    return ['Work lands around quality ' + (34 + p * 9),
+      Math.round(Math.max(0, 0.30 - 0.05 * p) * 100) + '% chance of spoiling part of a batch',
+      'Smelts ' + (SHOP.smelting.perPhase + SHOP.smelting.perPower * (p - 1)) + ' ingots a phase'];
+  }
+  if (roleId === 'storehand') {
+    return ['Moves ' + (4 + p * 2) + ' pieces onto the stands a phase'];
+  }
+  if (roleId === 'miner') {
+    return ['Digs at ' + p + ' power — a shaft’s yield is shared out by it'];
+  }
+  return [];
+}
+
+/* One hand, with the work behind them and the work still to do. Used on the
+   Staff screen and on a mine's own sheet, so a miner reads the same as
+   anybody else. */
+function crewCard(e, roleName, state) {
+  const need = rankUpAt(e);
+  const xp = Math.max(0, e.xp || 0);
+  const ready = rankReady(e);
+  const pct = need ? Math.max(0, Math.min(100, Math.round(xp / need * 100))) : 100;
+  return '<button class="applicant crew' + (ready ? ' ready' : '') +
+    '" data-crew="' + e.id + '">' + staffPortrait(e) +
+    '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
+    ' rank">' + e.rank + '</span> ' + esc(e.name) +
+    (ready ? '<span class="up-flag">Ready</span>' : '') + '</span>' +
+    '<span class="xp-wrap">' +
+      '<span class="xp-bar' + (ready ? ' full' : '') + '">' +
+        '<i style="width:' + pct + '%"></i></span>' +
+      '<span class="xp-fig">' + (need ? xp + ' / ' + need : 'S — as far as anyone goes') +
+      '</span>' +
+    '</span>' +
+    '<span class="role">' + esc(roleName) + ' · ' + coin(e.wage) +
+    'g a week · ' + esc(state) + '</span></button>';
+}
+
+/* ---------- one hand, up close -------------------------------------------
+   What they can do now, what the next rank buys, and the button that buys
+   it. Ranking up spends nothing but the work they already did, so this is
+   never gated behind a phase. */
+function shopOpenHand(id) {
+  const sh = shop();
+  const e = crewById(sh, id);
+  if (!e) return;
+  const isMiner = !shopRole(e.role);
+  const roleId = isMiner ? 'miner' : e.role;
+  const roleName = isMiner ? 'Miner' : shopRole(e.role).name;
+  const need = rankUpAt(e);
+  const xp = Math.max(0, e.xp || 0);
+  const ready = rankReady(e);
+  const up = nextRank(e.rank);
+  const pct = need ? Math.max(0, Math.min(100, Math.round(xp / need * 100))) : 100;
+
+  let html = '<div class="hand-head">' + staffPortrait(e) +
+    '<div><span class="hh-name">' + esc(e.name) + '</span>' +
+    '<span class="hh-role"><span class="rank" data-r="' + e.rank + '">' + e.rank +
+    '</span> ' + esc(roleName) + ' · ' + coin(e.wage) + 'g a week</span></div></div>';
+
+  html += '<div class="xp-wrap big"><span class="xp-bar' + (ready ? ' full' : '') +
+    '"><i style="width:' + pct + '%"></i></span><span class="xp-fig">' +
+    (need ? xp + ' / ' + need + ' towards ' + up.id + '-rank'
+      : 'S-rank — there is nowhere further to go') + '</span></div>';
+
+  if (ready) {
+    html += '<p class="hire-note"><b>They have earned ' + up.id + '-rank.</b> Promoting ' +
+      'them costs no phase, and anything they earned past ' + need + ' carries over.</p>';
+  } else if (need) {
+    html += '<p class="hire-note">' + (need - xp) + ' more from the work of their trade ' +
+      'and they can be promoted.</p>';
+  }
+
+  html += '<div class="perks"><b>Now, at ' + e.rank + '</b><ul>';
+  for (const line of rankPerks(roleId, e.power)) html += '<li>' + esc(line) + '</li>';
+  html += '</ul></div>';
+  if (up) {
+    html += '<div class="perks next"><b>At ' + up.id + '</b><ul>';
+    for (const line of rankPerks(roleId, up.power)) html += '<li>' + esc(line) + '</li>';
+    html += '</ul><span class="perk-wage">Their wage would go to about ' +
+      coin(Math.max(1, Math.round(up.wage * (e.wage / shopRank(e.rank).wage)))) +
+      'g a week.</span></div>';
+  }
+
+  const acts = [];
+  if (ready) {
+    acts.push({ label: 'Rank up to ' + up.id, primary: true,
+      onClick: function () { shopRankUp(e.id); } });
+  }
+  // letting somebody go still asks first, the way it always did
+  if (!isMiner) acts.push({ label: 'Let go', onClick: function () { shopConfirmFire(e.id); } });
+  acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+  shopSheet(esc(e.name), html, acts);
+}
+
+function shopRankUp(id) {
+  const sh = shop();
+  const res = shopPromote(sh, id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.prosper(true);
+  shopRender();
+  shopToast(res.who + ' is now ' + res.rank + '-rank, at ' + coin(res.wage) + 'g a week.');
+  shopOpenHand(id);
 }
 
 /* ---------- filling a box ---------- */
@@ -12939,34 +13345,115 @@ function shopOpenPrice(key) {
 }
 
 /* ---------- hiring ---------- */
-function shopOpenHire(applicants) {
+/* ---------- asking after a trade ----------------------------------------
+   Asking around is free. You say which trade you are short of, look at who
+   turns up, change your mind, look at another trade, and walk away - none of
+   it costs anything. The phase is spent at one moment only: when somebody is
+   actually taken on. That is the moment work stops for the day, and nothing
+   before it is a commitment.
+
+   Everybody who comes to the door is E-rank. What you are choosing between
+   is a wage and a face, not a ready-made expert: the rank comes later, out
+   of the work you give them. */
+function hireTrades() {
+  return SHOP.roles.map(function (r) {
+    return { id: r.id, name: r.name, blurb: r.blurb, mine: false };
+  }).concat([{ id: 'miner', name: 'Miner', mine: true,
+    blurb: 'Works a shaft at a mine you own. Counted against the mine, not the forge.' }]);
+}
+
+function shopOpenHire(tradeId) {
   const sh = shop();
-  let html = '';
-  if (sh.staff.length >= staffCapacity(sh)) {
-    html += '<p style="margin:0 0 9px;font-size:12.5px;color:var(--ember)">' +
-      'Your ' + esc(shopTier(sh).name) + ' has no room for more staff. Move to bigger premises first.</p>';
+  const trades = hireTrades();
+  const trade = trades.find(function (t) { return t.id === tradeId; }) || null;
+
+  let html = '<div class="trade-pick">';
+  for (const t of trades) {
+    html += '<button class="trade' + (trade && t.id === trade.id ? ' on' : '') +
+      '" data-trade="' + t.id + '">' + esc(t.name) + '</button>';
   }
+  html += '</div>';
+
+  if (!trade) {
+    html += '<p class="hire-note">Which trade are you short of? Asking costs you ' +
+      'nothing — only taking somebody on spends the rest of the day.</p>';
+    shopSheet('Search for Employees', html,
+      [{ label: 'Never mind', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+
+  html += '<p class="hire-note">' + esc(trade.blurb) + '</p>';
+
+  /* A miner is hired against a shaft, so there has to be one to hire them
+     into, and the player says which. */
+  let mine = null;
+  if (trade.mine) {
+    if (!sh.mines.length) {
+      html += '<p class="hire-warn">You own no mine for anybody to work. Buy a property ' +
+        'first and the shaft will need hands.</p>';
+      shopSheet('Search for Employees', html,
+        [{ label: 'Never mind', ghost: true, onClick: shopSheetClose }]);
+      return;
+    }
+    if (SHOPUI.hireMine == null ||
+        !sh.mines.some(function (m) { return m.id === SHOPUI.hireMine; })) {
+      SHOPUI.hireMine = sh.mines[0].id;
+    }
+    mine = mineById(sh, SHOPUI.hireMine);
+    if (sh.mines.length > 1) {
+      html += '<div class="trade-pick sub">';
+      for (const m of sh.mines) {
+        html += '<button class="trade' + (m.id === mine.id ? ' on' : '') +
+          '" data-hiremine="' + m.id + '">' + esc(m.name) + '</button>';
+      }
+      html += '</div>';
+    }
+  }
+
+  const full = trade.mine ? mine.miners.length >= mineMinerCap(mine)
+    : sh.staff.length >= staffCapacity(sh);
+  if (full) {
+    html += '<p class="hire-warn">' + (trade.mine
+      ? esc(mine.name) + ' has no room down there — sink another shaft first.'
+      : 'Your ' + esc(shopTier(sh).name) + ' has no room for more staff. ' +
+        'Move to bigger premises first.') + '</p>';
+  }
+
+  const list = trade.mine ? (mine.applicants || []) : (sh.applicants || []);
   html += '<div class="shop-list">';
-  for (const a of applicants) {
-    const role = shopRole(a.role);
-    const full = sh.staff.length >= staffCapacity(sh);
-    // the face on the card is the face they will keep for good
+  for (const a of list) {
+    const upfront = trade.mine ? a.wage * SHOP.mining.hireWeeks : 0;
+    const poor = upfront > sh.gold;
     html += '<div class="applicant">' + staffPortrait(a) +
       '<span class="nm"><span class="rank" data-r="' + a.rank + '" aria-label="' + a.rank +
       ' rank">' + a.rank + '</span> ' + esc(a.name) + '</span>' +
-      '<button data-hire="' + a.id + '"' + (full ? ' disabled' : '') + '>' +
-      coin(a.wage) + 'g/wk</button>' +
-      '<span class="role">' + a.rank + '-rank ' + esc(role.name) + ' · ' +
-      esc(role.blurb) + '</span>' +
+      '<button data-' + (trade.mine ? 'minehire' : 'hire') + '="' + a.id + '"' +
+      (full || poor ? ' disabled' : '') + '>' + coin(a.wage) + 'g/wk</button>' +
+      '<span class="role">Starts at E · ' + esc(trade.name) +
+      (upfront ? ' · ' + coin(upfront) + 'g up front' + (poor ? ' (you cannot) ' : '') : '') +
+      '</span>' +
       '</div>';
   }
   html += '</div>';
-  // The search cost the phase whether or not anyone is taken on.
-  shopSheet('Applicants', html, [{ label: 'Take none of them', ghost: true,
-    onClick: function () {
-      shopSheetClose();
-      shopSpendPhase('You asked around and liked nobody well enough.');
-    } }]);
+  html += '<p class="hire-note">Taking one on ends the day’s work. Everything ' +
+    'else here is free.</p>';
+
+  shopSheet('Search for Employees', html, [
+    { label: 'Ask again', onClick: function () { shopHireSearch(trade.id); } },
+    { label: 'Never mind', ghost: true, onClick: shopSheetClose }
+  ]);
+}
+
+/* Turn up a fresh set for a trade, then redraw. Free, as often as they like. */
+function shopHireSearch(tradeId) {
+  const sh = shop();
+  SHOPUI.hireTrade = tradeId;
+  if (tradeId === 'miner') {
+    if (sh.mines.length && SHOPUI.hireMine != null) shopSearchMiners(sh, SHOPUI.hireMine);
+  } else {
+    shopSearchStaff(sh, tradeId);
+  }
+  shopOpenHire(tradeId);
 }
 
 /* ---------- the counter ------------------------------------------------
@@ -13592,13 +14079,12 @@ function shopOpenMine(id) {
         'against the property and take no place among your forge staff.</p>';
     } else {
       html += '<div class="shop-list">';
+      // a miner reads exactly as a forge hand does: rank, the work behind
+      // them, and how far off the next rank is
       for (const one of mine.miners) {
-        html += '<div class="applicant">' + portrait(one.face) +
-          '<span class="nm"><span class="rank" data-r="' + one.rank + '">' + one.rank +
-          '</span> ' + esc(one.name) + '</span>' +
-          '<button data-sack="' + one.id + '">Let go</button>' +
-          '<span class="role">Miner · ' + coin(one.wage) + 'g a week · digs ' +
-          shopRank(one.rank).power + '</span></div>';
+        html += crewCard(one, 'Miner', 'digs ' + shopRank(one.rank).power) +
+          '<button class="sack-row" data-sack="' + one.id + '">Let ' +
+          esc(one.name.split(' ')[0]) + ' go</button>';
       }
       html += '</div>';
     }
@@ -14361,10 +14847,8 @@ function shopAct(id) {
   else if (id === 'buy') shopOpenBuy(null);
   else if (id === 'almanac') shopOpenAlmanac();
   else if (id === 'tend') shopOpenCounter();
-  else if (id === 'hire') {
-    const applicants = shopSearchStaff(sh, 3);
-    shopOpenHire(applicants);
-  }
+  // opening the door costs nothing: no trade is chosen yet and nobody is hired
+  else if (id === 'hire') { SHOPUI.hireTrade = null; shopOpenHire(null); }
 }
 
 /* ---------- input ------------------------------------------------------
@@ -14397,6 +14881,9 @@ function wireShop() {
     if (buy && !buy.disabled) { shopBuyStandFrom(buy.dataset.buyStand); return; }
     const fire = t.closest('[data-fire]');
     if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
+    // a hand on the books: what they can do, and the button that ranks them up
+    const crewBtn = t.closest('[data-crew]');
+    if (crewBtn) { shopOpenHand(Number(crewBtn.dataset.crew)); return; }
     const again = t.closest('[data-repeat-roster]');
     if (again) {
       const rows = repeatRoster(shop());
@@ -14496,14 +14983,37 @@ function wireShop() {
       if (SHOPUI.redraw) SHOPUI.redraw();
       return;
     }
+    /* Choosing a trade, or which shaft to hire into, is just a redraw: it
+       turns up a fresh set of faces and costs nothing at all. */
+    const trade = e.target.closest ? e.target.closest('[data-trade]') : null;
+    if (trade) { SOUNDS.tick && SOUNDS.tick(); shopHireSearch(trade.dataset.trade); return; }
+    const hmine = e.target.closest ? e.target.closest('[data-hiremine]') : null;
+    if (hmine) {
+      SHOPUI.hireMine = Number(hmine.dataset.hiremine);
+      shopHireSearch('miner');
+      return;
+    }
+    /* The one moment that costs a phase, and only once it has succeeded:
+       a refusal (no room, no coin) leaves the day exactly as it was. */
     const hire = e.target.closest ? e.target.closest('[data-hire]') : null;
     if (hire && !hire.disabled) {
       const res = shopHire(shop(), Number(hire.dataset.hire));
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
       SOUNDS.prosper(false);
       shopSheetClose();
-      shopSpendPhase('Hired ' + res.staff.name + ', ' + res.staff.rank + '-rank ' +
-        shopRole(res.staff.role).name + ', at ' + coin(res.staff.wage) + 'g a week.');
+      shopSpendPhase('Hired ' + res.staff.name + ', an ' + res.staff.rank + '-rank ' +
+        shopRole(res.staff.role).name + ', at ' + coin(res.staff.wage) +
+        'g a week. Give them work and they will earn their way up.');
+      return;
+    }
+    const minehire = e.target.closest ? e.target.closest('[data-minehire]') : null;
+    if (minehire && !minehire.disabled) {
+      const res = shopHireMiner(shop(), SHOPUI.hireMine, Number(minehire.dataset.minehire));
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
+      shopSheetClose();
+      shopSpendPhase(res.miner.name + ' is down the shaft at ' + coin(res.miner.wage) +
+        'g a week, starting at E.');
       return;
     }
     // the mine sheet: taking somebody on, letting them go, sinking a shaft
@@ -14517,6 +15027,9 @@ function wireShop() {
       shopToast(res.miner.name + ' is down the shaft at ' + coin(res.miner.wage) + 'g a week.');
       return;
     }
+    // a miner on a mine sheet opens the same panel a forge hand does
+    const dcrew = e.target.closest ? e.target.closest('[data-crew]') : null;
+    if (dcrew) { shopOpenHand(Number(dcrew.dataset.crew)); return; }
     const sack = e.target.closest ? e.target.closest('[data-sack]') : null;
     if (sack) {
       const res = shopDismissMiner(shop(), SHOPUI.mineOpen, Number(sack.dataset.sack));

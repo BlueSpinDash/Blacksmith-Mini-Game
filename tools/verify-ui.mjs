@@ -2683,10 +2683,15 @@ async function run() {
   });
   await page.click('#shActions [data-act="hire"]');
   await page.waitForSelector('#shopSheet:not([hidden])');
+  // you ask after a trade first; nobody is at the door until you do
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+    .find((b) => b.innerText.trim() === 'Salesperson').click());
+  await page.waitForTimeout(220);
   const applicants = await page.evaluate(() => Array.from(
     document.querySelectorAll('.applicant')).map((a) => a.innerText));
   ok('applicants show a name, rank, role and wage', applicants.length === 3 &&
-    applicants.every((t) => /rank/.test(t) && /g\/wk/.test(t)), JSON.stringify(applicants));
+    applicants.every((t) => /Starts at E/.test(t) && /g\/wk/.test(t)),
+    JSON.stringify(applicants));
   await page.click('#shopSheetBody [data-hire]');
   await page.waitForTimeout(350);
   const hired = await page.evaluate(() => ({
@@ -2694,7 +2699,7 @@ async function run() {
     phase: document.getElementById('shPhase').textContent
   }));
   ok('hiring puts them on the books', hired.staff === 1, JSON.stringify(hired));
-  ok('searching for staff costs the phase', hired.phase !== 'Morning', hired.phase);
+  ok('taking somebody on costs the phase', hired.phase !== 'Morning', hired.phase);
 
   const delegated = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
@@ -3991,6 +3996,195 @@ async function run() {
     await page.waitForTimeout(80);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+
+  section('Open Your Forge: a hand earns their rank');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.gold = 200000;
+    sh.standing = [];
+    sh.assignments = {};
+    sh.staff = [];
+    sh.staff.push({ id: sh.nextId++, name: 'Wyn Tarrow', role: 'storehand', rank: 'E',
+      power: 1, wage: 9, xp: 0, face: 'labourer' });
+    /* Earlier sections left miners down a shaft who have dug for weeks, and
+       they are ready - rightly - so clear them to test the flag on its own. */
+    for (const m of sh.mines) m.miners = [];
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+  });
+
+  const green = await page.evaluate(() => {
+    const panel = document.getElementById('shPanel');
+    return { bar: panel.querySelectorAll('.crew .xp-bar').length,
+      fig: (panel.querySelector('.crew .xp-fig') || {}).innerText,
+      call: !!panel.querySelector('.rank-call'),
+      flags: panel.querySelectorAll('.up-flag').length };
+  });
+  ok('a hand on the books shows the work behind them and what is left',
+    green.bar === 1 && /0 \/ 60/.test(green.fig || ''), JSON.stringify(green));
+  ok('and nobody is flagged for promotion before they have earned it',
+    !green.call && green.flags === 0, JSON.stringify(green));
+
+  // the work itself, through the roster, is what moves the bar
+  const worked = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.storage['dagger|bronze'] = { qty: 60, quality: 60, level: 1 };
+    const hand = sh.staff[0];
+    C.shopAssign(sh, hand.id, { job: 'storehand', order: { keys: ['dagger|bronze'] } },
+      C.shopPhase(sh));
+    C.shopAdvancePhase(sh);
+    F.shopRender();
+    const panel = document.getElementById('shPanel');
+    return { xp: hand.xp, fig: (panel.querySelector('.crew .xp-fig') || {}).innerText };
+  });
+  ok('doing the work moves the bar', worked.xp > 0 && !/^0 \//.test(worked.fig || ''),
+    JSON.stringify(worked));
+
+  const due = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const hand = sh.staff[0];
+    C.awardXp(hand, C.rankUpAt(hand));            // they have earned it now
+    F.shopRender();
+    const panel = document.getElementById('shPanel');
+    return { call: (panel.querySelector('.rank-call') || {}).innerText || '',
+      flags: panel.querySelectorAll('.up-flag').length,
+      ready: panel.querySelectorAll('.crew.ready').length };
+  });
+  ok('the screen says who has earned a promotion without opening anyone',
+    /Wyn Tarrow/.test(due.call) && /earned a promotion/i.test(due.call),
+    JSON.stringify(due));
+  ok('and the hand themselves is marked on the list',
+    due.flags === 1 && due.ready === 1, JSON.stringify(due));
+  await page.screenshot({ path: path.join(SHOTS, '34-ranks.png'), fullPage: true });
+
+  // opening them: what they do now, what the next rank buys, and the button
+  await page.click('#shPanel .shop-list .crew');
+  await page.waitForSelector('#shopSheet:not([hidden])', { timeout: 8000 });
+  const panelText = await page.evaluate(() => ({
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+    perks: document.querySelectorAll('#shopSheetBody .perks').length,
+    acts: Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .map((b) => b.innerText.trim())
+  }));
+  ok('their panel says what they can do now and what the next rank buys',
+    panelText.perks === 2 && /Now, at E/.test(panelText.body) && /At D/.test(panelText.body),
+    panelText.body.slice(0, 260));
+  ok('and offers the rank up',
+    panelText.acts.some((a) => /Rank up to D/i.test(a)), JSON.stringify(panelText.acts));
+
+  const ranked = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const before = { rank: sh.staff[0].rank, power: sh.staff[0].power,
+      wage: sh.staff[0].wage, phase: sh.phaseIndex, day: sh.day };
+    const btn = Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => /Rank up/i.test(b.innerText));
+    btn.click();
+    await new Promise((r) => setTimeout(r, 260));
+    const hand = sh.staff[0];
+    return { before: before, rank: hand.rank, power: hand.power, wage: hand.wage,
+      phase: sh.phaseIndex, day: sh.day,
+      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
+  });
+  ok('ranking up promotes them then and there',
+    ranked.rank === 'D' && ranked.power === ranked.before.power + 1 &&
+    ranked.wage > ranked.before.wage, JSON.stringify(ranked).slice(0, 220));
+  ok('and it costs no phase',
+    ranked.phase === ranked.before.phase && ranked.day === ranked.before.day,
+    JSON.stringify({ was: ranked.before.phase, now: ranked.phase }));
+  ok('the panel now reads as a D with the road to C ahead',
+    /Now, at D/.test(ranked.body) && /At C/.test(ranked.body),
+    ranked.body.slice(0, 220));
+
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:last-child');
+    await page.waitForTimeout(80);
+  }
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+
+  // asking after a trade costs nothing until somebody is taken on
+  const asking = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, day: sh.day };
+    F.shopAct('hire');
+    await new Promise((r) => setTimeout(r, 200));
+    return { was: was, phase: sh.phaseIndex, day: sh.day,
+      trades: Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+        .map((b) => b.innerText.trim()),
+      cards: document.querySelectorAll('#shopSheetBody .applicant').length };
+  });
+  ok('opening the search offers every trade and costs nothing',
+    asking.phase === asking.was.phase && asking.day === asking.was.day &&
+    asking.trades.length === 6 && asking.trades.indexOf('Miner') >= 0,
+    JSON.stringify(asking));
+  ok('and shows nobody until a trade is chosen', asking.cards === 0,
+    JSON.stringify(asking));
+
+  const chose = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, day: sh.day };
+    const btn = Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === 'Runner');
+    btn.click();
+    await new Promise((r) => setTimeout(r, 220));
+    const cards = Array.from(document.querySelectorAll('#shopSheetBody .applicant'));
+    return { was: was, phase: sh.phaseIndex, day: sh.day, cards: cards.length,
+      roles: cards.map((c) => c.querySelector('.role').innerText.trim()),
+      ranks: cards.map((c) => c.querySelector('.rank').innerText.trim()) };
+  });
+  ok('choosing a trade shows only that trade, and still costs nothing',
+    chose.phase === chose.was.phase && chose.day === chose.was.day &&
+    chose.cards === 3 && chose.roles.every((r) => /Runner/.test(r)),
+    JSON.stringify(chose).slice(0, 240));
+  ok('and every one of them starts at E',
+    chose.ranks.length === 3 && chose.ranks.every((r) => r === 'E'),
+    JSON.stringify(chose.ranks));
+
+  const switched = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, day: sh.day };
+    Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === 'Smith').click();
+    await new Promise((r) => setTimeout(r, 220));
+    const roles = Array.from(document.querySelectorAll('#shopSheetBody .applicant .role'))
+      .map((c) => c.innerText.trim());
+    return { was: was, phase: sh.phaseIndex, day: sh.day, roles: roles };
+  });
+  ok('changing your mind about the trade is free too',
+    switched.phase === switched.was.phase && switched.day === switched.was.day &&
+    switched.roles.every((r) => /Smith/.test(r)), JSON.stringify(switched).slice(0, 200));
+
+  const walked = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, day: sh.day };
+    Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => /Never mind/i.test(b.innerText)).click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { was: was, phase: sh.phaseIndex, day: sh.day,
+      open: !document.getElementById('shopSheet').hidden };
+  });
+  ok('and walking away costs nothing at all',
+    walked.phase === walked.was.phase && walked.day === walked.was.day && !walked.open,
+    JSON.stringify(walked));
+
+  const engaged = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    F.shopAct('hire');
+    await new Promise((r) => setTimeout(r, 180));
+    Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === 'Runner').click();
+    await new Promise((r) => setTimeout(r, 220));
+    const was = { phase: sh.phaseIndex, day: sh.day, staff: sh.staff.length };
+    document.querySelector('#shopSheetBody [data-hire]').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const hired = sh.staff[sh.staff.length - 1];
+    return { was: was, staff: sh.staff.length, phase: sh.phaseIndex, day: sh.day,
+      rank: hired && hired.rank, xp: hired && hired.xp };
+  });
+  ok('taking somebody on hires them at E', engaged.staff === engaged.was.staff + 1 &&
+    engaged.rank === 'E' && engaged.xp === 0, JSON.stringify(engaged));
+  ok('and that is the moment the phase is spent',
+    engaged.phase !== engaged.was.phase || engaged.day !== engaged.was.day,
+    JSON.stringify(engaged));
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());
