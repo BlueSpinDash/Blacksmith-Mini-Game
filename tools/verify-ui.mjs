@@ -4589,6 +4589,7 @@ async function run() {
 
   // a game closed on the summary opens again on it, then forgets it once seen
   await page.reload();
+  await installStock(page);                                // a reload drops the test helpers
   await page.evaluate(() => window.CHECKSMITH.introSkip && window.CHECKSMITH.introSkip());
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   await page.click('.mode-card[data-mode="shop"]');

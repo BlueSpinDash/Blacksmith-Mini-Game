@@ -634,7 +634,7 @@ input[type=range]{
    once the name is the first thing worth knowing on opening up */
 .shop-name{
   grid-column:1 / -1;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--brass);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:var(--brass);white-space:normal;overflow-wrap:anywhere;
 }
 .shop-when{font-size:15px;letter-spacing:.04em;color:var(--text);}
 .shop-when b{color:var(--gold);}
@@ -888,12 +888,15 @@ input[type=range]{
 .shelf-box .sprite{width:26px;height:26px;}
 .shelf-box .sb-name{
   font-size:9.5px;line-height:1.2;color:var(--muted);letter-spacing:.02em;
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:100%;white-space:normal;overflow-wrap:anywhere;
 }
 .shelf-box .sb-metal{
-  font-size:8.5px;line-height:1;letter-spacing:.08em;text-transform:uppercase;
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:8.5px;line-height:1.1;letter-spacing:.08em;text-transform:uppercase;
+  max-width:100%;white-space:normal;overflow-wrap:anywhere;
 }
+/* a long line or a long quality word wraps inside its box rather than being cut */
+.shelf-box > *{max-width:100%;min-width:0;}
+.shelf-box .sb-tag,.shelf-box .sb-price{white-space:normal;overflow-wrap:anywhere;}
 .shelf-box .sb-price{
   font-size:11.5px;color:var(--brass);font-variant-numeric:tabular-nums;
 }
@@ -934,7 +937,7 @@ input[type=range]{
 }
 .town-card:hover{border-color:var(--brass);}
 .town-card .portrait{width:34px;height:34px;}
-.town-card span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.town-card span{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
 .town-card .tc-name{font-size:11.5px;line-height:1.25;margin-top:2px;}
 .town-card .tc-kind{
   font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--brass);
@@ -1181,7 +1184,7 @@ input[type=range]{
   font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--brass);
 }
 .cust-head .whobox{min-width:0;flex:1;}
-.cust-head .who,.cust-head .kind{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cust-head .who,.cust-head .kind{white-space:normal;overflow-wrap:anywhere;min-width:0;}
 /* what they are carrying: a purse is real money now, so it is on the card */
 .cust-head .cust-purse{
   flex:none;font-size:14px;color:var(--brass);font-variant-numeric:tabular-nums;
