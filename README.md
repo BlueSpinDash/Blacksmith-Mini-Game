@@ -1250,6 +1250,57 @@ The doorbell rings for a *new* customer only: haggling redraws the same screen,
 and a bell on every redraw would be the most annoying sound in the game.
 `SHOPUI.ringed` holds whoever it last rang for.
 
+### Growth buys room, the Shop buys fixtures
+
+One line runs through both tabs: **Growth sells capacity, never an object.**
+Nothing bought on Growth puts a stand on the floor or a person on the books —
+it makes space for one. The Shop is the only place a physical stand is bought,
+and `shopOpenBuyStand` refuses when `standCap(shop) - shop.stands.length <= 0`,
+pointing at Growth instead of selling the space itself. There is exactly one
+`data-buy-stand` emitter and one handler, both inside the Shop sheet, so the
+two tabs cannot drift into doing each other's job.
+
+`SHOP.growth` holds four tracks, all priced `round(base * rate^level)` so each
+purchase costs more than the last, and all returning `null` for the cost at
+their ceiling — which every caller reads as "nothing left to buy here".
+
+| Track | Key | Effect a level |
+| --- | --- | --- |
+| `display` | on the stand (`up`) | +2.5% on what that stand sells for |
+| `forge` | `bellows` | +1 ingot a forging phase |
+| `hands` | `hands` | +1 place on the books |
+| `floor` | `floor` | +1 space on the floor |
+
+`forge` deliberately stores under the **old `bellows` key**, so a save written
+before this existed walks back in with every level it paid for; `restoreShop`
+walks `SHOP.growth` as well as `SHOP.upgrades` so the key is never dropped now
+that `bellows` has left the legacy list. `staffCapacity`, `standCap` and
+`batchCapacity` each read their track directly, so a purchase changes what the
+shop can do on the very next call rather than at some later refresh.
+
+**Displays are per stand**, not per shop, which is what makes them a decision:
+the money can go into the one display carrying your best line. A stand's own
+level lives in `up` and is read only through `standLevel` — deliberately *not*
+`level`, which on a stand already means the blueprint level of the goods
+standing on it. Two different things called "level" in one object is exactly
+the kind of collision this codebase has been bitten by before.
+
+`standBonus` returns `1 + level * 0.025` and is applied in **one place**,
+`standWorth(stand)`:
+
+```js
+recommendedPrice(item, material, stand.quality, stand.level) * standBonus(stand)
+```
+
+Because it multiplies a figure that already carries quality and blueprint
+level, it lands *alongside* them and can never overwrite either — a check
+drives a display to its top level and confirms the ratio is 1.1 while rough
+goods on that same fine display still fetch less than good ones. Every place a
+stand is priced — the customer's interest, their offer, the settled sale, an
+alternative offered, the price sheet, the stand box — goes through
+`standWorth`, so the floor cannot disagree with the counter about what a piece
+is worth.
+
 ### Several forges, each with a name
 
 You name a forge when you open it — the sign over the door, up to 24

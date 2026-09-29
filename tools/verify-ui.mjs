@@ -2926,16 +2926,14 @@ async function run() {
     const after = { room: C.standCap(sh), staff: C.staffCapacity(sh),
       rent: C.rentDue(sh), stands: sh.stands.length, floor: C.countShelf(sh) };
     const gold = sh.gold;
-    document.querySelector('#shPanel [data-buy-stand="shield"]').click();
-    const bought = { stands: sh.stands.length, gold: sh.gold,
-      kinds: sh.stands.map((st) => st.type).join(','),
-      cost: C.shopStandDef('shield').cost };
     const up = document.querySelector('#shPanel [data-upgrade="racks"]');
     const storeBefore = C.storageCapacity(sh);
     up.click();
-    return { before, after, bought, goldBefore: gold,
+    return { before, after, goldBefore: gold,
       upgraded: C.storageCapacity(sh) > storeBefore,
-      noDisplays: !document.querySelector('#shPanel [data-upgrade="displays"]') };
+      noDisplays: !document.querySelector('#shPanel [data-upgrade="displays"]'),
+      // stands are the Shop's business now, not Growth's
+      sellsStands: document.querySelectorAll('#shPanel [data-buy-stand]').length };
   });
   ok('moving to bigger premises buys floor space and raises the rent',
     grown.after.room > grown.before.room && grown.after.staff > grown.before.staff &&
@@ -2943,10 +2941,8 @@ async function run() {
   ok('and puts nothing on that floor: the stands are still the ones you bought',
     grown.after.stands === grown.before.stands &&
     grown.after.floor === grown.before.floor, JSON.stringify(grown));
-  ok('the Grow tab sells stands, and buying one installs it',
-    grown.bought.stands === grown.after.stands + 1 &&
-    /shield/.test(grown.bought.kinds) &&
-    grown.bought.gold === grown.goldBefore - grown.bought.cost, JSON.stringify(grown.bought));
+  ok('the Grow tab no longer sells stands at all', grown.sellsStands === 0,
+    'found ' + grown.sellsStands);
   ok('the old slot upgrade is gone from the Grow tab', grown.noDisplays);
   ok('the other upgrades still buy capacity', grown.upgraded);
 
@@ -4185,6 +4181,155 @@ async function run() {
   ok('and that is the moment the phase is spent',
     engaged.phase !== engaged.was.phase || engaged.day !== engaged.was.day,
     JSON.stringify(engaged));
+
+  section('Open Your Forge: Growth buys room, the Shop buys fixtures');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 200000;
+    F.shopUi.tab = 'grow';
+    F.shopRender();
+  });
+  const cards = await page.evaluate(() => {
+    const panel = document.getElementById('shPanel');
+    return { count: panel.querySelectorAll('.grow-card').length,
+      heads: Array.from(panel.querySelectorAll('.gc-head b')).map((b) => b.innerText.trim()),
+      everyCardAnswers: Array.from(panel.querySelectorAll('.grow-card:not(.empty)'))
+        .every((c) => c.querySelector('.gc-lv') && c.querySelector('.gc-now') &&
+          c.querySelector('.gc-next') &&
+          (c.querySelector('.gc-buy') || c.querySelector('.gc-maxed'))),
+      sellsStands: panel.querySelectorAll('[data-buy-stand]').length };
+  });
+  ok('Growth offers the four tracks',
+    cards.heads.indexOf('Forge') >= 0 && cards.heads.indexOf('Employment') >= 0 &&
+    cards.heads.indexOf('Store Expansion') >= 0 && cards.count >= 4,
+    JSON.stringify(cards.heads));
+  ok('every card says its level, what it gives now, what is next and the cost',
+    cards.everyCardAnswers, JSON.stringify(cards));
+  ok('and Growth sells no stands at all', cards.sellsStands === 0,
+    'found ' + cards.sellsStands + ' stand buttons on Growth');
+  await page.screenshot({ path: path.join(SHOTS, '35-growth.png'), fullPage: true });
+
+  const forgeBuy = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const was = C.batchCapacity(sh);
+    const btn = Array.from(document.querySelectorAll('#shPanel .grow-card'))
+      .find((c) => (c.querySelector('.gc-head b') || {}).innerText === 'Forge')
+      .querySelector('.gc-buy');
+    const price = btn.innerText;
+    btn.click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { was: was, now: C.batchCapacity(sh), price: price,
+      text: document.getElementById('shPanel').innerText.replace(/\s+/g, ' ') };
+  });
+  ok('buying the forge track is worth one more ingot, at once',
+    forgeBuy.now === forgeBuy.was + 1, JSON.stringify(forgeBuy).slice(0, 150));
+  ok('and the card redraws to the new capacity',
+    new RegExp(forgeBuy.now + ' ingots a forging phase').test(forgeBuy.text),
+    forgeBuy.text.slice(0, 200));
+
+  const employed = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const was = { cap: C.staffCapacity(sh), staff: sh.staff.length };
+    Array.from(document.querySelectorAll('#shPanel .grow-card'))
+      .find((c) => (c.querySelector('.gc-head b') || {}).innerText === 'Employment')
+      .querySelector('.gc-buy').click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { was: was, cap: C.staffCapacity(sh), staff: sh.staff.length };
+  });
+  ok('an employment slot is a place, not a person',
+    employed.cap === employed.was.cap + 1 && employed.staff === employed.was.staff,
+    JSON.stringify(employed));
+
+  const expanded = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const was = { cap: C.standCap(sh), stands: sh.stands.length };
+    Array.from(document.querySelectorAll('#shPanel .grow-card'))
+      .find((c) => (c.querySelector('.gc-head b') || {}).innerText === 'Store Expansion')
+      .querySelector('.gc-buy').click();
+    await new Promise((r) => setTimeout(r, 220));
+    return { was: was, cap: C.standCap(sh), stands: sh.stands.length };
+  });
+  ok('a store expansion is floor space, not a stand',
+    expanded.cap === expanded.was.cap + 1 && expanded.stands === expanded.was.stands,
+    JSON.stringify(expanded));
+
+  // the stand itself is bought in the Shop, and only there
+  const standBuy = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const was = sh.stands.length;
+    F.shopUi.tab = 'shelf';
+    F.shopRender();
+    const cap = document.querySelector('#shPanel .shop-cap').innerText.replace(/\s+/g, ' ');
+    document.querySelector('#shPanel [data-buystand]').click();
+    await new Promise((r) => setTimeout(r, 240));
+    const sheet = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    document.querySelector('#shopSheetBody [data-buy-stand]').click();
+    await new Promise((r) => setTimeout(r, 300));
+    return { was: was, stands: sh.stands.length, cap: cap, sheet: sheet,
+      room: C.standCap(sh) - sh.stands.length };
+  });
+  ok('the Shop says how much floor space is left',
+    /room for \d+ more/i.test(standBuy.cap) && /Stands \d+ \/ \d+/.test(standBuy.sheet),
+    JSON.stringify({ cap: standBuy.cap, sheet: standBuy.sheet.slice(0, 120) }));
+  ok('and buying a stand there puts one on the floor',
+    standBuy.stands === standBuy.was + 1, JSON.stringify(standBuy));
+
+  // a full floor refuses, and points at Growth rather than selling space itself
+  const crammed = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    let guard = 0;
+    while (sh.stands.length < C.standCap(sh) && guard++ < 30) C.shopBuyStand(sh, 'weapon');
+    F.shopRender();
+    const was = sh.stands.length;
+    F.shopOpenBuyStand();
+    await new Promise((r) => setTimeout(r, 240));
+    const body = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    return { was: was, stands: sh.stands.length, body: body,
+      offers: document.querySelectorAll('#shopSheetBody [data-buy-stand]').length };
+  });
+  ok('a full floor sells nothing and says where space comes from',
+    crammed.offers === 0 && /Growth/.test(crammed.body) && crammed.stands === crammed.was,
+    crammed.body.slice(0, 200));
+  for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:last-child');
+    await page.waitForTimeout(80);
+  }
+
+  // displays: bought one at a time, and worth more on the floor
+  const display = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const stand = sh.stands[0];
+    stand.key = C.lineKey('shortsword', 'bronze');
+    stand.qty = 5; stand.quality = 100; stand.level = 1;
+    stand.price = C.standWorth(stand);
+    const was = { price: stand.price, level: C.standLevel(stand) };
+    F.shopUi.tab = 'grow';
+    F.shopRender();
+    const cardsFor = document.querySelectorAll('#shPanel .grow-card [data-grow-stand]').length;
+    document.querySelector('#shPanel [data-grow-stand="' + stand.id + '"]').click();
+    await new Promise((r) => setTimeout(r, 240));
+    return { was: was, cards: cardsFor, level: C.standLevel(stand),
+      price: stand.price, others: sh.stands.filter((st) => C.standLevel(st) > 0).length,
+      text: document.getElementById('shPanel').innerText.replace(/\s+/g, ' ') };
+  });
+  ok('each display has its own card and its own upgrade',
+    display.cards >= 2 && display.level === display.was.level + 1 && display.others === 1,
+    JSON.stringify(display).slice(0, 200));
+  ok('upgrading one lifts what it asks',
+    display.price > display.was.price,
+    JSON.stringify({ was: display.was.price, now: display.price }));
+  ok('and the card shows the percentage it now carries',
+    /\+2\.5% on what it sells for/.test(display.text), display.text.slice(0, 220));
+
+  const broke = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 0;
+    F.shopRender();
+    const buys = Array.from(document.querySelectorAll('#shPanel .gc-buy'));
+    return { total: buys.length, dead: buys.filter((b) => b.disabled).length };
+  });
+  ok('an empty purse greys out every purchase',
+    broke.total > 0 && broke.dead === broke.total, JSON.stringify(broke));
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());

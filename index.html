@@ -1117,6 +1117,33 @@ input[type=range]{
 /* the face spans both rows, the way the counter draws a customer */
 .applicant .portrait{width:38px;height:38px;border-radius:10px;grid-row:span 2;}
 .applicant .role{font-size:11px;color:var(--muted);grid-column:2/-1;}
+/* ---- Growth: one card a track, all answering the same four questions ---- */
+.grow-grid{display:flex;flex-direction:column;gap:9px;margin:0 0 14px;}
+.grow-card{
+  display:flex;flex-direction:column;gap:5px;padding:10px 12px;border-radius:11px;
+  background:var(--panel-2);border:1px solid var(--edge);
+}
+.grow-card.maxed{border-color:var(--gold, #cfa53b);}
+.grow-card.empty{opacity:0.8;}
+.gc-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.gc-head b{font-size:14px;color:var(--text);}
+.gc-lv{
+  flex:0 0 auto;font-size:10.5px;font-weight:700;color:var(--muted);
+  padding:1px 7px;border-radius:999px;background:var(--panel);border:1px solid var(--edge);
+}
+.gc-now,.gc-next{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:var(--text);}
+.gc-next{color:var(--ember);}
+.gc-next.done{color:var(--muted);}
+.gc-label{
+  flex:0 0 38px;font-size:10px;font-weight:700;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--muted);
+}
+.gc-note{margin:1px 0 0;font-size:11.5px;color:var(--muted);line-height:1.45;}
+.gc-buy{align-self:flex-start;margin-top:4px;padding:6px 14px;font-size:12.5px;}
+.gc-maxed{
+  align-self:flex-start;margin-top:4px;font-size:11.5px;font-weight:700;
+  color:var(--gold, #cfa53b);
+}
 /* a hand on the books is a button now: it opens what they can do */
 .applicant.crew{width:100%;text-align:left;cursor:pointer;}
 .applicant.crew:hover{border-color:var(--ember);}
@@ -2422,6 +2449,29 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        and miners are counted separately from them. Bigger premises mean more staff, room for more stands, more storage
        and bigger batches &mdash; and a much larger rent. Expanding too early is how a shop
        closes.</p>
+    <p><b>Growth buys room; the Shop buys what fills it.</b> That line runs through the whole
+       tab. <b>Growth</b> has four things to sell, and not one of them puts an object in your
+       shop:</p>
+    <ul>
+      <li><b>Displays</b> &mdash; each stand is made finer <i>on its own</i>, and everything
+          sold from it fetches <b>2.5% more</b> a level, up to four. The bonus multiplies what
+          the piece was already worth, so the quality you forged it at and the level of the
+          blueprint it came off still decide far more than the fixture does. Put your money
+          into the one display carrying your best line rather than spreading it thin.</li>
+      <li><b>Forge</b> &mdash; <b>one more ingot</b> a forging phase, every level. It says how
+          much the anvil can work at once and nothing whatever about <i>which</i> metal: bronze
+          and mythril keep their own costs and their own boards.</li>
+      <li><b>Employment</b> &mdash; <b>one more place</b> on the books. A place, not a person:
+          nobody arrives until you go and find them, and everyone you already have keeps their
+          rank and every scrap of experience.</li>
+      <li><b>Store Expansion</b> &mdash; <b>one more space</b> on the floor. A space is not a
+          stand. Buy the space here, then go to the <b>Shop</b> and buy the stand that goes in
+          it.</li>
+    </ul>
+    <p>Every track costs more each time you buy it, so the first is easy and the last is a
+       decision. A card always shows the level you are at, what that gives you now, what the
+       next one would give, and the price &mdash; and the button goes dead rather than lying to
+       you when the purse cannot cover it.</p>
     <p><b>The forge keeps.</b> Your shop is saved as you play, so you can put it down and pick it
        up again &mdash; the title screen tells you which day you left it on and offers to carry on.
        A batch left half-worked on the anvil comes back as the very same board, blows and all. A
@@ -5098,6 +5148,23 @@ const SHOP = {
     }
   },
 
+  /* ---------- growth ------------------------------------------------------
+     Growth is INFRASTRUCTURE: what the premises will hold and what the forge
+     can do in a phase. It never puts an object in the shop - a slot bought
+     here is empty until the Shop tab fills it, and a staff slot is empty
+     until somebody is recruited into it. That line is the whole point of the
+     tab existing separately.
+
+     Every track costs base * growth^level, so the first is an easy yes and
+     the tenth is a decision. `forge` is stored under the old `bellows` key
+     so a save made before this existed keeps every level it had bought. */
+  growth: {
+    display: { key: null,      base: 70,  rate: 1.55, max: 4, step: 0.025 },
+    forge:   { key: 'bellows', base: 300, rate: 1.7,  max: 8 },
+    hands:   { key: 'hands',   base: 620, rate: 1.85, max: 6 },
+    floor:   { key: 'floor',   base: 400, rate: 1.75, max: 8 }
+  },
+
   /* `stands` is floor space, not stock: it is how many fixtures the premises
      will physically hold. Moving up does not put anything on the floor - it
      makes room for stands the player still has to buy. */
@@ -5117,9 +5184,9 @@ const SHOP = {
     perPower: 3            // and what each rank above that adds
   },
 
+  /* The older fittings. `bellows` has moved to growth.forge and is not listed
+     here any more - the key lives on so bought levels are never lost. */
   upgrades: [
-    { id: 'bellows',  name: 'Greater Bellows', max: 3, cost: [300, 820, 2100],
-      blurb: 'Every batch you forge yourself comes out one larger.' },
     { id: 'racks',    name: 'Storage Racks',   max: 3, cost: [190, 520, 1300],
       blurb: 'Forty more pieces of storage each time.' },
     { id: 'ledger',   name: "Haggler's Ledger", max: 3, cost: [320, 880, 2200],
@@ -5606,6 +5673,69 @@ function shopTier(shop) { return SHOP.tiers[Math.min(shop.tier, SHOP.tiers.lengt
 function shopNextTier(shop) { return SHOP.tiers[shop.tier] || null; }
 function shopUpgradeLevel(shop, id) { return shop.upgrades[id] || 0; }
 
+/* ---------- growth: what the place can hold, not what is in it -----------
+   Four tracks, all priced the same way: base * rate^level, rounded, so each
+   one costs more than the last. A track at its ceiling returns null for its
+   cost, which is what every caller reads as "nothing left to buy here".
+
+   `display` is the odd one out: it is bought per STAND rather than once for
+   the shop, so its level lives on the stand and it has no upgrades key. */
+function growthDef(id) { return SHOP.growth[id] || null; }
+function growthCostAt(def, level) {
+  if (!def || level >= def.max) return null;
+  return Math.round(def.base * Math.pow(def.rate, level));
+}
+function growthLevel(shop, id) {
+  const def = growthDef(id);
+  return def && def.key ? shopUpgradeLevel(shop, def.key) : 0;
+}
+function growthCost(shop, id) {
+  return growthCostAt(growthDef(id), growthLevel(shop, id));
+}
+function shopBuyGrowth(shop, id) {
+  const def = growthDef(id);
+  if (!def || !def.key) return { ok: false, why: 'no such upgrade' };
+  const cost = growthCost(shop, id);
+  if (cost === null) return { ok: false, why: 'nothing left to buy there' };
+  if (shop.gold < cost) return { ok: false, why: 'needs ' + cost + 'g' };
+  shop.gold -= cost;
+  shop.upgrades[def.key] = growthLevel(shop, id) + 1;
+  return { ok: true, level: shop.upgrades[def.key], spent: cost };
+}
+
+/* A stand's own level, which is NOT the blueprint level of the goods on it.
+   Both are called "level" in their own worlds, so this one is kept under
+   `up` and read only through here. */
+function standLevel(stand) {
+  return Math.max(0, Math.min(SHOP.growth.display.max, (stand && stand.up) || 0));
+}
+/* 1.00 at level 0, 1.025 at 1, 1.05 at 2 ... a multiplier, so it lands
+   ALONGSIDE quality, blueprint level and the rest instead of replacing any
+   of them. */
+function standBonus(stand) {
+  return 1 + standLevel(stand) * SHOP.growth.display.step;
+}
+function standUpgradeCost(stand) {
+  return growthCostAt(SHOP.growth.display, standLevel(stand));
+}
+function shopUpgradeStand(shop, standId) {
+  const stand = standById(shop, standId);
+  if (!stand) return { ok: false, why: 'no such stand' };
+  const cost = standUpgradeCost(stand);
+  if (cost === null) return { ok: false, why: 'that display is as fine as it gets' };
+  if (shop.gold < cost) return { ok: false, why: 'needs ' + cost + 'g' };
+  shop.gold -= cost;
+  stand.up = standLevel(stand) + 1;
+  /* The asking price was set against the old worth, so move it up by the
+     same step - otherwise a player who bought an upgrade would keep selling
+     at yesterday's price without noticing. */
+  if (stand.key && stand.price > 0) {
+    stand.price = Math.max(1, Math.round(stand.price *
+      (standBonus(stand) / (1 + (standLevel(stand) - 1) * SHOP.growth.display.step))));
+  }
+  return { ok: true, level: stand.up, spent: cost, stand: stand };
+}
+
 /* A stock line is one item worked in one material, which is the finest grain
    anything in the shop is ever counted at. */
 function lineKey(itemId, materialId) { return itemId + '|' + materialId; }
@@ -5623,7 +5753,11 @@ function lineName(key) {
    The shop floor is fixtures, not slots. The premises say how many stands
    will fit; each one is bought, holds one line of stock and nothing it was
    not made for. There is no shelf behind them: a stand IS the line. */
-function standCap(shop) { return shopTier(shop).stands; }
+/* Floor space: what the premises give, plus every Store Expansion bought.
+   This is ROOM for a stand, never a stand - the Shop tab puts one in it. */
+function standCap(shop) {
+  return shopTier(shop).stands + growthLevel(shop, 'floor');
+}
 function standHold() { return SHOP.standHold; }
 function standById(shop, id) {
   return shop.stands.find(function (st) { return st.id === id; }) || null;
@@ -5635,6 +5769,17 @@ function standWithKey(shop, key) {
   return shop.stands.find(function (st) { return st.key === key && st.qty > 0; }) || null;
 }
 function shelfLine(shop, key) { return standWithKey(shop, key); }
+/* What a piece on THIS stand is reckoned to be worth: its own recommended
+   price - which already carries the quality it was forged at and the level of
+   the blueprint it came off - lifted by however fine the fixture is. A finer
+   display does not replace any of that; it multiplies what is already there,
+   which is why it is applied here and nowhere else. */
+function standWorth(stand) {
+  if (!stand || !stand.key) return 0;
+  const p = splitKey(stand.key);
+  return Math.max(1, Math.round(
+    recommendedPrice(p.item, p.material, stand.quality, stand.level) * standBonus(stand)));
+}
 /* Every stand with something on it, which is the whole of the shop floor. */
 function stockedStands(shop) {
   return shop.stands.filter(function (st) { return st.key && st.qty > 0; });
@@ -5659,12 +5804,19 @@ function shelfCapacity(shop) { return shop.stands.length * standHold(); }
 function storageCapacity(shop) {
   return shopTier(shop).storage + 40 * shopUpgradeLevel(shop, 'racks');
 }
-function staffCapacity(shop) { return shopTier(shop).staff; }
+/* Places on the books, which an Employment upgrade adds one of. Buying one
+   hires nobody: the slot sits empty until somebody is recruited into it. */
+function staffCapacity(shop) {
+  return shopTier(shop).staff + growthLevel(shop, 'hands');
+}
 
-/* The largest batch a single puzzle can produce: the premises, the bellows,
-   and whichever apprentice is standing at the anvil with you. */
+/* The largest batch a single puzzle can produce - that is, how many ingots
+   the forge can work in one phase: the premises, every Forge upgrade, and
+   whichever apprentice is standing at the anvil with you. Nothing here has
+   any bearing on WHICH metal is worked; bronze and mythril keep their own
+   costs and difficulty exactly as before. */
 function batchCapacity(shop) {
-  return shopTier(shop).batch + shopUpgradeLevel(shop, 'bellows') + apprenticeBonus(shop);
+  return shopTier(shop).batch + growthLevel(shop, 'forge') + apprenticeBonus(shop);
 }
 /* An apprentice helps the batch you forge yourself. They are rostered like
    everyone else now, so the help lands in the phase they were booked into
@@ -5869,7 +6021,7 @@ function serializeShop(shop) {
     upgrades: Object.assign({}, shop.upgrades),
     materials: Object.assign({}, shop.materials),
     storage: JSON.parse(JSON.stringify(shop.storage)),
-    stands: shop.stands.map(function (st) { return Object.assign({ level: 1 }, st); }),
+    stands: shop.stands.map(function (st) { return Object.assign({ level: 1, up: 0 }, st); }),
     staff: shop.staff.map(function (e) {
       return Object.assign({}, e, { face: staffFace(e) });
     }),
@@ -5945,6 +6097,15 @@ function restoreShop(data, rnd) {
     const level = whole(data.upgrades && data.upgrades[def.id], 0, def.max, 0);
     if (level > 0) shop.upgrades[def.id] = level;
   }
+  /* The growth tracks keep their levels in the same place. `forge` is stored
+     under the old `bellows` key precisely so a save written before Growth
+     was reworked walks straight back in with every level it paid for. */
+  for (const id in SHOP.growth) {
+    const def = SHOP.growth[id];
+    if (!def.key) continue;
+    const level = whole(data.upgrades && data.upgrades[def.key], 0, def.max, 0);
+    if (level > 0) shop.upgrades[def.key] = level;
+  }
   for (const m of SHOP.materials) {
     shop.materials[m.id] = whole(data.materials && data.materials[m.id], 0, 1e9, 0);
   }
@@ -5979,6 +6140,8 @@ function restoreShop(data, rnd) {
       if (shop.stands.length >= standCap(shop)) break;
       if (!raw || !shopStandDef(raw.type)) continue;
       const stand = newStand(shop, raw.type);
+      // how fine the fixture is, kept apart from the goods standing on it
+      stand.up = whole(raw.up, 0, SHOP.growth.display.max, 0);
       const key = raw.key;
       if (typeof key === 'string' && knownLine(key) && standTakes(raw.type, splitKey(key).item) &&
           !standWithKey(shop, key)) {
@@ -6415,8 +6578,7 @@ function shopStockStand(shop, standId, key, qty) {
     stand.qty = moved;
     stand.quality = lot.quality;
     stand.level = lotLevel;
-    stand.price = recommendedPrice(splitKey(key).item, splitKey(key).material,
-      lot.quality, lotLevel);
+    stand.price = standWorth(stand);
   }
   lot.qty -= moved;
   if (lot.qty <= 0) delete shop.storage[key];
@@ -6471,8 +6633,10 @@ function shopSetPrice(shop, key, price) {
 
 /* ---------- buying, selling and re-purposing stands -------------------- */
 function newStand(shop, type) {
+  // `level` is the blueprint level of whatever is ON it; `up` is how fine the
+  // fixture itself is, which is what Growth sells.
   return { id: shop.nextId++, type: type, key: null, qty: 0, quality: 100,
-    level: 1, price: 0 };
+    level: 1, up: 0, price: 0 };
 }
 
 function shopBuyStand(shop, type) {
@@ -7072,7 +7236,7 @@ function chooseGoods(shop, who) {
       if (one.want.item === it.id) taste += 4;
       else if (one.want.cat === it.cat) taste += 1.6;
     }
-    const rec = recommendedPrice(parts.item, parts.material, stand.quality, stand.level);
+    const rec = standWorth(stand);
     const weight = taste * priceAppeal(stand.price, rec) * purseAppeal(shop, type, stand.price);
     if (weight > 0) entries.push({ value: key, weight: weight });
   }
@@ -7135,7 +7299,7 @@ function counterNext(session, shop) {
   }
   const line = shelfLine(shop, key);
   const parts = splitKey(key);
-  const rec = recommendedPrice(parts.item, parts.material, line.quality, line.level);
+  const rec = standWorth(line);
   const spread = 0.82 + shop.rnd() * 0.5;                  // what this one will bear
   // wanting a thing makes it worth more to you, and nobody offers money they
   // are not carrying however much they want it
@@ -7197,7 +7361,7 @@ function settleSale(session, shop, key, price, how) {
   const line = shelfLine(shop, key);
   const quality = line.quality;
   line.qty -= 1;
-  const rec = recommendedPrice(splitKey(key).item, splitKey(key).material, quality, line.level);
+  const rec = standWorth(line);
   // the stand stays; only what was standing on it is gone
   if (line.qty <= 0) { line.key = null; line.qty = 0; line.price = 0; }
   shop.gold += price;
@@ -7319,7 +7483,7 @@ function alternativeOdds(shop, session, key) {
   // work below their standards, or past their purse, is not an offer at all
   if (one && !meetsStandards(one, line.quality)) return 0;
   if (one && line.price > purseFor(one)) return 0;
-  const rec = recommendedPrice(parts.item, parts.material, line.quality, line.level);
+  const rec = standWorth(line);
   const budget = Math.max(1, Math.round(rec * type.budget * (p.spread || 1)));
   // 1 when the whole category is theirs, 0 when they never wanted any of it
   let taste = Math.min(1, (type.likes[it.cat] || 0) / 3);
@@ -8967,6 +9131,11 @@ const CHECKSMITH_CORE = {
   recordForged: recordForged,
   knownRecipes: knownRecipes, recipeCustomers: recipeCustomers, recipeChildren: recipeChildren,
   batchCapacity: batchCapacity, apprenticeBonus: apprenticeBonus, haggleSkill: haggleSkill,
+  standWorth: standWorth,
+  growthDef: growthDef, growthCostAt: growthCostAt, growthLevel: growthLevel,
+  growthCost: growthCost, shopBuyGrowth: shopBuyGrowth,
+  standLevel: standLevel, standBonus: standBonus, standUpgradeCost: standUpgradeCost,
+  shopUpgradeStand: shopUpgradeStand,
   countShelf: countShelf, countStorage: countStorage,
   shopStars: shopStars, shopStarFraction: shopStarFraction, nudgeReputation: nudgeReputation,
   qualityFactor: qualityFactor, recommendedPrice: recommendedPrice, ingotPrice: ingotPrice,
@@ -12111,8 +12280,10 @@ function shopRenderPanel() {
     // The floor is fixtures. What the premises hold is stands, and a stand is
     // something the player walks up to rather than a slot in a list.
     const cap = standCap(sh);
+    const spare = cap - sh.stands.length;
     html += '<p class="shop-cap">Stands ' + sh.stands.length + ' / ' + cap + ' · ' +
       countShelf(sh) + ' of ' + shelfCapacity(sh) + ' pieces out' +
+      (spare > 0 ? ' · room for ' + spare + ' more' : ' · floor full, Growth sells more space') +
       (sh.stands.length ? ' · tap a stand to work it' : '') + '</p>';
     if (!countShelf(sh)) {
       html += '<p class="shop-empty">Nothing is on display. Stock a stand from storage and ' +
@@ -12191,57 +12362,127 @@ function shopRenderPanel() {
   } else if (SHOPUI.tab === 'staff') {
     html += shopRosterHtml(sh);
   } else {
-    const tier = shopTier(sh), next = shopNextTier(sh);
-    html += '<div class="shop-list">';
-    html += rowHtml('<b>' + esc(tier.name) + '</b>',
-      'Rent ' + coin(tier.rent) + 'g · ' + tier.staff + ' staff · ' +
-      tier.stands + ' stands · ' + storageCapacity(sh) + ' storage · batch of ' +
-      batchCapacity(sh), '');
-    if (next) {
-      html += '<div class="shop-row">' +
-        '<span class="nm">Move to ' + esc(next.name) + '</span>' +
-        '<button data-expand="1"' + (sh.gold < next.cost ? ' disabled' : '') + '>' +
-        coin(next.cost) + 'g</button>' +
-        '<span class="sub">' + next.staff + ' staff · room for ' + next.stands + ' stands · ' +
-        next.storage + ' storage · batch of ' + next.batch +
-        ' · rent rises to ' + coin(next.rent) + 'g</span>' +
-        '</div>';
-    }
-    // Bigger premises are floor space, not stock. The stands that stand on it
-    // are bought one at a time, which is where a forge picks what it is for.
-    const room = standCap(sh) - sh.stands.length;
-    html += '<div class="shop-row"><span class="nm"><b>Display stands</b></span>' +
-      '<span class="amt">' + sh.stands.length + ' / ' + standCap(sh) + '</span>' +
-      '<span class="sub">' + (room > 0
-        ? 'Room for ' + room + ' more. Each one holds ' + standHold() +
-          ' pieces of a single line.'
-        : 'Every space is taken. Move into bigger premises for more.') + '</span></div>';
-    for (const def of SHOP.stands) {
-      const mine = sh.stands.filter(function (st) { return st.type === def.id; }).length;
-      html += '<div class="shop-row">' +
-        '<span class="nm">' + standSprite(def.id) + ' ' + esc(def.name) +
-        (mine ? ' <small style="color:var(--muted)">×' + mine + '</small>' : '') + '</span>' +
-        '<button data-buy-stand="' + def.id + '"' +
-        (room <= 0 || sh.gold < def.cost ? ' disabled' : '') + '>' + coin(def.cost) + 'g</button>' +
-        '<span class="sub">' + esc(def.blurb) + '</span>' +
-        '</div>';
-    }
-    for (const u of SHOP.upgrades) {
-      const level = shopUpgradeLevel(sh, u.id);
-      const cost = shopUpgradeCost(sh, u.id);
-      html += '<div class="shop-row">' +
-        '<span class="nm">' + esc(u.name) + ' <small style="color:var(--muted)">' +
-        level + '/' + u.max + '</small></span>' +
-        (cost === null
-          ? '<span class="amt">maxed</span>'
-          : '<button data-upgrade="' + u.id + '"' + (sh.gold < cost ? ' disabled' : '') + '>' +
-            coin(cost) + 'g</button>') +
-        '<span class="sub">' + esc(u.blurb) + '</span>' +
-        '</div>';
-    }
-    html += '</div>';
+    html += shopGrowthHtml(sh);
   }
   host.innerHTML = html;
+}
+
+/* ---------- Growth: infrastructure, never equipment ----------------------
+   Four tracks, one card each, and every card answers the same four questions
+   in the same order: what level am I at, what does that give me now, what
+   would the next one give me, and what does it cost. The button goes dead
+   when the purse cannot cover it, so a card never lies about being available.
+
+   Nothing on this tab puts an object in the shop. Growth buys ROOM and
+   CAPACITY; the Shop tab buys the fixtures that fill it. */
+function growthCard(title, level, max, now, next, cost, gold, act, note) {
+  const maxed = cost === null;
+  return '<div class="grow-card' + (maxed ? ' maxed' : '') + '">' +
+    '<div class="gc-head"><b>' + esc(title) + '</b>' +
+      '<span class="gc-lv">Level ' + level + ' / ' + max + '</span></div>' +
+    '<div class="gc-now"><span class="gc-label">Now</span><span>' + now + '</span></div>' +
+    (maxed
+      ? '<div class="gc-next done"><span class="gc-label">Next</span>' +
+        '<span>As far as this one goes.</span></div>'
+      : '<div class="gc-next"><span class="gc-label">Next</span><span>' + next + '</span></div>') +
+    (note ? '<p class="gc-note">' + note + '</p>' : '') +
+    (maxed
+      ? '<span class="gc-maxed">Fully upgraded</span>'
+      : '<button class="gc-buy" ' + act + (gold < cost ? ' disabled' : '') + '>' +
+        coin(cost) + 'g</button>') +
+    '</div>';
+}
+
+function shopGrowthHtml(sh) {
+  let html = '<p class="shop-cap">Growth buys room and capacity. The fixtures that ' +
+    'fill it are bought in the <b>Shop</b>.</p><div class="grow-grid">';
+
+  /* 1. Displays. Bought per stand, so the player can put their money into the
+     one display that carries their best line rather than spreading it thin. */
+  const step = Math.round(SHOP.growth.display.step * 1000) / 10;
+  if (!sh.stands.length) {
+    html += '<div class="grow-card empty"><div class="gc-head"><b>Displays</b></div>' +
+      '<div class="gc-now"><span class="gc-label">Now</span><span>You own no display ' +
+      'to improve.</span></div><p class="gc-note">Buy a stand in the <b>Shop</b> first — ' +
+      'each one is then upgraded on its own.</p></div>';
+  } else {
+    for (const stand of sh.stands) {
+      const def = shopStandDef(stand.type);
+      const lv = standLevel(stand);
+      const cost = standUpgradeCost(stand);
+      const holds = stand.key ? esc(lineName(stand.key)) : 'nothing yet';
+      html += growthCard(def ? def.name : 'Display', lv, SHOP.growth.display.max,
+        '+' + (Math.round(lv * step * 10) / 10) + '% on what it sells for',
+        '+' + (Math.round((lv + 1) * step * 10) / 10) + '%',
+        cost, sh.gold, 'data-grow-stand="' + stand.id + '"',
+        'Holding ' + holds + (stand.key && stand.qty
+          ? ' at ' + coin(stand.price) + 'g' : ''));
+    }
+  }
+
+  /* 2. Forge: ingots worked in one phase. */
+  const fLv = growthLevel(sh, 'forge');
+  html += growthCard('Forge', fLv, SHOP.growth.forge.max,
+    batchCapacity(sh) + ' ingots a forging phase',
+    (batchCapacity(sh) + 1) + ' ingots',
+    growthCost(sh, 'forge'), sh.gold, 'data-grow="forge"',
+    'How many ingots one phase at the anvil can work. Every metal keeps its own ' +
+    'cost and its own board.');
+
+  /* 3. Employment: places on the books, which nobody fills but the player. */
+  const hLv = growthLevel(sh, 'hands');
+  html += growthCard('Employment', hLv, SHOP.growth.hands.max,
+    sh.staff.length + ' of ' + staffCapacity(sh) + ' places filled',
+    (staffCapacity(sh) + 1) + ' places',
+    growthCost(sh, 'hands'), sh.gold, 'data-grow="hands"',
+    'A place on the books, not a person in it — recruit them from ' +
+    '<b>Search for Employees</b>. Anyone you already have keeps their rank and ' +
+    'everything they have earned.');
+
+  /* 4. Store expansion: floor space, which is not a stand. */
+  const sLv = growthLevel(sh, 'floor');
+  const room = standCap(sh) - sh.stands.length;
+  html += growthCard('Store Expansion', sLv, SHOP.growth.floor.max,
+    sh.stands.length + ' of ' + standCap(sh) + ' spaces used',
+    (standCap(sh) + 1) + ' spaces',
+    growthCost(sh, 'floor'), sh.gold, 'data-grow="floor"',
+    'Floor space, <b>not</b> a stand. ' + (room > 0
+      ? 'You have room for ' + room + ' more — buy them in the <b>Shop</b>.'
+      : 'Every space is taken, so the next stand needs one of these first.'));
+  html += '</div>';
+
+  /* The premises themselves, and the older fittings, below the four tracks -
+     they are still growth, but they are not what this tab is organised by. */
+  const tier = shopTier(sh), next = shopNextTier(sh);
+  html += '<p class="shop-cap">The premises</p><div class="shop-list">';
+  html += rowHtml('<b>' + esc(tier.name) + '</b>',
+    'Rent ' + coin(tier.rent) + 'g · ' + staffCapacity(sh) + ' staff · ' +
+    standCap(sh) + ' stands · ' + storageCapacity(sh) + ' storage · batch of ' +
+    batchCapacity(sh), '');
+  if (next) {
+    html += '<div class="shop-row">' +
+      '<span class="nm">Move to ' + esc(next.name) + '</span>' +
+      '<button data-expand="1"' + (sh.gold < next.cost ? ' disabled' : '') + '>' +
+      coin(next.cost) + 'g</button>' +
+      '<span class="sub">' + next.staff + ' staff · room for ' + next.stands + ' stands · ' +
+      next.storage + ' storage · batch of ' + next.batch +
+      ' · rent rises to ' + coin(next.rent) + 'g</span>' +
+      '</div>';
+  }
+  for (const u of SHOP.upgrades) {
+    const level = shopUpgradeLevel(sh, u.id);
+    const cost = shopUpgradeCost(sh, u.id);
+    html += '<div class="shop-row">' +
+      '<span class="nm">' + esc(u.name) + ' <small style="color:var(--muted)">' +
+      level + '/' + u.max + '</small></span>' +
+      (cost === null
+        ? '<span class="amt">maxed</span>'
+        : '<button data-upgrade="' + u.id + '"' + (sh.gold < cost ? ' disabled' : '') + '>' +
+          coin(cost) + 'g</button>') +
+      '<span class="sub">' + esc(u.blurb) + '</span>' +
+      '</div>';
+  }
+  return html + '</div>';
 }
 
 function shopRender() {
@@ -12562,7 +12803,7 @@ function standBoxHtml(stand, attr, cls) {
   }
   const p = splitKey(stand.key);
   const item = shopItem(p.item), mt = shopMaterial(p.material);
-  const rec = recommendedPrice(p.item, p.material, stand.quality, stand.level);
+  const rec = standWorth(stand);
   const band = qualityBand(stand.quality);
   return '<button class="shelf-box full ' + (stand.price > rec ? 'over ' : '') + (cls || '') +
     '" type="button" ' + attr + ' aria-label="' + esc(name + ': ' + stand.qty + ' ' +
@@ -12585,7 +12826,7 @@ function shopOpenStand(standId) {
   const def = shopStandDef(stand.type);
   const filled = !!(stand.key && stand.qty > 0);
   const p = filled ? splitKey(stand.key) : null;
-  const rec = filled ? recommendedPrice(p.item, p.material, stand.quality, stand.level) : 0;
+  const rec = filled ? standWorth(stand) : 0;
 
   let body = '<div class="shop-list">';
   body += rowHtml(standSprite(stand.type) + ' <b>' + esc(def.name) + '</b>',
@@ -12676,18 +12917,32 @@ function shopConfirmSellStand(standId) {
 }
 
 /* Buying a stand, from the empty floor space or from the Grow tab. */
+/* The ONLY place a stand is bought. Growth sells the floor space; this sells
+   the fixture that goes on it, and it will not sell one there is no room
+   for - which is what keeps the two tabs from doing each other's job. */
 function shopOpenBuyStand() {
   const sh = shop();
   const room = standCap(sh) - sh.stands.length;
-  if (room <= 0) { SOUNDS.invalid(); shopToast('No floor space left.'); return; }
-  let body = '<p class="shop-cap">Room for ' + room + ' more stand' +
-    (room === 1 ? '' : 's') + '</p><div class="shop-list">';
+  let body = '<p class="shop-cap">Stands ' + sh.stands.length + ' / ' + standCap(sh) +
+    ' · ' + (room > 0 ? 'room for ' + room + ' more' : 'no room left') + '</p>';
+  if (room <= 0) {
+    body += '<p class="hire-warn">Every space on the floor is taken. Buy a ' +
+      '<b>Store Expansion</b> in <b>Growth</b>, or move to bigger premises, and ' +
+      'the space will be here waiting.</p>';
+    shopSheet('Buy a stand', body,
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  body += '<div class="shop-list">';
   for (const def of SHOP.stands) {
+    const mine = sh.stands.filter(function (st) { return st.type === def.id; }).length;
     body += '<button class="pick-line" type="button" data-buy-stand="' + esc(def.id) + '"' +
       (sh.gold < def.cost ? ' disabled' : '') + '>' +
-      '<span class="nm">' + standSprite(def.id) + ' ' + esc(def.name) + '</span>' +
+      '<span class="nm">' + standSprite(def.id) + ' ' + esc(def.name) +
+      (mine ? ' <small style="color:var(--muted)">\u00d7' + mine + '</small>' : '') + '</span>' +
       '<span class="cnt">' + coin(def.cost) + 'g</span>' +
-      '<span class="sub">' + esc(def.blurb) + '</span>' +
+      '<span class="sub">Takes ' + esc(def.blurb.replace(/\.$/, '')) + ' — and nothing else. ' +
+      'Holds ' + standHold() + ' of one line.</span>' +
       '</button>';
   }
   body += '</div>';
@@ -13318,7 +13573,8 @@ function shopOpenPrice(key) {
   const line = shelfLine(sh, key);
   if (!line) return;
   const p = splitKey(key);
-  const rec = recommendedPrice(p.item, p.material, line.quality, line.level);
+  // the worth of a piece ON THIS STAND, fixture and all
+  const rec = standWorth(line);
   SHOPUI.draft = { price: line.price };
   const redraw = function () {
     const price = SHOPUI.draft.price;
@@ -14877,8 +15133,6 @@ function wireShop() {
     if (stand) { shopOpenStand(Number(stand.dataset.stand)); return; }
     const space = t.closest('[data-buystand]');
     if (space) { shopOpenBuyStand(); return; }
-    const buy = t.closest('[data-buy-stand]');
-    if (buy && !buy.disabled) { shopBuyStandFrom(buy.dataset.buyStand); return; }
     const fire = t.closest('[data-fire]');
     if (fire) { shopConfirmFire(Number(fire.dataset.fire)); return; }
     // a hand on the books: what they can do, and the button that ranks them up
@@ -14926,6 +15180,34 @@ function wireShop() {
       if (res.ok) SOUNDS.prosper(false); else SOUNDS.invalid();
       shopToast(res.ok ? shopUpgradeDef(up.dataset.upgrade).name + ' installed.' : res.why);
       shopRender();
+      return;
+    }
+    /* Growth. Each of these changes what the shop can DO the moment it is
+       bought - the re-render below is reading the new capacity, not a copy. */
+    const grow = t.closest('[data-grow]');
+    if (grow && !grow.disabled) {
+      const id = grow.dataset.grow;
+      const res = shopBuyGrowth(shop(), id);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
+      shopRender();
+      shopToast(id === 'forge'
+        ? 'The forge can work ' + batchCapacity(shop()) + ' ingots a phase now.'
+        : id === 'hands'
+          ? 'Room on the books for ' + staffCapacity(shop()) +
+            ' — nobody is hired until you go and find them.'
+          : 'Floor space for ' + standCap(shop()) +
+            ' stands — buy the stand itself in the Shop.');
+      return;
+    }
+    const gstand = t.closest('[data-grow-stand]');
+    if (gstand && !gstand.disabled) {
+      const res = shopUpgradeStand(shop(), Number(gstand.dataset.growStand));
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(false);
+      shopRender();
+      const pct = Math.round(res.level * SHOP.growth.display.step * 1000) / 10;
+      shopToast('A finer display: +' + pct + '% on whatever stands on it.');
       return;
     }
     // the roster: an empty box opens the picker, a filled one its details

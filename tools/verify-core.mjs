@@ -6440,5 +6440,271 @@ section('Open Your Forge: a hand earns their rank');
   })());
 }
 
+section('Open Your Forge: Growth buys room, the Shop buys fixtures');
+{
+  /* A forge with money and a stand holding something worth selling. */
+  function floored(seed, quality, level) {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(seed), gold: 200000 }));
+    const stand = s.stands[0];
+    const key = C.lineKey('shortsword', 'bronze');
+    stand.key = key; stand.qty = 5;
+    stand.quality = quality == null ? 80 : quality;
+    stand.level = level == null ? 1 : level;
+    stand.price = C.standWorth(stand);
+    return s;
+  }
+
+  ok('a fresh display starts plain and sells at the plain price', (() => {
+    const s = floored(1400);
+    const stand = s.stands[0];
+    return C.standLevel(stand) === 0 && C.standBonus(stand) === 1 &&
+      C.standWorth(stand) === C.recommendedPrice('shortsword', 'bronze', 80, 1);
+  })());
+
+  ok('each display level is worth exactly two and a half percent more', (() => {
+    const step = C.SHOP.growth.display.step;
+    if (step !== 0.025) return false;
+    for (let lv = 0; lv <= C.SHOP.growth.display.max; lv++) {
+      if (Math.abs(C.standBonus({ up: lv }) - (1 + lv * 0.025)) > 1e-9) return false;
+    }
+    // the spec's own ladder, spelled out
+    return C.standBonus({ up: 0 }) === 1 && C.standBonus({ up: 1 }) === 1.025 &&
+      C.standBonus({ up: 2 }) === 1.05 && C.standBonus({ up: 3 }) === 1.075 &&
+      Math.abs(C.standBonus({ up: 4 }) - 1.1) < 1e-9;
+  })());
+
+  ok('the bonus multiplies quality and blueprint level rather than replacing them', (() => {
+    // a big number so rounding cannot hide the ratio
+    const s = floored(1401, 100, 5);
+    const stand = s.stands[0];
+    const plain = C.standWorth(stand);
+    stand.up = 4;
+    const fine = C.standWorth(stand);
+    if (Math.abs(fine / plain - 1.1) > 0.01) return false;
+    // rough goods on a fine display are still worth less than fine goods on it
+    stand.quality = 20; stand.level = 1;
+    const rough = C.standWorth(stand);
+    return rough < fine;
+  })());
+
+  ok('a display is upgraded on its own, not for the whole shop', (() => {
+    const s = floored(1402);
+    C.shopBuyStand(s, 'shield');
+    const first = s.stands[0], second = s.stands[1];
+    const res = C.shopUpgradeStand(s, first.id);
+    return res.ok && C.standLevel(first) === 1 && C.standLevel(second) === 0;
+  })());
+
+  ok('upgrading a display lifts what it is already asking', (() => {
+    const s = floored(1403, 100, 5);
+    const stand = s.stands[0];
+    const was = stand.price;
+    C.shopUpgradeStand(s, stand.id);
+    return stand.price > was;
+  })());
+
+  ok('a display stops at its ceiling', (() => {
+    const s = floored(1404);
+    const stand = s.stands[0];
+    for (let i = 0; i < C.SHOP.growth.display.max; i++) C.shopUpgradeStand(s, stand.id);
+    return C.standLevel(stand) === C.SHOP.growth.display.max &&
+      C.standUpgradeCost(stand) === null && !C.shopUpgradeStand(s, stand.id).ok;
+  })());
+
+  ok('a display cannot be upgraded on an empty purse', (() => {
+    const s = floored(1405);
+    s.gold = 0;
+    const res = C.shopUpgradeStand(s, s.stands[0].id);
+    return !res.ok && C.standLevel(s.stands[0]) === 0;
+  })());
+
+  ok('every growth track costs more each time it is bought', (() => {
+    for (const id of ['display', 'forge', 'hands', 'floor']) {
+      const def = C.growthDef(id);
+      let last = 0;
+      for (let lv = 0; lv < def.max; lv++) {
+        const cost = C.growthCostAt(def, lv);
+        if (cost === null || cost <= last) return false;
+        last = cost;
+      }
+      if (C.growthCostAt(def, def.max) !== null) return false;   // and stops
+    }
+    return true;
+  })());
+
+  ok('a forge upgrade is worth exactly one more ingot a phase', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1406), gold: 200000 });
+    const was = C.batchCapacity(s);
+    const res = C.shopBuyGrowth(s, 'forge');
+    return res.ok && C.batchCapacity(s) === was + 1;
+  })());
+
+  ok('and it changes what may actually be forged straight away', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1407), gold: 200000 }));
+    s.materials.bronze = 99;
+    const cap = C.batchCapacity(s);
+    const bp = Object.keys(s.blueprints)[0];
+    if (C.forgeCheck(s, bp, 'bronze', cap + 1).ok) return false;  // over capacity today
+    C.shopBuyGrowth(s, 'forge');
+    return C.forgeCheck(s, bp, 'bronze', cap + 1).ok;             // and allowed now
+  })());
+
+  ok('forge capacity says nothing about which metal is worked', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1408), gold: 200000 }));
+    const bronze = C.shopMaterial('bronze');
+    const before = { cost: bronze.cost, value: bronze.value };
+    C.shopBuyGrowth(s, 'forge');
+    C.shopBuyGrowth(s, 'forge');
+    return bronze.cost === before.cost && bronze.value === before.value;
+  })());
+
+  ok('an employment upgrade adds one place and hires nobody', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1409), gold: 200000 });
+    const was = C.staffCapacity(s), had = s.staff.length;
+    const res = C.shopBuyGrowth(s, 'hands');
+    return res.ok && C.staffCapacity(s) === was + 1 && s.staff.length === had;
+  })());
+
+  ok('and the new place can then be recruited into', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1410), gold: 200000 });
+    // fill the books to the brim
+    let guard = 0;
+    while (s.staff.length < C.staffCapacity(s) && guard++ < 20) {
+      C.shopHire(s, C.shopSearchStaff(s, 'runner', 1)[0].id);
+    }
+    const full = C.shopHire(s, C.shopSearchStaff(s, 'runner', 1)[0].id);
+    if (full.ok) return false;                                    // no room
+    C.shopBuyGrowth(s, 'hands');
+    return C.shopHire(s, C.shopSearchStaff(s, 'runner', 1)[0].id).ok;
+  })());
+
+  ok('a hand already on the books keeps their rank and pool through it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1411), gold: 200000 });
+    C.shopHire(s, C.shopSearchStaff(s, 'smith', 1)[0].id);
+    const hand = s.staff[0];
+    C.awardXp(hand, 40);
+    C.shopBuyGrowth(s, 'hands');
+    return hand.rank === 'E' && hand.xp === 40;
+  })());
+
+  ok('a store expansion adds floor space and no stand', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1412), gold: 200000 });
+    const was = C.standCap(s), had = s.stands.length;
+    const res = C.shopBuyGrowth(s, 'floor');
+    return res.ok && C.standCap(s) === was + 1 && s.stands.length === had;
+  })());
+
+  ok('the space it bought is what lets the Shop sell the next stand', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1413), gold: 200000 });
+    // fill the floor
+    let guard = 0;
+    while (s.stands.length < C.standCap(s) && guard++ < 20) C.shopBuyStand(s, 'weapon');
+    const full = C.shopBuyStand(s, 'weapon');
+    if (full.ok) return false;                                    // no floor space
+    C.shopBuyGrowth(s, 'floor');
+    const after = C.shopBuyStand(s, 'weapon');
+    return after.ok && s.stands.length === C.standCap(s);
+  })());
+
+  ok('a stand is still refused when it would overrun the floor', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1414), gold: 200000 });
+    let guard = 0;
+    while (s.stands.length < C.standCap(s) && guard++ < 20) C.shopBuyStand(s, 'weapon');
+    const gold = s.gold;
+    const res = C.shopBuyStand(s, 'weapon');
+    return !res.ok && s.stands.length === C.standCap(s) && s.gold === gold;
+  })());
+
+  ok('a stand still refuses work it was not made for', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1415), gold: 200000 }));
+    const rack = C.shopBuyStand(s, 'shield').stand;
+    C.shopUpgradeStand(s, rack.id);                               // however fine it is
+    return !C.standTakes('shield', 'shortsword') && C.standTakes('shield', 'buckler');
+  })());
+
+  ok('a growth track cannot be bought without the gold', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1416), gold: 0 });
+    return ['forge', 'hands', 'floor'].every((id) => {
+      const was = C.growthLevel(s, id);
+      return !C.shopBuyGrowth(s, id).ok && C.growthLevel(s, id) === was;
+    });
+  })());
+
+  ok('every track stops at its ceiling and refuses politely', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1417), gold: 1e9 });
+    for (const id of ['forge', 'hands', 'floor']) {
+      const def = C.growthDef(id);
+      for (let i = 0; i < def.max; i++) {
+        if (!C.shopBuyGrowth(s, id).ok) return false;
+      }
+      if (C.growthLevel(s, id) !== def.max) return false;
+      if (C.growthCost(s, id) !== null) return false;
+      if (C.shopBuyGrowth(s, id).ok) return false;
+    }
+    return true;
+  })());
+
+  ok('what Growth bought is still there when the save is opened again', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1418), gold: 200000 });
+    C.shopBuyGrowth(s, 'forge');
+    C.shopBuyGrowth(s, 'forge');
+    C.shopBuyGrowth(s, 'hands');
+    C.shopBuyGrowth(s, 'floor');
+    const stand = s.stands[0];
+    C.shopUpgradeStand(s, stand.id);
+    C.shopUpgradeStand(s, stand.id);
+    const want = { batch: C.batchCapacity(s), staff: C.staffCapacity(s),
+      floor: C.standCap(s), display: C.standLevel(stand) };
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    return C.batchCapacity(back) === want.batch &&
+      C.staffCapacity(back) === want.staff &&
+      C.standCap(back) === want.floor &&
+      C.standLevel(back.stands[0]) === want.display;
+  })());
+
+  ok('a forge that bought bellows before Growth existed keeps every level', (() => {
+    /* The old key is deliberately still the store, so a save from before the
+       rework walks back in with the capacity it paid for. */
+    const s = C.createShop({ rnd: C.mulberry32(1419) });
+    const data = C.serializeShop(s);
+    data.upgrades = { bellows: 3 };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.growthLevel(back, 'forge') === 3 &&
+      C.batchCapacity(back) === C.shopTier(back).batch + 3;
+  })());
+
+  ok('a save from before displays could be upgraded reads as plain', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1420) }));
+    const data = C.serializeShop(s);
+    for (const st of data.stands) delete st.up;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.stands.every((st) => C.standLevel(st) === 0 && C.standBonus(st) === 1);
+  })());
+
+  ok('a tampered display level cannot be brought back past its ceiling', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1421) }));
+    const data = C.serializeShop(s);
+    data.stands[0].up = 9999;
+    data.stands[1] && (data.stands[1].up = -5);
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const top = C.standLevel(back.stands[0]);
+    return top === C.SHOP.growth.display.max &&
+      (!back.stands[1] || C.standLevel(back.stands[1]) === 0);
+  })());
+
+  ok('a finer display really does fetch more at the counter', (() => {
+    /* The whole point, measured where it matters: the same goods, the same
+       customer, priced off the stand rather than off the recipe. */
+    function take(up) {
+      const s = floored(1422, 100, 1);
+      const stand = s.stands[0];
+      stand.up = up;
+      stand.price = C.standWorth(stand);
+      return stand.price;
+    }
+    return take(4) > take(0);
+  })());
+}
+
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
 process.exit(failures.length ? 1 : 0);
