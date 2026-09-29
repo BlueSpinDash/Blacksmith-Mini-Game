@@ -58,8 +58,11 @@ const installStock = (page) => page.evaluate(() => {
       stand = sh.stands.find(function (st) { return !st.key && st.type === type; });
     }
     if (!stand) {
+      // out on the floor: a real spot when there is one free, else one past
+      // the layout, since these shelves are deeper than any shop would hold
+      const free = C.firstFreeSlot(sh);
       stand = { id: sh.nextId++, type: type || 'goods', key: null, qty: 0,
-        quality: 100, price: 0 };
+        quality: 100, price: 0, slot: free == null ? 100 + sh.stands.length : free };
       sh.stands.push(stand);
     }
     stand.key = key;
@@ -123,6 +126,10 @@ async function run() {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.goto(FILE);
+  /* The shop's end-of-phase playback is its own section's business; every
+     other check wants the phase's results the moment it ends. The setting is
+     stored, so it survives the reloads further down. */
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
 
   section('Boot and layout (320px wide)');
@@ -1801,8 +1808,8 @@ async function run() {
   ok('gold, rent and rating are on screen at a glance',
     board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
     JSON.stringify(board));
-  ok('the floor, storage, metal, the town, the ledger, property, staff and growth each have a panel',
-    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Ledger,Property,Staff,Growth',
+  ok('the floor, storage, metal, the town, the ledger, the map, staff and growth each have a panel',
+    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Ledger,Map,Staff,Growth',
     board.tabs.join(','));
   ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
     () => document.querySelector('#shActions [data-act="tend"]').disabled));
@@ -2408,7 +2415,7 @@ async function run() {
     /Display|Stand|Rack|Goods/.test(panel.title) && /Takes/.test(panel.body) &&
     /Nothing on it/.test(panel.body), JSON.stringify(panel).slice(0, 320));
   ok('and offers stocking, re-purposing and selling it back',
-    panel.actions.join(',') === 'Stock it,Change what it is,Sell the stand back,Back',
+    panel.actions.join(',') === 'Stock it,Change what it is,Move it,Sell the stand back,Back',
     panel.actions.join(','));
 
   await page.click('#shopSheetActions .btn.primary');
@@ -2508,12 +2515,14 @@ async function run() {
     actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
       .map((b) => b.textContent)
   }));
-  ok('a stand with something on it offers the price and taking it off',
-    held.actions.join(',') === 'Set the price,Take it off the floor,Sell the stand back,Back',
+  ok('a stand with something on it offers restocking, the price and taking it off',
+    held.actions.join(',') ===
+      'Restock,Set the price,Take it off the floor,Move it,Sell the stand back,Back',
     held.actions.join(','));
 
   // the price is the player's to set
-  await page.click('#shopSheetActions .btn.primary');
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions .btn'))
+    .find((b) => b.textContent === 'Set the price').click());
   await page.waitForTimeout(150);
   const priced = await page.evaluate(() => {
     const body = document.getElementById('shopSheetBody').innerText;
@@ -4336,6 +4345,271 @@ async function run() {
   ok('an empty purse greys out every purchase',
     broke.total > 0 && broke.dead === broke.total, JSON.stringify(broke));
 
+  section('Open Your Forge: the storefront');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.shopSheetClose();
+    F.shopEditMode(false);
+    sh.gold = 200000;
+    sh.phaseIndex = 0;
+    sh.assignments = {};
+    sh.standing = [];
+    F.shopUi.tab = 'shelf';
+    F.shopRender();
+  });
+  const front = await page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    const sign = document.querySelector('#shThings [data-station="sign"] text');
+    const stations = Array.from(document.querySelectorAll('#shThings [data-station]'))
+      .map((b) => b.dataset.station);
+    const r = document.getElementById('shScene').getBoundingClientRect();
+    return { sign: sign && sign.textContent, name: sh.name, stations: stations,
+      wide: parseInt(document.getElementById('shWorld').style.width, 10), view: r.width,
+      page: document.documentElement.scrollWidth <= window.innerWidth + 1 };
+  });
+  ok('the shop is a room you look around, wider than the screen',
+    front.wide > front.view && front.page, JSON.stringify(front));
+  ok('the business name hangs on a sign over the door', front.sign === front.name,
+    JSON.stringify(front));
+  ok('every workstation is in the room',
+    ['forge', 'anvil', 'store', 'table', 'counter', 'board', 'door', 'sign']
+      .every((id) => front.stations.indexOf(id) >= 0), JSON.stringify(front.stations));
+
+  // every station opens a panel, and none of them costs a phase
+  const stationOf = async (id) => page.evaluate(async (which) => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, day: sh.day, gold: sh.gold };
+    document.querySelector('#shThings [data-station="' + which + '"]').click();
+    await new Promise((r) => setTimeout(r, 160));
+    const sheet = document.getElementById('shopSheet');
+    const out = { was: was, phase: sh.phaseIndex, day: sh.day, gold: sh.gold,
+      open: !sheet.hidden, docked: sheet.classList.contains('dock'),
+      title: document.getElementById('shopSheetTitle').textContent,
+      acts: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent) };
+    F.shopSheetClose();
+    return out;
+  }, id);
+  const counter = await stationOf('counter');
+  ok('tapping the counter asks who will tend the store',
+    counter.open && /counter/i.test(counter.title) &&
+    counter.acts.indexOf('Tend it yourself') >= 0 &&
+    counter.acts.some((a) => /salesperson/i.test(a)), JSON.stringify(counter));
+  ok('and the panel docks below the room rather than covering it', counter.docked);
+  const forge = await stationOf('forge');
+  ok('tapping the forge offers the anvil or a smith',
+    /forge/i.test(forge.title) && forge.acts.indexOf('Forge a batch yourself') >= 0 &&
+    forge.acts.some((a) => /smith/i.test(a)), JSON.stringify(forge));
+  const stBoard = await stationOf('board');
+  ok('the noticeboard opens staff and recruiting',
+    /noticeboard/i.test(stBoard.title) && stBoard.acts.indexOf('Search for Employees') >= 0,
+    JSON.stringify(stBoard));
+  const store = await stationOf('store');
+  ok('the storeroom opens metal and the runner',
+    /storeroom/i.test(store.title) && store.acts.indexOf('Buy materials yourself') >= 0,
+    JSON.stringify(store));
+  const door = await stationOf('door');
+  ok('the door opens deliveries without making one',
+    /door/i.test(door.title) && door.acts.indexOf('Deliveries') >= 0 && door.gold === door.was.gold,
+    JSON.stringify(door));
+  const table = await stationOf('table');
+  ok('the blueprint table opens the Almanac', /almanac/i.test(table.title), JSON.stringify(table));
+  ok('looking at any of it costs no phase and no gold',
+    [counter, forge, stBoard, store, door, table].every((s) =>
+      s.phase === s.was.phase && s.day === s.was.day && s.gold === s.was.gold));
+
+  // what is on a display is what you can see on it
+  const shown = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const st = C.placedStands(sh).find((x) => x.type === 'weapon');
+    const count = (q) => {
+      st.key = C.lineKey('shortsword', 'bronze'); st.qty = q; st.quality = 80; st.level = 1;
+      st.price = C.standWorth(st);
+      if (!q) { st.key = null; }
+      F.shopRender();
+      const el = document.querySelector('#shThings [data-sstand="' + st.id + '"]');
+      return el.querySelectorAll('.st-good').length;
+    };
+    const hold = C.standHold();
+    return { full: count(hold), part: count(Math.ceil(hold * 0.5)), low: count(1), none: count(0) };
+  });
+  ok('a display shows its own goods, fewer as it empties',
+    shown.full === 3 && shown.part === 2 && shown.low === 1 && shown.none === 0,
+    JSON.stringify(shown));
+
+  // staff stand where this phase's work is, and nowhere else
+  const crew = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.staff = [
+      { id: 7101, name: 'Marcus Vale', role: 'salesperson', rank: 'C', power: 3, wage: 30, xp: 0, face: 'merchant' },
+      { id: 7102, name: 'Eleanor Pike', role: 'storehand', rank: 'D', power: 2, wage: 18, xp: 0, face: 'farmer' }
+    ];
+    sh.assignments = {};
+    C.shopAssign(sh, 7101, {}, C.SHOP.phases[0]);
+    C.shopAssign(sh, 7102, { order: { keys: [] } }, C.SHOP.phases[1]);
+    F.shopRender();
+    const drawn = Array.from(document.querySelectorAll('#shThings .fig.staff')).map((b) => Number(b.dataset.crew));
+    return { drawn: drawn };
+  });
+  ok('a hand working this phase stands at their station',
+    crew.drawn.indexOf(7101) >= 0, JSON.stringify(crew));
+  ok('a hand booked for later is not drawn working now',
+    crew.drawn.indexOf(7102) < 0, JSON.stringify(crew));
+  await page.evaluate(() => document.querySelector('#shThings .fig[data-crew="7101"]').click());
+  await page.waitForTimeout(160);
+  const card = await page.evaluate(() => ({
+    title: document.getElementById('shopSheetTitle').textContent,
+    body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') }));
+  ok('tapping them opens their card, with what they are doing today',
+    /Marcus/.test(card.title) && /Counter/.test(card.body) && /working this morning/i.test(card.body),
+    card.body.slice(0, 200));
+  await page.evaluate(() => window.CHECKSMITH.shopSheetClose());
+
+  // Edit Shop: pick up, put down, swap, put away - all of it free
+  const edit = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const was = { phase: sh.phaseIndex, gold: sh.gold };
+    const st = C.placedStands(sh).find((x) => x.type === 'weapon');
+    st.key = C.lineKey('shortsword', 'bronze'); st.qty = 4; st.quality = 80; st.price = 37; st.up = 2;
+    const home = st.slot;
+    F.shopRender();
+    document.getElementById('shEditBtn').click();
+    await new Promise((r) => setTimeout(r, 80));
+    const editing = document.getElementById('shWorld').classList.contains('editing');
+    document.querySelector('#shThings [data-sstand="' + st.id + '"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const pad = document.querySelector('#shThings .spot.pad');
+    const target = Number(pad.dataset.spot);
+    pad.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const moved = st.slot === target;
+    // roped-off floor refuses
+    document.querySelector('#shThings [data-sstand="' + st.id + '"]').click();
+    const rope = document.querySelector('#shThings .spot.roped');
+    if (rope) rope.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const refused = st.slot === target;
+    // into the back and out again
+    document.querySelector('[data-tray-act="store"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const inBack = !C.standPlaced(st) && !!document.querySelector('[data-tray="' + st.id + '"]');
+    document.querySelector('[data-tray="' + st.id + '"]').click();
+    document.querySelector('#shThings [data-spot="' + home + '"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    document.querySelector('[data-tray-act="done"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    return { editing: editing, moved: moved, refused: refused || !rope, inBack: inBack,
+      home: st.slot === home, kept: st.qty === 4 && st.price === 37 && st.up === 2,
+      phase: sh.phaseIndex, gold: sh.gold, was: was,
+      off: !document.getElementById('shWorld').classList.contains('editing') };
+  });
+  ok('Edit Shop picks a display up and puts it down elsewhere',
+    edit.editing && edit.moved, JSON.stringify(edit));
+  ok('floor not yet bought is refused', edit.refused, JSON.stringify(edit));
+  ok('a display can go into the back and come out again',
+    edit.inBack && edit.home, JSON.stringify(edit));
+  ok('and it carries its stock, price and level wherever it goes', edit.kept, JSON.stringify(edit));
+  ok('none of it costs a phase or a coin, and Done leaves edit mode',
+    edit.phase === edit.was.phase && edit.gold === edit.was.gold && edit.off, JSON.stringify(edit));
+
+  // the sign can be repainted
+  await page.evaluate(() => document.querySelector('#shThings [data-station="sign"]').click());
+  await page.waitForSelector('#shRename');
+  await page.fill('#shRename', 'The Iron Owl');
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+    .find((b) => b.textContent === 'Save').click());
+  await page.waitForTimeout(200);
+  const renamed = await page.evaluate(() => ({
+    name: window.CHECKSMITH.app.shop.name, bar: document.getElementById('shName').textContent,
+    sign: document.querySelector('#shThings [data-station="sign"] text').textContent }));
+  ok('renaming changes the sign and the name', renamed.name === 'The Iron Owl' &&
+    renamed.sign === 'The Iron Owl' && renamed.bar === 'The Iron Owl', JSON.stringify(renamed));
+
+  // morning, afternoon and evening are one room in different light
+  const light = await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      sh.phaseIndex = i;
+      F.shopRender();
+      const w = document.getElementById('shWorld');
+      out.push({ phase: w.dataset.phase, tint: getComputedStyle(w).getPropertyValue('--tint').trim(),
+        stands: document.querySelectorAll('#shThings .spot.stand').length });
+    }
+    sh.phaseIndex = 0;
+    F.shopRender();
+    return out;
+  });
+  ok('each phase has its own light over the same room',
+    light.map((l) => l.phase).join(',') === 'morning,afternoon,evening' &&
+    new Set(light.map((l) => l.tint)).size === 3 &&
+    light.every((l) => l.stands === light[0].stands), JSON.stringify(light));
+
+  // the phase plays out, and nothing about how it is watched changes a result
+  const stPlayed = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.setPhaseAnim(true);
+    F.testStock(sh, C.lineKey('longsword', 'bronze'), 40, 95, 30);
+    sh.phaseIndex = 0;
+    F.shopRender();
+    F.shopSpendPhase('You let the morning go by.');
+    // the phase has ALREADY resolved: read the results before a frame plays
+    const now = { gold: sh.gold, phase: sh.phaseIndex, shelf: C.countShelf(sh),
+      xp: sh.staff.map((e) => e.xp).join(',') };
+    const playing = document.getElementById('shopView').classList.contains('playing') &&
+      !document.getElementById('shSkip').hidden;
+    const slot = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+    const saved = (slot.shopSaves || []).find((x) => x.id === F.app.shopSlot);
+    await new Promise((r) => setTimeout(r, 400));
+    F.shopSkipPhase();
+    F.shopSkipPhase();                                     // twice: must be harmless
+    await new Promise((r) => setTimeout(r, 200));
+    const after = { gold: sh.gold, phase: sh.phaseIndex, shelf: C.countShelf(sh),
+      xp: sh.staff.map((e) => e.xp).join(',') };
+    const summary = !document.getElementById('shopSheet').hidden &&
+      /is done/.test(document.getElementById('shopSheetTitle').textContent);
+    F.setPhaseAnim(false);
+    return { now: now, after: after, playing: playing, summary: summary,
+      replaySaved: !!(saved && saved.replay),
+      stopped: !document.getElementById('shopView').classList.contains('playing') };
+  });
+  ok('ending a phase plays the shop at work, with a skip button', stPlayed.playing, JSON.stringify(stPlayed));
+  ok('the phase is resolved and saved before the playback starts',
+    stPlayed.now.phase === 1 && stPlayed.replaySaved, JSON.stringify(stPlayed));
+  ok('skipping it, even twice, changes nothing it resolved',
+    JSON.stringify(stPlayed.now) === JSON.stringify(stPlayed.after) && stPlayed.stopped,
+    JSON.stringify(stPlayed));
+  ok('and it ends on one summary of what happened', stPlayed.summary, JSON.stringify(stPlayed));
+  await page.screenshot({ path: path.join(SHOTS, '36-storefront.png'), fullPage: true });
+
+  // a game closed on the summary opens again on it, then forgets it once seen
+  await page.reload();
+  await page.evaluate(() => window.CHECKSMITH.introSkip && window.CHECKSMITH.introSkip());
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+  await page.waitForTimeout(250);
+  const stResumed = await page.evaluate(() => ({
+    open: !document.getElementById('shopSheet').hidden,
+    title: document.getElementById('shopSheetTitle').textContent }));
+  ok('a summary left unseen is shown again on reopening',
+    stResumed.open && /is done/.test(stResumed.title), JSON.stringify(stResumed));
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+    .find((b) => b.textContent === 'Right then').click());
+  await page.waitForTimeout(200);
+  const stCleared = await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    const data = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+    const saved = (data.shopSaves || []).find((x) => x.id === F.app.shopSlot);
+    return { replay: saved ? saved.replay : 'missing', name: F.app.shop.name };
+  });
+  ok('and once seen it is not owed again', stCleared.replay === null, JSON.stringify(stCleared));
+  ok('the new name survived closing the game', stCleared.name === 'The Iron Owl', JSON.stringify(stCleared));
+  for (let i = 0; i < 20 && (await page.isVisible('#shopSheet')); i++) {
+    await page.click('#shopSheetActions button:last-child');
+    await page.waitForTimeout(80);
+  }
+
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());
   if (await page.isVisible('#confirm')) await page.click('#confirmYes');
@@ -4368,6 +4642,7 @@ async function run() {
     });
   });
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
   await page.evaluate(() => { window.CHECKSMITH.core.CONFIG.animation.strikeMs = 40; });
   await page.click('.tile[data-i="0"]');
@@ -4387,6 +4662,7 @@ async function run() {
     } catch (e) { /* ignore */ }
   });
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
   await page.waitForTimeout(200);
   ok('best score saved under the old name is still shown',
@@ -4405,6 +4681,7 @@ async function run() {
   const errs3 = [];
   page.on('pageerror', (e) => errs3.push(String(e)));
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
   ok('reduced motion is detected', await page.evaluate(() => window.CHECKSMITH.fx.reduced === true));
   await page.click('.tile[data-i="4"]');
@@ -4422,6 +4699,7 @@ async function run() {
   ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
   page = await ctx.newPage();
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
   await page.click('[data-diff="master"]');
   await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.size === 6);
@@ -4437,6 +4715,7 @@ async function run() {
   const saveErrs = [];
   page.on('pageerror', (e) => saveErrs.push(String(e)));
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
 
   // `name` is typed into the naming dialog when Begin raises it, which it
   // does whenever no saved forge is picked
@@ -4609,6 +4888,7 @@ async function run() {
   const slotErrs = [];
   page.on('pageerror', (e) => slotErrs.push(String(e)));
   await page.goto(FILE);
+  await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
 
   // the same helpers, against this page
   const shopCard = async () => {

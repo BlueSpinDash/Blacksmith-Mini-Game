@@ -2407,7 +2407,11 @@ function stock(shop, key, qty, quality, price) {
   let stand = shop.stands.find((st) => st.key === key);
   if (!stand) stand = shop.stands.find((st) => !st.key && st.type === type);
   if (!stand) {
-    stand = { id: shop.nextId++, type: type || 'goods', key: null, qty: 0, quality: 100, price: 0 };
+    // out on the floor: a spot well past anything a real layout would use,
+    // since these shelves are deliberately deeper and more numerous than
+    // any premises would hold
+    stand = { id: shop.nextId++, type: type || 'goods', key: null, qty: 0, quality: 100,
+      price: 0, slot: 100 + shop.stands.length };
     shop.stands.push(stand);
   }
   stand.key = key;
@@ -3203,8 +3207,12 @@ section('Open Your Forge: production and stock');
     C.addStorage(s, C.lineKey('boots', 'bronze'), 3, 100);
     const cold = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 3);
     s.gold = 9999;
-    C.shopBuyStand(s, 'armor');
+    const boxed = C.shopBuyStand(s, 'armor').stand;
+    // bought, but still in the back: nothing goes out on it yet
+    const back = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 3);
+    C.placeStand(s, boxed.id);
     const warm = C.shopMoveToShelf(s, C.lineKey('boots', 'bronze'), 3);
+    if (back.moved !== 0) return false;
     return cold.moved === 0 && !!cold.why && warm.moved === 3;
   })());
 
@@ -6703,6 +6711,203 @@ section('Open Your Forge: Growth buys room, the Shop buys fixtures');
       return stand.price;
     }
     return take(4) > take(0);
+  })());
+}
+
+section('Open Your Forge: a floor you arrange');
+{
+  const rich = (seed) => apprenticed(C.createShop({ rnd: C.mulberry32(seed), gold: 200000 }));
+  const line = C.lineKey('shortsword', 'bronze');
+
+  ok('a new forge opens with its first displays out on the floor', (() => {
+    const s = rich(1500);
+    return s.stands.length > 0 && s.stands.every((st) => C.standPlaced(st)) &&
+      new Set(s.stands.map((st) => st.slot)).size === s.stands.length;
+  })());
+
+  ok('a bought stand waits in the back until it is put out', (() => {
+    const s = rich(1501);
+    const res = C.shopBuyStand(s, 'shield');
+    return res.ok && !C.standPlaced(res.stand) && C.storedStands(s).length === 1;
+  })());
+
+  ok('putting a stand out takes the first free space, or the one named', (() => {
+    const s = rich(1502);
+    const a = C.shopBuyStand(s, 'shield').stand;
+    const b = C.shopBuyStand(s, 'helmet').stand;
+    const first = C.firstFreeSlot(s);
+    const pa = C.placeStand(s, a.id);
+    const pb = C.placeStand(s, b.id, first + 1);
+    return pa.ok && a.slot === first && pb.ok && b.slot === first + 1;
+  })());
+
+  ok('floor you have not bought is refused', (() => {
+    const s = rich(1503);
+    const a = C.shopBuyStand(s, 'shield').stand;
+    const res = C.placeStand(s, a.id, C.standCap(s));
+    return !res.ok && !C.standPlaced(a);
+  })());
+
+  ok('a stand from the back cannot shove one that is already out', (() => {
+    const s = rich(1504);
+    const out = s.stands[0];
+    const a = C.shopBuyStand(s, 'shield').stand;
+    const res = C.placeStand(s, a.id, out.slot);
+    return !res.ok && !C.standPlaced(a) && C.standAtSlot(s, out.slot) === out;
+  })());
+
+  ok('two stands already out swap places, and only places', (() => {
+    const s = rich(1505);
+    const [a, b] = s.stands;
+    a.key = line; a.qty = 4; a.price = 33; a.up = 2;
+    const was = { a: a.slot, b: b.slot };
+    const res = C.placeStand(s, a.id, b.slot);
+    return res.ok && a.slot === was.b && b.slot === was.a &&
+      a.key === line && a.qty === 4 && a.price === 33 && a.up === 2;
+  })());
+
+  ok('a display put in the back keeps its stock, price and level', (() => {
+    const s = rich(1506);
+    const st = s.stands.find((x) => x.type === 'weapon');
+    st.key = line; st.qty = 5; st.quality = 80; st.level = 2; st.price = 41; st.up = 3;
+    const gold = s.gold, storage = C.countStorage(s);
+    C.storeStand(s, st.id);
+    return !C.standPlaced(st) && st.key === line && st.qty === 5 && st.price === 41 &&
+      st.up === 3 && st.level === 2 && s.gold === gold && C.countStorage(s) === storage;
+  })());
+
+  ok('nobody can buy from a display in the back', (() => {
+    const s = rich(1507);
+    const st = s.stands.find((x) => x.type === 'weapon');
+    st.key = line; st.qty = 5; st.quality = 80; st.price = 30;
+    C.storeStand(s, st.id);
+    return C.countShelf(s) === 0 && C.stockedStands(s).length === 0 &&
+      C.shelfCapacity(s) === C.placedStands(s).length * C.standHold();
+  })());
+
+  ok('a line in the back cannot be put out a second time elsewhere', (() => {
+    /* the one-line-one-display rule is what makes moving and storing safe:
+       nothing can end up on two stands, so a reload cannot drop a copy */
+    const s = rich(1508);
+    const st = s.stands.find((x) => x.type === 'weapon');
+    st.key = line; st.qty = 5; st.quality = 80; st.price = 30;
+    C.storeStand(s, st.id);
+    const other = C.shopBuyStand(s, 'weapon').stand;
+    C.placeStand(s, other.id);
+    C.addStorage(s, line, 4, 80, 1);
+    const direct = C.shopStockStand(s, other.id, line, 4);
+    const auto = C.shopMoveToShelf(s, line, 4);
+    return direct.moved === 0 && auto.moved === 0 && st.qty === 5 && s.storage[line].qty === 4;
+  })());
+
+  ok('a line cannot be put on two displays out on the floor either', (() => {
+    const s = rich(1509);
+    const a = s.stands.find((x) => x.type === 'weapon');
+    const b = C.shopBuyStand(s, 'weapon').stand;
+    C.placeStand(s, b.id);
+    C.addStorage(s, line, 8, 80, 1);
+    const first = C.shopStockStand(s, a.id, line, 3);
+    const second = C.shopStockStand(s, b.id, line, 3);
+    return first.moved === 3 && second.moved === 0 && b.qty === 0;
+  })());
+
+  ok('putting a display back out lets it trade again, stock and all', (() => {
+    const s = rich(1510);
+    const st = s.stands.find((x) => x.type === 'weapon');
+    st.key = line; st.qty = 5; st.quality = 80; st.price = 30;
+    C.storeStand(s, st.id);
+    C.placeStand(s, st.id);
+    return C.countShelf(s) === 5 && C.stockedStands(s).indexOf(st) >= 0;
+  })());
+
+  ok('taking pieces off never destroys what the storeroom cannot hold', (() => {
+    const s = rich(1511);
+    const st = s.stands.find((x) => x.type === 'weapon');
+    st.key = line; st.qty = 6; st.quality = 80; st.level = 3; st.price = 30;
+    // fill the storeroom to within two pieces of full
+    C.addStorage(s, C.lineKey('buckler', 'bronze'), C.storageCapacity(s) - 2, 80, 1);
+    const res = C.shopPullFromShelf(s, line, 6);
+    const back = s.storage[line];
+    return res.moved === 2 && st.qty === 4 && back && back.qty === 2 &&
+      Math.round(back.level) === 3 && C.countStorage(s) === C.storageCapacity(s);
+  })());
+
+  ok('the building grows in a few real stages, by floor space', (() => {
+    const s = rich(1512);
+    const seen = [];
+    for (let i = 0; i <= C.SHOP.growth.floor.max; i++) {
+      s.upgrades.floor = i;
+      for (let t = 1; t <= C.SHOP.tiers.length; t++) {
+        s.tier = t;
+        const st = C.shopStage(s);
+        if (C.stageSpots(st) < C.standCap(s)) return false;       // always room to stand it
+        if (seen.indexOf(st.id) < 0) seen.push(st.id);
+      }
+    }
+    return seen.length === C.SHOP.stages.length && seen.length <= 4;
+  })());
+
+  ok('the largest shop has a spot for every stand it can hold', (() => {
+    const s = rich(1513);
+    s.tier = C.SHOP.tiers.length;
+    s.upgrades.floor = C.SHOP.growth.floor.max;
+    return C.stageSpots(C.shopStage(s)) === C.standCap(s);
+  })());
+
+  ok('a store expansion opens a spot and puts nothing on it', (() => {
+    const s = rich(1514);
+    const stands = s.stands.length, spot = C.standCap(s);
+    C.shopBuyGrowth(s, 'floor');
+    return s.stands.length === stands && C.slotUsable(s, spot) && !C.standAtSlot(s, spot);
+  })());
+
+  ok('where every stand stood survives a save', (() => {
+    const s = rich(1515);
+    const a = C.shopBuyStand(s, 'shield').stand;
+    C.placeStand(s, a.id, 3);
+    const b = C.shopBuyStand(s, 'helmet').stand;               // left in the back
+    const back = C.restoreShop(C.serializeShop(s), C.mulberry32(1));
+    // a stand is given a fresh id on load, so it is found by what it is
+    const a2 = back.stands.find((x) => x.type === 'shield');
+    const b2 = back.stands.find((x) => x.type === 'helmet');
+    return a2 && a2.slot === 3 && b2 && b2.slot === null;
+  })());
+
+  ok('a save from before the floor plan opens with every stand out, in order', (() => {
+    const s = rich(1516);
+    C.placeStand(s, C.shopBuyStand(s, 'shield').stand.id);
+    const data = C.serializeShop(s);
+    for (const st of data.stands) delete st.slot;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.stands.length === s.stands.length &&
+      back.stands.every((st, n) => st.slot === n);
+  })());
+
+  ok('a save with two stands on one spot, or off the floor, is straightened out', (() => {
+    const s = rich(1517);
+    const data = C.serializeShop(s);
+    data.stands[0].slot = 1; data.stands[1].slot = 1;
+    data.stands.push(Object.assign({}, data.stands[0], { id: 9991, slot: 999, key: null, qty: 0 }));
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const spots = back.stands.filter(C.standPlaced).map((st) => st.slot);
+    return new Set(spots).size === spots.length && spots.every((x) => C.slotUsable(back, x));
+  })());
+
+  ok('renaming the business changes only its name', (() => {
+    const s = rich(1518);
+    const before = JSON.stringify(Object.assign(C.serializeShop(s), { name: null }));
+    const res = C.shopRename(s, '  The   Iron Owl  ');
+    const after = JSON.stringify(Object.assign(C.serializeShop(s), { name: null }));
+    return res.ok && s.name === 'The Iron Owl' && before === after;
+  })());
+
+  ok('a name too long for the sign is cut to fit, and an empty one refused', (() => {
+    const s = rich(1519);
+    C.shopRename(s, 'x'.repeat(80));
+    const long = s.name.length === C.SHOP_NAME_MAX;
+    const kept = s.name;
+    C.shopRename(s, '   ');
+    return long && s.name === kept;
   })());
 }
 

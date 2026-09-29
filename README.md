@@ -1250,6 +1250,73 @@ The doorbell rings for a *new* customer only: haggling redraws the same screen,
 and a bell on every redraw would be the most annoying sound in the game.
 `SHOPUI.ringed` holds whoever it last rang for.
 
+### The storefront
+
+The shop's home screen is the shop: one continuous room, drawn at a fixed
+scale and swiped sideways, rather than a menu of actions. It is a
+**presentation layer only**. Every object in it hands straight to a function
+the menus already called — the counter to `shopAct('tend')` or the roster
+picker, the forge to `shopAct('forge')`, the table to `shopOpenAlmanac`, and so
+on — so the rules cannot drift between the room and the menus, and opening any
+station costs nothing. The quick-action buttons and the tabs stay under the
+room as the compact navigation, which is also why every earlier screen is still
+reachable.
+
+It is plain HTML over one backdrop SVG (`sceneRender`). The backdrop is redrawn
+only when the building changes; the stations, displays and people are redrawn
+from the live shop on every render, which is what keeps what you see honest.
+New scenery follows the sprite sheet's idiom — flat fills, `#12141a` outlines,
+a white highlight on the lit side — and uses no patterns or gradients from the
+hidden sprite sheet, because browsers do not reliably paint those from a
+`display:none` SVG.
+
+**A floor you arrange.** Each stand now has a `slot`: a numbered spot on the
+floor, or `null` for furniture waiting in the back. Spot *i* sits in column
+`floor(i/2)`, back row when even, so a spot never moves when the building
+grows. A bought stand arrives in the back; `placeStand` puts it out (swapping
+with another stand that is already out), `storeStand` puts it away. The model
+has one invariant that makes rearranging safe: **a display in the back keeps
+everything on it** — stock, price, level — but `stockedStands`, `countShelf`
+and `standFor` only look at stands that are out, so nothing on it can sell or be
+topped up. And `shopStockStand` now refuses a line already standing on another
+display, in the floor or in the back. Nothing is ever moved off a stand by
+moving the stand, and no line can ever be on two stands — which matters,
+because `restoreShop` keeps only the first of two, and a second would have been
+lost on reload. A save written before slots existed has every stand given the
+next free spot in order, so an old shop opens looking and playing exactly as
+it did.
+
+Doing this turned up a real bug in `shopPullFromShelf`: it took pieces off a
+stand whether or not the storeroom could hold them, silently destroying the
+overflow, and it forgot their blueprint level. It now moves only what fits and
+carries the level.
+
+**Stages.** `SHOP.stages` is four visible buildings — Humble Beginnings,
+Established Smithy, Merchant Forge, Master Establishment — chosen by floor
+space (`standCap`), so the room you paid for is the room you see. Each lays out
+`cols × 2` spots; spots past what you own are drawn roped off. The top stage has
+exactly 20 spots, which is what the largest premises plus every Store
+Expansion can hold, and a check walks every tier and expansion level to prove
+there is never floor space with nowhere to stand on it. The sign over the door
+grows grander with the stage; a long name is squeezed to the board with SVG
+`textLength` rather than spilling off it.
+
+**The phase, played back.** `shopSpendPhase` resolves the phase in
+`shopAdvancePhase` — once — and then saves, *before* a frame is shown, a plain
+snapshot of what is still owed to the player (`SHOPUI.replay`: the reports, the
+closing phase, any day-break). `shopPlayPhase` then plays three to five
+seconds read only off those reports: it never calls a rule and never touches the
+purse, the stock or anybody's experience. Its `finish` is guarded to run once,
+so skipping, skipping twice, or letting it run all reach the same single
+summary. A check reads the shop's state the instant the phase is spent, skips
+twice, and confirms nothing moved. The snapshot rides in the save slot, so a
+game closed mid-playback reopens on the summary; it is cleared once seen.
+
+The summary is one sheet with only the categories that happened, the contracts
+a salesperson brought back (still the player's to accept or decline), and each
+hand's full report a tap away. The playback is on by default, off under
+`prefers-reduced-motion`, and switchable from the sign.
+
 ### Growth buys room, the Shop buys fixtures
 
 One line runs through both tabs: **Growth sells capacity, never an object.**

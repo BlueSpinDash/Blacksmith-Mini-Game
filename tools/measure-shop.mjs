@@ -36,7 +36,12 @@ function buyFloorSpace(shop) {
     const room = shop.stands.some((st) => st.type === type &&
       (!st.key || st.qty < C.standHold()));
     if (room) continue;
-    if (shop.gold > def.cost * 2) { C.shopBuyStand(shop, type); return; }
+    if (shop.gold > def.cost * 2) {
+      // a bought stand arrives in the back; a player puts it straight out
+      const res = C.shopBuyStand(shop, type);
+      if (res.ok) C.placeStand(shop, res.stand.id);
+      return;
+    }
   }
 }
 

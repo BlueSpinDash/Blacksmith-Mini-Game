@@ -646,6 +646,163 @@ input[type=range]{
 .shop-stars .off{color:#4a4e58;}
 
 .shop-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
+/* ======================= the storefront ============================== */
+.scene-wrap{position:relative;margin:8px 0 6px;}
+.scene{
+  position:relative;height:236px;overflow-x:auto;overflow-y:hidden;border-radius:12px;
+  border:1px solid var(--edge);background:#1d1712;overscroll-behavior-x:contain;
+  -webkit-overflow-scrolling:touch;scrollbar-width:thin;
+}
+.scene:focus-visible{outline:2px solid var(--ember);outline-offset:2px;}
+.scene-world{position:relative;height:236px;--sky:#bcd9ee;--street:#cfe2ef;--tint:rgba(0,0,0,0);
+  --lamp:.12;--flame:.35;}
+.scene-world[data-phase="afternoon"]{--sky:#f2c98f;--street:#f0cf9a;--tint:rgba(255,168,90,.16);--lamp:.22;--flame:.5;}
+.scene-world[data-phase="evening"]{--sky:#1f2748;--street:#262d4b;--tint:rgba(16,18,50,.52);--lamp:1;--flame:1;}
+.scene-back,.scene-things,.scene-light,.scene-glow,.scene-fx{position:absolute;inset:0;}
+.scene-back svg{display:block;}
+.scene-things{z-index:5;}
+.scene-light{z-index:60;pointer-events:none;background:var(--tint);mix-blend-mode:multiply;transition:background .9s;}
+.scene-glow{z-index:61;pointer-events:none;mix-blend-mode:screen;}
+.scene-fx{z-index:70;pointer-events:none;}
+.sc-sky{fill:var(--sky);transition:fill .9s;}
+.sc-street{fill:var(--street);}
+.sc-flame{fill:#ffcf6b;opacity:var(--flame);}
+.station{position:absolute;padding:0;border:0;background:none;cursor:pointer;border-radius:8px;}
+.station svg{display:block;width:100%;height:100%;}
+.station:hover .sc-art,.station:focus-visible .sc-art{filter:brightness(1.15);}
+.station:focus-visible,.spot:focus-visible,.fig:focus-visible{outline:2px solid var(--ember);outline-offset:1px;}
+.sc-label{
+  position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);pointer-events:none;
+  font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:999px;
+  background:rgba(18,20,26,.78);color:#e8dcc0;white-space:nowrap;
+}
+.st-forge .sc-label{bottom:2px;}
+.st-board .sc-label{bottom:auto;top:58px;}
+.st-door .sc-label{bottom:2px;}
+.sc-cart{width:38px;height:38px;}
+.sc-coals{animation:scCoals 1.5s ease-in-out infinite;}
+.sc-coals.b{animation-duration:1.1s;}
+@keyframes scCoals{0%,100%{opacity:.75;}50%{opacity:1;}}
+.spark{position:absolute;left:50px;top:122px;width:3px;height:3px;border-radius:50%;background:#ffcf6b;
+  opacity:0;pointer-events:none;animation:scSpark 2.6s linear infinite;}
+.spark.s2{left:58px;animation-delay:.9s;} .spark.s3{left:44px;animation-delay:1.7s;}
+@keyframes scSpark{0%{opacity:0;transform:translate(0,0);}12%{opacity:1;}100%{opacity:0;transform:translate(7px,-64px);}}
+.station.busy{animation:scBusy .5s ease-in-out 3;}
+.station.busy .spark{animation-duration:.5s;}
+@keyframes scBusy{50%{filter:brightness(1.35);}}
+.candle,.sc-candle{animation:scCoals 2.2s ease-in-out infinite;}
+.glow{position:absolute;border-radius:50%;pointer-events:none;}
+.glow.lamp{width:60px;height:60px;opacity:var(--lamp);
+  background:radial-gradient(circle,rgba(255,196,110,.6),rgba(255,196,110,0) 70%);animation:scLamp 3.4s ease-in-out infinite;}
+.glow.forge-glow{width:92px;height:84px;background:radial-gradient(ellipse at 50% 72%,rgba(255,130,50,.55),rgba(255,130,50,0) 70%);
+  animation:scLamp 1.7s ease-in-out infinite;}
+@keyframes scLamp{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
+/* the displays */
+.spot{position:absolute;width:72px;height:72px;padding:0;border:0;background:none;cursor:pointer;border-radius:10px;}
+.spot.back{transform:scale(.9);transform-origin:50% 100%;}
+.spot .st-base{position:absolute;left:8px;bottom:0;width:56px;height:56px;}
+.spot .st-goods{position:absolute;left:0;right:0;top:2px;display:flex;justify-content:center;pointer-events:none;}
+.spot .st-good{width:24px;height:24px;margin:0 -3px;filter:drop-shadow(0 1px 0 #12141a);}
+.spot .st-cloth{position:absolute;left:12px;right:12px;bottom:0;height:10px;background:#7a3b32;
+  border:1px solid #12141a;border-radius:3px 3px 0 0;}
+.spot.up-3 .st-base{filter:drop-shadow(0 0 1.5px #cfa53b);}
+.spot.up-4 .st-base{filter:drop-shadow(0 0 4px rgba(255,207,107,.85));}
+.spot .st-pips{position:absolute;left:3px;bottom:2px;font-size:7px;color:#e0b84a;letter-spacing:-1px;}
+.spot .st-qty{position:absolute;right:1px;bottom:1px;font-size:8.5px;padding:0 3px;border-radius:4px;
+  background:rgba(18,20,26,.82);color:#e8dcc0;font-variant-numeric:tabular-nums;}
+.spot.pad{border:1.5px dashed rgba(232,220,192,.16);}
+.spot.pad .pd-plus{font-size:22px;color:rgba(232,220,192,.22);}
+.spot.roped{background:repeating-linear-gradient(135deg,rgba(0,0,0,.28) 0 6px,rgba(0,0,0,.1) 6px 12px);opacity:.75;}
+.spot.roped .rp-rope{position:absolute;left:4px;right:4px;top:26px;height:3px;border-radius:3px;background:#a8442e;}
+.spot.roped .rp-word{position:absolute;left:0;right:0;bottom:6px;font-size:8.5px;color:#e8dcc0;opacity:.8;}
+.editing .spot.pad{border-color:#5fbf7a;background:rgba(95,191,122,.1);}
+.editing .spot.pad .pd-plus{color:#5fbf7a;}
+.editing .spot.pad.ok{background:rgba(95,191,122,.2);}
+.editing .spot.roped{box-shadow:inset 0 0 0 1.5px #a8442e;}
+.editing .spot.stand{box-shadow:inset 0 0 0 1.5px rgba(232,220,192,.3);}
+.spot.stand.sel{box-shadow:inset 0 0 0 2px var(--ember) !important;background:rgba(224,122,63,.16);}
+.spot.bad,.station.bad{animation:scBad .5s;}
+@keyframes scBad{0%,100%{box-shadow:inset 0 0 0 0 rgba(208,70,60,0);}40%{box-shadow:inset 0 0 0 3px rgba(208,70,60,.95);}}
+.editing .station,.editing .fig{opacity:.55;}
+/* the people */
+.fig{position:absolute;width:40px;padding:0;border:0;background:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;}
+.fig .fig-head{width:40px;height:40px;border-radius:9px;}
+.fig .fig-legs{width:30px;height:21px;margin-top:-3px;}
+.fig-name{margin-top:1px;padding:0 4px;border-radius:999px;font-size:8.5px;color:#e8dcc0;
+  background:rgba(18,20,26,.75);white-space:nowrap;}
+.fig-up{position:absolute;right:-5px;top:-5px;width:14px;height:14px;border-radius:50%;
+  font-size:8px;line-height:14px;text-align:center;background:var(--ember);color:#12141a;}
+.fig.staff{animation:scIdle 3.4s ease-in-out infinite;}
+.fig.busy{animation:scWork .32s ease-in-out 4;}
+.fig.leaving{transition:transform 1s ease-in,opacity 1s;transform:translateX(46px);opacity:0;}
+.fig.walker{cursor:default;}
+@keyframes scIdle{0%,100%{transform:translateY(0);}50%{transform:translateY(-1.5px);}}
+@keyframes scWork{50%{transform:translateY(-4px) rotate(-3deg);}}
+.fx-float{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:13px;font-weight:800;
+  color:#e8dcc0;text-shadow:0 1px 0 #12141a,0 0 5px #12141a;animation:scFloat 1.5s ease-out forwards;}
+.fx-float.gold{color:#f2d06e;} .fx-float.quiet{color:#a9b0b8;font-weight:600;}
+@keyframes scFloat{0%{opacity:0;transform:translate(-50%,6px);}15%{opacity:1;}100%{opacity:0;transform:translate(-50%,-36px);}}
+/* around the room */
+.scene-tools{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;}
+.scene-jump{display:flex;gap:4px;}
+.scene-jump button,.scene-edit{padding:5px 10px;font-size:11.5px;font-weight:600;border-radius:999px;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);}
+.scene-edit.on{background:var(--ember);border-color:var(--ember);color:#12141a;}
+.scene-skip{position:absolute;right:8px;top:8px;z-index:90;padding:6px 13px;border-radius:999px;
+  background:rgba(18,20,26,.88);border:1px solid var(--edge);color:#e8dcc0;font-weight:700;font-size:12px;}
+.edit-tray{margin-top:6px;padding:9px 10px;border-radius:11px;background:var(--panel-2);border:1px solid var(--ember);}
+.tray-note{margin:0 0 7px;font-size:11.5px;line-height:1.45;color:var(--muted);}
+.tray-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.tray-head{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.tray-empty{font-size:11.5px;color:var(--muted);}
+.tray-item{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:9px;font-size:11.5px;
+  background:var(--panel);border:1px solid var(--edge);color:var(--text);}
+.tray-item .sprite{width:22px;height:22px;}
+.tray-item.sel{border-color:var(--ember);background:rgba(224,122,63,.15);}
+.tray-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.tray-acts button{padding:6px 11px;font-size:12px;border-radius:9px;background:var(--panel);
+  border:1px solid var(--edge);color:var(--text);}
+.tray-acts button.primary{background:var(--ember);border-color:var(--ember);color:#12141a;font-weight:700;}
+.tray-acts button[disabled]{opacity:.45;}
+/* the quick-action bar and the advance button under the room */
+.shop-actions.compact{grid-template-columns:repeat(3,1fr);gap:5px;}
+.shelf-box.stored{opacity:.62;position:relative;}
+.shelf-box.stored::after{content:'in the back';position:absolute;left:4px;top:4px;font-size:8.5px;
+  padding:0 4px;border-radius:4px;background:rgba(18,20,26,.85);color:#e8dcc0;}
+.shop-actions.compact .act-btn{padding:6px 7px;min-height:0;min-width:0;overflow:hidden;}
+.shop-actions.compact .act-btn b{font-size:12px;}
+.shop-actions.compact .act-btn small{font-size:9.5px;}
+/* the hint is only worth the room when it says why something is shut */
+.shop-actions.compact .act-btn:not(:disabled) small{display:none;}
+.shop-actions.compact .act-btn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.btn.advance{display:block;width:100%;margin:6px 0 10px;}
+/* while the phase plays out, the room has the screen */
+#shopView.playing .shop-bar,#shopView.playing #shPrompt,#shopView.playing .scene-tools,
+#shopView.playing #shActions,#shopView.playing #shCrew,#shopView.playing #shAdvanceBtn,
+#shopView.playing #shTabs,#shopView.playing #shPanel,#shopView.playing .actions{
+  opacity:.28;pointer-events:none;transition:opacity .3s;}
+/* panels opened from the room sit at the bottom and leave it in view */
+.overlay.dock{align-items:flex-end;background:rgba(8,9,12,.4);-webkit-backdrop-filter:none;backdrop-filter:none;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));}
+.overlay.dock .sheet{max-height:calc(64dvh - env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.55);}
+.station-note{margin:0 0 9px;font-size:12.5px;line-height:1.5;color:var(--muted);}
+.station-note b{color:var(--text);}
+.station-why{margin:8px 0 0;font-size:12px;color:var(--ember);}
+.check-row{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--text);margin-top:4px;}
+.summary-offers{margin:10px 0 4px;padding:9px 10px;border-radius:10px;border:1px solid var(--ember);
+  background:rgba(224,122,63,.08);display:flex;flex-direction:column;gap:6px;font-size:12.5px;}
+.so-row{display:flex;align-items:center;gap:6px;}
+.so-row .sprite{width:22px;height:22px;flex:0 0 auto;}
+.so-row span{flex:1 1 auto;font-size:12px;}
+.so-row button{padding:4px 9px;font-size:11.5px;border-radius:8px;background:var(--panel);
+  border:1px solid var(--edge);color:var(--text);}
+.summary-detail{margin-top:7px;border-top:1px solid var(--edge);padding-top:6px;}
+.summary-detail summary{cursor:pointer;font-size:12.5px;color:var(--text);}
+@media (prefers-reduced-motion: reduce){
+  .fig.staff,.glow,.sc-coals,.spark,.sc-candle,.station.busy,.fig.busy{animation:none;}
+  .spark{display:none;}
+}
 .act-btn{
   min-height:var(--tap);padding:7px 9px;border-radius:10px;cursor:pointer;text-align:left;
   background:linear-gradient(180deg,var(--panel-2),var(--panel));
@@ -1176,6 +1333,8 @@ input[type=range]{
 .hand-head .portrait{width:52px;height:52px;border-radius:12px;}
 .hh-name{display:block;font-size:16px;color:var(--text);}
 .hh-role{display:block;font-size:12px;color:var(--muted);margin-top:3px;}
+.hand-where{margin:6px 0 0;font-size:12px;color:var(--muted);}
+.hand-where b{color:var(--text);}
 .perks{
   margin:9px 0 0;padding:9px 11px;border-radius:10px;
   background:var(--panel-2);border:1px solid var(--edge);
@@ -1919,12 +2078,36 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <span class="shop-stars" id="shStars" aria-label="Shop rating"></span>
     </div>
     <p class="prompt" id="shPrompt"><span id="shPromptText">A new day at the anvil.</span></p>
-    <div class="shop-actions" id="shActions"></div>
+    <!-- The shop itself: one continuous room, swiped sideways. Everything in
+         it is a real object that opens the system it stands for. -->
+    <div class="scene-wrap" id="shSceneWrap">
+      <div class="scene" id="shScene" role="region" tabindex="0"
+           aria-label="Your shop. Swipe or scroll sideways to look around; tap anything to use it.">
+        <div class="scene-world" id="shWorld" data-phase="morning" data-stage="1">
+          <div class="scene-back" id="shBack"></div>
+          <div class="scene-things" id="shThings"></div>
+          <div class="scene-light" aria-hidden="true"></div>
+          <div class="scene-glow" id="shGlow" aria-hidden="true"></div>
+          <div class="scene-fx" id="shFx" aria-hidden="true"></div>
+        </div>
+      </div>
+      <button class="scene-skip" type="button" id="shSkip" hidden>Skip &#9656;</button>
+      <div class="scene-tools" id="shSceneTools">
+        <span class="scene-jump">
+          <button type="button" data-jump="work" aria-label="Look at the workshop">Workshop</button>
+          <button type="button" data-jump="floor" aria-label="Look at the shop floor">Floor</button>
+          <button type="button" data-jump="front" aria-label="Look at the counter and the door">Front</button>
+        </span>
+        <button type="button" class="scene-edit" id="shEditBtn">Edit shop</button>
+      </div>
+      <div class="edit-tray" id="shEditTray" hidden></div>
+    </div>
+    <div class="shop-actions compact" id="shActions"></div>
     <p class="shop-crew" id="shCrew"></p>
+    <button class="btn primary advance" type="button" id="shAdvanceBtn">End Morning</button>
     <div class="shop-tabs" id="shTabs" role="tablist"></div>
     <div class="shop-panel" id="shPanel" role="tabpanel"></div>
     <div class="actions">
-      <button class="btn" type="button" id="shAdvanceBtn">End Morning</button>
       <button class="btn ghost" type="button" id="shHelpBtn">How to Play</button>
       <button class="btn" type="button" id="shMenuBtn">Main Menu</button>
     </div>
@@ -2449,6 +2632,31 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        and miners are counted separately from them. Bigger premises mean more staff, room for more stands, more storage
        and bigger batches &mdash; and a much larger rent. Expanding too early is how a shop
        closes.</p>
+    <p><b>Your shop is a place.</b> The home screen is the shop itself &mdash; the workshop at
+       the left, the shop floor in the middle, the counter and the door at the right, with your
+       business's name on the sign over the door. Swipe sideways to look around, or use
+       <b>Workshop</b>, <b>Floor</b> and <b>Front</b> to jump. Everything in it is something you
+       can tap: the <b>counter</b> to tend the store or put a salesperson on it, the <b>forge</b>
+       and anvil to forge or give a smith an order, the <b>storeroom</b> for metal and runners,
+       the <b>blueprint table</b> for the Almanac, the <b>noticeboard</b> for staff, the
+       <b>door</b> for deliveries and property, and the <b>sign</b> to rename the business.
+       Looking at anything costs nothing &mdash; only the actions that always took a phase still
+       do. The buttons under the room and the tabs below them reach every screen too.</p>
+    <p><b>What you see is what there is.</b> Each display shows the goods on it, fewer as it
+       empties. The people working <i>this</i> phase stand at their stations &mdash; tap one
+       for their card &mdash; and nobody is drawn at work they are not doing. Morning, afternoon
+       and evening light the same room differently, and the door stays shut while you plan.
+       When you end a phase it swings open and you watch the shop at work for a few seconds
+       before a summary of what happened. Tap anywhere to skip: the phase was already settled
+       before the first frame, so skipping cannot change a thing. The playback can be turned
+       off from the sign.</p>
+    <p><b>Arranging the floor.</b> A stand you buy arrives in the back. <b>Edit shop</b> lets
+       you put it out, move displays about, swap two, or put one away &mdash; all free. A
+       display in the back keeps everything on it, but nobody can buy from it until it is out.
+       Floor past what you have bought is roped off; a <b>Store Expansion</b> opens the next
+       space, and every so often the building itself grows &mdash; from <i>Humble
+       Beginnings</i> to an <i>Established Smithy</i>, a <i>Merchant Forge</i> and at last a
+       <i>Master Establishment</i>.</p>
     <p><b>Growth buys room; the Shop buys what fills it.</b> That line runs through the whole
        tab. <b>Growth</b> has four things to sell, and not one of them puts an object in your
        shop:</p>
@@ -5165,6 +5373,24 @@ const SHOP = {
     floor:   { key: 'floor',   base: 400, rate: 1.75, max: 8 }
   },
 
+  /* ---------- the building you can see ------------------------------------
+     The storefront is drawn in a few real stages rather than a sliver wider
+     every purchase. A stage is chosen by FLOOR SPACE - the stands the place
+     can hold - so the room you paid for is the room you see. Each stage
+     lays out `cols` columns of two placement spots (one against the back
+     wall, one out on the floor); spots past what you have bought are drawn
+     roped off, so the next purchase is visible before it is made.
+
+     20 spots at the top is exactly what the largest premises plus every
+     Store Expansion can hold, so there is never floor space with nowhere to
+     stand on it. */
+  stages: [
+    { id: 1, name: 'Humble Beginnings',    cols: 3 },
+    { id: 2, name: 'Established Smithy',   cols: 5 },
+    { id: 3, name: 'Merchant Forge',       cols: 8 },
+    { id: 4, name: 'Master Establishment', cols: 10 }
+  ],
+
   /* `stands` is floor space, not stock: it is how many fixtures the premises
      will physically hold. Moving up does not put anything on the floor - it
      makes room for stands the player still has to buy. */
@@ -5759,6 +5985,92 @@ function standCap(shop) {
   return shopTier(shop).stands + growthLevel(shop, 'floor');
 }
 function standHold() { return SHOP.standHold; }
+
+/* ---------- where a stand stands --------------------------------------
+   A stand is either on the floor, at a numbered spot, or in the back as
+   furniture waiting to be placed (`slot` null). Spot i sits in column
+   floor(i/2), back row when even and front row when odd, so a spot never
+   moves when the building grows - the storefront simply opens further out.
+
+   Spots below standCap are yours; the rest of the stage is roped off until
+   floor space is bought. A stand in the back keeps EVERYTHING on it - its
+   stock, its price, its level - it simply is not on the floor, so nobody
+   can buy from it and a store hand will not top it up. Because a line may
+   still stand on only one display, nothing can be duplicated by moving one,
+   and because nothing is taken off it, nothing can be lost either. */
+function shopStage(shop) {
+  const cap = standCap(shop);
+  for (const st of SHOP.stages) if (st.cols * 2 >= cap) return st;
+  return SHOP.stages[SHOP.stages.length - 1];
+}
+function stageSpots(stage) { return stage.cols * 2; }
+function standPlaced(stand) {
+  return !!stand && typeof stand.slot === 'number' && stand.slot >= 0 &&
+    Math.floor(stand.slot) === stand.slot;
+}
+function placedStands(shop) { return shop.stands.filter(standPlaced); }
+function storedStands(shop) {
+  return shop.stands.filter(function (st) { return !standPlaced(st); });
+}
+function standAtSlot(shop, slot) {
+  return shop.stands.find(function (st) { return standPlaced(st) && st.slot === slot; }) || null;
+}
+function slotUsable(shop, slot) {
+  return typeof slot === 'number' && Math.floor(slot) === slot &&
+    slot >= 0 && slot < standCap(shop);
+}
+function firstFreeSlot(shop) {
+  const cap = standCap(shop);
+  for (let i = 0; i < cap; i++) if (!standAtSlot(shop, i)) return i;
+  return null;
+}
+/* Put a stand at a spot, or the first free one when none is named. Moving a
+   stand that is already out onto another one swaps the two; a stand coming
+   out of the back cannot shove one that is already standing somewhere. */
+function placeStand(shop, standId, slot) {
+  const stand = standById(shop, standId);
+  if (!stand) return { ok: false, why: 'no such stand' };
+  const want = slot == null ? firstFreeSlot(shop) : slot;
+  if (want == null) return { ok: false, why: 'no free floor space' };
+  if (!slotUsable(shop, want)) {
+    return { ok: false, why: 'that floor is not yours yet — Store Expansion opens it' };
+  }
+  const there = standAtSlot(shop, want);
+  if (there && there.id === stand.id) return { ok: true, stand: stand, slot: want };
+  if (there) {
+    if (!standPlaced(stand)) return { ok: false, why: 'something already stands there' };
+    there.slot = stand.slot;
+    stand.slot = want;
+    return { ok: true, stand: stand, slot: want, swapped: there.id };
+  }
+  stand.slot = want;
+  return { ok: true, stand: stand, slot: want };
+}
+/* After a load: every stand keeps a spot that is valid and its own, one
+   saved in the back stays there, and every other one - including every
+   stand from a save made before there was a floor plan, all of which were
+   out on the floor - is given the next free spot in the order it was saved.
+   An old shop therefore opens looking and playing exactly as it did. */
+function settleStandSlots(shop) {
+  const taken = {};
+  const again = [];
+  for (const st of shop.stands) {
+    if (st.slot === null) continue;
+    if (slotUsable(shop, st.slot) && !taken[st.slot]) { taken[st.slot] = true; continue; }
+    again.push(st);
+  }
+  for (const st of again) {
+    st.slot = null;
+    const free = firstFreeSlot(shop);
+    if (free != null) st.slot = free;
+  }
+}
+function storeStand(shop, standId) {
+  const stand = standById(shop, standId);
+  if (!stand) return { ok: false, why: 'no such stand' };
+  stand.slot = null;
+  return { ok: true, stand: stand };
+}
 function standById(shop, id) {
   return shop.stands.find(function (st) { return st.id === id; }) || null;
 }
@@ -5780,9 +6092,10 @@ function standWorth(stand) {
   return Math.max(1, Math.round(
     recommendedPrice(p.item, p.material, stand.quality, stand.level) * standBonus(stand)));
 }
-/* Every stand with something on it, which is the whole of the shop floor. */
+/* Every stand with something on it that is actually out on the floor. A
+   display waiting in the back is not something a customer can walk up to. */
 function stockedStands(shop) {
-  return shop.stands.filter(function (st) { return st.key && st.qty > 0; });
+  return shop.stands.filter(function (st) { return standPlaced(st) && st.key && st.qty > 0; });
 }
 function standRoom(shop, stand) {
   if (!stand) return 0;
@@ -5792,15 +6105,15 @@ function standRoom(shop, stand) {
    one of the right kind. */
 function standFor(shop, key) {
   const here = standWithKey(shop, key);
-  if (here && standRoom(shop, here) > 0) return here;
-  if (here) return null;                       // its own stand is full
+  // its own stand is full, or is waiting in the back: either way, not today
+  if (here) return standPlaced(here) && standRoom(shop, here) > 0 ? here : null;
   const item = splitKey(key).item;
   return shop.stands.find(function (st) {
-    return (!st.key || st.qty <= 0) && standTakes(st.type, item);
+    return standPlaced(st) && (!st.key || st.qty <= 0) && standTakes(st.type, item);
   }) || null;
 }
 
-function shelfCapacity(shop) { return shop.stands.length * standHold(); }
+function shelfCapacity(shop) { return placedStands(shop).length * standHold(); }
 function storageCapacity(shop) {
   return shopTier(shop).storage + 40 * shopUpgradeLevel(shop, 'racks');
 }
@@ -5842,9 +6155,11 @@ function apprenticeBonus(shop) {
    the counter. */
 function haggleSkill(shop) { return 0.10 * shopUpgradeLevel(shop, 'ledger'); }
 
+/* Pieces out on the floor. Stock on a display in the back is still yours -
+   it is counted where it is - but it is not on the shelves. */
 function countShelf(shop) {
   let n = 0;
-  for (const st of shop.stands) n += st.qty;
+  for (const st of shop.stands) if (standPlaced(st)) n += st.qty;
   return n;
 }
 function countStorage(shop) {
@@ -5956,7 +6271,10 @@ function createShop(opts) {
   // a forge opens with a couple of fixtures already standing; the rest are
   // bought, and the premises decide how many will fit at all
   for (const type of o.stands || SHOP.startStands) {
-    if (shopStandDef(type)) shop.stands.push(newStand(shop, type));
+    if (!shopStandDef(type)) continue;
+    const stand = newStand(shop, type);
+    stand.slot = shop.stands.length;
+    shop.stands.push(stand);
   }
   const start = o.stock || SHOP.startStock;
   for (const id in start) shop.materials[id] = start[id];
@@ -5998,6 +6316,14 @@ function shopNameOf(raw, fallback) {
 
 /* A new forge is named for the player unless they pick something else, and
    two forges called the same thing on one menu help nobody. */
+/* A business can be renamed at any time; nothing but the sign changes. */
+function shopRename(shop, name) {
+  const next = shopNameOf(name, shop.name || SHOP_NAME_DEFAULT);
+  const was = shop.name;
+  shop.name = next;
+  return { ok: true, name: next, was: was };
+}
+
 function shopNameFree(name, taken) {
   const want = shopNameOf(name, SHOP_NAME_DEFAULT);
   const used = {};
@@ -6142,6 +6468,9 @@ function restoreShop(data, rnd) {
       const stand = newStand(shop, raw.type);
       // how fine the fixture is, kept apart from the goods standing on it
       stand.up = whole(raw.up, 0, SHOP.growth.display.max, 0);
+      // where it stood; a save from before there was a floor plan has no
+      // `slot` at all, which is told apart from one kept in the back (null)
+      stand.slot = Object.prototype.hasOwnProperty.call(raw, 'slot') ? raw.slot : undefined;
       const key = raw.key;
       if (typeof key === 'string' && knownLine(key) && standTakes(raw.type, splitKey(key).item) &&
           !standWithKey(shop, key)) {
@@ -6175,6 +6504,7 @@ function restoreShop(data, rnd) {
       if (shop.stands.length < standCap(shop) && !standWithKey(shop, key)) {
         const stand = newStand(shop, type);
         stand.key = key; stand.qty = room; stand.quality = quality; stand.price = price;
+        stand.slot = undefined;
         shop.stands.push(stand);
       }
       const over = qty - (shop.stands.length && standWithKey(shop, key) ? room : 0);
@@ -6183,12 +6513,16 @@ function restoreShop(data, rnd) {
     for (const key in spare) addStorage(shop, key, spare[key].qty, spare[key].quality);
   }
   // a forge with nowhere at all to put its goods cannot trade, so the
-  // fixtures a new forge opens with are given back
+  // fixtures a new forge opens with are given back - out on the floor
   if (!shop.stands.length) {
     for (const type of SHOP.startStands) {
-      if (shop.stands.length < standCap(shop)) shop.stands.push(newStand(shop, type));
+      if (shop.stands.length >= standCap(shop)) continue;
+      const stand = newStand(shop, type);
+      stand.slot = undefined;
+      shop.stands.push(stand);
     }
   }
+  settleStandSlots(shop);
 
   for (const raw of Array.isArray(data.staff) ? data.staff : []) {
     const role = shopRole(raw && raw.role), rank = shopRank(raw && raw.rank);
@@ -6565,6 +6899,18 @@ function shopStockStand(shop, standId, key, qty) {
   if (stand.key && stand.qty > 0 && stand.key !== key) {
     return { moved: 0, why: 'that stand is holding something else' };
   }
+  if (!standPlaced(stand)) {
+    return { moved: 0, why: 'put that display out on the floor first' };
+  }
+  /* One line, one display. Two stands carrying the same line would collapse
+     into one the next time the shop is opened, and the second one's pieces
+     would go with it - so the second is refused here instead. */
+  const elsewhere = standWithKey(shop, key);
+  if (elsewhere && elsewhere.id !== stand.id) {
+    return { moved: 0, why: standPlaced(elsewhere)
+      ? 'that line is already out on another display'
+      : 'that line is on a display waiting in the back' };
+  }
   const room = standRoom(shop, stand.key === key ? stand : { qty: 0 });
   if (room <= 0) return { moved: 0, why: 'that stand is full' };
   const moved = Math.min(qty, lot.qty, room);
@@ -6608,20 +6954,35 @@ function standWhyNot(shop, key) {
   const item = splitKey(key).item;
   const want = standForItem(item);
   const def = shopStandDef(want);
-  const any = shop.stands.some(function (st) { return st.type === want; });
-  if (!any) return 'no ' + (def ? def.name : 'stand') + ' to put it on';
+  const held = standWithKey(shop, key);
+  if (held && !standPlaced(held)) return 'its display is waiting in the back';
+  const any = shop.stands.some(function (st) { return st.type === want && standPlaced(st); });
+  if (!any) {
+    return shop.stands.some(function (st) { return st.type === want; })
+      ? 'the ' + (def ? def.name : 'stand') + ' is still in the back — put it out'
+      : 'no ' + (def ? def.name : 'stand') + ' to put it on';
+  }
   return 'every ' + (def ? def.name : 'stand') + ' is full';
 }
 
+/* Pieces off a stand and back into the storeroom. Only as many as the
+   storeroom has room for ever leave the stand: this used to take them off
+   regardless and let addStorage drop whatever did not fit, which destroyed
+   stock, and it forgot the blueprint level they were made on, which
+   repriced them as fresh work. Neither is possible now. */
 function shopPullFromShelf(shop, key, qty) {
   const stand = standWithKey(shop, key);
   if (!stand || qty <= 0) return { moved: 0 };
-  const moved = Math.min(qty, stand.qty);
+  const room = Math.max(0, storageCapacity(shop) - countStorage(shop));
+  const moved = Math.min(qty, stand.qty, room);
   const price = stand.price;
+  if (moved <= 0) return { moved: 0, price: price, why: 'the storeroom is full' };
+  const quality = stand.quality, level = stand.level || 1;
   stand.qty -= moved;
   if (stand.qty <= 0) { stand.key = null; stand.qty = 0; stand.price = 0; }
-  addStorage(shop, key, moved, stand.quality);
-  return { moved: moved, price: price };
+  addStorage(shop, key, moved, quality, level);
+  return { moved: moved, price: price, left: stand.qty,
+    why: moved < qty ? 'the storeroom only had room for ' + moved : null };
 }
 
 function shopSetPrice(shop, key, price) {
@@ -6635,8 +6996,9 @@ function shopSetPrice(shop, key, price) {
 function newStand(shop, type) {
   // `level` is the blueprint level of whatever is ON it; `up` is how fine the
   // fixture itself is, which is what Growth sells.
+  // `slot` is where on the floor it stands; null means waiting in the back
   return { id: shop.nextId++, type: type, key: null, qty: 0, quality: 100,
-    level: 1, up: 0, price: 0 };
+    level: 1, up: 0, price: 0, slot: null };
 }
 
 function shopBuyStand(shop, type) {
@@ -9132,6 +9494,10 @@ const CHECKSMITH_CORE = {
   knownRecipes: knownRecipes, recipeCustomers: recipeCustomers, recipeChildren: recipeChildren,
   batchCapacity: batchCapacity, apprenticeBonus: apprenticeBonus, haggleSkill: haggleSkill,
   standWorth: standWorth,
+  shopStage: shopStage, stageSpots: stageSpots, standPlaced: standPlaced,
+  placedStands: placedStands, storedStands: storedStands, standAtSlot: standAtSlot,
+  slotUsable: slotUsable, firstFreeSlot: firstFreeSlot, placeStand: placeStand,
+  storeStand: storeStand, settleStandSlots: settleStandSlots, shopRename: shopRename,
   growthDef: growthDef, growthCostAt: growthCostAt, growthLevel: growthLevel,
   growthCost: growthCost, shopBuyGrowth: shopBuyGrowth,
   standLevel: standLevel, standBonus: standBonus, standUpgradeCost: standUpgradeCost,
@@ -11048,7 +11414,9 @@ function readSlots() {
     seen[id] = true;
     out.push({ id: id, name: CHECKSMITH_CORE.shopNameOf(raw.name || raw.shop.name),
       saved: Math.max(0, Number(raw.saved) || 0),
-      shop: raw.shop, anvil: raw.anvil && typeof raw.anvil === 'object' ? raw.anvil : null });
+      shop: raw.shop, anvil: raw.anvil && typeof raw.anvil === 'object' ? raw.anvil : null,
+      replay: raw.replay && typeof raw.replay === 'object' && Array.isArray(raw.replay.reports)
+        ? raw.replay : null });
   };
   if (Array.isArray(data.shopSaves)) for (const raw of data.shopSaves) take(raw);
   // a forge from before there were slots
@@ -11069,7 +11437,8 @@ function slotResume(slot) {
   const shop = restoreShop(slot.shop, App.rnd);
   if (!shop) return null;
   shop.name = slot.name;
-  return { id: slot.id, name: slot.name, shop: shop, anvil: slot.anvil || null };
+  return { id: slot.id, name: slot.name, shop: shop, anvil: slot.anvil || null,
+    replay: slot.replay || null };
 }
 
 function slotById(id) {
@@ -11089,7 +11458,7 @@ function saveShop() {
   if (!App.shop || SHOPUI.session || !App.shopSlot) return;
   const slots = readSlots();
   const entry = { id: App.shopSlot, name: App.shop.name, saved: Date.now(),
-    shop: serializeShop(App.shop), anvil: anvilSnapshot() };
+    shop: serializeShop(App.shop), anvil: anvilSnapshot(), replay: SHOPUI.replay || null };
   const at = slots.findIndex((slot) => slot.id === App.shopSlot);
   if (at < 0) slots.push(entry); else slots[at] = entry;
   writeSlots(slots);
@@ -11335,6 +11704,1167 @@ function shopRenderCrew() {
   $('shCrew').innerHTML = text;
 }
 
+/* =======================================================================
+   THE STOREFRONT
+   The shop as a place rather than a list. One continuous room, drawn at a
+   fixed scale and swiped sideways: the workshop at the left, the shop floor
+   in the middle, the counter and the door at the right. Everything in it
+   is an object that opens the system it stands for - and ONLY opens it.
+   Nothing here decides anything: every station calls the same functions
+   the menus always called, so the rules cannot drift between the two.
+
+   The world is plain HTML over one backdrop SVG. The backdrop only changes
+   when the building does; the things in it are redrawn from the live shop
+   on every render, which is what keeps what you see honest.
+   ======================================================================= */
+const SCENE = {
+  H: 236,              // world height, in CSS pixels, at every stage
+  floorY: 150,         // where the back wall meets the floor
+  workshop: 300,       // the working end
+  col: 80,             // one column of placement spots
+  pad: 8,
+  front: 330,          // the counter, the noticeboard and the door
+  spot: 72,            // a placement spot, square
+  // aprons by trade, so a hand is readable at a glance across the room
+  apron: { salesperson: '#3f6f5a', apprentice: '#9a7440', runner: '#8a3b32',
+    smith: '#4a3522', storehand: '#3d5a7a' },
+  metal: '#6b717b', wood: '#8b6b3a', woodD: '#5b3f24', out: '#12141a'
+};
+
+/* Where everything is for the shop as it stands. Spot i is in column
+   floor(i/2), back row when even: the same spot never moves as the building
+   grows, the storefront simply opens further out. */
+function sceneLayout(sh) {
+  const stage = shopStage(sh);
+  const cols = stage.cols;
+  const floorX = SCENE.workshop + SCENE.pad;
+  const R = floorX + cols * SCENE.col + SCENE.pad;
+  const cap = standCap(sh);
+  const spots = [];
+  for (let i = 0; i < cols * 2; i++) {
+    const col = Math.floor(i / 2), back = i % 2 === 0;
+    spots.push({ i: i, x: floorX + col * SCENE.col + 4, y: back ? 78 : 150,
+      back: back, usable: i < cap });
+  }
+  return { stage: stage, cols: cols, W: R + SCENE.front, R: R, floorX: floorX, spots: spots };
+}
+
+function sceneSvg(w, h, inner, cls) {
+  return '<svg class="' + (cls || 'sc-art') + '" width="' + w + '" height="' + h +
+    '" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true" focusable="false">' + inner + '</svg>';
+}
+/* A run of bricks, drawn rather than patterned so it works in any SVG. */
+function sceneBricks(x, y, w, h, fill, line) {
+  let out = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '"/>';
+  let path = '';
+  for (let yy = y, row = 0; yy < y + h; yy += 9, row++) {
+    path += 'M' + x + ' ' + yy + 'H' + (x + w);
+    for (let xx = x + (row % 2 ? 9 : 0); xx < x + w; xx += 18) {
+      path += 'M' + xx + ' ' + yy + 'V' + Math.min(y + h, yy + 9);
+    }
+  }
+  return out + '<path d="' + path + '" stroke="' + line + '" stroke-width="1" fill="none" opacity=".75"/>';
+}
+
+/* ---------- the room itself ---------- */
+function sceneBackdrop(sh, L) {
+  const W = L.W, H = SCENE.H, F = SCENE.floorY, R = L.R;
+  let s = '<defs>' +
+    '<pattern id="scPlank" width="46" height="13" patternUnits="userSpaceOnUse">' +
+      '<rect width="46" height="13" fill="#5f4428"/>' +
+      '<path d="M0 12.5H46M30 0V13" stroke="#3e2b18" stroke-width="1"/>' +
+      '<path d="M0 1H46" stroke="#fff" stroke-opacity=".06"/></pattern>' +
+    '<pattern id="scFlag" width="38" height="17" patternUnits="userSpaceOnUse">' +
+      '<rect width="38" height="17" fill="#47423d"/>' +
+      '<path d="M0 16.5H38M19 0V17" stroke="#2c2926" stroke-width="1"/></pattern>' +
+    '<linearGradient id="scShade" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#000" stop-opacity=".35"/>' +
+      '<stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>' +
+    '</defs>';
+  // plaster over a stone footing, the workshop sooted brick all the way up
+  s += '<rect x="0" y="0" width="' + W + '" height="' + F + '" fill="#3d3531"/>';
+  s += sceneBricks(L.floorX - SCENE.pad, F - 38, W - (L.floorX - SCENE.pad), 38, '#4b4a50', '#34333a');
+  s += sceneBricks(0, 0, SCENE.workshop, F, '#433a36', '#2e2825');
+  s += '<rect x="0" y="0" width="' + SCENE.workshop + '" height="' + F +
+    '" fill="url(#scShade)" opacity=".8"/>';
+  // windows along the shop floor, more of them as the room grows
+  for (let c = 1; c < L.cols; c += 2) {
+    const x = L.floorX + c * SCENE.col - 22;
+    s += '<rect x="' + x + '" y="24" width="44" height="46" rx="3" fill="#2a2019"/>' +
+      '<rect x="' + (x + 4) + '" y="28" width="36" height="38" class="sc-sky"/>' +
+      '<path d="M' + (x + 22) + ' 28V66M' + (x + 4) + ' 47H' + (x + 40) +
+      '" stroke="#2a2019" stroke-width="3"/>' +
+      '<rect x="' + (x - 3) + '" y="68" width="50" height="5" fill="' + SCENE.woodD + '"/>';
+  }
+  // timber: a ceiling beam and a post at every seam of the room
+  s += '<rect x="0" y="0" width="' + W + '" height="9" fill="' + SCENE.woodD + '"/>';
+  const posts = [SCENE.workshop, R];
+  for (let c = 4; c < L.cols; c += 4) posts.push(L.floorX + c * SCENE.col);
+  for (const x of posts) {
+    s += '<rect x="' + (x - 5) + '" y="0" width="10" height="' + F + '" fill="' + SCENE.woodD +
+      '" stroke="' + SCENE.out + '" stroke-width="1"/>';
+  }
+  // the floor: flagstones where the hot work is, boards everywhere else
+  s += '<rect x="0" y="' + F + '" width="' + SCENE.workshop + '" height="' + (H - F) +
+    '" fill="url(#scFlag)"/>';
+  s += '<rect x="' + SCENE.workshop + '" y="' + F + '" width="' + (W - SCENE.workshop) +
+    '" height="' + (H - F) + '" fill="url(#scPlank)"/>';
+  s += '<rect x="0" y="' + (F - 3) + '" width="' + W + '" height="4" fill="#2a2019"/>';
+  s += '<rect x="0" y="' + (H - 7) + '" width="' + W + '" height="7" fill="#1d1712"/>';
+  // lanterns on chains; their light is a separate layer so evening can
+  // brighten it without redrawing the room
+  for (const x of sceneLampXs(L)) {
+    s += '<path d="M' + x + ' 9V26" stroke="#2a2a30" stroke-width="1.5"/>' +
+      '<path d="M' + (x - 6) + ' 26h12l-2 14h-8Z" fill="#2c2a26" stroke="' + SCENE.out + '"/>' +
+      '<rect x="' + (x - 3.5) + '" y="29" width="7" height="8" class="sc-flame"/>';
+  }
+  return sceneSvg(W, H, s, 'sc-backdrop');
+}
+function sceneLampXs(L) {
+  const out = [SCENE.workshop - 40];
+  for (let x = L.floorX + 60; x < L.R - 20; x += 180) out.push(x);
+  out.push(L.R + 110);
+  return out;
+}
+
+/* ---------- the fixed stations ---------- */
+function sceneForgeArt(level) {
+  let s = '';
+  // chimney and hood, wider and banded as the forge is built up
+  const wide = level >= 5 ? 0 : 6;
+  s += sceneBricks(36, 0, 32, 42, '#5a4a44', '#3a2f2b');
+  s += '<path d="M' + (18 + wide) + ' 42H' + (86 - wide) + 'L100 86H4Z" fill="#5a4a44" stroke="' +
+    SCENE.out + '" stroke-width="1.5" stroke-linejoin="round"/>';
+  s += '<path d="M' + (18 + wide) + ' 42H52V86H4Z" fill="#fff" opacity=".07"/>';
+  if (level >= 5) {
+    s += '<rect x="12" y="60" width="80" height="5" fill="' + SCENE.metal + '" stroke="' + SCENE.out + '"/>';
+    s += '<path d="M24 65v14M30 65v10M74 65v12M80 65v9" stroke="#3b3f45" stroke-width="2"/>';
+  }
+  if (level >= 8) s += '<rect x="4" y="82" width="96" height="4" fill="#cfa53b"/>';
+  // the hearth and its mouth
+  s += '<rect x="6" y="86" width="92" height="64" rx="3" fill="#56525a" stroke="' + SCENE.out +
+    '" stroke-width="1.5"/>';
+  s += '<rect x="6" y="86" width="46" height="64" fill="#fff" opacity=".06"/>';
+  s += '<path d="M24 146V112q28-20 56 0v34Z" fill="#1a1210" stroke="' + SCENE.out + '"/>';
+  s += '<ellipse class="sc-coals" cx="52" cy="138" rx="24" ry="7" fill="#ff8a3c"/>';
+  s += '<ellipse class="sc-coals b" cx="52" cy="136" rx="14" ry="4" fill="#ffd36b"/>';
+  if (level >= 2) {
+    // bellows, pumped from the side
+    s += '<path d="M0 116l26 6-26 14Z" fill="#6a4a30" stroke="' + SCENE.out + '" stroke-linejoin="round"/>' +
+      '<path d="M0 116l26 6" stroke="#fff" stroke-opacity=".2"/>';
+  }
+  return sceneSvg(104, 150, s);
+}
+function sceneAnvilArt() {
+  return sceneSvg(62, 62,
+    '<rect x="21" y="30" width="20" height="30" rx="2" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>' +
+    '<path d="M21 30h10v30H21Z" fill="#fff" opacity=".14"/>' +
+    '<path d="M6 16h34l14-4-6 8H44l-6 10H22l-4-10H10Z" fill="' + SCENE.metal + '" stroke="' +
+    SCENE.out + '" stroke-width="1.3" stroke-linejoin="round"/>' +
+    '<path d="M6 16h34l14-4-6 4Z" fill="#fff" opacity=".22"/>');
+}
+/* Shelves of what the forge actually has: the metals in hand, heaviest first,
+   and a heap of ore when some is waiting to be smelted. */
+function sceneStoreArt(sh) {
+  let s = '<rect x="2" y="4" width="60" height="88" rx="2" fill="#4a3522" stroke="' + SCENE.out + '"/>';
+  for (const y of [30, 58, 86]) {
+    s += '<rect x="2" y="' + y + '" width="60" height="4" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>';
+  }
+  const metals = SHOP.materials.filter(function (m) { return sh.materials[m.id] > 0; })
+    .sort(function (a, b) { return sh.materials[b.id] - sh.materials[a.id]; }).slice(0, 4);
+  metals.forEach(function (m, n) {
+    const shelf = n < 2 ? 30 : 58, x = 8 + (n % 2) * 27;
+    const bars = Math.min(3, Math.ceil(sh.materials[m.id] / 8));
+    for (let b = 0; b < bars; b++) {
+      s += '<path d="M' + (x + b * 2) + ' ' + (shelf - 5 - b * 5) + 'h18l-2 5H' + (x + 2 + b * 2) +
+        'Z" fill="' + m.tint + '" stroke="' + SCENE.out + '" stroke-width=".8"/>';
+    }
+  });
+  // crates on the bottom shelf
+  s += '<rect x="7" y="68" width="22" height="18" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>' +
+    '<path d="M7 68l22 18M29 68 7 86" stroke="' + SCENE.woodD + '"/>' +
+    '<rect x="33" y="72" width="24" height="14" fill="#7a5a30" stroke="' + SCENE.out + '"/>';
+  let ore = null, most = 0;
+  for (const id in sh.ore || {}) if (sh.ore[id] > most) { most = sh.ore[id]; ore = shopMaterial(id); }
+  if (ore) {
+    s += '<path d="M40 92l6-9 8-3 8 5 2 7Z" fill="#6b5f52" stroke="' + SCENE.out + '"/>' +
+      '<path d="M47 86l4-2 3 3-3 2Z" fill="' + ore.tint + '"/>';
+  }
+  return sceneSvg(64, 94, s);
+}
+function sceneTableArt() {
+  return sceneSvg(58, 70,
+    '<rect x="6" y="30" width="5" height="38" fill="' + SCENE.woodD + '"/>' +
+    '<rect x="47" y="30" width="5" height="38" fill="' + SCENE.woodD + '"/>' +
+    '<rect x="2" y="26" width="54" height="7" rx="1" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>' +
+    '<path d="M8 25l4-10h26l6 10Z" fill="#d9cfae" stroke="' + SCENE.out + '" stroke-linejoin="round"/>' +
+    '<path d="M16 19h18M14 22h24" stroke="#3d5a7a" stroke-width="1.2"/>' +
+    '<rect x="40" y="16" width="12" height="10" fill="#7a3b32" stroke="' + SCENE.out + '"/>' +
+    '<rect x="4" y="18" width="3" height="8" fill="#e8dcc0"/>' +
+    '<ellipse class="sc-candle" cx="5.5" cy="16" rx="2" ry="3" fill="#ffcf6b"/>');
+}
+function sceneCounterArt() {
+  return sceneSvg(134, 78,
+    '<rect x="2" y="18" width="130" height="10" rx="2" fill="#6b4a2a" stroke="' + SCENE.out + '"/>' +
+    '<rect x="6" y="28" width="122" height="48" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>' +
+    '<rect x="6" y="28" width="61" height="48" fill="#fff" opacity=".08"/>' +
+    '<rect x="14" y="36" width="30" height="32" fill="none" stroke="' + SCENE.woodD + '" stroke-width="2"/>' +
+    '<rect x="52" y="36" width="30" height="32" fill="none" stroke="' + SCENE.woodD + '" stroke-width="2"/>' +
+    '<rect x="90" y="36" width="30" height="32" fill="none" stroke="' + SCENE.woodD + '" stroke-width="2"/>' +
+    // the till and a set of scales
+    '<rect x="12" y="6" width="22" height="13" fill="#4a3522" stroke="' + SCENE.out + '"/>' +
+    '<rect x="16" y="2" width="14" height="5" fill="#cfa53b" stroke="' + SCENE.out + '"/>' +
+    '<path d="M106 4v14M96 8h20" stroke="' + SCENE.metal + '" stroke-width="2"/>' +
+    '<path d="M93 12h8l-4 4ZM111 12h8l-4 4Z" fill="#cfa53b" stroke="' + SCENE.out + '" stroke-width=".8"/>');
+}
+/* The noticeboard, and under it a peg for every place on the books: an
+   apron on each one that is filled, a bare peg for each that is not. */
+function sceneBoardArt(sh) {
+  let s = '<rect x="2" y="2" width="54" height="64" rx="2" fill="#8a6a45" stroke="' + SCENE.out + '" stroke-width="1.5"/>' +
+    '<rect x="6" y="6" width="46" height="56" fill="#a07a4c"/>';
+  const due = readyToRank(sh).length + (sh.commissionOffers || []).length;
+  const notes = Math.max(1, Math.min(4, due + 1));
+  for (let n = 0; n < notes; n++) {
+    const x = 10 + (n % 2) * 21, y = 10 + Math.floor(n / 2) * 24;
+    s += '<rect x="' + x + '" y="' + y + '" width="17" height="19" fill="' +
+      (n === 0 ? '#e8dcc0' : '#f0e6c8') + '" stroke="' + SCENE.out + '" stroke-width=".7"/>' +
+      '<circle cx="' + (x + 8.5) + '" cy="' + (y + 2.5) + '" r="1.6" fill="#a8442e"/>';
+  }
+  const cap = staffCapacity(sh), hired = sh.staff.length;
+  const shown = Math.min(cap, 12);
+  for (let n = 0; n < shown; n++) {
+    const x = 5 + (n % 6) * 9, y = 74 + Math.floor(n / 6) * 18;
+    s += '<circle cx="' + (x + 3) + '" cy="' + y + '" r="1.6" fill="' + SCENE.metal + '"/>';
+    if (n < hired) {
+      const e = sh.staff[n];
+      s += '<path d="M' + x + ' ' + (y + 1) + 'h6l1 10h-8Z" fill="' +
+        (SCENE.apron[e.role] || '#555') + '" stroke="' + SCENE.out + '" stroke-width=".6"/>';
+    }
+  }
+  return sceneSvg(58, 112, s);
+}
+function sceneDoorArt(open) {
+  let s = '<path d="M4 112V36q32-40 64 0v76Z" fill="#56525a" stroke="' + SCENE.out + '" stroke-width="1.5"/>' +
+    '<path d="M12 112V40q24-30 48 0v72Z" class="sc-street"/>';
+  if (open) {
+    s += '<path d="M12 112V40l12 6v66Z" fill="#6b4a2a" stroke="' + SCENE.out + '"/>';
+  } else {
+    s += '<path d="M12 112V40q24-30 48 0v72Z" fill="#6b4a2a" stroke="' + SCENE.out + '"/>' +
+      '<path d="M24 112V24M36 112V20M48 112V24" stroke="' + SCENE.woodD + '" stroke-width="1.5"/>' +
+      '<circle cx="52" cy="76" r="2.4" fill="#cfa53b"/>';
+  }
+  // the plaque that says which state the shop is in
+  s += '<path d="M24 50l12-8 12 8" fill="none" stroke="#2a2a30"/>' +
+    '<rect x="18" y="50" width="36" height="14" rx="2" fill="' + (open ? '#3f6f5a' : '#7a3b32') +
+    '" stroke="' + SCENE.out + '"/>' +
+    '<text x="36" y="60.5" text-anchor="middle" font-size="8" font-weight="700" fill="#f0e6c8" ' +
+    'font-family="Georgia,serif">' + (open ? 'OPEN' : 'CLOSED') + '</text>';
+  return sceneSvg(72, 112, s);
+}
+/* The sign over the door. It grows grander with the building, and the name
+   always fits: past what the board holds at a natural size, the lettering
+   is squeezed to the board rather than spilling off it. */
+function sceneSignArt(sh, stage) {
+  const w = 118, h = 36;
+  const name = sh.name || SHOP_NAME_DEFAULT;
+  const room = w - 22;
+  const natural = name.length * 6.6;
+  const fit = natural > room ? ' textLength="' + room + '" lengthAdjust="spacingAndGlyphs"' : '';
+  let s = '';
+  if (stage.id === 1) {
+    s += '<path d="M20 0v7M98 0v7" stroke="#8b7a55" stroke-width="1.5"/>' +
+      '<rect x="6" y="7" width="106" height="26" rx="2" fill="' + SCENE.wood + '" stroke="' + SCENE.out + '"/>';
+  } else {
+    s += '<path d="M14 0v6M104 0v6" stroke="#2a2a30" stroke-width="2"/>' +
+      '<rect x="3" y="5" width="112" height="29" rx="3" fill="' + (stage.id >= 3 ? '#3a2a1a' : '#5b3f24') +
+      '" stroke="' + (stage.id >= 3 ? '#cfa53b' : SCENE.out) + '" stroke-width="' + (stage.id >= 3 ? 2 : 1) + '"/>' +
+      '<rect x="7" y="9" width="104" height="21" rx="2" fill="' + (stage.id >= 4 ? '#233a30' : SCENE.wood) + '"/>';
+    if (stage.id >= 4) {
+      s += '<path d="M59 1l4 4-4 4-4-4Z" fill="#cfa53b" stroke="' + SCENE.out + '" stroke-width=".6"/>';
+    }
+  }
+  s += '<text x="59" y="' + (stage.id === 1 ? 24.5 : 23.5) + '" text-anchor="middle" font-size="11" ' +
+    'font-weight="700" font-family="Georgia,serif" fill="' + (stage.id >= 3 ? '#f0d890' : '#f0e6c8') +
+    '"' + fit + '>' + esc(name) + '</text>';
+  return sceneSvg(w, h, s);
+}
+
+/* ---------- the people ---------- */
+/* A figure is the portrait the rest of the game already draws, stood on a
+   pair of legs in the apron of their trade. */
+function sceneFigure(face, apron, extra) {
+  return portrait(face, 'fig-head') +
+    sceneSvg(32, 22, '<path d="M6 0h20l2 12H4Z" fill="' + apron + '" stroke="' + SCENE.out +
+      '" stroke-linejoin="round"/><rect x="9" y="12" width="5" height="10" fill="#2a2522"/>' +
+      '<rect x="18" y="12" width="5" height="10" fill="#2a2522"/>', 'fig-legs') + (extra || '');
+}
+/* Where each trade works, for whoever is booked into THIS phase. Somebody
+   booked for later, or who has already done their day's work, is not drawn
+   at a station they are not at. */
+function sceneStaffSpots(sh, L) {
+  const phase = shopPhase(sh);
+  const out = [];
+  for (const role of SHOP.roles) {
+    const held = assignmentAt(sh, role.id, phase);
+    if (!held || held.done) continue;
+    const e = held.staff;
+    const order = (held.job && held.job.order) || {};
+    let at = null, where = '';
+    if (role.id === 'salesperson') { at = { x: L.R + 56, y: 104, z: 25 }; where = 'behind the counter'; }
+    else if (role.id === 'smith' && order.kind === 'smelt') { at = { x: 34, y: 112, z: 24 }; where = 'at the furnace'; }
+    else if (role.id === 'smith') { at = { x: 122, y: 118, z: 18 }; where = 'at the anvil'; }
+    else if (role.id === 'apprentice') { at = { x: 2, y: 118, z: 26 }; where = 'working the bellows'; }
+    else if (role.id === 'storehand') {
+      const target = placedStands(sh).find(function (st) { return st.qty < standHold(); });
+      const spot = target ? L.spots[target.slot] : L.spots[0];
+      at = { x: (spot ? spot.x : L.floorX) + 44, y: 132, z: 45 };
+      where = 'seeing to the stands';
+    } else if (role.id === 'runner') { at = { x: L.R + 280, y: 104, z: 22 }; where = 'by the door, about to set out'; }
+    if (at) out.push({ e: e, at: at, where: where, role: role });
+  }
+  return out;
+}
+function sceneStaffHtml(sh, L) {
+  let html = '';
+  for (const one of sceneStaffSpots(sh, L)) {
+    const e = one.e;
+    html += '<button type="button" class="fig staff" data-crew="' + e.id + '" style="left:' + one.at.x +
+      'px;top:' + one.at.y + 'px;z-index:' + one.at.z + '" aria-label="' +
+      esc(e.name + ', ' + e.rank + '-rank ' + one.role.name + ', ' + one.where) + '">' +
+      sceneFigure(staffFace(e), SCENE.apron[e.role] || '#555',
+        rankReady(e) ? '<span class="fig-up" aria-hidden="true">&#9650;</span>' : '') +
+      '<span class="fig-name">' + esc(e.name.split(' ')[0]) + '</span></button>';
+  }
+  return html;
+}
+
+/* ---------- the shop floor ---------- */
+/* How full a display LOOKS. Four states, read off the real count - the
+   drawing never feeds back into the number. */
+function standFill(stand) {
+  if (!stand || !stand.key || stand.qty <= 0) return 0;
+  const f = stand.qty / standHold();
+  return f >= 0.75 ? 3 : f >= 0.40 ? 2 : 1;
+}
+function roman(n) {
+  const table = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let out = '';
+  for (const pair of table) while (n >= pair[0]) { out += pair[1]; n -= pair[0]; }
+  return out;
+}
+/* "Armour Stand II": the second of that kind the forge bought. */
+function standTitle(sh, stand) {
+  const def = shopStandDef(stand.type);
+  const same = sh.stands.filter(function (st) { return st.type === stand.type; })
+    .sort(function (a, b) { return a.id - b.id; });
+  const n = same.indexOf(stand) + 1;
+  return (def ? def.name : 'Display') + (same.length > 1 ? ' ' + roman(n) : '');
+}
+function standSummary(sh, stand) {
+  const up = standLevel(stand);
+  const bonus = Math.round(up * SHOP.growth.display.step * 1000) / 10;
+  return standTitle(sh, stand) + (up ? ', level ' + up + ' (+' + bonus + '%)' : '') +
+    (stand.key && stand.qty > 0
+      ? ', ' + stand.qty + ' of ' + standHold() + ' ' + lineName(stand.key) + ' at ' +
+        coin(stand.price) + ' gold each'
+      : ', empty');
+}
+function sceneStandHtml(sh, stand, spot) {
+  const fill = standFill(stand);
+  const up = standLevel(stand);
+  let goods = '';
+  for (let k = 0; k < fill; k++) goods += lineSprite(stand.key, 'st-good');
+  const sel = SHOPUI.editing && SHOPUI.editSel === stand.id;
+  return '<button type="button" class="spot stand fill-' + fill + ' up-' + up +
+    (spot.back ? ' back' : ' front') + (sel ? ' sel' : '') + '" data-sstand="' + stand.id +
+    '" style="left:' + spot.x + 'px;top:' + spot.y + 'px;z-index:' + (spot.back ? 10 : 34) +
+    '" aria-label="' + esc(standSummary(sh, stand) + (SHOPUI.editing ? ', tap to pick it up' : '')) + '">' +
+    (up >= 2 ? '<span class="st-cloth" aria-hidden="true"></span>' : '') +
+    standSprite(stand.type, 'st-base') +
+    (goods ? '<span class="st-goods" aria-hidden="true">' + goods + '</span>' : '') +
+    (up ? '<span class="st-pips" aria-hidden="true">' + '&#9670;'.repeat(up) + '</span>' : '') +
+    (fill ? '<span class="st-qty" aria-hidden="true">' + stand.qty + '/' + standHold() + '</span>' : '') +
+    '</button>';
+}
+function sceneFloorHtml(sh, L) {
+  let html = '';
+  for (const spot of L.spots) {
+    const stand = standAtSlot(sh, spot.i);
+    if (stand) { html += sceneStandHtml(sh, stand, spot); continue; }
+    const pos = 'left:' + spot.x + 'px;top:' + spot.y + 'px;z-index:' + (spot.back ? 8 : 32);
+    if (!spot.usable) {
+      // floor that is part of the building but not yet part of the shop
+      html += '<button type="button" class="spot roped' + (spot.back ? ' back' : ' front') +
+        '" data-spot="' + spot.i + '" style="' + pos + '" aria-label="Roped-off floor. ' +
+        'Store Expansion in Growth opens it.">' +
+        '<span class="rp-rope" aria-hidden="true"></span><span class="rp-word">Expand</span></button>';
+    } else {
+      html += '<button type="button" class="spot pad' + (spot.back ? ' back' : ' front') +
+        (SHOPUI.editing && SHOPUI.editSel ? ' ok' : '') + '" data-spot="' + spot.i +
+        '" style="' + pos + '" aria-label="Empty floor space' +
+        (SHOPUI.editing ? (SHOPUI.editSel ? ', tap to put the stand here' : '') :
+          ', tap to put a stand on it') + '"><span class="pd-plus" aria-hidden="true">+</span></button>';
+    }
+  }
+  return html;
+}
+
+function sceneStation(id, x, y, w, h, z, art, label, aria, extraCls) {
+  return '<button type="button" class="station st-' + id + (extraCls ? ' ' + extraCls : '') +
+    '" data-station="' + id + '" style="left:' + x + 'px;top:' + y + 'px;width:' + w +
+    'px;height:' + h + 'px;z-index:' + z + '" aria-label="' + esc(aria) + '">' + art +
+    (label ? '<span class="sc-label" aria-hidden="true">' + esc(label) + '</span>' : '') + '</button>';
+}
+function sceneStationsHtml(sh, L) {
+  const R = L.R;
+  const fl = growthLevel(sh, 'forge');
+  const cap = batchCapacity(sh);
+  const open = !!SHOPUI.sceneOpen;
+  let html = '';
+  html += sceneStation('forge', 4, 0, 104, 150, 12, sceneForgeArt(fl) +
+    '<i class="spark s1"></i><i class="spark s2"></i><i class="spark s3"></i>',
+    'Forge', 'The forge, level ' + fl + ' of ' + SHOP.growth.forge.max + ': works ' + cap +
+    ' ingots a phase. Tap to forge or put a smith on it.', 'lv-' + Math.min(8, fl));
+  html += sceneStation('anvil', 110, 150, 62, 62, 22, sceneAnvilArt(), '',
+    'The anvil. Tap to forge or put a smith on it.');
+  html += sceneStation('store', 174, 56, 64, 94, 12, sceneStoreArt(sh), 'Storeroom',
+    'The storeroom: metal, ore and supplies. Tap to buy or send a runner.');
+  html += sceneStation('table', 238, 128, 58, 70, 28, sceneTableArt(), 'Almanac',
+    'The blueprint table. Tap to open the Checksmith Almanac.');
+  html += sceneStation('counter', R + 10, 128, 134, 78, 30, sceneCounterArt(), 'Counter',
+    'The sales counter. Tap to choose who tends the store.');
+  html += sceneStation('board', R + 150, 24, 58, 112, 12, sceneBoardArt(sh), 'Staff',
+    'The staff noticeboard: ' + sh.staff.length + ' of ' + staffCapacity(sh) +
+    ' places filled. Tap to hire and manage staff.');
+  html += sceneStation('door', R + 214, 38, 72, 112, 12, sceneDoorArt(open), 'Door',
+    'The door, ' + (open ? 'open' : 'closed while you plan') +
+    '. Tap for deliveries, carts and your properties.', open ? 'open' : '');
+  html += sceneStation('sign', R + 192, 2, 118, 36, 14, sceneSignArt(sh, L.stage), '',
+    'The sign over the door reads ' + sh.name + '. Tap to rename the business.');
+  if (sh.vehicles && sh.vehicles.length) {
+    const best = sh.vehicles.slice().sort(function (a, b) {
+      return vehicleCapacity(b) - vehicleCapacity(a);
+    })[0];
+    html += sceneStation('cart', R + 290, 172, 38, 40, 36, vehicleSprite(best.kind, 'sc-cart'), '',
+      'Your ' + (vehicleDef(best.kind) || {}).name + ' by the door. Tap for deliveries.');
+  }
+  return html;
+}
+function sceneGlowHtml(sh, L) {
+  let html = '<i class="glow forge-glow" style="left:10px;top:84px"></i>';
+  for (const x of sceneLampXs(L)) html += '<i class="glow lamp" style="left:' + (x - 30) + 'px;top:4px"></i>';
+  return html;
+}
+
+/* ---------- drawing it ---------- */
+function sceneRender() {
+  const sh = App.shop;
+  if (!sh) return;
+  const L = sceneLayout(sh);
+  const world = $('shWorld');
+  world.style.width = L.W + 'px';
+  world.dataset.phase = shopPhase(sh);
+  world.dataset.stage = L.stage.id;
+  world.classList.toggle('editing', !!SHOPUI.editing);
+  world.classList.toggle('open', !!SHOPUI.sceneOpen);
+  const key = L.stage.id + '|' + L.W;
+  if (SHOPUI.backKey !== key || !$('shBack').firstChild) {
+    $('shBack').innerHTML = sceneBackdrop(sh, L);
+    SHOPUI.backKey = key;
+  }
+  $('shThings').innerHTML = sceneStationsHtml(sh, L) + sceneFloorHtml(sh, L) +
+    (SHOPUI.editing ? '' : sceneStaffHtml(sh, L));
+  $('shGlow').innerHTML = sceneGlowHtml(sh, L);
+  $('shEditBtn').textContent = SHOPUI.editing ? 'Done editing' : 'Edit shop';
+  $('shEditBtn').classList.toggle('on', !!SHOPUI.editing);
+  sceneRenderTray(sh);
+  // a shop opened for the first time this visit is shown from the street
+  // end: the sign with its name on it, the counter and the door
+  if (SHOPUI.sceneFor !== App.shopSlot) {
+    SHOPUI.sceneFor = App.shopSlot;
+    $('shScene').scrollLeft = Math.max(0, L.R - 40);
+  }
+}
+function sceneJump(where) {
+  const sh = App.shop;
+  if (!sh) return;
+  const L = sceneLayout(sh);
+  const x = where === 'work' ? 0 : where === 'floor' ? L.floorX - 20 : L.R - 40;
+  const el = $('shScene');
+  const smooth = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  try { el.scrollTo({ left: x, behavior: smooth ? 'smooth' : 'auto' }); } catch (err) { el.scrollLeft = x; }
+}
+
+/* ---------- Edit Shop ------------------------------------------------------
+   Rearranging the floor is bookkeeping: entering, moving, swapping, putting
+   a display in the back and leaving all cost nothing, and a display carries
+   everything on it wherever it goes. The stations do not move. */
+function shopEditMode(on, select) {
+  SHOPUI.editing = !!on;
+  SHOPUI.editSel = on && select != null ? select : null;
+  if (on) sceneJump('floor');
+  shopRender();
+}
+function sceneRenderTray(sh) {
+  const tray = $('shEditTray');
+  if (!SHOPUI.editing) { tray.hidden = true; tray.innerHTML = ''; return; }
+  tray.hidden = false;
+  const back = storedStands(sh);
+  const sel = SHOPUI.editSel != null ? standById(sh, SHOPUI.editSel) : null;
+  let html = '<p class="tray-note">' + (sel
+    ? '<b>' + esc(standTitle(sh, sel)) + '</b> picked up. Tap a green space to put it there, ' +
+      'another display to swap them' + (standPlaced(sel) ? ', or put it in the back.' : '.')
+    : 'Tap a display to pick it up, or one waiting in the back to put it out. Nothing here ' +
+      'costs a phase.') + '</p>';
+  html += '<div class="tray-row"><span class="tray-head">In the back</span>';
+  if (!back.length) html += '<span class="tray-empty">nothing — every display is out</span>';
+  for (const st of back) {
+    html += '<button type="button" class="tray-item' + (sel && sel.id === st.id ? ' sel' : '') +
+      '" data-tray="' + st.id + '" aria-label="' + esc(standSummary(sh, st)) + ', in the back">' +
+      standSprite(st.type) + '<span>' + esc(standTitle(sh, st)) +
+      (st.key && st.qty > 0 ? ' · ' + st.qty : '') + '</span></button>';
+  }
+  html += '</div><div class="tray-acts">' +
+    '<button type="button" data-tray-act="store"' + (sel && standPlaced(sel) ? '' : ' disabled') +
+    '>Put it in the back</button>' +
+    '<button type="button" data-tray-act="buy">Buy a stand</button>' +
+    '<button type="button" class="primary" data-tray-act="done">Done</button></div>';
+  tray.innerHTML = html;
+}
+function sceneEditTap(target) {
+  const sh = shop();
+  const standBtn = target.closest('[data-sstand]');
+  const spotBtn = target.closest('[data-spot]');
+  const sel = SHOPUI.editSel != null ? standById(sh, SHOPUI.editSel) : null;
+  if (standBtn) {
+    const other = standById(sh, Number(standBtn.dataset.sstand));
+    if (!sel || sel.id === other.id) {
+      SHOPUI.editSel = sel && sel.id === other.id ? null : other.id;
+      SOUNDS.tick && SOUNDS.tick();
+      shopRender();
+      return;
+    }
+    const res = placeStand(sh, sel.id, other.slot);
+    if (!res.ok) { SOUNDS.invalid(); sceneFlash(standBtn); shopToast(res.why); return; }
+    SOUNDS.shelve();
+    SHOPUI.editSel = null;
+    shopRender();
+    announce('Swapped ' + standTitle(sh, sel) + ' and ' + standTitle(sh, other) + '.');
+    return;
+  }
+  if (spotBtn) {
+    const slot = Number(spotBtn.dataset.spot);
+    if (!sel) { sceneFlash(spotBtn); shopToast('Pick up a display first.'); return; }
+    const res = placeStand(sh, sel.id, slot);
+    if (!res.ok) { SOUNDS.invalid(); sceneFlash(spotBtn); shopToast(res.why); return; }
+    SOUNDS.shelve();
+    SHOPUI.editSel = null;
+    shopRender();
+    announce(standTitle(sh, sel) + ' put out on the floor.');
+  }
+}
+function sceneFlash(el) {
+  if (!el) return;
+  el.classList.remove('bad');
+  void el.offsetWidth;
+  el.classList.add('bad');
+}
+
+/* ---------- the stations' panels -------------------------------------------
+   Each of these only SHOWS and routes: the buttons hand straight to the
+   functions the menus already used. Opening one never costs a phase; only
+   the actions that always cost one still do. */
+function staffAvailability(sh, e) {
+  const a = assignedThisDay(sh, e.id);
+  if (!a) return 'free today';
+  const st = assignmentStatus(sh, e.id);
+  const ph = SHOP.phaseName[a.phase].toLowerCase();
+  return st === 'done' ? 'worked the ' + ph + ' — done for the day'
+    : st === 'active' ? 'working this ' + ph : 'booked for the ' + ph;
+}
+function stationCrewList(sh, roleId, roleName) {
+  const people = staffOfRole(sh, roleId);
+  if (!people.length) return '';
+  return '<div class="shop-list">' + people.map(function (e) {
+    return crewCard(e, roleName, staffAvailability(sh, e));
+  }).join('') + '</div>';
+}
+function stationBox(sh, roleId) {
+  const phase = shopPhase(sh);
+  const held = assignmentAt(sh, roleId, phase);
+  return {
+    held: held,
+    open: function () {
+      if (held) shopOpenAssignment(held.staff.id);
+      else shopOpenHandPicker(roleId, phase);
+    }
+  };
+}
+function shopShowTab(id) {
+  shopSheetClose();
+  SHOPUI.tab = id;
+  shopRender();
+  const tabs = $('shTabs');
+  try { tabs.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { /* old engines */ }
+}
+
+function shopOpenStation(id) {
+  const sh = shop();
+  const phase = shopPhase(sh);
+  const pn = shopPhaseName(sh).toLowerCase();
+  if (id === 'table') { shopOpenAlmanac(); return; }
+  if (id === 'sign') { shopOpenSettings(); return; }
+  if (id === 'anvil') id = 'forge';
+  if (id === 'cart') id = 'door';
+
+  if (id === 'counter') {
+    const box = stationBox(sh, 'salesperson');
+    const sellers = staffOfRole(sh, 'salesperson');
+    const kept = standingAt(sh, 'salesperson', phase);
+    const why = shopActionState('tend');
+    let body = '<p class="station-note">' + (box.held
+      ? '<b>' + esc(box.held.staff.name) + '</b> is minding the counter this ' + pn + '.'
+      : 'Nobody is minding the counter this ' + pn + '.') +
+      (kept && kept.on ? ' This box is kept every day &#8634;.' : '') + ' ' +
+      countShelf(sh) + ' pieces out on ' + placedStands(sh).length + ' displays.</p>';
+    body += sellers.length ? stationCrewList(sh, 'salesperson', 'Salesperson')
+      : '<p class="station-note">You have no salesperson yet — hire one at the noticeboard.</p>';
+    shopSheet('The counter', body, [
+      { label: 'Tend it yourself', primary: true, disabled: !!why,
+        onClick: function () { shopSheetClose(); shopAct('tend'); } },
+      { label: box.held ? 'Change who is on it' : 'Put a salesperson on it',
+        disabled: !sellers.length, onClick: box.open },
+      { label: kept ? 'The kept box' : 'Keep it staffed every day', disabled: !sellers.length,
+        onClick: function () { shopOpenStanding('salesperson', phase); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+    if (why) $('shopSheetBody').insertAdjacentHTML('beforeend',
+      '<p class="station-why">You cannot tend it yourself: ' + esc(why) + '.</p>');
+    return;
+  }
+
+  if (id === 'forge') {
+    const smith = stationBox(sh, 'smith');
+    const help = stationBox(sh, 'apprentice');
+    const why = shopActionState('forge');
+    const fl = growthLevel(sh, 'forge');
+    let body = '<p class="station-note">The forge works <b>' + batchCapacity(sh) +
+      ' ingots</b> a phase' + (fl ? ' — level ' + fl + ' of ' + SHOP.growth.forge.max : '') +
+      (apprenticeBonus(sh) ? ', ' + apprenticeBonus(sh) + ' of it from the apprentice at the bench' : '') +
+      '.</p>';
+    if (sh.orders.length) {
+      body += '<div class="shop-list">' + sh.orders.map(function (o) {
+        return rowHtml(lineSprite(o.key) + ' ' + o.qty + ' × ' + esc(lineName(o.key)),
+          (o.maker === 'you' ? 'Your batch' : 'Made by ' + esc(o.maker)) +
+          ' · off the anvil tomorrow morning', '');
+      }).join('') + '</div>';
+    } else {
+      body += '<p class="station-note">Nothing is cooling on the anvil.</p>';
+    }
+    body += stationCrewList(sh, 'smith', 'Smith') + stationCrewList(sh, 'apprentice', 'Apprentice');
+    shopSheet('The forge', body, [
+      { label: 'Forge a batch yourself', primary: true, disabled: !!why,
+        onClick: function () { shopSheetClose(); shopAct('forge'); } },
+      { label: smith.held ? 'The smith’s order' : 'Give a smith an order',
+        disabled: !staffOfRole(sh, 'smith').length, onClick: smith.open },
+      { label: help.held ? 'The apprentice’s bench' : 'Put an apprentice at the bench',
+        disabled: !staffOfRole(sh, 'apprentice').length, onClick: help.open },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+    if (why) $('shopSheetBody').insertAdjacentHTML('beforeend',
+      '<p class="station-why">You cannot forge yourself right now: ' + esc(why) + '.</p>');
+    return;
+  }
+
+  if (id === 'store') {
+    const run = stationBox(sh, 'runner');
+    let body = '<p class="station-note">Storage ' + countStorage(sh) + ' / ' + storageCapacity(sh) +
+      ' pieces.' + (run.held ? ' <b>' + esc(run.held.staff.name) + '</b> runs errands this ' + pn + '.' : '') +
+      '</p><div class="shop-list">';
+    let any = false;
+    for (const m of SHOP.materials) {
+      if (sh.materials[m.id] > 0) {
+        any = true;
+        body += rowHtml(ingotSprite(m.id) + ' ' + esc(m.name) + ' ingots', '', sh.materials[m.id]);
+      }
+      if (sh.ore && sh.ore[m.id] > 0) {
+        any = true;
+        body += rowHtml(oreSprite(m.id) + ' ' + esc(m.name) + ' ore', 'smelted at the furnace', sh.ore[m.id]);
+      }
+    }
+    if (!any) body += rowHtml('<span style="color:var(--muted)">The shelves are bare</span>', '', '');
+    body += '</div>';
+    shopSheet('The storeroom', body, [
+      { label: 'Buy materials yourself', primary: true,
+        onClick: function () { shopSheetClose(); shopAct('buy'); } },
+      { label: run.held ? 'The runner’s errand' : 'Send a runner',
+        disabled: !staffOfRole(sh, 'runner').length, onClick: run.open },
+      { label: 'Storage', onClick: function () { shopShowTab('storage'); } },
+      { label: 'Metal & ore', onClick: function () { shopShowTab('metal'); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+    return;
+  }
+
+  if (id === 'board') {
+    const due = readyToRank(sh);
+    let body = '<p class="station-note"><b>' + sh.staff.length + ' of ' + staffCapacity(sh) +
+      '</b> places on the books filled.' + (sh.staff.length >= staffCapacity(sh)
+        ? ' More places are bought in <b>Growth</b>.' : '') + '</p>';
+    if (due.length) {
+      body += '<div class="rank-call"><b>' + due.length + (due.length === 1 ? ' hand has' : ' hands have') +
+        ' earned a promotion</b><span>' + esc(due.map(function (one) { return one.name; }).join(', ')) +
+        ' — tap them to rank them up.</span></div>';
+    }
+    body += '<div class="shop-list">' + sh.staff.map(function (e) {
+      return crewCard(e, shopRole(e.role).name, staffAvailability(sh, e));
+    }).join('') + '</div>';
+    if (!sh.staff.length) body += '<p class="station-note">Nobody works here yet.</p>';
+    shopSheet('Staff noticeboard', body, [
+      { label: 'Search for Employees', primary: true,
+        onClick: function () { shopSheetClose(); shopAct('hire'); } },
+      { label: 'Plan the day', onClick: function () { shopShowTab('staff'); } },
+      { label: 'More places', onClick: function () { shopShowTab('grow'); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+    return;
+  }
+
+  if (id === 'door') {
+    const run = stationBox(sh, 'runner');
+    const ready = (sh.commissions || []).filter(function (c) {
+      return commissionToShip(c) > 0;
+    });
+    let body = '<p class="station-note">Nothing leaves this door until you send it, and ' +
+      'nothing goes out to a customer without something to carry it in.</p><div class="shop-list">';
+    if (sh.vehicles && sh.vehicles.length) {
+      for (const v of sh.vehicles) {
+        body += rowHtml(vehicleSprite(v.kind) + ' ' + esc((vehicleDef(v.kind) || {}).name || 'Vehicle'),
+          'carries ' + vehicleCapacity(v) + ' · ' + (vehicleFree(sh, v, phase) ? 'in the yard' : 'out this ' + pn), '');
+      }
+    } else {
+      body += rowHtml('<span style="color:var(--muted)">No cart or wagon</span>',
+        'buy one under Map before anything can be delivered', '');
+    }
+    for (const c of ready) {
+      body += rowHtml(contractSprite() + ' ' + esc(c.name) + '’s order',
+        commissionToShip(c) + ' ' + esc(lineName(c.key)) + ' ready to go', '');
+    }
+    body += rowHtml(mineSprite((sh.mines[0] || {}).def) + ' Properties',
+      sh.mines.length + (sh.mines.length === 1 ? ' mine' : ' mines') + ' owned', '');
+    body += '</div>';
+    shopSheet('The door', body, [
+      { label: 'Deliveries', primary: true, onClick: function () { shopShowTab('ledger'); } },
+      { label: run.held ? 'The runner’s errand' : 'Send a runner',
+        disabled: !staffOfRole(sh, 'runner').length, onClick: run.open },
+      { label: 'Map & property', onClick: function () { shopShowTab('props'); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }
+    ]);
+  }
+}
+
+/* Empty floor, and floor not yet bought: say what it is and where to go. */
+function shopOpenSpot(slot) {
+  const sh = shop();
+  if (!slotUsable(sh, slot)) {
+    shopSheet('Roped-off floor',
+      '<p class="station-note">This part of the building is not part of the shop yet. A ' +
+      '<b>Store Expansion</b> in Growth opens one more space on the floor — the stand that goes ' +
+      'on it is then bought in the Shop.</p>',
+      [{ label: 'Growth', primary: true, onClick: function () { shopShowTab('grow'); } },
+        { label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    return;
+  }
+  const back = storedStands(sh);
+  shopSheet('Empty floor space',
+    '<p class="station-note">' + (back.length
+      ? back.length + (back.length === 1 ? ' display is' : ' displays are') +
+        ' waiting in the back to be put out.'
+      : 'Nothing is waiting in the back. Buy a stand and put it here.') + '</p>',
+    [back.length
+      ? { label: 'Put one out', primary: true,
+          onClick: function () { shopSheetClose(); shopEditMode(true, back[0].id); } }
+      : { label: 'Buy a stand', primary: true, onClick: function () { shopOpenBuyStand(); } },
+      { label: 'Edit shop', onClick: function () { shopSheetClose(); shopEditMode(true); } },
+      { label: 'Back', ghost: true, onClick: shopSheetClose }]);
+}
+
+/* ---------- the business's name, and how the phase is shown ---------- */
+function phaseAnimOn() {
+  const kept = Store.read().phaseAnim;
+  if (kept === true || kept === false) return kept;
+  const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return !still;
+}
+function shopOpenSettings() {
+  const sh = shop();
+  const body = '<div class="pick-row"><label for="shRename">Name over the door</label>' +
+    '<input id="shRename" class="name-field" type="text" maxlength="' + SHOP_NAME_MAX +
+    '" autocomplete="off" value="' + esc(sh.name) + '"></div>' +
+    '<p class="station-note">Up to ' + SHOP_NAME_MAX + ' letters. Renaming changes the sign and ' +
+    'the save; nothing else about the business.</p>' +
+    '<label class="check-row"><input type="checkbox" id="shAnimPref"' + (phaseAnimOn() ? ' checked' : '') +
+    '> Show the shop at work when a phase ends</label>';
+  shopSheet('Your business', body, [
+    { label: 'Save', primary: true, onClick: function () {
+      const raw = $('shRename').value;
+      const others = readSlots().filter(function (slot) { return slot.id !== App.shopSlot; })
+        .map(function (slot) { return slot.name; });
+      const want = CHECKSMITH_CORE.shopNameFree(raw.trim() ? raw : sh.name, others);
+      const res = shopRename(sh, want);
+      Store.patch({ phaseAnim: !!$('shAnimPref').checked });
+      shopSheetClose();
+      shopRender();
+      if (res.name !== res.was) {
+        SOUNDS.prosper(false);
+        shopToast('The sign now reads ' + res.name + '.');
+      }
+    } },
+    { label: 'Back', ghost: true, onClick: shopSheetClose }
+  ]);
+}
+
+/* ---------- touch ---------------------------------------------------------
+   The room scrolls under a finger, and a swipe must never land as a tap on
+   whatever it happened to start on. A mouse gets the same drag to scroll. */
+function wireScene() {
+  const scene = $('shScene');
+  const drag = { on: false, x: 0, y: 0, left: 0, moved: 0 };
+  scene.addEventListener('pointerdown', function (e) {
+    drag.on = true; drag.moved = 0; drag.armed = true;
+    drag.x = e.clientX; drag.y = e.clientY; drag.left = scene.scrollLeft;
+    drag.mouse = e.pointerType === 'mouse';
+  });
+  scene.addEventListener('pointermove', function (e) {
+    if (!drag.on) return;
+    const dx = e.clientX - drag.x;
+    drag.moved = Math.max(drag.moved, Math.abs(dx), Math.abs(e.clientY - drag.y));
+    if (drag.mouse && drag.moved > 6) scene.scrollLeft = drag.left - dx;
+  });
+  const end = function () { drag.on = false; };
+  scene.addEventListener('pointerup', end);
+  scene.addEventListener('pointercancel', end);
+  scene.addEventListener('pointerleave', end);
+  /* A drag that moved the view, or moved the finger, is not a tap. Only a
+     click that actually began with a press on the room is judged: one from
+     the keyboard, or from assistive technology, has no press behind it and
+     must always go through, however far the room was scrolled since. */
+  scene.addEventListener('click', function (e) {
+    const judged = drag.armed && e.detail !== 0;
+    drag.armed = false;
+    if (judged && (drag.moved > 10 || Math.abs(scene.scrollLeft - drag.left) > 10)) {
+      e.stopPropagation(); e.preventDefault();
+    }
+    drag.moved = 0;
+  }, true);
+
+  $('shSceneWrap').addEventListener('click', function (e) {
+    const t = e.target.closest ? e.target : null;
+    if (!t) return;
+    if (SHOPUI.playing) { shopSkipPhase(); return; }
+    const jump = t.closest('[data-jump]');
+    if (jump) { sceneJump(jump.dataset.jump); return; }
+    if (t.closest('#shEditBtn')) { shopEditMode(!SHOPUI.editing); return; }
+    const trayAct = t.closest('[data-tray-act]');
+    if (trayAct && !trayAct.disabled) {
+      const what = trayAct.dataset.trayAct;
+      if (what === 'done') { shopEditMode(false); return; }
+      if (what === 'buy') { shopOpenBuyStand(); return; }
+      if (what === 'store' && SHOPUI.editSel != null) {
+        const sh = shop();
+        const st = standById(sh, SHOPUI.editSel);
+        storeStand(sh, SHOPUI.editSel);
+        SHOPUI.editSel = null;
+        SOUNDS.shelve();
+        shopRender();
+        announce(standTitle(sh, st) + ' is in the back' +
+          (st.key && st.qty > 0 ? ', still holding its ' + st.qty + ' pieces.' : '.'));
+      }
+      return;
+    }
+    const tray = t.closest('[data-tray]');
+    if (tray) {
+      const id = Number(tray.dataset.tray);
+      SHOPUI.editSel = SHOPUI.editSel === id ? null : id;
+      shopRender();
+      return;
+    }
+    if (SHOPUI.editing) {
+      if (t.closest('[data-station]') || t.closest('[data-crew]')) {
+        shopToast('The workstations stay where they are. Displays move.');
+        return;
+      }
+      sceneEditTap(t);
+      return;
+    }
+    const station = t.closest('[data-station]');
+    if (station) { shopOpenStation(station.dataset.station); return; }
+    const stand = t.closest('[data-sstand]');
+    if (stand) { shopOpenStand(Number(stand.dataset.sstand)); return; }
+    const spot = t.closest('[data-spot]');
+    if (spot) { shopOpenSpot(Number(spot.dataset.spot)); return; }
+    const crew = t.closest('[data-crew]');
+    if (crew) { shopOpenHand(Number(crew.dataset.crew)); return; }
+  });
+}
+
+/* ---------- the phase, played back ------------------------------------------
+   By the time any of this runs the phase has ALREADY resolved - once, in
+   shopAdvancePhase - and been saved. What plays here is read off the
+   reports that call returned and nothing else: it never calls a rule, never
+   touches the purse, the stock or anybody's experience. So skipping it,
+   letting it run, or closing the game half way through cannot change a
+   single result; `finish` is guarded so the summary is reached exactly once
+   however the playback ends. */
+function sceneFloat(x, y, text, cls) {
+  const el = document.createElement('span');
+  el.className = 'fx-float' + (cls ? ' ' + cls : '');
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.textContent = text;
+  $('shFx').appendChild(el);
+}
+function sceneWalker(face, from, to, ms) {
+  const el = document.createElement('span');
+  el.className = 'fig walker';
+  el.innerHTML = sceneFigure(face, '#4f4a45');
+  el.style.left = from.x + 'px';
+  el.style.top = from.y + 'px';
+  $('shFx').appendChild(el);
+  if (el.animate) {
+    el.animate([{ transform: 'translate(0,0)', opacity: 0 },
+      { transform: 'translate(0,0)', opacity: 1, offset: 0.12 },
+      { transform: 'translate(' + (to.x - from.x) + 'px,' + (to.y - from.y) + 'px)', opacity: 1 }],
+      { duration: ms, easing: 'ease-in-out', fill: 'forwards' });
+  }
+  return el;
+}
+function sceneBusy(sel) {
+  const el = $('shThings').querySelector(sel);
+  if (!el) return;
+  el.classList.remove('busy');
+  void el.offsetWidth;
+  el.classList.add('busy');
+}
+/* Swap the displays (and the storeroom shelves) for how they stand NOW. */
+function sceneShowAfter(what) {
+  const sh = shop();
+  const L = sceneLayout(sh);
+  const host = $('shThings');
+  if (what === 'floor') {
+    host.querySelectorAll('.spot').forEach(function (el) { el.remove(); });
+    host.insertAdjacentHTML('beforeend', sceneFloorHtml(sh, L));
+  } else if (what === 'store') {
+    const old = host.querySelector('[data-station="store"]');
+    if (old) old.outerHTML = sceneStation('store', 174, 56, 64, 94, 12, sceneStoreArt(sh),
+      'Storeroom', 'The storeroom.');
+  }
+}
+function sceneFigFor(role) {
+  const sh = shop();
+  const held = assignmentAt(sh, role, shopPhase(sh));
+  return held ? '[data-crew="' + held.staff.id + '"]' : null;
+}
+
+function shopPlayPhase(reports, note, closing, done) {
+  const sh = shop();
+  const L = sceneLayout(sh);
+  const view = $('shopView');
+  const timers = [];
+  let finished = false;
+  const finish = function () {
+    if (finished) return;
+    finished = true;
+    for (const t of timers) clearTimeout(t);
+    SHOPUI.playing = null;
+    SHOPUI.sceneOpen = false;
+    view.classList.remove('playing');
+    $('shSkip').hidden = true;
+    $('shFx').innerHTML = '';
+    done();
+  };
+  const at = function (ms, fn) { timers.push(setTimeout(fn, ms)); };
+  SHOPUI.playing = { finish: finish };
+  view.classList.add('playing');
+  $('shSkip').hidden = false;
+
+  // the door swings open on the closing phase
+  SHOPUI.sceneOpen = true;
+  $('shWorld').classList.add('open');
+  const door = $('shThings').querySelector('[data-station="door"]');
+  if (door) door.outerHTML = sceneStation('door', L.R + 214, 38, 72, 112, 12, sceneDoorArt(true),
+    'Door', 'The door, open', 'open');
+
+  const doorAt = { x: L.R + 236, y: 104 };
+  const counterAt = { x: L.R + 108, y: 108 };
+  const faces = (sh.town || []).map(function (one) { return one.type; }).filter(Boolean);
+  const face = function (n) { return faces.length ? faces[(sh.day * 7 + n * 5) % faces.length] : SHOP.customers[n % SHOP.customers.length].id; };
+  let t = 300;
+  const by = function (kind) { return reports.filter(function (r) { return r.kind === kind && r.ok; }); };
+
+  const sales = by('sales');
+  if (sales.length) {
+    const r = sales[0];
+    const n = Math.max(1, Math.min(3, r.customers || 1));
+    const walk = 1200;
+    for (let k = 0; k < n; k++) {
+      at(t + k * 320, function () { sceneWalker(face(k), doorAt, { x: counterAt.x - k * 30, y: counterAt.y + 4 }, walk); });
+    }
+    const who = sceneFigFor('salesperson');
+    if (who) at(t + 500, function () { sceneBusy(who); });
+    at(t + walk + 200, function () {
+      if (r.revenue > 0) sceneFloat(L.R + 60, 96, '+' + coin(r.revenue) + 'g', 'gold');
+      if (r.sold > 0) sceneShowAfter('floor');
+      else sceneFloat(L.R + 60, 96, 'no sale', 'quiet');
+    });
+    t += walk + 900;
+  }
+  const hands = by('storehand');
+  if (hands.length) {
+    const r = hands[0];
+    const who = sceneFigFor('storehand');
+    at(t, function () {
+      if (who) sceneBusy(who);
+      sceneShowAfter('floor');
+      if (r.moved > 0) sceneFloat(L.floorX + 60, 118, '+' + r.moved + ' shelved');
+    });
+    t += 800;
+  }
+  const smiths = by('smith').concat(by('smelt'));
+  if (smiths.length || /forge|anvil|batch/i.test(note || '')) {
+    at(t, function () {
+      sceneBusy('[data-station="forge"]');
+      sceneBusy('[data-station="anvil"]');
+      const who = sceneFigFor('smith');
+      if (who) sceneBusy(who);
+      for (const r of smiths) {
+        sceneFloat(120, 120, r.kind === 'smelt' ? '+' + r.made + ' ingots' : '+' + r.made + ' made');
+      }
+    });
+    t += 800;
+  }
+  const trips = by('runner').concat(by('haul'), by('delivery'));
+  if (trips.length) {
+    const who = sceneFigFor('runner');
+    at(t, function () {
+      if (who) {
+        const el = $('shThings').querySelector(who);
+        if (el) el.classList.add('leaving');
+      }
+      for (const r of trips) {
+        sceneFloat(L.R + 236, 90, r.kind === 'runner' ? '+' + r.ingots + ' ingots'
+          : r.kind === 'haul' ? '+' + r.load + ' ore' : 'delivered ' + r.load, r.kind === 'delivery' ? 'gold' : '');
+      }
+    });
+    at(t + 500, function () { sceneShowAfter('store'); });
+    t += 900;
+  }
+  // a phase with nothing to show still passes, just briefly
+  at(Math.min(4800, Math.max(t + 300, 1300)), finish);
+}
+function shopSkipPhase() {
+  if (SHOPUI.playing) SHOPUI.playing.finish();
+}
+
+/* ---------- the summary ----------------------------------------------------
+   One sheet for the whole phase, saying only what actually happened. The
+   full account of each hand's work is still there, a tap away. */
+function phaseTotals(reports) {
+  const t = { revenue: 0, sold: 0, customers: 0, ingots: 0, spent: 0, ore: 0, made: 0,
+    smelted: 0, shelved: 0, trips: 0, carried: 0, paid: 0, offers: 0, xp: [], ready: [], failed: [] };
+  for (const r of reports) {
+    if (!r) continue;
+    if (!r.ok) { t.failed.push((r.who || 'Somebody') + ': ' + (r.why || 'could not do it')); continue; }
+    if (r.kind === 'sales') {
+      t.revenue += r.revenue || 0; t.sold += r.sold || 0; t.customers += r.customers || 0;
+      t.offers += r.offers || 0;
+    }
+    if (r.kind === 'runner') { t.ingots += r.ingots || 0; t.spent += r.actual || 0; }
+    if (r.kind === 'haul') t.ore += r.load || 0;
+    if (r.kind === 'smith') t.made += r.made || 0;
+    if (r.kind === 'smelt') t.smelted += r.made || 0;
+    if (r.kind === 'storehand') t.shelved += r.moved || 0;
+    if (r.kind === 'delivery') { t.trips += 1; t.carried += r.load || 0; t.paid += r.paid || 0; }
+    if (r.gained) t.xp.push((r.who || 'Somebody') + ' +' + r.gained);
+    if (r.ready) t.ready.push(r.ready);
+  }
+  return t;
+}
+function phaseSummaryHtml(replay) {
+  const sh = shop();
+  const reports = replay.reports || [];
+  const t = phaseTotals(reports);
+  const rows = [];
+  const row = function (k, v, good) { rows.push('<dt>' + k + '</dt><dd' + (good ? ' class="good"' : '') + '>' + v + '</dd>'); };
+  if (t.revenue || t.sold) row('Sales', coin(t.revenue) + 'g', true);
+  if (t.sold) row('Items sold', t.sold);
+  if (t.ingots) row('Metal bought', t.ingots + ' ingots for ' + coin(t.spent) + 'g');
+  if (t.ore) row('Ore collected', t.ore);
+  if (t.made) row('Made', t.made + ' pieces');
+  if (t.smelted) row('Smelted', t.smelted + ' ingots');
+  if (t.shelved) row('Restocked', t.shelved + ' pieces', true);
+  if (t.trips) row('Delivered', t.carried + ' pieces' + (t.paid ? ', ' + coin(t.paid) + 'g paid' : ''), true);
+  if (t.xp.length) row('Experience', esc(t.xp.join(', ')));
+  let html = '';
+  if (replay.note) html += '<p class="station-note">' + esc(replay.note) + '</p>';
+  if (rows.length) html += '<div class="report"><dl>' + rows.join('') + '</dl></div>';
+  if (t.ready.length) {
+    html += '<div class="rank-call"><b>Ready for promotion</b><span>' + esc(t.ready.join(', ')) +
+      ' — open them from the noticeboard.</span></div>';
+  }
+  for (const f of t.failed) html += '<p class="station-why">' + esc(f) + '</p>';
+  // contracts a salesperson took down wait for YOUR answer, here and in the Ledger
+  const offers = sh.commissionOffers || [];
+  if (offers.length) {
+    html += '<div class="summary-offers"><b>' + offers.length +
+      (offers.length === 1 ? ' contract is' : ' contracts are') + ' waiting for your answer</b>';
+    for (const o of offers) {
+      html += '<div class="so-row">' + lineSprite(o.key) + '<span>' + esc(o.name) + ': ' + o.qty +
+        ' × ' + esc(lineName(o.key)) + ' in ' + o.days + ' days</span>' +
+        '<button type="button" data-offer-take="' + o.id + '">Accept</button>' +
+        '<button type="button" data-offer-drop="' + o.id + '">Decline</button></div>';
+    }
+    html += '</div>';
+  }
+  // an apprentice's closing note says nothing their batch did not already say
+  const detail = reports.filter(function (r) {
+    return r && r.kind && r.kind !== 'day' && r.kind !== 'apprentice';
+  });
+  for (const r of detail) {
+    html += '<details class="summary-detail"><summary>' + esc(reportTitle(r)) + '</summary>' +
+      reportBody(r) + '</details>';
+  }
+  return html;
+}
+function shopShowSummary(replay, done) {
+  const reports = replay.reports || [];
+  const offers = (shop().commissionOffers || []).length;
+  if (!reports.length && !offers) { if (done) done(); return; }
+  const draw = function () {
+    shopSheet('The ' + (replay.closing || 'phase').toLowerCase() + ' is done', phaseSummaryHtml(replay),
+      [{ label: 'Right then', primary: true,
+        onClick: function () { SHOPUI.redraw = null; shopSheetClose(); if (done) done(); } }]);
+  };
+  SHOPUI.redraw = draw;
+  draw();
+}
+/* Hand the phase over to whatever comes next, and forget the playback once
+   it has been seen - saved first, so a game closed before this point opens
+   again on the same summary. */
+function shopAfterPhase(replay) {
+  const sh = shop();
+  shopRender();
+  shopShowSummary(replay, function () {
+    SHOPUI.replay = null;
+    saveShop();
+    if (replay.result && replay.result.newDay) shopDayBreak(replay.result);
+    else {
+      shopRender();
+      if (!replay.note) shopToast('The ' + shopPhaseName(sh).toLowerCase() + ' is yours.');
+    }
+  });
+}
+
 /* ---------- the tabbed panels ---------- */
 const SHOP_TABS = [
   { id: 'shelf', name: 'Shop' },
@@ -11342,7 +12872,7 @@ const SHOP_TABS = [
   { id: 'metal', name: 'Metal' },
   { id: 'town', name: 'Town' },
   { id: 'ledger', name: 'Ledger' },
-  { id: 'props', name: 'Property' },
+  { id: 'props', name: 'Map' },
   { id: 'staff', name: 'Staff' },
   { id: 'grow', name: 'Growth' }
 ];
@@ -11666,6 +13196,17 @@ function shopOpenHand(id) {
     '<div><span class="hh-name">' + esc(e.name) + '</span>' +
     '<span class="hh-role"><span class="rank" data-r="' + e.rank + '">' + e.rank +
     '</span> ' + esc(roleName) + ' · ' + coin(e.wage) + 'g a week</span></div></div>';
+  // what they are doing today, and whether they are free to be given more
+  if (isMiner) {
+    const home = sh.mines.find(function (m) { return m.miners.indexOf(e) >= 0; });
+    html += '<p class="hand-where"><b>Working</b> ' + esc(home ? home.name : 'a mine') +
+      ' · digs every week, paid when the week’s dig is done</p>';
+  } else {
+    const a = assignedThisDay(sh, e.id);
+    html += '<p class="hand-where"><b>' + (a ? esc(jobWord(sh, e, a.job)) + ', ' +
+      SHOP.phaseName[a.phase].toLowerCase() : 'No work today') + '</b> · ' +
+      esc(staffAvailability(sh, e)) + '</p>';
+  }
 
   html += '<div class="xp-wrap big"><span class="xp-bar' + (ready ? ' full' : '') +
     '"><i style="width:' + pct + '%"></i></span><span class="xp-fig">' +
@@ -12291,7 +13832,7 @@ function shopRenderPanel() {
     }
     html += '<div class="shelf-grid">';
     for (const stand of sh.stands) {
-      html += standBoxHtml(stand, 'data-stand="' + stand.id + '"');
+      html += standBoxHtml(stand, 'data-stand="' + stand.id + '"', standPlaced(stand) ? '' : 'stored');
     }
     for (let i = sh.stands.length; i < cap; i++) {
       html += '<button class="shelf-box empty" type="button" data-buystand="1"' +
@@ -12446,6 +13987,15 @@ function shopGrowthHtml(sh) {
     sh.stands.length + ' of ' + standCap(sh) + ' spaces used',
     (standCap(sh) + 1) + ' spaces',
     growthCost(sh, 'floor'), sh.gold, 'data-grow="floor"',
+    (function () {
+      // when the building itself will grow, so the purchase has a visible goal
+      const stage = shopStage(sh);
+      const at = SHOP.stages.indexOf(stage);
+      const next = SHOP.stages[at + 1];
+      return next ? 'Your shop is a <b>' + esc(stage.name) + '</b>; at ' + (stageSpots(stage) + 1) +
+        ' spaces it opens out into the <b>' + esc(next.name) + '</b>. '
+        : 'Your shop is a <b>' + esc(stage.name) + '</b>, as grand as they come. ';
+    })() +
     'Floor space, <b>not</b> a stand. ' + (room > 0
       ? 'You have room for ' + room + ' more — buy them in the <b>Shop</b>.'
       : 'Every space is taken, so the next stand needs one of these first.'));
@@ -12492,6 +14042,7 @@ function shopRender() {
   shopRenderCrew();
   shopRenderTabs();
   shopRenderPanel();
+  sceneRender();
   $('shAdvanceBtn').textContent = 'End ' + shopPhaseName(shop());
   if (shop().closed) clearShopSave(); else saveShop();
 }
@@ -12513,6 +14064,8 @@ function shopSheet(title, bodyHtml, buttons) {
         : active.dataset.sel ? '[data-sel="' + active.dataset.sel + '"]' : null)
     : null;
 
+  // on the shop floor a panel docks at the bottom and leaves the room in view
+  sheet.classList.toggle('dock', !$('shopView').hidden);
   $('shopSheetTitle').textContent = title;
   $('shopSheetBody').innerHTML = bodyHtml;
   const host = $('shopSheetActions');
@@ -12764,13 +14317,30 @@ function shopGiveSmithOrder(smith) {
     SHOP.phaseName[res.phase].toLowerCase() + '.');
 }
 
+/* A stand bought is furniture in the back until it is put somewhere. The
+   player is offered the floor straight away, but nothing is placed for them
+   unless they say so - where it goes is theirs to choose. */
 function shopBuyStandFrom(type) {
-  const res = shopBuyStand(shop(), type);
+  const sh = shop();
+  const res = shopBuyStand(sh, type);
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   SOUNDS.prosper(false);
-  shopSheetClose();
   shopRender();
-  announce(shopStandDef(type).name + ' bought for ' + coin(res.spent) + 'g.');
+  const title = standTitle(sh, res.stand);
+  announce(title + ' bought for ' + coin(res.spent) + 'g. It is waiting in the back.');
+  shopSheet(title + ' bought',
+    '<p class="station-note">It is waiting in the back. Put it out wherever you want it on the ' +
+    'floor — moving displays about never costs a phase.</p>',
+    [{ label: 'Put it out now', primary: true,
+      onClick: function () { shopSheetClose(); shopEditMode(true, res.stand.id); } },
+      { label: 'First free space', disabled: firstFreeSlot(sh) == null,
+        onClick: function () {
+          placeStand(sh, res.stand.id);
+          shopSheetClose();
+          shopRender();
+          shopToast(title + ' is out on the floor.');
+        } },
+      { label: 'Leave it in the back', ghost: true, onClick: shopSheetClose }]);
 }
 
 /* ---------- the shop floor ------------------------------------------
@@ -12825,12 +14395,20 @@ function shopOpenStand(standId) {
   if (!stand) return;
   const def = shopStandDef(stand.type);
   const filled = !!(stand.key && stand.qty > 0);
-  const p = filled ? splitKey(stand.key) : null;
   const rec = filled ? standWorth(stand) : 0;
+  const out = standPlaced(stand);
+  const up = standLevel(stand);
+  const bonus = Math.round(up * SHOP.growth.display.step * 1000) / 10;
+  const room = standRoom(sh, stand);
+  const spare = filled && sh.storage[stand.key] ? sh.storage[stand.key].qty : 0;
 
   let body = '<div class="shop-list">';
-  body += rowHtml(standSprite(stand.type) + ' <b>' + esc(def.name) + '</b>',
-    'Holds ' + standHold() + ' pieces of one line', '');
+  body += rowHtml(standSprite(stand.type) + ' <b>' + esc(standTitle(sh, stand)) + '</b>',
+    out ? 'Out on the floor' : 'Waiting in the back — nobody can buy from it there',
+    stand.qty + ' / ' + standHold());
+  body += rowHtml('Display level ' + up + ' / ' + SHOP.growth.display.max,
+    up ? '+' + bonus + '% on everything sold from it' : 'A plain fixture: sells at the plain price',
+    up ? '+' + bonus + '%' : '');
   if (filled) {
     body += rowHtml(lineSprite(stand.key) + ' ' + esc(lineName(stand.key)) + ' ×' + stand.qty,
       '<span class="q-' + qualityBand(stand.quality).tone + '">' +
@@ -12845,18 +14423,16 @@ function shopOpenStand(standId) {
   body += '</div>';
 
   const acts = [];
-  if (filled) {
-    acts.push({ label: 'Set the price', primary: true,
+  if (!out) {
+    acts.push({ label: 'Put it out', primary: true,
+      onClick: function () { shopSheetClose(); shopEditMode(true, stand.id); } });
+  } else if (filled) {
+    // topping up is the same bookkeeping as stocking it in the first place
+    acts.push({ label: room > 0 && spare > 0 ? 'Restock (' + Math.min(room, spare) + ')' : 'Restock',
+      primary: true, disabled: !(room > 0 && spare > 0),
+      onClick: function () { shopSheetClose(); shopOpenStock(null, stand.id); } });
+    acts.push({ label: 'Set the price',
       onClick: function () { shopOpenPrice(stand.key); } });
-    acts.push({ label: 'Take it off the floor',
-      onClick: function () {
-        const res = shopPullFromShelf(shop(), stand.key, stand.qty);
-        SOUNDS.shelve();
-        shopSheetClose();
-        shopRender();
-        announce('Put ' + res.moved + ' piece' + (res.moved === 1 ? '' : 's') +
-          ' back into storage.');
-      } });
   } else {
     const why = shopActionState('stock');
     acts.push({ label: 'Stock it', primary: true, disabled: !!why,
@@ -12864,10 +14440,28 @@ function shopOpenStand(standId) {
     acts.push({ label: 'Change what it is',
       onClick: function () { shopOpenStandType(stand.id); } });
   }
+  if (filled) {
+    acts.push({ label: 'Take it off the floor',
+      onClick: function () {
+        const res = shopPullFromShelf(shop(), stand.key, stand.qty);
+        if (!res.moved) { SOUNDS.invalid(); shopToast(res.why || 'Nothing to take back.'); return; }
+        SOUNDS.shelve();
+        shopSheetClose();
+        shopRender();
+        announce('Put ' + res.moved + ' piece' + (res.moved === 1 ? '' : 's') +
+          ' back into storage' + (res.left ? '; the storeroom had no room for the other ' + res.left : '') + '.');
+      } });
+  }
+  if (out) acts.push({ label: 'Move it', onClick: function () { shopSheetClose(); shopEditMode(true, stand.id); } });
   acts.push({ label: 'Sell the stand back',
     onClick: function () { shopConfirmSellStand(stand.id); } });
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet(def.name, body, acts);
+  shopSheet(standTitle(sh, stand), body, acts);
+  if (filled && room > 0 && !spare) {
+    $('shopSheetBody').insertAdjacentHTML('beforeend',
+      '<p class="station-note" style="margin-top:8px">No more ' + esc(lineName(stand.key)) +
+      ' in storage to top it up with.</p>');
+  }
 }
 
 /* What else an empty stand could be. A stand with something on it is not
@@ -13031,6 +14625,8 @@ function shopStockBody(hand) {
   let html = '<p class="shop-cap">Carrying out ' + picks.length + ' of ' + carry +
     ' · tap a stand to fill it</p><div class="shelf-grid">';
   for (const stand of sh.stands) {
+    // a display waiting in the back cannot be stocked until it is put out
+    if (!standPlaced(stand)) continue;
     const mine = picksForStand(stand.id);
     const room = standHold() - stand.qty - mine.length;
     if (mine.length) {
@@ -14437,16 +16033,25 @@ function shopSpendPhase(note) {
   const sh = shop();
   SOUNDS.chime();
   if (note) shopToast(note);
+  SHOPUI.editing = false;
+  SHOPUI.editSel = null;
+  const closing = shopPhaseName(sh);
+  // the phase resolves HERE, once. Nothing after this line decides anything.
   const result = shopAdvancePhase(sh);
-  shopRender();
   const reports = result.reports || [];
-  shopShowReports(reports, function () {
-    if (result.newDay) shopDayBreak(result);
-    else {
-      shopRender();
-      if (!note) shopToast('The ' + shopPhaseName(sh).toLowerCase() + ' is yours.');
-    }
-  });
+  /* What is still to be shown is saved alongside the result, as plain data,
+     before a frame of it is shown - so a game closed during the playback
+     opens again on the same summary, and a replay has nothing to recompute. */
+  SHOPUI.replay = JSON.parse(JSON.stringify({ reports: reports, note: note || null,
+    closing: closing, result: result.newDay ? result : null }));
+  saveShop();
+  const replay = SHOPUI.replay;
+  const next = function () { shopAfterPhase(replay); };
+  if (phaseAnimOn() && !$('shopView').hidden && !sh.closed) {
+    shopPlayPhase(reports, note, closing, next);
+  } else {
+    next();
+  }
 }
 
 function shopDayBreak(result) {
@@ -14996,6 +16601,13 @@ function startShop(resume, name) {
       announce('Back at the anvil, the batch as you left it.');
       return;
     }
+    // closed during a phase's playback: the phase itself resolved and was
+    // saved before the playback began, so only its summary is still owed
+    if (resume.replay) {
+      SHOPUI.replay = resume.replay;
+      shopAfterPhase(resume.replay);
+      return;
+    }
     shopToast('Day ' + App.shop.day + ', ' + shopPhaseName(App.shop).toLowerCase() +
       '. The forge is as you left it.');
     return;
@@ -15111,6 +16723,7 @@ function shopAct(id) {
    Two delegated listeners cover the whole mode: one for the management
    screen, one for whichever dialog is open. Nothing has to be unbound. */
 function wireShop() {
+  wireScene();
   $('shActions').addEventListener('click', function (e) {
     const b = e.target.closest ? e.target.closest('[data-act]') : null;
     if (b && !b.disabled) shopAct(b.dataset.act);
@@ -15389,6 +17002,14 @@ function wireShop() {
     }
     const alt = e.target.closest ? e.target.closest('[data-alt]') : null;
     if (alt) { shopCounterOfferAlt(alt.dataset.alt); return; }
+    // a contract answered from the end-of-phase summary
+    const otake = e.target.closest ? e.target.closest('[data-offer-take]') : null;
+    const odrop = e.target.closest ? e.target.closest('[data-offer-drop]') : null;
+    if (otake || odrop) {
+      shopAnswerOffer(Number((otake || odrop).dataset[otake ? 'offerTake' : 'offerDrop']), !!otake);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
     const take = e.target.closest ? e.target.closest('[data-take]') : null;
     if (take) {
       SHOPUI.picks.push({ stand: SHOPUI.slot, key: take.dataset.take });
@@ -16410,6 +18031,10 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   buildTiles: buildTiles, buildLegend: buildLegend, startGame: startGame,
   shopSheetClose: shopSheetClose, shopDayBreak: shopDayBreak, shopOpenAlmanac: shopOpenAlmanac,
   shopOpenBuyStand: shopOpenBuyStand, shopOpenHand: shopOpenHand,
+  sceneRender: sceneRender, sceneLayout: sceneLayout, shopOpenStation: shopOpenStation,
+  setPhaseAnim: function (on) { Store.patch({ phaseAnim: !!on }); },
+  shopEditMode: shopEditMode, shopSkipPhase: shopSkipPhase, phaseAnimOn: phaseAnimOn,
+  shopOpenSettings: shopOpenSettings, shopSpendPhase: shopSpendPhase, sceneJump: sceneJump,
   shopOpenTownsfolk: shopOpenTownsfolk, shopTownHtml: shopTownHtml,
   shopOpenStand: shopOpenStand, standSprite: standSprite,
   itemSprite: itemSprite, portrait: portrait, ingotSprite: ingotSprite,

@@ -19,8 +19,8 @@ android {
         applicationId "com.bluespindash.checksmith"
         minSdk 24
         targetSdk 35
-        versionCode 37
-        versionName "1.32.0"
+        versionCode 38
+        versionName "1.33.0"
         resourceConfigurations += ['en']
     }
 
