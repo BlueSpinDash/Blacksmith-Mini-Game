@@ -2915,6 +2915,11 @@ async function run() {
       w.textContent.trim().length > 0 && parseFloat(getComputedStyle(w).fontSize) >= 9)));
 
   section('Open Your Forge: growth, stands and the weekly bill');
+  /* An earlier section can leave a sheet up. It used to be closed by accident,
+     because buying a stand from this tab closed the sheet on its way through;
+     the Shop owns that purchase now, so close it on purpose instead. */
+  await page.evaluate(() => window.CHECKSMITH.shopSheetClose());
+  await page.waitForTimeout(150);
   const grown = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     sh.gold = 100000;
