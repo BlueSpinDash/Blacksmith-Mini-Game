@@ -4798,6 +4798,8 @@ async function run() {
     JSON.stringify(watched));
 
   section('1.34: the Novice board has a bishop');
+  // a dagger in bronze is a 3x3 Novice board; make sure this forge knows it
+  await teach(page, 'dagger');
   const bishop = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     sh.materials.bronze = 200;
