@@ -2153,10 +2153,10 @@ async function run() {
         numberBoard.glyph === numberBoard.piece, numberBoard.glyph);
       ok('and named to a screen reader', /Two|Three/.test(numberBoard.label),
         numberBoard.label);
-      ok('the legend lists the smallest board as a king, a rook and numbers',
+      ok('the legend lists the smallest board as a king, a rook, a bishop and numbers',
         /King/.test(numberBoard.legend) && /Rook/.test(numberBoard.legend) &&
         /Two/.test(numberBoard.legend) &&
-        !/Bishop/.test(numberBoard.legend) && !/Knight/.test(numberBoard.legend),
+        /Bishop/.test(numberBoard.legend) && !/Knight/.test(numberBoard.legend),
         JSON.stringify(numberBoard.legend));
       ok('and says how far it sends you',
         /squares away/.test(numberBoard.legend), numberBoard.legend.slice(0, 200));
@@ -2391,6 +2391,8 @@ async function run() {
     const F = window.CHECKSMITH, C = F.core;
     C.addStorage(F.app.shop, C.lineKey('hammer', 'bronze'), 5, 86);
     C.addStorage(F.app.shop, C.lineKey('buckler', 'bronze'), 4, 90);
+    // the shop opens with its drawers shut; the Shelves screen is in Inventory
+    F.shopUi.tab = 'shelf';
     F.shopRender();
   });
   const fixtures = await page.evaluate(() => {
