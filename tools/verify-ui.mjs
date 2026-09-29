@@ -1795,7 +1795,10 @@ async function run() {
     stars: document.getElementById('shStars').getAttribute('aria-label'),
     actions: Array.from(document.querySelectorAll('#shActions .act-btn'))
       .map((b) => b.querySelector('b').textContent),
-    tabs: Array.from(document.querySelectorAll('.shop-tab')).map((b) => b.textContent),
+    tabs: Array.from(document.querySelectorAll('#shTabs .tab-group'))
+      .map((b) => b.textContent.replace(/[^A-Za-z ]/g, '').trim()),
+    names: Array.from(document.querySelectorAll('#shActions .act-btn'))
+      .map((b) => b.getAttribute('aria-label').split(' — ')[0]),
     noPicker: document.getElementById('titleDiffBlock').hidden
   }));
   ok('the shop opens on day one, morning', board.day === '1' && board.phase === 'Morning');
@@ -1803,13 +1806,14 @@ async function run() {
   ok('the forge opens knowing only what its two trades taught it',
     await page.evaluate(() => window.CHECKSMITH.app.shop.known.length === 2));
   ok('the five actions are all offered', board.actions.length === 5 &&
-    board.actions.join(',') === 'Forge,Tend the Store,Purchase Materials,Checksmith Almanac,Search for Employees',
-    board.actions.join(','));
+    board.actions.join(',') === 'Forge,Tend Store,Buy Metal,Almanac,Hire Staff' &&
+    board.names.join(',') === 'Forge,Tend the Store,Purchase Materials,Checksmith Almanac,Search for Employees',
+    board.actions.join(',') + ' / ' + board.names.join(','));
   ok('gold, rent and rating are on screen at a glance',
     board.gold === '260' && /due in 7 days/.test(board.rent) && /1 of 5 stars/.test(board.stars),
     JSON.stringify(board));
-  ok('the floor, storage, metal, the town, the ledger, the map, staff and growth each have a panel',
-    board.tabs.join(',') === 'Shop,Storage,Metal,Town,Ledger,Map,Staff,Growth',
+  ok('every management screen sits in one of three drawers',
+    board.tabs.join(',') === 'Inventory,Business,Staff',
     board.tabs.join(','));
   ok('nothing on the shelves means the store cannot be tended', await page.evaluate(
     () => document.querySelector('#shActions [data-act="tend"]').disabled));
@@ -4609,6 +4613,223 @@ async function run() {
     await page.click('#shopSheetActions button:last-child');
     await page.waitForTimeout(80);
   }
+
+  section('1.34: the room stays behind the menus');
+  const lightCheck = async (view) => {
+    await page.evaluate((v) => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      F.shopSheetClose();
+      sh.phaseIndex = 2;                                    // evening: every light lit
+      F.shopUi.tab = null;
+      F.shopRender();
+      const sc = document.getElementById('shScene');
+      const L = F.sceneLayout(sh);
+      sc.scrollLeft = v === 'work' ? 0 : v === 'floor' ? L.floorX - 20 : sc.scrollWidth;
+      F.shopOpenStation('forge');
+      for (const el of document.querySelectorAll('.glow,.spark,.sc-coals,.sc-candle,.fig')) el.style.animation = 'none';
+      window.scrollTo(0, 0);
+    }, view);
+    await page.waitForTimeout(250);
+    const box = await page.evaluate(() => {
+      const s = document.querySelector('#shopSheet .sheet').getBoundingClientRect();
+      const r = document.getElementById('shScene').getBoundingClientRect();
+      const inset = 16;                                     // inside the rounded corners
+      const top = Math.max(s.top + inset, r.top), bottom = Math.min(s.bottom - inset, r.bottom);
+      const left = Math.max(s.left + inset, r.left), right = Math.min(s.right - inset, r.right);
+      return { x: left, y: top, width: right - left, height: bottom - top };
+    });
+    if (box.height < 8 || box.width < 8) return { view: view, overlap: false };
+    const lit = await page.screenshot({ clip: box });
+    await page.evaluate(() => { for (const el of document.querySelectorAll('.scene-light,.scene-glow,.scene-fx')) el.style.visibility = 'hidden'; });
+    await page.waitForTimeout(60);
+    const dark = await page.screenshot({ clip: box });
+    await page.evaluate(() => {
+      for (const el of document.querySelectorAll('.scene-light,.scene-glow,.scene-fx')) el.style.visibility = '';
+      window.CHECKSMITH.shopSheetClose();
+    });
+    return { view: view, overlap: true, same: lit.equals(dark) };
+  };
+  const lights = [await lightCheck('work'), await lightCheck('floor'), await lightCheck('front')];
+  ok('an open panel over the room is untouched by its light, in every view',
+    lights.every((l) => l.overlap && l.same), JSON.stringify(lights));
+  const layers = await page.evaluate(() => {
+    const scene = getComputedStyle(document.getElementById('shScene'));
+    const lightsOff = ['.scene-light', '.scene-glow', '.scene-fx'].every((sel) =>
+      getComputedStyle(document.querySelector(sel)).pointerEvents === 'none');
+    return { isolated: scene.isolation === 'isolate', lightsOff: lightsOff };
+  });
+  ok('the room is its own layer, and its light never takes a tap',
+    layers.isolated && layers.lightsOff, JSON.stringify(layers));
+  const phaseLight = await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+      sh.phaseIndex = i; F.shopRender();
+      out.push(getComputedStyle(document.getElementById('shWorld')).getPropertyValue('--tint').trim());
+    }
+    sh.phaseIndex = 0; F.shopRender();
+    return out;
+  });
+  ok('and the day still changes its light', new Set(phaseLight).size === 3, JSON.stringify(phaseLight));
+
+  section('1.34: the room leads, the paperwork waits in drawers');
+  const drawers = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    F.shopUi.tab = null; F.shopRender();
+    const shut = document.getElementById('shPanel').hidden;
+    const groups = Array.from(document.querySelectorAll('#shTabs .tab-group')).map((b) => b.textContent.replace(/[^A-Za-z ]/g, '').trim());
+    document.querySelector('[data-group="business"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const inBiz = { tab: F.shopUi.tab, subs: Array.from(document.querySelectorAll('#shTabs .shop-tab')).map((b) => b.textContent),
+      panel: !document.getElementById('shPanel').hidden };
+    document.querySelector('#shTabs [data-tab="ledger"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const ledger = F.shopUi.tab;
+    document.querySelector('[data-group="business"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const closed = F.shopUi.tab === null && document.getElementById('shPanel').hidden;
+    document.querySelector('[data-group="business"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const remembered = F.shopUi.tab;
+    // a station still reaches straight into a drawer
+    F.shopOpenStation('door');
+    Array.from(document.querySelectorAll('#shopSheetActions button')).find((b) => b.textContent === 'Deliveries').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const fromDoor = F.shopUi.tab;
+    F.shopUi.tab = null; F.shopRender();
+    return { shut: shut, groups: groups, inBiz: inBiz, ledger: ledger, closed: closed,
+      remembered: remembered, fromDoor: fromDoor };
+  });
+  ok('the shop opens on the room with every drawer shut', drawers.shut, JSON.stringify(drawers));
+  ok('eight screens sit in three drawers',
+    drawers.groups.join(',') === 'Inventory,Business,Staff' &&
+    drawers.inBiz.subs.join(',') === 'Growth,Ledger,Properties,Town' && drawers.inBiz.panel,
+    JSON.stringify(drawers));
+  ok('a drawer closes again and remembers where it was left',
+    drawers.ledger === 'ledger' && drawers.closed && drawers.remembered === 'ledger', JSON.stringify(drawers));
+  ok('a station still opens its screen directly', drawers.fromDoor === 'ledger', JSON.stringify(drawers));
+
+  // every label whole, at every phone width asked for
+  const widths = {};
+  for (const w of [320, 360, 390, 430]) {
+    await page.setViewportSize({ width: w, height: 760 });
+    await page.waitForTimeout(80);
+    widths[w] = await page.evaluate(async () => {
+      const F = window.CHECKSMITH;
+      const bad = [];
+      const scan = () => {
+        for (const el of document.querySelectorAll('#shopView *, #shopSheet *')) {
+          if (el.closest('#shScene') || el.closest('svg')) continue;
+          const r = el.getBoundingClientRect();
+          if (!r.width || !r.height || !el.textContent.trim()) continue;
+          const cs = getComputedStyle(el);
+          if (cs.overflow === 'visible' && cs.textOverflow !== 'ellipsis') continue;
+          if (el.scrollWidth > el.clientWidth + 1) bad.push(el.className + ':' + el.textContent.trim().slice(0, 20));
+        }
+      };
+      for (const t of [null, 'shelf', 'storage', 'metal', 'grow', 'ledger', 'props', 'town', 'staff']) {
+        F.shopUi.tab = t; F.shopRender(); scan();
+      }
+      for (const st of ['counter', 'forge', 'store', 'board', 'door']) {
+        F.shopOpenStation(st); scan(); F.shopSheetClose();
+      }
+      F.shopUi.tab = null; F.shopRender();
+      const page = document.documentElement.scrollWidth <= window.innerWidth + 1;
+      return { bad: bad.slice(0, 5), page: page };
+    });
+  }
+  await page.setViewportSize({ width: 320, height: 700 });
+  ok('no label is cut off, at 320, 360, 390 or 430 pixels wide',
+    Object.values(widths).every((r) => !r.bad.length && r.page), JSON.stringify(widths));
+
+  section('1.34: the phase that ended is the one you watch');
+  const watched = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.shopSheetClose();
+    const P = C.SHOP.phases;
+    sh.day += 1; sh.phaseIndex = 0; sh.assignments = {}; sh.standing = [];
+    sh.staff = [
+      { id: 8101, name: 'Morning Mara', role: 'salesperson', rank: 'C', power: 3, wage: 20, xp: 0, face: 'merchant' },
+      { id: 8102, name: 'Afternoon Abe', role: 'salesperson', rank: 'C', power: 3, wage: 20, xp: 0, face: 'guard' },
+      { id: 8103, name: 'Evening Eda', role: 'salesperson', rank: 'C', power: 3, wage: 20, xp: 0, face: 'cleric' }
+    ];
+    C.shopAssign(sh, 8101, {}, P[0]);
+    C.shopAssign(sh, 8102, {}, P[1]);
+    C.shopAssign(sh, 8103, {}, P[2]);
+    F.setPhaseAnim(true);
+    const seen = [];
+    for (let i = 0; i < 3; i++) {
+      F.testStock(sh, C.lineKey('longsword', 'bronze'), 40, 95, 20);
+      F.shopRender();
+      const before = { phase: sh.phaseIndex, day: sh.day };
+      F.shopSpendPhase(null);
+      F.shopSpendPhase(null);                              // a second press mid-playback
+      const after = { phase: sh.phaseIndex, day: sh.day };
+      // wait until the seller is shown at work, then note who it was
+      let busy = null;
+      for (let t = 0; t < 40 && !busy; t++) {
+        await new Promise((r) => setTimeout(r, 60));
+        const el = document.querySelector('#shThings .fig.busy');
+        if (el) busy = Number(el.dataset.crew);
+      }
+      F.shopSkipPhase();
+      await new Promise((r) => setTimeout(r, 120));
+      for (let k = 0; k < 5 && !document.getElementById('shopSheet').hidden; k++) {
+        const b = Array.from(document.querySelectorAll('#shopSheetActions button'))[0];
+        if (b) b.click();
+        await new Promise((r) => setTimeout(r, 80));
+      }
+      seen.push({ busy: busy, before: before, after: after });
+    }
+    F.setPhaseAnim(false);
+    return seen;
+  });
+  ok('the morning plays the morning hand, not the afternoon one',
+    watched[0].busy === 8101, JSON.stringify(watched));
+  ok('the afternoon plays the afternoon hand', watched[1].busy === 8102, JSON.stringify(watched));
+  ok('the evening plays the evening hand, even across the turn of the day',
+    watched[2].busy === 8103, JSON.stringify(watched));
+  ok('a second press during the playback never advances the day twice',
+    watched[0].after.phase === 1 && watched[1].after.phase === 2 &&
+    watched[2].after.phase === 0 && watched[2].after.day === watched[2].before.day + 1,
+    JSON.stringify(watched));
+
+  section('1.34: the Novice board has a bishop');
+  const bishop = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.materials.bronze = 200;
+    let dealt = 0, withB = 0, found = null;
+    for (let tries = 0; tries < 40 && !found; tries++) {
+      F.shopUi.draft = { item: 'dagger', material: 'bronze', qty: 1 };
+      F.shopStartForge();
+      await new Promise((r) => setTimeout(r, 90));
+      const g = F.app.game;
+      if (!g || g.board.size !== 3) { F.shopUi.order = null; F.shopReturn(); continue; }
+      dealt++;
+      const at = g.pieces.indexOf('B');
+      if (at >= 0) {
+        withB++;
+        F.tap(at);                                           // stand on the bishop
+        await new Promise((r) => setTimeout(r, 400));
+        const diag = C.movesFrom('B', at, 3);
+        const allowed = [];
+        for (let j = 0; j < 9; j++) if (C.canStrike(g, j)) allowed.push(j);
+        const ortho = [at - 3, at + 3, at % 3 ? at - 1 : -1, at % 3 < 2 ? at + 1 : -1]
+          .filter((j) => j >= 0 && j < 9);
+        found = { at: at, diag: diag.slice().sort(), allowed: allowed.slice().sort(),
+          orthoRefused: ortho.every((j) => !C.canStrike(g, j)),
+          legend: /Bishop/.test(document.getElementById('legendBody').textContent) };
+      }
+      F.shopUi.order = null; F.shopReturn();
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    return { dealt: dealt, withB: withB, found: found };
+  });
+  ok('a Novice board can deal a bishop, and the legend names it',
+    bishop.found && bishop.found.legend, JSON.stringify(bishop));
+  ok('struck, a bishop reaches exactly its diagonals and nothing square to it',
+    bishop.found && JSON.stringify(bishop.found.diag) === JSON.stringify(bishop.found.allowed) &&
+    bishop.found.orthoRefused, JSON.stringify(bishop.found));
 
   section('Open Your Forge leaves the other modes alone');
   await page.evaluate(() => document.getElementById('menuBtn').click());

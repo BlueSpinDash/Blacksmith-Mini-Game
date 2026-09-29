@@ -647,9 +647,15 @@ input[type=range]{
 
 .shop-actions{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;}
 /* ======================= the storefront ============================== */
-.scene-wrap{position:relative;margin:8px 0 6px;}
+.scene-wrap{position:relative;margin:8px 0 6px;isolation:isolate;z-index:0;}
+/* The room layers its own light: the glow, the tint and the effects sit at
+   z-index 60-70 INSIDE the room, and `isolation` makes those numbers local.
+   Without it they were compared against the menus themselves (the sheet is
+   60), so the forge glow - a screen-blended layer - painted over open
+   panels. Now nothing in the room can rise above anything outside it. */
 .scene{
-  position:relative;height:236px;overflow-x:auto;overflow-y:hidden;border-radius:12px;
+  position:relative;z-index:0;isolation:isolate;
+  height:236px;overflow-x:auto;overflow-y:hidden;border-radius:12px;
   border:1px solid var(--edge);background:#1d1712;overscroll-behavior-x:contain;
   -webkit-overflow-scrolling:touch;scrollbar-width:thin;
 }
@@ -766,17 +772,19 @@ input[type=range]{
 .tray-acts button.primary{background:var(--ember);border-color:var(--ember);color:#12141a;font-weight:700;}
 .tray-acts button[disabled]{opacity:.45;}
 /* the quick-action bar and the advance button under the room */
-.shop-actions.compact{grid-template-columns:repeat(3,1fr);gap:5px;}
+.shop-actions.compact{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;}
 .shelf-box.stored{opacity:.62;position:relative;}
 .shelf-box.stored::after{content:'in the back';position:absolute;left:4px;top:4px;font-size:8.5px;
   padding:0 4px;border-radius:4px;background:rgba(18,20,26,.85);color:#e8dcc0;}
-.shop-actions.compact .act-btn{padding:6px 7px;min-height:0;min-width:0;overflow:hidden;}
-.shop-actions.compact .act-btn b{font-size:12px;}
+.shop-actions.compact .act-btn{padding:6px 2px;min-height:44px;min-width:0;
+  display:flex;align-items:center;justify-content:center;text-align:center;}
+.shop-actions.compact .act-btn b{font-size:11.5px;line-height:1.2;white-space:normal;overflow-wrap:normal;
+  word-break:normal;hyphens:none;}
 .shop-actions.compact .act-btn small{font-size:9.5px;}
-/* the hint is only worth the room when it says why something is shut */
-.shop-actions.compact .act-btn:not(:disabled) small{display:none;}
-.shop-actions.compact .act-btn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* no ellipsis anywhere: a label is shortened by choice, never cut off */
 .btn.advance{display:block;width:100%;margin:6px 0 10px;}
+.shop-crew:empty{display:none;}
 /* while the phase plays out, the room has the screen */
 #shopView.playing .shop-bar,#shopView.playing #shPrompt,#shopView.playing .scene-tools,
 #shopView.playing #shActions,#shopView.playing #shCrew,#shopView.playing #shAdvanceBtn,
@@ -818,10 +826,22 @@ input[type=range]{
 .shop-crew{margin:0;font-size:11.5px;color:var(--muted);min-height:1.2em;}
 .shop-crew b{color:var(--brass);font-weight:600;}
 
-.shop-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.shop-tabs{display:flex;flex-direction:column;gap:5px;margin-bottom:6px;}
+/* three drawers across, each opening onto its own screens */
+.tab-groups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;}
+.tab-group{
+  display:flex;align-items:center;justify-content:center;gap:5px;min-height:40px;
+  padding:6px 4px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+}
+.tab-group.on{background:linear-gradient(180deg,#3a2415,#241a12);border-color:var(--ember);color:var(--gold);}
+.tg-caret{font-size:10px;color:var(--muted);}
+.tg-note{min-width:17px;height:17px;padding:0 4px;border-radius:999px;font-size:10.5px;line-height:17px;
+  font-weight:700;background:var(--ember);color:#12141a;}
+.tab-sub{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:4px;}
 .shop-tab{
   min-height:36px;padding:5px 2px;border-radius:9px;cursor:pointer;
-  font-size:11px;letter-spacing:.03em;
+  font-size:11.5px;letter-spacing:.02em;min-width:0;overflow-wrap:anywhere;
   background:var(--panel);border:1px solid var(--edge);color:var(--muted);
 }
 .shop-tab[aria-selected="true"]{
@@ -2641,7 +2661,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
        the <b>blueprint table</b> for the Almanac, the <b>noticeboard</b> for staff, the
        <b>door</b> for deliveries and property, and the <b>sign</b> to rename the business.
        Looking at anything costs nothing &mdash; only the actions that always took a phase still
-       do. The buttons under the room and the tabs below them reach every screen too.</p>
+       do. Under the room, five quick buttons cover the everyday jobs, and three drawers &mdash;
+       <b>Inventory</b> (shelves, storage, materials), <b>Business</b> (growth, ledger, properties,
+       the town) and <b>Staff</b> &mdash; hold the rest. A drawer shows a count when something in
+       it is waiting for you.</p>
     <p><b>What you see is what there is.</b> Each display shows the goods on it, fewer as it
        empties. The people working <i>this</i> phase stand at their stations &mdash; tap one
        for their card &mdash; and nobody is drawn at work they are not doing. Morning, afternoon
@@ -2753,11 +2776,13 @@ const CONFIG = {
   order: ['novice', 'apprentice', 'journeyman', 'master'],
 
   /* WHAT IS ON A BOARD IS DECIDED BY HOW BIG IT IS, and by nothing else.
-     A three-square board is a king, a rook and numbers whatever mode dealt
-     it and whatever tier asked for it; every extra rank brings one more kind
-     of symbol into play, because a bigger board is what gives that symbol
-     room to mean anything. A bishop on a 3x3 reaches three squares; a knight
-     on one reaches none at all.
+     A three-square board is a king, a rook, a bishop and numbers whatever
+     mode dealt it and whatever tier asked for it; every extra rank brings one
+     more kind of symbol into play, because a bigger board is what gives that
+     symbol room to mean anything. A bishop on a 3x3 is cramped - two squares
+     from a corner, four from the centre, two from an edge - but that makes it
+     a real route-planning piece for a first board; a knight on one reaches no
+     square from the centre at all, so it waits for the 5x5.
 
      A NUMBER sends you exactly that many squares away - rings out from where
      you stand, the way a king is everything one ring out. Numbers therefore
@@ -2766,7 +2791,7 @@ const CONFIG = {
      `queens` is a promotion applied after the symbols are dealt, not a pool
      entry, so a queen stays the rarity it has always been. */
   pools: {
-    3: { pieces: ['K', 'R', '2'],                          queens: 0 },
+    3: { pieces: ['K', 'R', 'B', '2'],                     queens: 0 },
     4: { pieces: ['K', 'R', 'B', '2', '3'],                queens: 0 },
     5: { pieces: ['K', 'R', 'B', 'N', '2', '3', '4'],      queens: 0 },
     6: { pieces: ['K', 'R', 'B', 'N', '2', '3', '4', '5'], queens: 2 }
@@ -3341,12 +3366,12 @@ function transformBoard(board, t) {
    Each was produced by the generator above and passes validateBoard. */
 const FALLBACK_BOARDS = {
   novice: [
-    { pieces: '2KRKR2RK2',
-      route: [1,2,8,3,4,7,6,0,5,6,8,2,0,5,3,1,4,7] },
-    { pieces: 'KR22KR2RR',
-      route: [3,5,4,7,6,8,2,0,1,7,6,0,1,4,2,8,5,3] },
-    { pieces: '2KRRKK2R2',
-      route: [3,0,7,1,5,4,6,8,2,8,2,0,6,1,3,5,7,4] }
+    { pieces: 'KB2BK2BRB',
+      route: [2,8,0,3,7,6,4,1,5,3,1,5,0,4,6,2,7,8] },
+    { pieces: 'R22BKRBK2',
+      route: [0,1,6,2,3,7,5,4,8,0,6,4,2,7,5,8,3,1] },
+    { pieces: '22B2RKKB2',
+      route: [7,5,1,6,3,8,0,2,4,1,6,4,5,8,0,7,3,2] }
   ],
   apprentice: [
     { pieces: '2RB33R2KBKBKK32B',
@@ -3557,12 +3582,12 @@ function generateTourBoard(difficultyKey, rnd, limits, poolOverride) {
 
 const ENDLESS_FALLBACKS = {
   novice: [
-    { pieces: 'KRRRKKRKR',
-      route: [4,8,2,5,1,7,3,6,0] },
-    { pieces: 'RRRKRKRKK',
-      route: [3,6,0,2,8,7,5,1,4] },
-    { pieces: 'KKKRRRRKR',
-      route: [3,6,0,1,2,4,7,5,8] }
+    { pieces: '2KRBK2BRB',
+      route: [4,8,0,2,1,5,3,7,6] },
+    { pieces: 'B2K2R2BR2',
+      route: [3,8,1,6,2,5,0,4,7] },
+    { pieces: '2RBKKB2RK',
+      route: [3,7,6,2,4,5,1,0,8] }
   ],
   apprentice: [
     { pieces: 'RKRRKRBRKBBBKKKR',
@@ -11647,12 +11672,14 @@ function shopRenderBar() {
 }
 
 /* ---------- what the player may do this phase ---------- */
+/* `short` is what fits on a phone; `name` is the whole of it, and is what
+   screen readers and the tooltip say. Nothing is ever cut off mid-word. */
 const SHOP_ACTIONS = [
-  { id: 'forge', name: 'Forge', hint: 'Work a batch at the anvil.' },
-  { id: 'tend', name: 'Tend the Store', hint: 'Open up and serve whoever comes in.' },
-  { id: 'buy', name: 'Purchase Materials', hint: 'Walk to the market for ingots.' },
-  { id: 'almanac', name: 'Checksmith Almanac', hint: 'Every blueprint you know, and what comes next.' },
-  { id: 'hire', name: 'Search for Employees', hint: 'Ask around for someone to take work on.' }
+  { id: 'forge', name: 'Forge', short: 'Forge', hint: 'Work a batch at the anvil.' },
+  { id: 'tend', name: 'Tend the Store', short: 'Tend Store', hint: 'Open up and serve whoever comes in.' },
+  { id: 'buy', name: 'Purchase Materials', short: 'Buy Metal', hint: 'Walk to the market for ingots.' },
+  { id: 'almanac', name: 'Checksmith Almanac', short: 'Almanac', hint: 'Every blueprint you know, and what comes next.' },
+  { id: 'hire', name: 'Search for Employees', short: 'Hire Staff', hint: 'Ask around for someone to take work on.' }
 ];
 
 function shopActionState(id) {
@@ -11680,7 +11707,10 @@ function shopRenderActions() {
     b.className = 'act-btn' + (act.id === 'forge' ? ' primary' : '');
     b.dataset.act = act.id;
     b.disabled = !!why;
-    b.innerHTML = '<b>' + esc(act.name) + '</b><small>' + esc(why || act.hint) + '</small>';
+    // the full name, and why it is shut, for anyone who cannot see the chip
+    b.setAttribute('aria-label', act.name + (why ? ' — ' + why : ''));
+    b.title = act.name + ' — ' + (why || act.hint);
+    b.innerHTML = '<b>' + esc(act.short) + '</b>';
     host.appendChild(b);
   }
 }
@@ -12182,14 +12212,20 @@ function sceneRender() {
   // end: the sign with its name on it, the counter and the door
   if (SHOPUI.sceneFor !== App.shopSlot) {
     SHOPUI.sceneFor = App.shopSlot;
-    $('shScene').scrollLeft = Math.max(0, L.R - 40);
+    $('shScene').scrollLeft = sceneFrontX(L);
   }
+}
+/* The street end: the room finishes at the door, so scrolling to its very
+   end keeps the sign and the door whole on any phone, and a wider screen
+   simply takes in more of the counter and the floor as well. */
+function sceneFrontX(L) {
+  return Math.max(0, L.W - ($('shScene').clientWidth || 0));
 }
 function sceneJump(where) {
   const sh = App.shop;
   if (!sh) return;
   const L = sceneLayout(sh);
-  const x = where === 'work' ? 0 : where === 'floor' ? L.floorX - 20 : L.R - 40;
+  const x = where === 'work' ? 0 : where === 'floor' ? L.floorX - 20 : sceneFrontX(L);
   const el = $('shScene');
   const smooth = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   try { el.scrollTo({ left: x, behavior: smooth ? 'smooth' : 'auto' }); } catch (err) { el.scrollLeft = x; }
@@ -12660,13 +12696,27 @@ function sceneShowAfter(what) {
       'Storeroom', 'The storeroom.');
   }
 }
-function sceneFigFor(role) {
-  const sh = shop();
-  const held = assignmentAt(sh, role, shopPhase(sh));
-  return held ? '[data-crew="' + held.staff.id + '"]' : null;
+/* The figure standing at a station in the phase being PLAYED BACK. This is
+   read from the roster captured before the phase advanced - asking the live
+   roster would find whoever is booked for the NEXT phase, and at the turn
+   of the day there is no roster left to ask at all. */
+function sceneFigFor(crew, role) {
+  const id = crew && crew[role];
+  return id != null ? '[data-crew="' + id + '"]' : null;
+}
+/* Who is at each station right now, by trade. Called before a phase is
+   resolved, so the playback can find the people who actually did the work. */
+function sceneCrewNow(sh) {
+  const phase = shopPhase(sh);
+  const out = {};
+  for (const role of SHOP.roles) {
+    const held = assignmentAt(sh, role.id, phase);
+    if (held && !held.done) out[role.id] = held.staff.id;
+  }
+  return out;
 }
 
-function shopPlayPhase(reports, note, closing, done) {
+function shopPlayPhase(reports, note, closing, crew, done) {
   const sh = shop();
   const L = sceneLayout(sh);
   const view = $('shopView');
@@ -12710,7 +12760,7 @@ function shopPlayPhase(reports, note, closing, done) {
     for (let k = 0; k < n; k++) {
       at(t + k * 320, function () { sceneWalker(face(k), doorAt, { x: counterAt.x - k * 30, y: counterAt.y + 4 }, walk); });
     }
-    const who = sceneFigFor('salesperson');
+    const who = sceneFigFor(crew, 'salesperson');
     if (who) at(t + 500, function () { sceneBusy(who); });
     at(t + walk + 200, function () {
       if (r.revenue > 0) sceneFloat(L.R + 60, 96, '+' + coin(r.revenue) + 'g', 'gold');
@@ -12722,7 +12772,7 @@ function shopPlayPhase(reports, note, closing, done) {
   const hands = by('storehand');
   if (hands.length) {
     const r = hands[0];
-    const who = sceneFigFor('storehand');
+    const who = sceneFigFor(crew, 'storehand');
     at(t, function () {
       if (who) sceneBusy(who);
       sceneShowAfter('floor');
@@ -12735,7 +12785,7 @@ function shopPlayPhase(reports, note, closing, done) {
     at(t, function () {
       sceneBusy('[data-station="forge"]');
       sceneBusy('[data-station="anvil"]');
-      const who = sceneFigFor('smith');
+      const who = sceneFigFor(crew, 'smith');
       if (who) sceneBusy(who);
       for (const r of smiths) {
         sceneFloat(120, 120, r.kind === 'smelt' ? '+' + r.made + ' ingots' : '+' + r.made + ' made');
@@ -12745,7 +12795,7 @@ function shopPlayPhase(reports, note, closing, done) {
   }
   const trips = by('runner').concat(by('haul'), by('delivery'));
   if (trips.length) {
-    const who = sceneFigFor('runner');
+    const who = sceneFigFor(crew, 'runner');
     at(t, function () {
       if (who) {
         const el = $('shThings').querySelector(who);
@@ -12866,29 +12916,70 @@ function shopAfterPhase(replay) {
 }
 
 /* ---------- the tabbed panels ---------- */
+/* ---------- the management drawer ------------------------------------
+   The room is the shop; this is the paperwork behind it. Eight screens in
+   three drawers, shut until one is opened, so the room leads and the page
+   does not run on for a screen and a half below it. Every tab id is what
+   it always was, so anything that opened a screen still opens it. */
 const SHOP_TABS = [
-  { id: 'shelf', name: 'Shop' },
+  { id: 'shelf', name: 'Shelves' },
   { id: 'storage', name: 'Storage' },
-  { id: 'metal', name: 'Metal' },
-  { id: 'town', name: 'Town' },
+  { id: 'metal', name: 'Materials' },
+  { id: 'grow', name: 'Growth' },
   { id: 'ledger', name: 'Ledger' },
-  { id: 'props', name: 'Map' },
-  { id: 'staff', name: 'Staff' },
-  { id: 'grow', name: 'Growth' }
+  { id: 'props', name: 'Properties' },
+  { id: 'town', name: 'Town' },
+  { id: 'staff', name: 'Staff' }
 ];
-
+const SHOP_TAB_GROUPS = [
+  { id: 'stock', name: 'Inventory', tabs: ['shelf', 'storage', 'metal'] },
+  { id: 'business', name: 'Business', tabs: ['grow', 'ledger', 'props', 'town'] },
+  { id: 'people', name: 'Staff', tabs: ['staff'] }
+];
+function tabGroupOf(tabId) {
+  return SHOP_TAB_GROUPS.find(function (g) { return g.tabs.indexOf(tabId) >= 0; }) || null;
+}
+/* What is waiting in each drawer, so a closed one still says so. */
+function tabGroupNote(sh, group) {
+  if (group.id === 'business') return (sh.commissionOffers || []).length;
+  if (group.id === 'people') return readyToRank(sh).length;
+  return 0;
+}
 function shopRenderTabs() {
+  const sh = shop();
   const host = $('shTabs');
   host.textContent = '';
-  for (const t of SHOP_TABS) {
+  const open = tabGroupOf(SHOPUI.tab);
+  const row = document.createElement('div');
+  row.className = 'tab-groups';
+  for (const g of SHOP_TAB_GROUPS) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'shop-tab';
-    b.dataset.tab = t.id;
-    b.setAttribute('role', 'tab');
-    b.setAttribute('aria-selected', t.id === SHOPUI.tab ? 'true' : 'false');
-    b.textContent = t.name;
-    host.appendChild(b);
+    b.className = 'tab-group' + (open === g ? ' on' : '');
+    b.dataset.group = g.id;
+    b.setAttribute('aria-expanded', open === g ? 'true' : 'false');
+    const note = tabGroupNote(sh, g);
+    b.innerHTML = esc(g.name) + (note ? '<span class="tg-note" aria-label="' + note +
+      ' waiting">' + note + '</span>' : '') + '<span class="tg-caret" aria-hidden="true">' +
+      (open === g ? '&#9652;' : '&#9662;') + '</span>';
+    row.appendChild(b);
+  }
+  host.appendChild(row);
+  if (open && open.tabs.length > 1) {
+    const sub = document.createElement('div');
+    sub.className = 'tab-sub';
+    for (const id of open.tabs) {
+      const t = SHOP_TABS.find(function (x) { return x.id === id; });
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'shop-tab';
+      b.dataset.tab = t.id;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', t.id === SHOPUI.tab ? 'true' : 'false');
+      b.textContent = t.name;
+      sub.appendChild(b);
+    }
+    host.appendChild(sub);
   }
 }
 
@@ -13816,6 +13907,8 @@ function shopRenderPanel() {
   const sh = shop();
   const host = $('shPanel');
   let html = '';
+  host.hidden = !SHOPUI.tab;
+  if (!SHOPUI.tab) { host.innerHTML = ''; return; }
 
   if (SHOPUI.tab === 'shelf') {
     // The floor is fixtures. What the premises hold is stands, and a stand is
@@ -14040,6 +14133,10 @@ function shopRender() {
   shopRenderBar();
   shopRenderActions();
   shopRenderCrew();
+  if (SHOPUI.tab) {
+    const g = tabGroupOf(SHOPUI.tab);
+    if (g) { SHOPUI.lastTab = SHOPUI.lastTab || {}; SHOPUI.lastTab[g.id] = SHOPUI.tab; }
+  }
   shopRenderTabs();
   shopRenderPanel();
   sceneRender();
@@ -16031,11 +16128,18 @@ function shopToast(text) {
    reports are read, and the shop moves on. */
 function shopSpendPhase(note) {
   const sh = shop();
+  // a phase already playing out cannot be spent again underneath it
+  if (SHOPUI.playing) return;
   SOUNDS.chime();
   if (note) shopToast(note);
   SHOPUI.editing = false;
   SHOPUI.editSel = null;
   const closing = shopPhaseName(sh);
+  const closingId = shopPhase(sh);
+  // who is at which station for the phase that is about to be played out -
+  // captured BEFORE the phase advances, because afterwards the roster says
+  // who is booked next, and at the turn of the day it is wiped altogether
+  const crew = sceneCrewNow(sh);
   // the phase resolves HERE, once. Nothing after this line decides anything.
   const result = shopAdvancePhase(sh);
   const reports = result.reports || [];
@@ -16043,12 +16147,12 @@ function shopSpendPhase(note) {
      before a frame of it is shown - so a game closed during the playback
      opens again on the same summary, and a replay has nothing to recompute. */
   SHOPUI.replay = JSON.parse(JSON.stringify({ reports: reports, note: note || null,
-    closing: closing, result: result.newDay ? result : null }));
+    closing: closing, phase: closingId, crew: crew, result: result.newDay ? result : null }));
   saveShop();
   const replay = SHOPUI.replay;
   const next = function () { shopAfterPhase(replay); };
   if (phaseAnimOn() && !$('shopView').hidden && !sh.closed) {
-    shopPlayPhase(reports, note, closing, next);
+    shopPlayPhase(reports, note, closing, crew, next);
   } else {
     next();
   }
@@ -16584,7 +16688,7 @@ function startShop(resume, name) {
     App.shopSlot = resume.id;
     App.shopPick = resume.id;
     Store.patch({ shopLast: resume.id });
-    SHOPUI.tab = 'shelf';
+    SHOPUI.tab = null;
     SHOPUI.session = null;
     SHOPUI.order = null;
     $('titleScreen').hidden = true;
@@ -16618,7 +16722,7 @@ function startShop(resume, name) {
   App.shopSlot = nextSlotId(slots);
   App.shopPick = App.shopSlot;
   Store.patch({ shopLast: App.shopSlot });
-  SHOPUI.tab = 'shelf';
+  SHOPUI.tab = null;
   SHOPUI.session = null;
   SHOPUI.order = null;
   $('titleScreen').hidden = true;
@@ -16710,6 +16814,7 @@ function shopOpenPicker(done) {
 
 function shopAct(id) {
   const sh = shop();
+  if (SHOPUI.playing) return;
   if (shopActionState(id)) return;
   if (id === 'forge') { SHOPUI.draft = { item: firstKnownRecipe(), material: 'bronze', qty: 1 }; shopOpenForge(null); }
   else if (id === 'buy') shopOpenBuy(null);
@@ -16729,6 +16834,16 @@ function wireShop() {
     if (b && !b.disabled) shopAct(b.dataset.act);
   });
   $('shTabs').addEventListener('click', function (e) {
+    const g = e.target.closest ? e.target.closest('[data-group]') : null;
+    if (g) {
+      const group = SHOP_TAB_GROUPS.find(function (x) { return x.id === g.dataset.group; });
+      const open = tabGroupOf(SHOPUI.tab);
+      SHOPUI.lastTab = SHOPUI.lastTab || {};
+      if (open === group) { SHOPUI.tab = null; }
+      else { SHOPUI.tab = SHOPUI.lastTab[group.id] || group.tabs[0]; }
+      shopRender();
+      return;
+    }
     const b = e.target.closest ? e.target.closest('[data-tab]') : null;
     if (!b) return;
     SHOPUI.tab = b.dataset.tab;

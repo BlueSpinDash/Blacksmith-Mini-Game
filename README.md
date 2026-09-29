@@ -1317,6 +1317,42 @@ a salesperson brought back (still the player's to accept or decline), and each
 hand's full report a tap away. The playback is on by default, off under
 `prefers-reduced-motion`, and switchable from the sign.
 
+#### 1.34: the room in front, the paperwork behind it
+
+**Lighting stays in the room.** The room's light is drawn in layers at
+`z-index` 60–70 (tint, lamp and forge glow, effects) with the Skip button at 90.
+The room itself never formed a stacking context, so those numbers were being
+compared with the menus' own (every sheet is 60), and the forge glow — a
+`mix-blend-mode: screen` layer — painted over open panels. `.scene` and
+`.scene-wrap` now carry `isolation: isolate`, which makes every number inside
+them local; the lighting is unchanged, it simply can no longer rise above
+anything outside the room. A browser check renders the evening forge glow under
+an open panel and compares the panel's pixels with the room's light on and off,
+in all three views; the same check fails against 1.33.
+
+**Navigation.** The five actions are one row of short labels (`short` in
+`SHOP_ACTIONS`; the full name and any reason it is shut are the accessible
+label and tooltip — nothing is ever ellipsed). The eight tabs keep their ids but
+live in three drawers (`SHOP_TAB_GROUPS`: Inventory, Business, Staff), all shut
+when the shop opens, so the page ends shortly under the room. Opening a drawer
+returns to the screen it was last left on; a count on a drawer says something
+inside is waiting (contract offers, promotions). Stations still open their
+screens directly through `shopShowTab`. A check scans every screen and station
+panel at 320, 360, 390 and 430 pixels for any text wider than its box.
+
+**The playback shows the phase that ended.** It used to look the performer up in
+the live roster *after* the phase had advanced, which found whoever was booked
+next — and after the evening, nobody, because the day's turn wipes the roster.
+`sceneCrewNow` now records who held each station *before* `shopAdvancePhase`,
+and the playback reads only that. `shopSpendPhase` and `shopAct` refuse to run
+while a playback is under way, so a second press cannot advance the day twice. A
+check books a different salesperson into each phase and watches a full day.
+
+**Novice has a bishop.** `CONFIG.pools[3]` is `K, R, B, 2`. The larger pools are
+unchanged, and the Novice fallback boards were regenerated to carry bishops
+(`make-fallbacks.mjs` is stale for the hardened tiers, so only the Novice
+entries were regenerated, with the same generators and eight-way validation).
+
 ### Growth buys room, the Shop buys fixtures
 
 One line runs through both tabs: **Growth sells capacity, never an object.**

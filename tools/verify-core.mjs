@@ -165,11 +165,31 @@ section('Size decides what is on a board, and the bishop still moves like one');
   const idx = (r, c, n) => r * n + c;
   const has = (piece, from, to, n) => C.movesFrom(piece, from, n).includes(to);
 
-  ok('the smallest board is a king, a rook and numbers',
-    C.poolForSize(3).join(',') === 'K,R,2', C.poolForSize(3).join(','));
-  ok('and the bishop arrives when there is room for one',
-    !C.poolForSize(3).includes('B') && C.poolForSize(4).includes('B'),
-    C.poolForSize(4).join(','));
+  ok('the smallest board is a king, a rook, a bishop and numbers',
+    C.poolForSize(3).join(',') === 'K,R,B,2', C.poolForSize(3).join(','));
+  ok('and the knight still waits for a board with room for it',
+    !C.poolForSize(3).includes('N') && !C.poolForSize(4).includes('N') &&
+    C.poolForSize(5).includes('N'), C.poolForSize(5).join(','));
+  ok('the larger boards are exactly as they were',
+    C.poolForSize(4).join(',') === 'K,R,B,2,3' &&
+    C.poolForSize(5).join(',') === 'K,R,B,N,2,3,4' &&
+    C.poolForSize(6).join(',') === 'K,R,B,N,2,3,4,5' && C.queensForSize(6) === 2 &&
+    C.queensForSize(3) === 0, C.poolForSize(6).join(','));
+  ok('Novice boards deal bishops, and every one of them can be finished', (() => {
+    let bishops = 0;
+    for (let seed = 1; seed <= 120; seed++) {
+      const b = C.generateBoard('novice', C.mulberry32(seed * 104729));
+      if (!b || !C.validateBoard(b)) return false;
+      if (b.pieces.includes('B')) bishops++;
+    }
+    return bishops >= 60;
+  })());
+  ok('the Novice fallback boards carry bishops and still solve', (() => {
+    const list = C.FALLBACK_BOARDS.novice;
+    return list.length === 3 && list.every((raw) => raw.pieces.includes('B') &&
+      C.validateBoard({ size: 3, difficulty: 'novice', pieces: raw.pieces.split(''),
+        route: raw.route.slice() }));
+  })());
 
   // the same diagonal rule, at the small size, with nothing bolted on
   ok('a bishop in the middle of a 3x3 reaches all four corners',
