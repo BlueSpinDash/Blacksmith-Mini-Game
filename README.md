@@ -150,6 +150,79 @@ forged, but each one costs quality.
 left, the run ends where it stands and nothing is scored. Spend squares
 carelessly and you will wall yourself in.
 
+## The Forge: a dagger blank
+
+The Forge mode no longer deals a square board. It lays the metal being forged on
+the anvil, and only the squares that make up that metal can be struck. This is
+a proof of concept for shaped puzzles, so there is exactly one piece: a
+**dagger blank** — the forged metal, not the finished weapon. No grip, guard or
+pommel; just the point, the blade, and the tang the grip will later slide over.
+
+```
+      R            the point
+    B K B
+  N 3 K 3 N
+K 2 R N R 2 K      the widest two rows
+B K N 2 N K B
+  R B K B R
+    N 3 N          the shoulders
+      K            the throat: the tang begins
+      2
+      K
+      R            the end of the tang
+```
+
+The rules are the Forge's own, unchanged: every square twice, a third strike
+ruins it, and where the next blow may land is decided by the square you are
+standing on. Quality is scored exactly as before, over the dagger's 35 squares.
+
+**Moves are counted across the whole grid the dagger sits on.** A rook still
+slides along its row or column, a bishop along its diagonals, a knight still
+jumps two and one, and a number still counts rings — and sliders pass over the
+air around the blade the way they pass over struck squares. Only where the blow
+lands has to be metal. The air is never drawn, never focused, never struck.
+
+**The symbols are placed by hand, and none of them reshape.** The piece can be
+planned from the first blow. It was designed around the change in width:
+
+- **The spine.** The rook at the point and the rook at the end of the tang both
+  run the dagger's centre line; they are the only squares that reach all of it.
+- **The bevels.** The bishops on the widest row run down the edge of the blade
+  straight into the throat.
+- **The shoulders.** The knights either side of the throat leap past it into the
+  tang, and the Three between them reaches back up to the widest row or down into
+  the tang.
+- **The tang.** A king at the throat, a Two that throws back out to the shoulders
+  or down to the end, a king that can only go up or down the tang, and the rook
+  at the end. Walk onto that second king with both its neighbours spent and the
+  piece is stranded there. The tang is entered and left on purpose.
+
+A perfect piece can be forged from **every one of the 35 opening squares** — the
+core test suite proves it by search and then plays each route through the game.
+For a sense of difficulty: a random player who only avoids squares it has
+already finished clears the dagger about two times in three, against about nine
+in ten on the old square boards, and nearly every stranding happens in the tang.
+
+The Forge keeps its best quality per piece (`best.dagger` in the save). The old
+per-difficulty records from the square boards are left where they were.
+
+### How a shaped board works
+
+A board may carry a `shape`: one flag per square of its grid, 1 for metal and 0
+for air. The grid underneath is still square and still indexed `row * size +
+col`, so every movement table in the game serves it unchanged; `isMetal`,
+`metalCount` and `metalMovesFrom` are the only new questions, and a board
+without a shape answers them exactly as every board did before. That is what
+keeps Endless, Versus and Open Your Forge untouched: none of their boards carry
+a shape, and a fingerprint of generated boards and played-out games across all
+of them is byte-identical before and after this change.
+
+A handcrafted piece is drawn in `FORGE_PIECES` as rows of symbols with `.` for
+air, with one stored perfect route that `validateBoard` checks like any other
+board. The outline under the tiles is traced from the shape alone — a one-square
+step per row becomes a 45° bevel, a single square at the top becomes the point —
+so a second piece would draw its own silhouette without new art.
+
 ## Endless mode
 
 The game opens on a **title screen** offering four modes — Forge, Endless,
@@ -1642,13 +1715,21 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 342 rule/generation checks
-node tools/verify-ui.mjs                                    # 292 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 896 rule/generation checks
+node tools/verify-ui.mjs                                    # 722 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
 `tools/verify-core.mjs` extracts the core block from `index.html` and exercises
 it directly, so the tests run against the shipped file rather than a copy.
+
+The Forge mode lays its dagger now, but the square boards it used to deal are
+still what Endless and Open Your Forge's anvil play on, and the browser checks
+for striking, reshaping, crust, spending and losing were written against the
+Forge screen. They keep running there: a check that names a difficulty for the
+Forge has that square board dealt onto the Forge screen through a test-only hook
+(`window.CHECKSMITH.squareForge`), which nothing a player can reach calls. The
+dagger has its own section, and its own pass at seven screen sizes.
 
 ## Not in this prototype
 

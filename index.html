@@ -183,6 +183,55 @@ input[type=range]{
   -webkit-user-select:none;user-select:none;
   -webkit-touch-callout:none;
 }
+/* ---------- a handcrafted piece on the anvil ------------------------
+   The Forge's dagger is drawn as the metal itself. The square panel behind
+   an ordinary board gives way to the forge's glow, the blank's outline is
+   laid under the tiles, and only the metal squares exist to be seen: air
+   tiles are hidden outright, so no border, shadow or highlight can hint at
+   the grid around the piece.
+
+   The board is sized by its height as much as its width: the whole piece,
+   point to tang, stays on a phone screen without scrolling mid-puzzle. */
+.board-wrap[data-shape]{
+  background:radial-gradient(58% 52% at 50% 40%, rgba(255,138,61,.17), rgba(255,138,61,0) 72%);
+  border-color:transparent;box-shadow:none;
+  padding:8px 8px 10px;
+}
+.board[data-shape]{
+  --gap:6px;
+  /* As wide as the column allows, or as wide as lets the whole piece stand on
+     the screen below the prompt - whichever is smaller - but never so small a
+     square cannot be tapped. The point rises above the grid by a little over
+     half a square, so the board is pushed down by that much of its own
+     square size: the outline and its glow then clear the prompt at any width. */
+  --piece-w:min(calc(100vw - 36px), 484px,
+    max(190px, calc((100svh - 210px) * var(--n) / (var(--rows) + .62))));
+  position:relative;
+  width:var(--piece-w);max-width:100%;
+  margin:calc(var(--piece-w) / var(--n) * .62) auto 0;
+}
+.board[data-shape] .blank{
+  position:absolute;z-index:0;pointer-events:none;overflow:visible;
+  left:calc(var(--gap) / -2);top:calc(var(--gap) / -2);
+  width:calc(100% + var(--gap));height:calc(100% + var(--gap));
+}
+.blank .blank-glow{
+  fill:none;stroke:rgba(255,138,61,.16);stroke-width:.3;stroke-linejoin:round;
+}
+.blank .blank-metal{stroke:#12141a;stroke-width:.07;stroke-linejoin:round;}
+.board[data-shape] .tile{border-radius:7px;}
+/* the tang is plainer, rougher iron: it will be hidden in the grip */
+.board[data-shape] .tile[data-tang="1"][data-s="0"]:not([data-crust]){
+  background:linear-gradient(160deg,#3b3631 0%,#2b2724 45%,#221f1c 100%);
+}
+.piece-bar{
+  margin:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;
+  padding:6px 11px;border-radius:10px;
+  background:var(--panel);border:1px solid var(--edge-soft);
+  font-size:13px;color:var(--muted);letter-spacing:.02em;
+}
+.piece-bar .pb-name{flex:1 1 auto;color:var(--gold);font-weight:600;font-size:14.5px;letter-spacing:.04em;}
+.piece-bar b{color:var(--text);font-weight:600;}
 .tile .glyph{
   position:relative;z-index:2;
   text-shadow:0 1px 1px #0b0c0f, 0 0 2px rgba(0,0,0,.8);
@@ -2051,6 +2100,12 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <button class="diff-btn" type="button" data-diff="journeyman" aria-pressed="false">Journey.<small>5&times;5</small></button>
     <button class="diff-btn" type="button" data-diff="master"     aria-pressed="false">Master<small>6&times;6</small></button>
   </nav>
+  <!-- the Forge's handcrafted piece: what is on the anvil and how far along -->
+  <p class="piece-bar" id="pieceBar" hidden>
+    <span class="pb-name" id="pieceName">Dagger Blank</span>
+    <span class="pb-part">Blade <b id="pieceBlade">0/31</b></span>
+    <span class="pb-part pb-tang">Tang <b id="pieceTang">0/4</b></span>
+  </p>
 
   <p class="prompt" id="prompt">
     <span class="pc-glyph" id="promptGlyph" aria-hidden="true">&#9874;</span>
@@ -2190,7 +2245,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <div class="mode-cards" role="radiogroup" aria-labelledby="modeLabel">
       <button class="mode-card" type="button" data-mode="forge" role="radio" aria-checked="true">
         <span class="mc-name">Forge</span>
-        <span class="mc-desc">Strike every square twice. The metal reshapes under the hammer, and a third strike ruins the square.</span>
+        <span class="mc-desc">Forge a dagger blank. Strike every square of the blade and the tang twice; a third strike ruins the square.</span>
         <span class="mc-best" id="forgeBest">&nbsp;</span>
       </button>
       <button class="mode-card" type="button" data-mode="endless" role="radio" aria-checked="false">
@@ -2247,6 +2302,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
         face a Master, and a large one a Novice. The <b>size</b> decides which symbols both boards
         are dealt; the <b>rival</b> decides only how far ahead it thinks.</p>
     </div>
+    <p class="title-note" id="forgeNote" hidden>The Forge lays one handcrafted piece on the anvil:
+      a dagger blank, point to tang. Only the metal can be struck &mdash; plan how you get into the
+      narrow tang, and how you get back out.</p>
     <p class="title-note" id="endlessNote" hidden>Endless always starts on the 3&times;3 board and
       steps up a size every 5 rounds. The board's size decides which symbols it deals, so each
       step up brings a new one into play, and the metal reshapes more often the longer you last.</p>
@@ -2311,6 +2369,21 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <b>3.</b> Two strikes forge a square perfectly.<br>
       <b>4.</b> The board finishes on its own once every square has at least two strikes.
     </p>
+    <h2 style="font-size:16px;margin:16px 0 4px">The Forge: a dagger blank</h2>
+    <p>The Forge does not deal a square board. It lays the metal itself on the anvil &mdash; a
+       <b>dagger blank</b>, the point at the top, the blade broadening to its widest two rows, and
+       a <b>tang</b> one square wide running down from the shoulders, for a grip to be fitted
+       over later. Only the metal can be struck; the space around it is air.</p>
+    <p>Moves are counted across the whole grid the dagger sits on, exactly as on a square board:
+       a rook slides along its row or column and a knight still jumps two and one, passing over
+       air on the way &mdash; but the blow has to land on metal. Every symbol is placed by hand
+       and none of them reshape, so the whole piece can be planned from the first blow.</p>
+    <p><b>Mind the tang.</b> Being one square wide, it can only be reached from a few places:
+       the rooks at the point and at the tang's end run the dagger's centre line, the knights
+       either side of the throat leap into it, and the bishops on the widest row run down the
+       bevels into the throat. Inside, the second king can only go up or down the tang &mdash;
+       walk onto it with both neighbours spent and the piece is stranded. A perfect piece can be
+       forged from any opening square.</p>
     <p><b>The board's size decides what is on it</b> &mdash; not the difficulty you picked. A
        <b>3&times;3</b> is kings, rooks and numbers. A <b>4&times;4</b> adds the bishop, a
        <b>5&times;5</b> the knight, and a <b>6&times;6</b> the occasional queen. Every rank up
@@ -3070,6 +3143,35 @@ function isLegalMove(piece, from, to, size) {
   return tableFor(size)[piece].mask[from][to] === 1;
 }
 
+/* ---------- shaped boards --------------------------------------------
+   A board may carry `shape`: one flag per square of its size x size grid,
+   1 where there is metal and 0 where there is only air. A board without one
+   is metal edge to edge, which is every board the game made before the
+   Forge's dagger and every board Endless, Versus and Open Your Forge still
+   make - so for all of them each of these answers exactly as before.
+
+   The grid under a shape is still square and still indexed row * size + col,
+   so the movement tables above serve it unchanged: a rook still slides
+   along the grid and a knight still jumps over whatever lies between. Sliders
+   pass over air the way they pass over struck squares - only where the blow
+   lands has to be metal. */
+function isMetal(board, idx) {
+  return !board || !board.shape || board.shape[idx] === 1;
+}
+/* How many squares of the board can be struck at all. */
+function metalCount(board) {
+  const n = board.size * board.size;
+  if (!board.shape) return n;
+  let count = 0;
+  for (let i = 0; i < n; i++) if (board.shape[i] === 1) count++;
+  return count;
+}
+/* Where `piece` on `idx` may strike next, metal only. */
+function metalMovesFrom(board, piece, idx) {
+  const list = tableFor(board.size)[piece].list[idx];
+  return board.shape ? list.filter(function (j) { return board.shape[j] === 1; }) : list;
+}
+
 /* ---------- deterministic RNG (seeded, so boards are reproducible) */
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -3219,22 +3321,33 @@ function assignPieces(size, opts, rnd, maxQueens) {
 }
 
 /* Every square can eventually reach every other square, so any
-   opening choice can still finish (with extra strikes if needed). */
-function isStronglyConnected(size, pieces) {
+   opening choice can still finish (with extra strikes if needed).
+   On a shaped board only the metal counts: air is never a square to reach
+   and never a square to leave from. */
+function isStronglyConnected(size, pieces, shape) {
   const n = size * size, T = tableFor(size);
+  const on = (i) => !shape || shape[i] === 1;
   const fwd = new Array(n), rev = new Array(n);
-  for (let i = 0; i < n; i++) { fwd[i] = T[pieces[i]].list[i]; rev[i] = []; }
+  let first = -1, total = 0;
+  for (let i = 0; i < n; i++) {
+    rev[i] = [];
+    if (!on(i)) { fwd[i] = []; continue; }
+    fwd[i] = shape ? T[pieces[i]].list[i].filter(on) : T[pieces[i]].list[i];
+    if (first < 0) first = i;
+    total++;
+  }
+  if (first < 0) return false;
   for (let i = 0; i < n; i++) for (const j of fwd[i]) rev[j].push(i);
   const reach = (adj) => {
     const seen = new Uint8Array(n);
-    const stack = [0];
-    seen[0] = 1;
+    const stack = [first];
+    seen[first] = 1;
     let count = 1;
     while (stack.length) {
       const cur = stack.pop();
       for (const nx of adj[cur]) if (!seen[nx]) { seen[nx] = 1; count++; stack.push(nx); }
     }
-    return count === n;
+    return count === total;
   };
   return reach(fwd) && reach(rev);
 }
@@ -3248,23 +3361,32 @@ function validateBoard(board, visits) {
   // material in Open Your Forge. Read it from the board unless told otherwise.
   const per = visits || board.visits || 2;
   const hard = board.hard;
+  // air is owed no blows at all; every other square its count, crust included
+  const owed = (i) => isMetal(board, i) ? per + (hard ? (hard[i] || 0) : 0) : 0;
+  if (board.shape && board.shape.length !== n) return false;
   let total = 0;
-  for (let i = 0; i < n; i++) total += per + (hard ? (hard[i] || 0) : 0);
+  for (let i = 0; i < n; i++) total += owed(i);
   if (!route || route.length !== total) return false;
   if (!pieces || pieces.length !== n) return false;
+  // metal carries a symbol and air carries none
+  if (board.shape) {
+    for (let i = 0; i < n; i++) {
+      if (isMetal(board, i) ? !PIECES[pieces[i]] : pieces[i] != null) return false;
+    }
+  }
   const counts = new Int32Array(n);
   for (const i of route) {
     if (!(i >= 0 && i < n)) return false;
     counts[i]++;
   }
-  // every square is visited exactly as often as it needs blows, crust included
+  // every square is visited exactly as often as it needs blows
   for (let i = 0; i < n; i++) {
-    if (counts[i] !== per + (hard ? (hard[i] || 0) : 0)) return false;
+    if (counts[i] !== owed(i)) return false;
   }
   for (let i = 0; i < route.length - 1; i++) {
     if (!isLegalMove(pieces[route[i]], route[i], route[i + 1], size)) return false;
   }
-  return isStronglyConnected(size, pieces);
+  return isStronglyConnected(size, pieces, board.shape);
 }
 
 /* Roll the crust for a board. A hardened square has to be broken open before
@@ -3444,6 +3566,101 @@ function makeBoard(difficultyKey, rnd, limits) {
   const fb = fallbackBoard(difficultyKey, rnd);
   if (fb && validateBoard(fb)) return fb;
   return null;
+}
+
+/* ---------- handcrafted forge pieces ---------------------------------
+   The Forge mode does not deal a square board. It lays the actual blank of
+   metal being forged on the anvil, and only the squares that make up that
+   blank can be struck. Each piece is drawn here as rows of symbols with '.'
+   for air, so its silhouette reads straight off the source, and the symbols
+   are placed by hand rather than dealt - which is what lets a piece have a
+   shape worth routing around.
+
+   Every piece keeps the forge's rules as they are: every square struck
+   twice, a third strike ruins it, a strike moves as the square you stand on
+   says. `route` is one perfect solution, kept so the piece is proved
+   solvable by the same validateBoard every generated board passes.
+
+   THE DAGGER BLANK is the forged metal, not the finished weapon: a point, a
+   blade broadening to its widest two rows, and a one-square tang running
+   down from the shoulders for the grip to be fitted over later.
+     - The spine. The Rook at the point and the Rook at the tang's end both
+       run the dagger's centre line, and they are the only squares that can
+       reach the whole of it in one blow.
+     - The bevels. The Bishops on the widest row run down the edge of the
+       blade straight into the throat, where the tang begins.
+     - The shoulders. The Knights either side of the throat leap past it into
+       the tang, and the Three between them reaches back up to the widest
+       part of the blade or down into the tang.
+     - The tang. A King at the throat, a Two that throws back out to the
+       shoulders or down to the end, a King that can only go up or down the
+       tang, and the Rook at the end. Walk into the second King when both of
+       its neighbours are spent and the piece is stranded there - the tang is
+       entered and left on purpose, never wandered into.
+   A perfect piece can be forged from every one of its 35 opening squares. */
+const FORGE_PIECES = {
+  dagger: {
+    name: 'Dagger Blank',
+    rows: [
+      '...R...',
+      '..BKB..',
+      '.N3K3N.',
+      'K2RNR2K',
+      'BKN2NKB',
+      '.RBKBR.',
+      '..N3N..',
+      '...K...',
+      '...2...',
+      '...K...',
+      '...R...'
+    ],
+    tang: 7,        // the first row of the tang; the rows above it are blade
+    route: [3,102,91,68,91,70,57,27,50,80,70,57,33,23,46,33,23,46,59,39,27,48,39,50,80,
+      68,45,44,56,59,49,48,35,13,49,60,58,69,102,113,58,69,36,13,3,113,36,15,35,24,60,56,
+      45,44,24,38,14,26,34,14,15,25,37,26,34,47,25,37,38,47]
+  }
+};
+/* Which piece the Forge lays on the anvil. There is one for now. */
+const FORGE_PIECE_DEFAULT = 'dagger';
+
+/* Lay a handcrafted piece out as a board. The grid is square, as big as the
+   piece is tall or wide, with the piece in its top-left corner; `cols` and
+   `rows` are the piece's own footprint, which is all that is ever drawn. */
+function forgePieceBoard(id) {
+  const def = FORGE_PIECES[id];
+  if (!def) return null;
+  const rows = def.rows.length;
+  let cols = 0;
+  for (const line of def.rows) cols = Math.max(cols, line.length);
+  const size = Math.max(rows, cols);
+  const shape = new Array(size * size).fill(0);
+  const pieces = new Array(size * size).fill(null);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < def.rows[r].length; c++) {
+      const ch = def.rows[r][c];
+      if (ch === '.' || ch === ' ') continue;
+      if (!PIECES[ch]) return null;
+      shape[r * size + c] = 1;
+      pieces[r * size + c] = ch;
+    }
+  }
+  return {
+    size: size, rows: rows, cols: cols, difficulty: null,
+    piece: id, name: def.name, tang: def.tang,
+    shape: shape, pieces: pieces, route: def.route.slice(), visits: 2
+  };
+}
+
+/* The symbols a piece actually carries, in the order the legend reads them. */
+function forgePieceSymbols(board) {
+  const order = ['K', 'R', 'B', 'N', 'Q'].concat(NUMBER_SYMBOLS);
+  return order.filter(function (p) { return board.pieces.indexOf(p) !== -1; });
+}
+
+/* Is this square in the tang rather than the blade? */
+function inTang(board, idx) {
+  return !!(board && board.tang && isMetal(board, idx) &&
+    Math.floor(idx / board.size) >= board.tang);
 }
 
 /* ---------- endless: one visit per square -----------------------------
@@ -3881,6 +4098,8 @@ function strikeState(game, idx) {
 }
 
 function blocked(game, idx) {
+  // air is never struck, on the opening blow or any other
+  if (!isMetal(game.board, idx)) return true;
   return isEndless(game) ? isHit(game, idx) : isSpent(game, idx);
 }
 
@@ -3922,8 +4141,9 @@ function canStrike(game, idx) {
 function reshape(game, idx) {
   const current = game.pieces[idx];
   const T = tableFor(game.board.size);
+  // on a shaped board, somewhere to go has to be somewhere with metal
   const choices = game.morphPool.filter(function (p) {
-    return p !== current && T[p] && T[p].list[idx].length > 0;
+    return p !== current && T[p] && metalMovesFrom(game.board, p, idx).length > 0;
   });
   if (!choices.length) return null;
   game.pieces[idx] = choices[Math.floor(game.rnd() * choices.length)];
@@ -4041,7 +4261,7 @@ function strikeForge(game, idx) {
   }
 
   const complete = game.strikes.every(function (st, i) {
-    return st >= perfectOf(game) && !isHardened(game, i);
+    return !isMetal(game.board, i) || (st >= perfectOf(game) && !isHardened(game, i));
   });
   if (complete) game.status = 'complete';
   else if (legalTargets(game).length === 0) game.status = 'lost';
@@ -4068,6 +4288,7 @@ function gameStats(game) {
   const need = perfectOf(game), ruin = spentOf(game);
   for (let i = 0; i < game.strikes.length; i++) {
     const st = game.strikes[i];
+    if (!isMetal(game.board, i)) continue;         // air is not part of the piece
     if (isHardened(game, i)) { crusted++; continue; }
     // Blows spent on a crust are never overstrikes: they were owed.
     if (st > need) over += st - need;
@@ -4075,7 +4296,7 @@ function gameStats(game) {
     if (st === need) perfect++;
     if (st >= ruin) spent++;
   }
-  return { squares: n, hits: forged, total: game.totalStrikes, overstrikes: over,
+  return { squares: metalCount(game.board), hits: forged, total: game.totalStrikes, overstrikes: over,
     forged: forged, perfect: perfect, spent: spent, crusted: crusted, score: 0,
     round: 1, roundsCompleted: 0, material: materialFor(1) };
 }
@@ -9455,6 +9676,9 @@ function shopExpand(shop) {
 
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
+  isMetal: isMetal, metalCount: metalCount, metalMovesFrom: metalMovesFrom,
+  FORGE_PIECES: FORGE_PIECES, FORGE_PIECE_DEFAULT: FORGE_PIECE_DEFAULT,
+  forgePieceBoard: forgePieceBoard, forgePieceSymbols: forgePieceSymbols, inTang: inTang,
   pieceNumber: pieceNumber, poolFor: poolFor, poolForSize: poolForSize,
   rollHardening: rollHardening, hasHardening: hasHardening,
   crustOf: crustOf, isHardened: isHardened, crustStartOf: crustStartOf,
@@ -10192,10 +10416,13 @@ const Store = {
 const App = {
   difficulty: 'novice',
   mode: 'forge',        // 'forge' | 'endless' | 'versus' | 'shop'
+  forgePiece: null,     // the handcrafted piece the Forge lays out; null for the default
+  squareForge: false,   // tests only: the Forge deals the old square boards instead
   game: null,
   roundTimer: null,     // pause between endless rounds
   lastLayout: '',       // previous round's symbols, so a board is not dealt twice running
   tiles: [],
+  tileShape: null,      // which handcrafted piece the tiles are laid out for, if any
   rnd: mulberry32((Date.now() ^ (Math.random() * 0xffffffff)) >>> 0),
   busy: false,          // a hammer is mid-swing
   token: 0,             // invalidates callbacks from cancelled swings
@@ -10238,30 +10465,139 @@ function cancelPending(runPending) {
 }
 
 /* ---------- board construction ------------------------------------ */
-function buildTiles(size) {
+/* `shaped` is a board carrying a shape - the Forge's handcrafted piece. Every
+   other caller passes a size alone and gets the square board it always had.
+
+   A shaped board still gets a tile for every square of its grid, so that
+   App.tiles stays indexed exactly like the board and nothing that walks it
+   has to know about air. The air tiles are simply never shown: they are
+   hidden, out of the tab order and out of the accessibility tree, and the
+   metal tiles are placed on the grid by row and column so the silhouette
+   draws itself. */
+function buildTiles(size, shaped) {
   const board = $('board');
+  const shape = shaped && shaped.shape ? shaped : null;
+  const wrap = board.closest('.board-wrap');
   board.textContent = '';
-  board.style.setProperty('--n', size);
+  board.style.setProperty('--n', shape ? shape.cols : size);
+  if (shape) {
+    board.style.setProperty('--rows', shape.rows);
+    board.dataset.shape = shape.piece;
+    wrap.dataset.shape = shape.piece;
+  } else {
+    board.style.removeProperty('--rows');
+    board.removeAttribute('data-shape');
+    wrap.removeAttribute('data-shape');
+  }
   App.tiles = [];
+  App.tileShape = shape ? shape.piece : null;
   const frag = document.createDocumentFragment();
+  if (shape) frag.appendChild(blankOutline(shape));
+  let first = -1;
   for (let i = 0; i < size * size; i++) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'tile';
     b.dataset.i = String(i);
-    b.tabIndex = i === 0 ? 0 : -1;
+    b.tabIndex = -1;
     b.innerHTML = '<span class="glyph"></span><span class="marks"></span>';
+    if (shape && !isMetal(shape, i)) {
+      b.hidden = true;
+      b.disabled = true;
+      b.dataset.air = '1';
+      b.setAttribute('aria-hidden', 'true');
+    } else {
+      if (first < 0) first = i;
+      if (shape) {
+        b.style.gridRow = String(Math.floor(i / size) + 1);
+        b.style.gridColumn = String(i % size + 1);
+        if (inTang(shape, i)) b.dataset.tang = '1';
+      }
+    }
     frag.appendChild(b);
     App.tiles.push(b);
   }
   board.appendChild(frag);
-  App.focusIndex = 0;
+  App.focusIndex = Math.max(0, first);
+  if (App.tiles[App.focusIndex]) App.tiles[App.focusIndex].tabIndex = 0;
+}
+
+/* The blank itself, drawn under the tiles: the outline of the metal with the
+   stair-steps of the square grid smoothed into the bevels a smith would
+   grind. A step of one square a row becomes a straight 45-degree edge, a
+   single square at the top becomes the point, and anything wider stays
+   square. It is traced from the shape alone, so a second piece would draw
+   its own outline without any new art. The tang is a darker, rougher iron
+   than the polished blade, because it will be hidden in the grip. */
+function blankOutline(board) {
+  const size = board.size, rows = board.rows;
+  const spans = [];
+  for (let r = 0; r < rows; r++) {
+    let lo = -1, hi = -1;
+    for (let c = 0; c < board.cols; c++) {
+      if (!isMetal(board, r * size + c)) continue;
+      if (lo < 0) lo = c;
+      hi = c + 1;
+    }
+    spans.push([lo, hi]);
+  }
+  // one side of the outline, top to bottom; `pick` chooses the outer edge
+  const side = (edge, outer) => {
+    const pts = [];
+    for (let r = 0; r < rows; r++) {
+      const x = spans[r][edge];
+      if (x < 0) continue;
+      pts.push([x, r], [x, r + 1]);
+    }
+    // where the edge steps one square between rows, drop the inner corner so
+    // the two outer corners join as a straight bevel
+    const out = [];
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[k], q = pts[k + 1];
+      if (q && p[1] === q[1] && Math.abs(p[0] - q[0]) === 1) {
+        out.push(outer(p[0], q[0]) === p[0] ? p : q);
+        k++;
+        continue;
+      }
+      out.push(p);
+    }
+    return out;
+  };
+  const right = side(1, Math.max);
+  const left = side(0, Math.min).reverse();
+  const top = spans[0];
+  // a single square at the top is the point: carry both bevels on to meet
+  const tip = top[1] - top[0] === 1 && spans[1] && spans[1][1] - spans[1][0] === 3
+    ? [[top[0] + 0.5, -0.5]] : [];
+  const pts = tip.concat(tip.length ? right.slice(1) : right,
+    tip.length ? left.slice(0, -1) : left);
+  const path = pts.map((p) => p[0] + ',' + p[1]).join(' ');
+  const cut = board.tang ? (board.tang / rows) : 1;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'blank');
+  svg.setAttribute('viewBox', '0 0 ' + board.cols + ' ' + rows);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  svg.innerHTML =
+    '<defs><linearGradient id="blankFill" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="' + rows + '">' +
+      '<stop offset="0" stop-color="#6e7686"/>' +
+      '<stop offset="' + (cut * 0.55) + '" stop-color="#5a6170"/>' +
+      '<stop offset="' + cut + '" stop-color="#4a505c"/>' +
+      '<stop offset="' + cut + '" stop-color="#4a3f35"/>' +
+      '<stop offset="1" stop-color="#2f2821"/>' +
+    '</linearGradient></defs>' +
+    '<polygon class="blank-glow" points="' + path + '"/>' +
+    '<polygon class="blank-metal" points="' + path + '" fill="url(#blankFill)"/>';
+  return svg;
 }
 
 function startGame(board, extra) {
   cancelPending(false);
   const size = board.size;
-  if (App.tiles.length !== size * size) buildTiles(size);
+  const wantShape = board.shape ? board.piece : null;
+  if (App.tiles.length !== size * size || App.tileShape !== wantShape) buildTiles(size, board);
   // Open Your Forge works the ordinary forge board; only the material's
   // strike thresholds ride along with it.
   const mode = App.mode === 'shop' ? 'forge' : App.mode;
@@ -10270,7 +10606,24 @@ function startGame(board, extra) {
   render();
 }
 
+/* The Forge lays its handcrafted piece on the anvil rather than dealing a
+   square board. It is the same piece every time, so there is nothing to
+   search for and nothing that can fail. */
+function loadForgePiece(done) {
+  cancelPending(false);
+  const board = forgePieceBoard(App.forgePiece || FORGE_PIECE_DEFAULT);
+  App.lastLayout = '';
+  buildTiles(board.size, board);
+  // Hot metal never reshapes on a handcrafted piece: its symbols are placed,
+  // and a reshape could take away the solution they were placed for.
+  startGame(board, { morphChance: 0 });
+  if (done) done();
+}
+
 function loadBoard(difficulty, done) {
+  // The Forge mode works its handcrafted piece. Endless still deals the
+  // square boards, and Open Your Forge never comes through here.
+  if (App.mode === 'forge' && !App.squareForge) { loadForgePiece(done); return; }
   App.difficulty = difficulty;
   const cfg = CONFIG.difficulties[difficulty];
   cancelPending(false);
@@ -10306,6 +10659,11 @@ function restartBoard() {
     announce('Back on the anvil, all squares cold.');
     return;
   }
+  if (App.game.board.shape) {
+    startGame(App.game.board, { morphChance: 0 });
+    announce('Back on the anvil. The ' + App.game.board.name.toLowerCase() + ', all squares cold.');
+    return;
+  }
   startGame(App.game.board);
   announce('Back on the anvil. ' + CONFIG.difficulties[App.difficulty].label + ', all squares cold.');
 }
@@ -10337,6 +10695,9 @@ function render() {
 
   for (let i = 0; i < n; i++) {
     const el = App.tiles[i];
+    // air around a handcrafted piece has no tile to speak of: never drawn,
+    // never focused, never struck
+    if (!isMetal(g.board, i)) continue;
     const strikes = g.strikes[i];
     const piece = g.pieces[i];               // live symbol: reshaping changes it
     const isCurrent = i === g.current;
@@ -10404,7 +10765,7 @@ function render() {
       badge.textContent = String(strikes);
     } else if (badge) { badge.remove(); }
 
-    let label = squareName(i, size) + ', ';
+    let label = squareName(i, size) + (inTang(g.board, i) ? ', in the tang' : '') + ', ';
     if (blank) {
       label += 'blank, spent and cannot be struck again';
     } else if (endless) {
@@ -10446,8 +10807,10 @@ function render() {
   // The board-size picker belongs to Forge alone. In endless the round decides
   // the tier; in Open Your Forge the order does, and changing it at the anvil
   // would deal a different board out from under the batch being worked. Keying
-  // this off `endless` let it reappear over the top of syncModeChrome.
-  document.querySelector('.difficulty:not(#titleDiff)').hidden = App.mode !== 'forge';
+  // this off `endless` let it reappear over the top of syncModeChrome. A
+  // handcrafted piece has no size to pick, so the Forge hides it too.
+  document.querySelector('.difficulty:not(#titleDiff)').hidden =
+    App.mode !== 'forge' || !!g.board.shape;
 
   if (endless) {
     $('eScore').textContent = String(st.score);
@@ -10463,6 +10826,8 @@ function render() {
     $('matSub2').textContent = Math.round(st.morphChance * 100) + '% reshape \u00b7 +' +
       nextPay.coins + ' gold next board';
   } else {
+    if (App.mode === 'forge') $('pieceBar').hidden = !g.board.shape;
+    if (g.board.shape) renderPieceBar(g, st);
     $('sStrikes').textContent = String(st.total);
     $('sSpent').textContent = String(st.spent);
     $('sForged').textContent = st.forged + '/' + st.squares;
@@ -10501,14 +10866,43 @@ function render() {
   renderBest();
 }
 
+/* What is on the anvil, and how far the blade and the tang have come. */
+function renderPieceBar(g, st) {
+  let blade = 0, bladeDone = 0, tang = 0, tangDone = 0;
+  const n = g.board.size * g.board.size;
+  for (let i = 0; i < n; i++) {
+    if (!isMetal(g.board, i)) continue;
+    const done = g.strikes[i] >= perfectOf(g) && !isHardened(g, i);
+    if (inTang(g.board, i)) { tang++; if (done) tangDone++; }
+    else { blade++; if (done) bladeDone++; }
+  }
+  $('pieceName').textContent = g.board.name;
+  $('pieceBlade').textContent = bladeDone + '/' + blade;
+  $('pieceTang').textContent = tangDone + '/' + tang;
+}
+
+/* The Forge keeps its best per piece; the square boards kept theirs per
+   difficulty, and those records are left exactly where they were. */
+function forgeBestKey() {
+  const g = App.game;
+  if (App.mode === 'forge' && (!g || g.board.shape)) {
+    return (g && g.board && g.board.piece) || App.forgePiece || FORGE_PIECE_DEFAULT;
+  }
+  return App.difficulty;
+}
+function forgeBestLabel() {
+  const key = forgeBestKey();
+  if (FORGE_PIECES[key]) return 'the ' + FORGE_PIECES[key].name;
+  return CONFIG.difficulties[App.difficulty].label;
+}
+
 function renderBest() {
-  const label = CONFIG.difficulties[App.difficulty].label;
   if (App.mode === 'endless') {
     $('bestLine').textContent = 'Best endless score: ' + (App.endlessBest ? App.endlessBest : '\u2014');
     return;
   }
-  const best = App.best[App.difficulty];
-  $('bestLine').textContent = 'Best quality on ' + label + ': ' + (best == null ? '\u2014' : best);
+  const best = App.best[forgeBestKey()];
+  $('bestLine').textContent = 'Best quality on ' + forgeBestLabel() + ': ' + (best == null ? '\u2014' : best);
 }
 
 function announce(text) { $('live').textContent = text; }
@@ -10689,10 +11083,11 @@ function finish() {
     App.resultTimer = null;
     SOUNDS.complete(masterwork);
   }, 220);
-  const prev = App.best[App.difficulty];
+  const bestKey = forgeBestKey();
+  const prev = App.best[bestKey];
   const improved = prev == null || result.quality > prev;
   if (improved) {
-    App.best[App.difficulty] = result.quality;
+    App.best[bestKey] = result.quality;
     Store.patch({ best: App.best });
   }
   showResults(result, improved, prev);
@@ -17310,7 +17705,9 @@ function syncTitleUi() {
   // Endless is not a difficulty you pick: it always starts small and climbs.
   // Versus picks board size and rival skill separately instead, and Open Your
   // Forge takes its difficulty from the size of the batch being worked.
-  $('titleDiffBlock').hidden = endless || versus || App.mode === 'shop';
+  // The Forge works one handcrafted piece, so it has no board size to pick.
+  $('titleDiffBlock').hidden = endless || versus || App.mode === 'shop' || App.mode === 'forge';
+  $('forgeNote').hidden = App.mode !== 'forge';
   $('endlessNote').hidden = !endless;
   $('titleVersusBlock').hidden = !versus;
   syncShopTitle(versus, endless);
@@ -17325,7 +17722,7 @@ function syncTitleUi() {
   for (const b of document.querySelectorAll('#titleDiff .diff-btn')) {
     b.setAttribute('aria-checked', b.dataset.tdiff === App.difficulty ? 'true' : 'false');
   }
-  const q = App.best[App.difficulty];
+  const q = App.best[FORGE_PIECE_DEFAULT];
   $('forgeBest').textContent = q == null ? '\u00a0' : 'Best quality: ' + q;
   $('endlessBest').textContent = App.endlessBest ? 'Best score: ' + App.endlessBest : '\u00a0';
   $('titleGold').textContent = formatGold(App.gold);
@@ -17337,6 +17734,7 @@ function showTitle() {
   cancelPending(false);
   App.game = null;
   App.match = null;
+  App.squareForge = false;
   // the forge is put down on the way out; the list decides what opens next
   App.shop = null;
   App.shopSlot = 0;
@@ -17368,6 +17766,7 @@ function syncModeChrome() {
     $('statsEndless').hidden = true;
     $('materialBar').hidden = true;
     document.querySelector('.difficulty:not(#titleDiff)').hidden = true;
+    $('pieceBar').hidden = true;
     $('restartBtn').textContent = 'Restart Board';
     $('newBtn').hidden = true;
     $('menuActionBtn').hidden = false;
@@ -17390,10 +17789,14 @@ function syncModeChrome() {
   $('statsForge').hidden = versus || endless;
   $('statsEndless').hidden = versus || !endless;
   $('materialBar').hidden = versus || !endless;
-  document.querySelector('.difficulty:not(#titleDiff)').hidden = versus || endless;
-  $('restartBtn').textContent = endless ? 'Restart Run' : 'Restart Board';
-  $('newBtn').hidden = endless;
-  $('menuActionBtn').hidden = !endless;
+  // The Forge works one handcrafted piece: no board size to pick and no other
+  // puzzle to deal, so its row is Restart, Main Menu and How to Play.
+  const forge = App.mode === 'forge';
+  document.querySelector('.difficulty:not(#titleDiff)').hidden = versus || endless || forge;
+  $('pieceBar').hidden = !forge;
+  $('restartBtn').textContent = endless ? 'Restart Run' : (forge ? 'Restart Piece' : 'Restart Board');
+  $('newBtn').hidden = endless || forge;
+  $('menuActionBtn').hidden = !endless && !forge;
   for (const b of document.querySelectorAll('.difficulty:not(#titleDiff) .diff-btn')) {
     b.setAttribute('aria-pressed', b.dataset.diff === App.difficulty ? 'true' : 'false');
   }
@@ -17432,7 +17835,8 @@ function beginRun() {
     buildLegend();
     announce(App.mode === 'endless'
       ? 'Endless, Bronze round. Choose any square to begin.'
-      : CONFIG.difficulties[App.difficulty].label + '. Choose any square to begin.');
+      : App.game.board.name + ' on the anvil: the point at the top, the tang at the bottom. ' +
+        'Choose any square to begin.');
   });
 }
 
@@ -17458,6 +17862,20 @@ function restoreForgeLabels() {
   $('rPerfectLabel').textContent = 'Perfect squares';
   $('rNew').hidden = false;
   $('rChange').textContent = 'Change Difficulty';
+  // a handcrafted piece is named rather than tiered, and there is no other
+  // piece to deal or difficulty to change to
+  const g = App.game;
+  if (g && g.board && g.board.shape) {
+    $('rDiffLabel').textContent = 'Piece';
+    $('rNew').hidden = true;
+    $('rChange').textContent = 'Main Menu';
+  }
+}
+/* What the results sheet calls the board just worked. */
+function resultBoardName() {
+  const g = App.game;
+  if (g && g.board && g.board.shape) return g.board.name;
+  return CONFIG.difficulties[App.difficulty].label;
 }
 
 function showResults(result, improved, prev) {
@@ -17471,16 +17889,19 @@ function showResults(result, improved, prev) {
   label.textContent = result.label;
   label.classList.toggle('masterwork', result.quality === 100);
   label.classList.remove('stranded');
-  $('rDiff').textContent = CONFIG.difficulties[App.difficulty].label;
+  $('rDiff').textContent = resultBoardName();
   $('rStrikes').textContent = String(st.total);
   $('rSpentLabel').textContent = 'Spent squares';
   $('rSpent').textContent = String(st.spent);
   $('rPerfect').textContent = st.perfect + ' / ' + st.squares;
   $('resultTitle').textContent = result.quality === 100 ? 'A flawless piece' : 'Work complete';
-  $('rRetry').textContent = 'Retry This Board';
+  const shaped = !!(App.game && App.game.board && App.game.board.shape);
+  $('rRetry').textContent = shaped ? 'Forge It Again' : 'Retry This Board';
+  const where = shaped ? 'this piece' : 'this difficulty';
   $('rBest').textContent = improved
-    ? (prev == null ? 'First completed piece at this difficulty.' : 'New best \u2014 previous ' + prev + '.')
-    : 'Best on this difficulty: ' + App.best[App.difficulty] + '.';
+    ? (prev == null ? 'First completed piece ' + (shaped ? 'of its kind.' : 'at this difficulty.')
+      : 'New best \u2014 previous ' + prev + '.')
+    : 'Best on ' + where + ': ' + App.best[forgeBestKey()] + '.';
   show($('results'));
 }
 
@@ -17498,7 +17919,7 @@ function showStranded(result) {
   label.textContent = 'Stranded';
   label.classList.remove('masterwork');
   label.classList.add('stranded');
-  $('rDiff').textContent = CONFIG.difficulties[App.difficulty].label;
+  $('rDiff').textContent = resultBoardName();
   $('rStrikes').textContent = String(st.total);
   $('rSpentLabel').textContent = 'Squares lost';
   $('rSpent').textContent = String(st.spent);
@@ -17591,16 +18012,25 @@ function buildLegend() {
   const key = (App.game && App.game.board && App.game.board.difficulty) || App.difficulty;
   const size = (App.game && App.game.board && App.game.board.size) ||
     (CONFIG.difficulties[key] ? CONFIG.difficulties[key].size : 3);
-  const used = symbolsForSize(size);
+  // A handcrafted piece never reshapes, so what it carries is all it will
+  // ever carry: list exactly that.
+  const piece = App.game && App.game.board && App.game.board.shape ? App.game.board : null;
+  const used = piece ? forgePieceSymbols(piece) : symbolsForSize(size);
   // chess symbols first, then the numbers in order, which is how they read
   const order = ['K', 'R', 'B', 'N', 'Q'].concat(NUMBER_SYMBOLS)
     .filter((p) => used.indexOf(p) !== -1);
   // a board with crust on it needs the crust explained, and only then
   const crusted = !!(App.game && App.game.board && App.game.board.hard);
   body.innerHTML =
-    '<p style="margin:6px 0 2px">What is on a board is decided by how big it is. The symbol ' +
-    'never changes hands and is never captured &mdash; it only says where the hammer may ' +
-    'travel next.</p>' +
+    (piece
+      ? '<p style="margin:6px 0 2px">Every symbol on the ' + esc(piece.name.toLowerCase()) +
+        ' was placed by hand, and none of them reshape. Moves are counted across the ' +
+        'whole grid the piece sits on, so a rook or bishop can sweep past the edge of the ' +
+        'blade &mdash; but the blow has to land on metal. The tang is one square wide: ' +
+        'only a few squares can reach its far end.</p>'
+      : '<p style="margin:6px 0 2px">What is on a board is decided by how big it is. The symbol ' +
+        'never changes hands and is never captured &mdash; it only says where the hammer may ' +
+        'travel next.</p>') +
     order.map((p) =>
       '<div class="legend-row"><span class="g" aria-hidden="true">' + PIECES[p].glyph + '</span>' +
       '<span class="t"><b>' + PIECES[p].name + '</b><br>' + PIECES[p].move + '.</span></div>').join('') +
@@ -17621,6 +18051,21 @@ function moveFocus(dr, dc) {
   let c = (App.focusIndex % size) + dc;
   r = Math.max(0, Math.min(size - 1, r));
   c = Math.max(0, Math.min(size - 1, c));
+  if (g.board.shape) {
+    // Arrow keys walk the metal. Air is stepped over to the next metal square
+    // that way, and at the edge of the piece the focus simply stays put.
+    r = Math.floor(App.focusIndex / size);
+    c = App.focusIndex % size;
+    let found = -1;
+    for (let k = 1; k < size && found < 0; k++) {
+      const rr = r + dr * k, cc = c + dc * k;
+      if (rr < 0 || rr >= size || cc < 0 || cc >= size) break;
+      if (isMetal(g.board, rr * size + cc)) found = rr * size + cc;
+    }
+    if (found < 0) return;
+    r = Math.floor(found / size);
+    c = found % size;
+  }
   App.focusIndex = r * size + c;
   for (let i = 0; i < App.tiles.length; i++) App.tiles[i].tabIndex = i === App.focusIndex ? 0 : -1;
   App.tiles[App.focusIndex].focus();
@@ -18087,7 +18532,7 @@ function boot() {
   });
   $('rChange').addEventListener('click', () => {
     hide($('results'));
-    if (App.mode === 'endless' || App.mode === 'versus') { showTitle(); return; }
+    if (App.mode === 'endless' || App.mode === 'versus' || App.mode === 'forge') { showTitle(); return; }
     const first = document.querySelector('.difficulty:not(#titleDiff) .diff-btn');
     if (first) first.focus();
   });
@@ -18151,6 +18596,18 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   shopOpenBuyStand: shopOpenBuyStand, shopOpenHand: shopOpenHand,
   sceneRender: sceneRender, sceneLayout: sceneLayout, shopOpenStation: shopOpenStation,
   setPhaseAnim: function (on) { Store.patch({ phaseAnim: !!on }); },
+  /* The Forge mode works its handcrafted piece now, but the square boards it
+     used to deal are still the boards Endless and Open Your Forge's anvil
+     play on. This puts one back on the Forge screen, for the tests that check
+     that shared board - striking, reshaping, crust, spending, losing - and
+     keeps dealing squares there until the player next leaves for the title.
+     Nothing a player can reach calls it. */
+  squareForge: function (key) {
+    if (App.mode !== 'forge' || !CONFIG.difficulties[key]) return false;
+    App.squareForge = true;
+    loadBoard(key, () => { buildLegend(); syncTitleUi(); });
+    return true;
+  },
   shopEditMode: shopEditMode, shopSkipPhase: shopSkipPhase, phaseAnimOn: phaseAnimOn,
   shopOpenSettings: shopOpenSettings, shopSpendPhase: shopSpendPhase, sceneJump: sceneJump,
   shopOpenTownsfolk: shopOpenTownsfolk, shopTownHtml: shopTownHtml,
