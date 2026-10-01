@@ -150,60 +150,54 @@ forged, but each one costs quality.
 left, the run ends where it stands and nothing is scored. Spend squares
 carelessly and you will wall yourself in.
 
-## The Forge: a dagger blank
+## The Forge: weapon designs
 
-The Forge mode no longer deals a square board. It lays the metal being forged on
-the anvil, and only the squares that make up that metal can be struck. This is
-a proof of concept for shaped puzzles, so there is exactly one piece: a
-**dagger blank** — the forged metal, not the finished weapon. No grip, guard or
-pommel; just the point, the blade, and the tang the grip will later slide over.
+The Forge mode no longer deals a square board. **Begin** opens a gallery of
+handcrafted designs; pick one and the anvil holds the blank of metal for that
+piece — the forged component, not the finished weapon. Only the squares that
+make up the metal can be struck. After finishing, or at any point through
+**All Designs**, the player goes back to the gallery.
 
-```
-      R            the point
-    B K B
-  N 3 K 3 N
-K 2 R N R 2 K      the widest two rows
-B K N 2 N K B
-  R B K B R
-    N 3 N          the shoulders
-      K            the throat: the tang begins
-      2
-      K
-      R            the end of the tang
-```
+| Design | Squares | Shape | What it asks |
+|---|---|---|---|
+| Dagger | 35 | point, a blade broadening to 7, a 4-square tang | the introductory piece: get into the tang and back out on purpose |
+| Shortsword | 40 | a broad, even blade 5 wide, a short tang | rook lanes down both edges, rings of Twos and Threes through the middle |
+| Spearhead | 37 | a leaf blade on a one-square neck, a 3-wide socket | only the neck's own king steps across it; everything else slides or leaps |
+| Axe Head | 45 | a tall edge narrowing to the eye, which is a hole | sideways routing; rooks slide straight across the eye |
+| Mace Head | 39 | a heavy head with three spikes a side, a short mount | no rooks at all — kings, knights, bishops and short numbers, all close work |
+| Longsword | 41 | a blade 3 wide for 11 rows, flaring at the guard, a short tang | a long corridor: too narrow for bishops, crossed by rooks and counted in rings |
+
+Each card in the gallery shows the design's own outline with every square
+marked, its difficulty, its size and the best quality it has been forged to.
+The difficulty labels are measured, not guessed: a player who only avoids
+squares they have already finished, otherwise playing at random, clears the
+dagger about two times in three and the longsword under one in two. The
+gallery runs gentlest first, and the core tests hold it to that order.
 
 The rules are the Forge's own, unchanged: every square twice, a third strike
 ruins it, and where the next blow may land is decided by the square you are
-standing on. Quality is scored exactly as before, over the dagger's 35 squares.
+standing on. Quality is scored exactly as before, over the design's own
+squares. The darker iron on each design — the tang, socket, eye or mount — is
+the part a grip, haft or shaft will hide; it is struck like any other square.
 
-**Moves are counted across the whole grid the dagger sits on.** A rook still
+**Moves are counted across the whole grid the piece sits on.** A rook still
 slides along its row or column, a bishop along its diagonals, a knight still
 jumps two and one, and a number still counts rings — and sliders pass over the
-air around the blade the way they pass over struck squares. Only where the blow
-lands has to be metal. The air is never drawn, never focused, never struck.
+air around and inside a piece (across the axe's eye, say) the way they pass
+over struck squares. Only where the blow lands has to be metal. The air is
+never drawn, never focused, never struck.
 
-**The symbols are placed by hand, and none of them reshape.** The piece can be
-planned from the first blow. It was designed around the change in width:
+**The symbols are fixed, and none of them reshape.** Every design can be
+forged perfectly from **every one of its opening squares** — the core test
+suite proves it for all six by search, then plays each route through the game.
+The squares that give each shape its puzzle (points, tangs, the spear's neck,
+the axe's eye, the mace's spikes, the longsword's guard) were placed by hand;
+the squares between them were filled under the rule that a perfect route must
+stay possible, mirrored so each piece reads as made, and each finished layout
+was then checked and chosen by hand from the candidates that passed.
 
-- **The spine.** The rook at the point and the rook at the end of the tang both
-  run the dagger's centre line; they are the only squares that reach all of it.
-- **The bevels.** The bishops on the widest row run down the edge of the blade
-  straight into the throat.
-- **The shoulders.** The knights either side of the throat leap past it into the
-  tang, and the Three between them reaches back up to the widest row or down into
-  the tang.
-- **The tang.** A king at the throat, a Two that throws back out to the shoulders
-  or down to the end, a king that can only go up or down the tang, and the rook
-  at the end. Walk onto that second king with both its neighbours spent and the
-  piece is stranded there. The tang is entered and left on purpose.
-
-A perfect piece can be forged from **every one of the 35 opening squares** — the
-core test suite proves it by search and then plays each route through the game.
-For a sense of difficulty: a random player who only avoids squares it has
-already finished clears the dagger about two times in three, against about nine
-in ten on the old square boards, and nearly every stranding happens in the tang.
-
-The Forge keeps its best quality per piece (`best.dagger` in the save). The old
+The Forge keeps its best quality per design (`best.dagger`, `best.axe`, … in
+the save), and the title counts how many designs have been forged. The old
 per-difficulty records from the square boards are left where they were.
 
 ### How a shaped board works
@@ -215,13 +209,21 @@ col`, so every movement table in the game serves it unchanged; `isMetal`,
 without a shape answers them exactly as every board did before. That is what
 keeps Endless, Versus and Open Your Forge untouched: none of their boards carry
 a shape, and a fingerprint of generated boards and played-out games across all
-of them is byte-identical before and after this change.
+of them is byte-identical to the version before Forge mode had shapes at all.
 
-A handcrafted piece is drawn in `FORGE_PIECES` as rows of symbols with `.` for
-air, with one stored perfect route that `validateBoard` checks like any other
-board. The outline under the tiles is traced from the shape alone — a one-square
-step per row becomes a 45° bevel, a single square at the top becomes the point —
-so a second piece would draw its own silhouette without new art.
+A design is plain data in `FORGE_PIECES`: a name, a difficulty label, a line
+for the gallery, rows of symbols with `.` for air, its named parts (by row or
+column range, `rough` for the hidden iron), whether it has a point or sideways
+spikes, and one stored perfect route that `validateBoard` checks like any other
+board. `FORGE_PIECE_ORDER` is the gallery's order. Adding a seventh design is
+adding an entry to both.
+
+Both the board and the gallery picture are drawn from the shape alone. The
+outline is traced round the edges of the metal — including round holes — and
+staircases are smoothed into bevels: one-square steps make a dagger's 45° edge,
+steps two rows tall make a spear's long leaf, a pointed design gets a point on
+its top square, and a spiked one gets a point on every sideways spike. No
+design has art of its own, so a new one draws its own silhouette.
 
 ## Endless mode
 
@@ -1715,8 +1717,8 @@ timers. Rendering, animation, sound and input sit below it.
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 896 rule/generation checks
-node tools/verify-ui.mjs                                    # 722 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 948 rule/generation checks
+node tools/verify-ui.mjs                                    # 877 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
@@ -1729,7 +1731,9 @@ for striking, reshaping, crust, spending and losing were written against the
 Forge screen. They keep running there: a check that names a difficulty for the
 Forge has that square board dealt onto the Forge screen through a test-only hook
 (`window.CHECKSMITH.squareForge`), which nothing a player can reach calls. The
-dagger has its own section, and its own pass at seven screen sizes.
+designs have their own sections: the gallery, every design laid out, lit and
+forged to the end through the interface, switching between them, and every
+design again at seven screen sizes.
 
 ## Not in this prototype
 

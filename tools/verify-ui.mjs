@@ -43,12 +43,18 @@ const fast = (page, ms) => page.evaluate((m) => { window.CHECKSMITH.core.CONFIG.
    boards Endless and Open Your Forge's anvil still play on, so it has one of
    those dealt onto the Forge screen through the test hook; the dagger's own
    checks start the Forge with no difficulty at all. */
-async function startFromTitle(page, mode, diff) {
+async function startFromTitle(page, mode, diff, design) {
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   if (mode) await page.click(`.mode-card[data-mode="${mode}"]`);
   await page.click('#beginBtn');
+  // the Forge opens on its gallery of designs; pick one (the dagger unless told)
+  const forge = await page.evaluate(() => window.CHECKSMITH.app.mode === 'forge');
+  if (forge) {
+    await page.waitForSelector('#designView:not([hidden])', { timeout: 10000 });
+    if (diff) { await squareBoard(page, diff); return; }
+    await page.click(`#designGrid [data-design="${design || 'dagger'}"]`);
+  }
   await page.waitForFunction(() => window.CHECKSMITH && window.CHECKSMITH.app.game, null, { timeout: 10000 });
-  if (diff && (mode || 'forge') === 'forge') await squareBoard(page, diff);
 }
 
 const SQUARE_SIZES = { novice: 3, apprentice: 4, journeyman: 5, master: 6 };
@@ -647,10 +653,10 @@ async function run() {
   ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
   ok('all four modes are offered', (await page.locator('.mode-card').count()) === 4);
   await page.click('.mode-card[data-mode="forge"]');
-  ok('the Forge offers no difficulty: it names its piece instead',
+  ok('the Forge offers no difficulty: it offers its designs instead',
     await page.isHidden('#titleDiffBlock') && await page.isVisible('#forgeNote') &&
-    /dagger blank/i.test(await page.textContent('#forgeNote')) &&
-    /dagger blank/i.test(await page.textContent('.mode-card[data-mode="forge"] .mc-desc')));
+    /six handcrafted designs/i.test(await page.textContent('#forgeNote')) &&
+    /weapon design/i.test(await page.textContent('.mode-card[data-mode="forge"] .mc-desc')));
   await page.click('.mode-card[data-mode="endless"]');
   ok('picking a mode checks it and unchecks the other',
     (await page.getAttribute('.mode-card[data-mode="endless"]', 'aria-checked')) === 'true' &&
@@ -4894,19 +4900,19 @@ async function run() {
         legend: Array.from(document.querySelectorAll('#legendBody .legend-row b')).map((b) => b.textContent)
       };
     });
-    ok('the Forge launches with the dagger blank on the anvil, not a square board',
+    ok('picking the dagger lays its blank on the anvil, not a square board',
       opened.piece === 'dagger' && opened.shaped && opened.mode === 'forge' && opened.morph === 0,
       JSON.stringify(opened));
     ok('it names the piece and counts the blade and the tang apart',
-      opened.barShown && /Dagger Blank/.test(opened.bar) && /Blade 0\/31/.test(opened.bar) &&
+      opened.barShown && /Dagger/.test(opened.bar) && /Blade 0\/31/.test(opened.bar) &&
       /Tang 0\/4/.test(opened.bar), opened.bar);
-    ok('no board size to pick and no other puzzle to deal; restart and the menu stay',
-      !opened.diffRow && !opened.newShown && opened.restart === 'Restart Piece' && opened.menu === 'Main Menu',
+    ok('no board size to pick and no other puzzle to deal; restart and the way back to the designs',
+      !opened.diffRow && !opened.newShown && opened.restart === 'Restart Piece' && opened.menu === 'All Designs',
       JSON.stringify(opened));
     ok('the legend lists exactly the symbols the dagger carries',
       opened.legend.join(',') === 'King,Rook,Bishop,Knight,Two,Three', opened.legend.join(','));
     ok('the prompt and best line read for the dagger',
-      opened.prompt === 'Choose any square to begin.' && /Dagger Blank/.test(opened.best), JSON.stringify(opened));
+      opened.prompt === 'Choose any square to begin.' && /the Dagger/.test(opened.best), JSON.stringify(opened));
 
     const layout = await page.evaluate(() => {
       const tiles = Array.from(document.querySelectorAll('#board .tile'));
@@ -4934,7 +4940,7 @@ async function run() {
           getComputedStyle(t).display === 'none' && t.disabled && t.getAttribute('aria-hidden') === 'true'),
         onlyTilesAndBlank: Array.from(document.getElementById('board').children)
           .every((el) => el.classList.contains('tile') || el.classList.contains('blank')),
-        blank: !!document.querySelector('#board .blank polygon.blank-metal'),
+        blank: !!document.querySelector('#board .blank path.blank-metal'),
         panel: wrap.borderTopColor + ' | ' + wrap.backgroundColor + ' | ' + wrap.backgroundImage.slice(0, 20)
       };
     });
@@ -5074,7 +5080,7 @@ async function run() {
     await settle(page);
     const tangEnd = await page.evaluate(() => ({
       current: window.CHECKSMITH.app.game.current,
-      bar: document.getElementById('pieceTang').textContent,
+      bar: document.querySelector('#pieceParts [data-part="1"] b').textContent,
       fxClean: document.getElementById('fx').childElementCount
     }));
     ok('the point\'s rook reaches the end of the tang in one blow', tangEnd.current === at(10, 3) && tangEnd.bar === '0/4',
@@ -5112,8 +5118,8 @@ async function run() {
       const r = close.getBoundingClientRect();
       const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       const help = document.getElementById('help');
-      return { onTop: el === close || close.contains(el), dagger: /dagger blank/i.test(help.textContent) &&
-        /tang/i.test(help.textContent), hammerZ: Number(getComputedStyle(document.getElementById('fx')).zIndex),
+      return { onTop: el === close || close.contains(el), dagger: /weapon designs/i.test(help.textContent) &&
+        /tang/i.test(help.textContent) && /eye/i.test(help.textContent), hammerZ: Number(getComputedStyle(document.getElementById('fx')).zIndex),
         overlayZ: Number(getComputedStyle(help).zIndex) };
     });
     ok('How to Play covers the dagger, the hammer and the glow, and explains the tang',
@@ -5157,7 +5163,9 @@ async function run() {
         quality: text('rQuality'), label: text('rLabel'), perfect: text('rPerfect'),
         pieceLabel: text('rDiffLabel'), piece: text('rDiff'), retry: text('rRetry'),
         next: document.getElementById('rNew').hidden, change: text('rChange'), bestNote: text('rBest'),
-        blade: text('pieceBlade'), tang: text('pieceTang'), frozen: document.getElementById('board').dataset.frozen,
+        blade: document.querySelector('#pieceParts [data-part="0"] b').textContent,
+        tang: document.querySelector('#pieceParts [data-part="1"] b').textContent,
+        frozen: document.getElementById('board').dataset.frozen,
         best: JSON.parse(localStorage.getItem('checksmith:v1')).best,
         heard: window.CHECKSMITH.heard.slice(-3) };
     });
@@ -5166,9 +5174,9 @@ async function run() {
     ok('completing the dagger brings up the results: a Masterwork, 35 of 35 perfect',
       done.results && done.quality.startsWith('100') && done.label === 'Masterwork' && done.perfect === '35 / 35' &&
       done.frozen === '1' && done.heard.includes('complete'), JSON.stringify(done));
-    ok('the results name the piece, and offer to forge it again or go back to the menu',
-      done.pieceLabel === 'Piece' && done.piece === 'Dagger Blank' && done.retry === 'Forge It Again' &&
-      done.next === true && done.change === 'Main Menu', JSON.stringify(done));
+    ok('the results name the piece, and offer to forge it again or go back to the designs',
+      done.pieceLabel === 'Piece' && done.piece === 'Dagger' && done.retry === 'Forge It Again' &&
+      done.next === true && done.change === 'All Designs', JSON.stringify(done));
     ok('the best is kept for the dagger, and the old square-board records are left as they were',
       done.best.dagger === 100 && Object.keys(bestBefore).every((k) => done.best[k] === bestBefore[k]),
       JSON.stringify({ before: bestBefore, after: done.best }));
@@ -5183,7 +5191,7 @@ async function run() {
     });
     ok('forging it again resets the dagger cold, and the best line shows the masterwork',
       retried.total === 0 && retried.cold && retried.frozen === '0' && retried.pieces === piecesBefore &&
-      retried.results && /Dagger Blank: 100/.test(retried.best), JSON.stringify(retried));
+      retried.results && /the Dagger: 100/.test(retried.best), JSON.stringify(retried));
 
     // stranded in the tang: the second king with both its neighbours spent
     await fast(page, 30);
@@ -5202,7 +5210,7 @@ async function run() {
       retry: document.getElementById('rRetry').textContent }));
     ok('walking onto the tang\'s second king with nowhere left to go strands the piece',
       stranded.status === 'lost' && stranded.results && stranded.label === 'Stranded' &&
-      stranded.piece === 'Dagger Blank' && stranded.retry === 'Back to the Anvil', JSON.stringify(stranded));
+      stranded.piece === 'Dagger' && stranded.retry === 'Back to the Anvil', JSON.stringify(stranded));
     await page.click('#rRetry');
     await page.waitForTimeout(200);
     ok('and back at the anvil it is cold again', await page.evaluate(() =>
@@ -5275,6 +5283,216 @@ async function run() {
       anvil.shown === anvil.tiles && !anvil.blank && !anvil.bar && !anvil.picker &&
       (anvil.want == null || anvil.perfect === anvil.want) &&
       anvil.restart === 'Restart Board' && anvil.menu === 'Abandon Order', JSON.stringify(anvil));
+  }
+
+  /* ============ the Forge's gallery of designs ============ */
+  section('The Forge: choosing a design');
+  {
+    const IDS = ['dagger', 'shortsword', 'spearhead', 'axe', 'mace', 'longsword'];
+    await page.evaluate(() => document.getElementById('menuBtn').click());
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="forge"]');
+    ok('the title counts the designs forged so far',
+      /1 of 6 designs forged/.test(await page.textContent('#forgeBest')), await page.textContent('#forgeBest'));
+    await page.click('#beginBtn');
+    await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+    const gallery = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core;
+      const vis = (sel) => { const el = document.querySelector(sel); return !!el && !el.hidden && el.getBoundingClientRect().height > 0; };
+      const cards = Array.from(document.querySelectorAll('#designGrid .design-card'));
+      return {
+        game: F.app.game, board: vis('.board-wrap'), actions: vis('#forgeActions'), prompt: vis('#prompt'),
+        bar: vis('#pieceBar'), stats: vis('#statsForge'),
+        cards: cards.map((c) => {
+          const b = C.forgePieceBoard(c.dataset.design);
+          return {
+            id: c.dataset.design, name: c.querySelector('.dc-name').textContent,
+            meta: c.querySelector('.dc-meta').textContent, best: c.querySelector('.dc-best').textContent,
+            label: c.getAttribute('aria-label'), current: c.getAttribute('aria-current') === 'true',
+            outline: !!c.querySelector('svg.design-pic path.th-metal'),
+            squares: c.querySelectorAll('svg.design-pic rect.th-sq').length, metal: C.metalCount(b),
+            rough: c.querySelectorAll('svg.design-pic rect.th-sq.rough').length,
+            roughMetal: Array.from({ length: b.size * b.size }, (_, i) => i).filter((i) => C.inRough(b, i)).length
+          };
+        })
+      };
+    });
+    ok('Begin opens the Forge on its gallery, with nothing on the anvil yet',
+      gallery.game === null && !gallery.board && !gallery.actions && !gallery.prompt && !gallery.bar && !gallery.stats,
+      JSON.stringify(gallery).slice(0, 300));
+    ok('six designs, gentlest first, each with its name, difficulty and size',
+      gallery.cards.map((c) => c.id).join(',') === IDS.join(',') &&
+      gallery.cards.map((c) => c.name).join(',') === 'Dagger,Shortsword,Spearhead,Axe Head,Mace Head,Longsword' &&
+      gallery.cards.every((c) => /(Introductory|Moderate|Hard|Demanding) · \d+ squares/.test(c.meta)),
+      gallery.cards.map((c) => c.name + ' / ' + c.meta).join(' | '));
+    ok('each card\'s picture is the design itself: its outline, every square of it, the rough iron marked',
+      gallery.cards.every((c) => c.outline && c.squares === c.metal && c.rough === c.roughMetal && c.rough > 0),
+      JSON.stringify(gallery.cards.map((c) => [c.id, c.squares, c.metal, c.rough, c.roughMetal])));
+    ok('the dagger shows the best it was forged to; the rest are not yet forged',
+      gallery.cards[0].best === 'Best quality 100' && gallery.cards.slice(1).every((c) => c.best === 'Not yet forged') &&
+      gallery.cards[0].current && /Best quality 100/.test(gallery.cards[0].label),
+      gallery.cards.map((c) => c.best).join(' | '));
+
+    // the gallery's help covers it, and its Main Menu goes home
+    await page.click('#designHelpBtn');
+    ok('How to Play opens over the gallery', await page.isVisible('#help'));
+    await page.click('#helpClose');
+
+    // every design: laid out as drawn, lit as the rules say, the air out of reach
+    const drawn = await page.evaluate(() => {
+      const out = {};
+      for (const [id, def] of Object.entries(window.CHECKSMITH.core.FORGE_PIECES)) out[id] = def.rows;
+      return out;
+    });
+    for (const id of IDS) {
+      await page.click(`#designGrid [data-design="${id}"]`);
+      await page.waitForFunction((d) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.piece === d, id);
+      await page.waitForTimeout(80);
+      const seen = await page.evaluate(() => {
+        const F = window.CHECKSMITH, C = F.core, g = F.app.game, b = g.board;
+        const tiles = Array.from(document.querySelectorAll('#board .tile'));
+        const shown = tiles.filter((t) => t.getBoundingClientRect().width > 0);
+        // rebuild the drawing from what is on screen
+        const pitch = (() => {
+          const xs = [...new Set(shown.map((t) => Math.round(t.getBoundingClientRect().left)))].sort((a, b) => a - b);
+          const ys = [...new Set(shown.map((t) => Math.round(t.getBoundingClientRect().top)))].sort((a, b) => a - b);
+          return { x0: xs[0], y0: ys[0], dx: xs.length > 1 ? (xs[xs.length - 1] - xs[0]) / (b.cols - 1) : 1,
+            dy: (ys[ys.length - 1] - ys[0]) / (b.rows - 1) };
+        })();
+        const grid = Array.from({ length: b.rows }, () => '.'.repeat(b.cols).split(''));
+        for (const t of shown) {
+          const r = t.getBoundingClientRect();
+          const row = Math.round((r.top - pitch.y0) / pitch.dy), col = Math.round((r.left - pitch.x0) / pitch.dx);
+          grid[row][col] = t.querySelector('.glyph').textContent;
+        }
+        const glyph = (p) => C.PIECES[p].glyph;
+        // light every square in turn and compare with the rules
+        let lit = 0, wrong = [];
+        const metal = [];
+        for (let i = 0; i < b.size * b.size; i++) if (C.isMetal(b, i)) metal.push(i);
+        for (const i of metal) {
+          g.current = i; g.status = 'playing'; g.strikes[i] = 1;
+          F.render();
+          const on = Array.from(document.querySelectorAll('#board .tile[data-legal="1"]')).map((t) => Number(t.dataset.i)).sort((a, b) => a - b);
+          const want = C.legalTargets(g).slice().sort((a, b) => a - b);
+          if (on.join() !== want.join() || on.some((j) => !C.isMetal(b, j))) wrong.push(i);
+          lit += on.length;
+          g.strikes[i] = 0;
+        }
+        g.current = -1; g.status = 'ready'; F.render();
+        // the air: by the controller and by its own (hidden) button
+        for (let i = 0; i < b.size * b.size; i++) {
+          if (C.isMetal(b, i)) continue;
+          F.tap(i);
+          const el = document.querySelector(`#board .tile[data-i="${i}"]`);
+          if (el) el.click();
+        }
+        const legend = Array.from(document.querySelectorAll('#legendBody .legend-row b')).map((x) => x.textContent);
+        return {
+          rows: grid.map((r, ri) => r.map((ch, ci) => ch === '.' ? '.' : ch).join('')),
+          expect: b.pieces.length ? Array.from({ length: b.rows }, (_, r) => Array.from({ length: b.cols }, (_, c) =>
+            C.isMetal(b, r * b.size + c) ? glyph(b.pieces[r * b.size + c]) : '.').join('')) : [],
+          count: shown.length, tiles: tiles.length, metal: metal.length,
+          stray: shown.some((t) => !C.isMetal(b, Number(t.dataset.i))),
+          wrong, lit, airStrikes: g.totalStrikes, current: g.current,
+          bar: Array.from(document.querySelectorAll('#pieceParts .pb-part')).map((x) => x.textContent).join(' | '),
+          parts: b.parts.map((p) => p.name),
+          name: document.getElementById('pieceName').textContent,
+          legend: legend.join(','), symbols: C.forgePieceSymbols(b).map((p) => C.PIECES[p].name).join(','),
+          blanks: document.querySelectorAll('#board .blank').length,
+          shape: document.getElementById('board').dataset.shape,
+          stale: document.querySelectorAll('#board .tile[data-current="1"], #board .tile[data-s="1"]').length
+        };
+      });
+      const name = drawn[id] ? id : '(missing) ' + id;
+      ok(name + ': drawn in its own shape, every square in the right place with the right symbol',
+        seen.count === seen.metal && !seen.stray && seen.rows.join('/') === seen.expect.join('/'),
+        seen.rows.join('/') + ' vs ' + seen.expect.join('/'));
+      ok(name + ': every square lights exactly the squares its symbol reaches, all of them metal',
+        seen.wrong.length === 0 && seen.lit > 0, 'wrong at ' + seen.wrong.join(','));
+      ok(name + ': the air around it cannot be struck', seen.airStrikes === 0 && seen.current === -1,
+        JSON.stringify({ strikes: seen.airStrikes, current: seen.current }));
+      ok(name + ': its name, its parts and its legend replace the last design\'s, with nothing left behind',
+        seen.parts.every((p) => seen.bar.includes(p)) && seen.legend === seen.symbols && seen.blanks === 1 &&
+        seen.shape === id && seen.stale === 0,
+        JSON.stringify({ bar: seen.bar, legend: seen.legend, symbols: seen.symbols, blanks: seen.blanks, shape: seen.shape, stale: seen.stale }));
+
+      // strike once, then go back to the gallery: it asks first, because there is work to lose
+      const opening = await page.evaluate(() => window.CHECKSMITH.core.legalTargets(window.CHECKSMITH.app.game)[0]);
+      await fast(page, 30);
+      await page.click(`#board .tile[data-i="${opening}"]`);
+      await settle(page);
+      await page.click('#menuActionBtn');
+      const asked = await page.isVisible('#confirm');
+      if (asked) await page.click('#confirmYes');
+      await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+      ok(name + ': All Designs asks before putting a struck piece down, then returns to the gallery',
+        asked && await page.evaluate((d) => window.CHECKSMITH.app.game === null &&
+          document.querySelector(`#designGrid [data-design="${d}"]`).getAttribute('aria-current') === 'true', id));
+    }
+
+    // every design, forged to the end through the interface
+    for (const id of IDS.slice(1)) {
+      await page.click(`#designGrid [data-design="${id}"]`);
+      await page.waitForFunction((d) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.piece === d, id);
+      await fast(page, 25);
+      const route = await page.evaluate(() => window.CHECKSMITH.app.game.board.route.slice());
+      for (const step of route) {
+        await page.evaluate((i) => { document.querySelector(`#board .tile[data-i="${i}"]`).click(); }, step);
+        await settle(page);
+      }
+      await page.waitForTimeout(250);
+      const end = await page.evaluate(() => {
+        const g = window.CHECKSMITH.app.game, text = (x) => document.getElementById(x).textContent.trim();
+        return { status: g.status, results: !document.getElementById('results').hidden, quality: text('rQuality'),
+          piece: text('rDiff'), name: g.board.name, perfect: text('rPerfect'), squares: window.CHECKSMITH.core.metalCount(g.board),
+          parts: Array.from(document.querySelectorAll('#pieceParts .pb-part b')).map((b) => b.textContent),
+          change: text('rChange') };
+      });
+      ok(id + ': forged to the end, it completes as a masterwork named for the design',
+        end.status === 'complete' && end.results && end.quality.startsWith('100') && end.piece === end.name &&
+        end.perfect === end.squares + ' / ' + end.squares &&
+        end.parts.every((x) => { const [a, b] = x.split('/'); return a === b; }) && end.change === 'All Designs',
+        JSON.stringify(end));
+      await page.click('#rRetry');
+      await page.waitForTimeout(150);
+      const again = await page.evaluate(() => ({ piece: window.CHECKSMITH.app.game.board.piece,
+        total: window.CHECKSMITH.app.game.totalStrikes, results: document.getElementById('results').hidden }));
+      ok(id + ': forging it again lays the same design back, cold', again.piece === id && again.total === 0 && again.results,
+        JSON.stringify(again));
+      // finish it once more and leave by the results' own button
+      for (const step of route) {
+        await page.evaluate((i) => { document.querySelector(`#board .tile[data-i="${i}"]`).click(); }, step);
+        await settle(page);
+      }
+      await page.waitForTimeout(250);
+      await page.click('#rChange');
+      await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+    }
+    const after = await page.evaluate(() => ({
+      bests: Array.from(document.querySelectorAll('#designGrid .dc-best')).map((x) => x.textContent),
+      saved: JSON.parse(localStorage.getItem('checksmith:v1')).best }));
+    ok('back in the gallery, every design shows the masterwork, and each is kept in the save',
+      after.bests.every((b) => b === 'Best quality 100') &&
+      IDS.every((id) => after.saved[id] === 100), JSON.stringify(after));
+
+    // leaving for the title and coming back remembers the last design picked
+    await page.click('#designGrid [data-design="axe"]');
+    await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.piece === 'axe');
+    await page.evaluate(() => document.getElementById('menuBtn').click());
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    ok('the title now counts six of six designs forged',
+      /6 of 6 designs forged/.test(await page.textContent('#forgeBest')), await page.textContent('#forgeBest'));
+    await page.click('#beginBtn');
+    await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+    ok('re-entering the Forge opens the gallery on the design last picked',
+      await page.evaluate(() => document.querySelector('#designGrid [aria-current="true"]').dataset.design === 'axe' &&
+        window.CHECKSMITH.app.game === null));
+    await page.click('#designMenuBtn');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    ok('the gallery\'s Main Menu goes back to the title', await page.isVisible('#titleScreen'));
   }
 
   ok('no uncaught page errors during the whole run', errors.length === 0, errors.slice(0, 5).join(' | '));
@@ -5360,11 +5578,11 @@ async function run() {
   await page.screenshot({ path: path.join(SHOTS, '06-desktop.png') });
   await ctx.close();
 
-  /* ============ the dagger on every screen ============ */
-  section('The Forge: the dagger on every screen');
-  // [width, height, whether the whole piece should stand on screen, the smallest square allowed]
-  for (const [w, h, fits, least] of [[320, 568, true, 24], [360, 640, true, 30], [360, 740, true, 38],
-    [390, 844, true, 42], [430, 932, true, 46], [900, 900, true, 46], [740, 360, false, 20]]) {
+  /* ============ the designs on every screen ============ */
+  section('The Forge: the gallery and every design on every screen');
+  // [width, height, whether every design should stand on screen without scrolling]
+  for (const [w, h, fits] of [[320, 568, false], [360, 640, false], [360, 740, true], [390, 844, true],
+    [430, 932, true], [900, 900, true], [740, 360, false]]) {
     ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2,
       reducedMotion: w === 390 ? 'reduce' : 'no-preference' });
     page = await ctx.newPage();
@@ -5372,53 +5590,82 @@ async function run() {
     page.on('pageerror', (e) => pageErrs.push(String(e)));
     await page.goto(FILE);
     await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
-    await startFromTitle(page, 'forge');
-    await page.waitForTimeout(200);
-    const fit = await page.evaluate(() => {
-      const shown = Array.from(document.querySelectorAll('#board .tile'))
-        .filter((t) => t.getBoundingClientRect().width > 0).map((t) => t.getBoundingClientRect());
-      const blank = document.querySelector('#board .blank').getBoundingClientRect();
-      const wrap = document.querySelector('.board-wrap').getBoundingClientRect();
-      const bar = document.getElementById('pieceBar');
-      // the drawn outline, point included, in page pixels
-      const poly = document.querySelector('#board .blank .blank-metal');
-      const bb = poly.getBBox(), m = poly.getScreenCTM();
-      const top = m.f + bb.y * m.d, bottom = m.f + (bb.y + bb.height) * m.d;
-      const left = m.e + bb.x * m.a, right = m.e + (bb.x + bb.width) * m.a;
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('#beginBtn');
+    await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+    const label = w + 'x' + h;
+    const gal = await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('#designGrid .design-card'));
+      const rects = cards.map((c) => c.getBoundingClientRect());
+      const overlap = rects.some((a, i) => rects.some((b, j) => j > i &&
+        a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1));
       return {
-        count: shown.length, size: Math.min(...shown.map((r) => r.width)),
-        left: Math.min(...shown.map((r) => r.left)), right: Math.max(...shown.map((r) => r.right)),
-        bottom: Math.max(...shown.map((r) => r.bottom)) + window.scrollY,
-        outline: { top: top - wrap.top, bottom: wrap.bottom - bottom, left: left, right: right },
-        blankW: blank.width,
-        vw: window.innerWidth, vh: window.innerHeight,
-        hscroll: document.documentElement.scrollWidth > window.innerWidth + 1,
-        barFits: bar.scrollWidth <= bar.clientWidth + 1 &&
-          Array.from(bar.children).every((c) => c.scrollWidth <= c.clientWidth + 1)
+        count: cards.length, overlap,
+        inside: rects.every((r) => r.left >= 0 && r.right <= window.innerWidth),
+        pictures: cards.every((c) => {
+          const pic = c.querySelector('svg.design-pic'), box = c.getBoundingClientRect();
+          const r = pic && pic.getBoundingClientRect();
+          return r && r.width > 30 && r.height > 30 && r.left >= box.left - 1 && r.right <= box.right + 1 &&
+            r.top >= box.top - 1 && r.bottom <= box.bottom + 1;
+        }),
+        texts: cards.every((c) => Array.from(c.querySelectorAll('.dc-name, .dc-meta, .dc-best'))
+          .every((t) => t.scrollWidth <= t.clientWidth + 1 && t.textContent.trim().length > 0)),
+        hscroll: document.documentElement.scrollWidth > window.innerWidth + 1
       };
     });
-    const label = w + 'x' + h;
-    ok(label + ': the whole dagger is shown, point to tang, with nothing clipped at the sides',
-      fit.count === 35 && fit.left >= 0 && fit.right <= fit.vw && !fit.hscroll &&
-      fit.outline.left >= 0 && fit.outline.right <= fit.vw && fit.outline.top >= 0 && fit.outline.bottom >= 0,
-      JSON.stringify(fit));
-    if (fits) {
-      ok(label + ': it stands on screen, point to tang, without scrolling (squares ' + fit.size.toFixed(0) + 'px)',
-        fit.bottom <= fit.vh && fit.size >= least, JSON.stringify(fit));
-    } else {
-      ok(label + ': a screen too short to hold it scrolls rather than squeezing it (squares ' + fit.size.toFixed(0) + 'px)',
-        fit.size >= least, JSON.stringify(fit));
+    ok(label + ': the gallery shows all six designs, pictures inside their cards, nothing clipped or overlapping',
+      gal.count === 6 && !gal.overlap && gal.inside && gal.pictures && gal.texts && !gal.hscroll, JSON.stringify(gal));
+    const sizes = [];
+    for (const id of ['dagger', 'shortsword', 'spearhead', 'axe', 'mace', 'longsword']) {
+      await page.click(`#designGrid [data-design="${id}"]`);
+      await page.waitForFunction((d) => window.CHECKSMITH.app.game && window.CHECKSMITH.app.game.board.piece === d, id);
+      await page.waitForTimeout(80);
+      const fit = await page.evaluate(() => {
+        const b = window.CHECKSMITH.app.game.board;
+        const shown = Array.from(document.querySelectorAll('#board .tile'))
+          .filter((t) => t.getBoundingClientRect().width > 0).map((t) => t.getBoundingClientRect());
+        const wrap = document.querySelector('.board-wrap').getBoundingClientRect();
+        const poly = document.querySelector('#board .blank .blank-metal');
+        const bb = poly.getBBox(), m = poly.getScreenCTM();
+        const bar = document.getElementById('pieceBar');
+        return {
+          count: shown.length, metal: window.CHECKSMITH.core.metalCount(b),
+          size: Math.min(...shown.map((r) => r.width)),
+          left: Math.min(...shown.map((r) => r.left)), right: Math.max(...shown.map((r) => r.right)),
+          bottom: Math.max(...shown.map((r) => r.bottom)) + window.scrollY,
+          outline: { top: m.f + bb.y * m.d - wrap.top, bottom: wrap.bottom - (m.f + (bb.y + bb.height) * m.d),
+            left: m.e + bb.x * m.a, right: m.e + (bb.x + bb.width) * m.a },
+          vw: window.innerWidth, vh: window.innerHeight,
+          hscroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+          barFits: bar.scrollWidth <= bar.clientWidth + 1
+        };
+      });
+      sizes.push(id + ' ' + fit.size.toFixed(0) + 'px');
+      ok(label + ' ' + id + ': every square shown, the outline whole, nothing clipped at the sides',
+        fit.count === fit.metal && fit.left >= 0 && fit.right <= fit.vw && !fit.hscroll &&
+        fit.outline.left >= 0 && fit.outline.right <= fit.vw && fit.outline.top >= 0 && fit.outline.bottom >= 0 &&
+        fit.barFits, JSON.stringify(fit));
+      ok(label + ' ' + id + (fits ? ': stands on screen without scrolling' : ': keeps its squares tappable, scrolling if it must') +
+        ' (' + fit.size.toFixed(0) + 'px)',
+        fits ? fit.bottom <= fit.vh && fit.size >= 27 : fit.size >= (h < 400 ? 20 : 26), JSON.stringify(fit));
+      // a real tap on its first square lands a blow
+      const first = await page.evaluate(() => {
+        const b = window.CHECKSMITH.app.game.board;
+        for (let i = 0; i < b.size * b.size; i++) if (window.CHECKSMITH.core.isMetal(b, i)) return i;
+        return -1;
+      });
+      await page.click(`#board .tile[data-i="${first}"]`);
+      await page.waitForFunction(() => !window.CHECKSMITH.app.busy, null, { timeout: 5000 });
+      await page.waitForTimeout(w === 390 ? 40 : 320);
+      const struck = await page.evaluate(() => window.CHECKSMITH.app.game.current);
+      ok(label + ' ' + id + ': a tap strikes it' + (w === 390 ? ', reduced motion and all' : ''),
+        struck === first && pageErrs.length === 0, struck + ' ' + pageErrs.join(' | '));
+      if (id === 'axe' || id === 'longsword') await page.screenshot({ path: path.join(SHOTS, '07-' + id + '-' + label + '.png') });
+      await page.evaluate(() => window.CHECKSMITH.showDesigns());
+      await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
     }
-    ok(label + ': the piece bar reads in full', fit.barFits, JSON.stringify(fit));
-    // a real tap at this size lands a blow
-    await page.click('#board .tile[data-i="3"]');
-    await page.waitForFunction(() => !window.CHECKSMITH.app.busy, null, { timeout: 5000 });
-    await page.waitForTimeout(w === 390 ? 60 : 350);
-    const struck = await page.evaluate(() => ({ at: window.CHECKSMITH.app.game.current,
-      fx: document.getElementById('fx').childElementCount }));
-    ok(label + ': a tap on the point strikes it' + (w === 390 ? ', reduced motion and all' : ''),
-      struck.at === 3 && pageErrs.length === 0, JSON.stringify(struck) + pageErrs.join(' | '));
-    await page.screenshot({ path: path.join(SHOTS, '07-dagger-' + label + '.png') });
+    console.log('        squares at ' + label + ': ' + sizes.join(', '));
+    await page.screenshot({ path: path.join(SHOTS, '07-gallery-' + label + '.png'), fullPage: true });
     await ctx.close();
   }
 

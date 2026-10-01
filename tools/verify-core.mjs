@@ -6931,6 +6931,82 @@ section('Open Your Forge: a floor you arrange');
   })());
 }
 
+/* ---------- helpers for the Forge's handcrafted designs ---------- */
+/* An independent reading of the rules, written from a design's drawing and
+   the movement words alone, so the game's own tables are checked against
+   something they did not produce. */
+function referenceMoves(drawn, N, piece, r, c) {
+  const onMetal = (rr, cc) => rr >= 0 && cc >= 0 && rr < drawn.length && cc < drawn[rr].length && drawn[rr][cc] !== '.';
+  const out = [];
+  const add = (rr, cc) => { if (onMetal(rr, cc) && !(rr === r && cc === c)) out.push(rr * N + cc); };
+  const slide = (dirs) => { for (const [dr, dc] of dirs) for (let k = 1; k < N; k++) add(r + dr * k, c + dc * k); };
+  const ortho = [[1, 0], [-1, 0], [0, 1], [0, -1]], diag = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  if (piece === 'K') for (const [dr, dc] of ortho.concat(diag)) add(r + dr, c + dc);
+  else if (piece === 'R') slide(ortho);
+  else if (piece === 'B') slide(diag);
+  else if (piece === 'Q') slide(ortho.concat(diag));
+  else if (piece === 'N') for (const [dr, dc] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]) add(r + dr, c + dc);
+  else {
+    const d = Number(piece);
+    for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
+      if (Math.max(Math.abs(rr - r), Math.abs(cc - c)) === d) add(rr, cc);
+    }
+  }
+  return out;
+}
+/* A perfect route - every square twice, no third strike - from one opening
+   square: Warnsdorff-ordered depth-first search, with a cut for any square
+   that can no longer be reached. Null if the budget runs out first. */
+function perfectRouteFrom(b, start, seed) {
+  const N = b.size, metal = [];
+  for (let i = 0; i < N * N; i++) if (C.isMetal(b, i)) metal.push(i);
+  const adj = {}, into = {};
+  for (const i of metal) { adj[i] = C.metalMovesFrom(b, b.pieces[i], i); into[i] = []; }
+  for (const i of metal) for (const j of adj[i]) into[j].push(i);
+  const rnd = C.mulberry32(seed);
+  const cnt = new Int32Array(N * N);
+  const route = [start]; cnt[start] = 1;
+  let nodes = 0;
+  const reachable = () => {
+    for (const j of metal) {
+      if (cnt[j] >= 2) continue;
+      if (!into[j].some((s) => cnt[s] < 2 || s === route[route.length - 1])) return false;
+    }
+    return true;
+  };
+  const dfs = () => {
+    if (route.length === metal.length * 2) return true;
+    if (++nodes > 400000) return false;
+    const cur = route[route.length - 1];
+    const next = adj[cur].filter((j) => cnt[j] < 2)
+      .map((j) => ({ j, k: adj[j].filter((x) => cnt[x] < 2).length + cnt[j] * 0.5 + rnd() * 0.9 }))
+      .sort((x, y) => x.k - y.k);
+    for (const { j } of next) {
+      cnt[j]++; route.push(j);
+      if (reachable() && dfs()) return true;
+      route.pop(); cnt[j]--;
+      if (nodes > 400000) return false;
+    }
+    return false;
+  };
+  return dfs() ? route.slice() : null;
+}
+/* Every opening square of a design that has no perfect route the game itself
+   will play through to a masterwork. Empty is the promise. */
+function openingsWithoutAPerfectPiece(id) {
+  const b = C.forgePieceBoard(id), missing = [];
+  for (let i = 0; i < b.size * b.size; i++) {
+    if (!C.isMetal(b, i)) continue;
+    let found = null;
+    for (let k = 0; k < 40 && !found; k++) found = perfectRouteFrom(b, i, k * 7919 + i);
+    if (!found) { missing.push(i); continue; }
+    const g = C.createGame(C.forgePieceBoard(id), { mode: 'forge', rnd: C.mulberry32(1) });
+    for (const j of found) if (!C.applyStrike(g, j)) break;
+    if (g.status !== 'complete' || C.scoreGame(g).quality !== 100) missing.push(i);
+  }
+  return missing;
+}
+
 section('The Forge: a dagger blank');
 {
   const b = C.forgePieceBoard('dagger');
@@ -6941,33 +7017,12 @@ section('The Forge: a dagger blank');
   for (let i = 0; i < N * N; i++) if (C.isMetal(b, i)) metal.push(i);
   const sorted = (list) => list.slice().sort((x, y) => x - y).join(',');
 
-  /* An independent reading of the rules, written from the drawing and the
-     movement words alone, so the game's own tables are checked against
-     something they did not produce. */
-  const onMetal = (r, c) => r >= 0 && c >= 0 && r < drawn.length && c < drawn[r].length && drawn[r][c] !== '.';
-  function reference(piece, r, c) {
-    const out = [];
-    const add = (rr, cc) => { if (onMetal(rr, cc) && !(rr === r && cc === c)) out.push(at(rr, cc)); };
-    const slide = (dirs) => { for (const [dr, dc] of dirs) for (let k = 1; k < N; k++) add(r + dr * k, c + dc * k); };
-    const ortho = [[1, 0], [-1, 0], [0, 1], [0, -1]], diag = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
-    if (piece === 'K') for (const [dr, dc] of ortho.concat(diag)) add(r + dr, c + dc);
-    else if (piece === 'R') slide(ortho);
-    else if (piece === 'B') slide(diag);
-    else if (piece === 'Q') slide(ortho.concat(diag));
-    else if (piece === 'N') for (const [dr, dc] of [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]]) add(r + dr, c + dc);
-    else {
-      const d = Number(piece);
-      for (let rr = 0; rr < N; rr++) for (let cc = 0; cc < N; cc++) {
-        if (Math.max(Math.abs(rr - r), Math.abs(cc - c)) === d) add(rr, cc);
-      }
-    }
-    return out;
-  }
+  const reference = (piece, r, c) => referenceMoves(drawn, N, piece, r, c);
 
   ok('the dagger is laid out exactly as drawn: a point, a blade, and a one-square tang', (() => {
     const widths = drawn.map((row) => row.replace(/\./g, '').length);
-    const blade = metal.filter((i) => !C.inTang(b, i)).length;
-    const tang = metal.filter((i) => C.inTang(b, i));
+    const blade = metal.filter((i) => !C.inRough(b, i)).length;
+    const tang = metal.filter((i) => C.inRough(b, i) && C.pieceArea(b, i).name === 'Tang');
     return widths.join(',') === '1,3,5,7,7,5,3,1,1,1,1' && metal.length === 35 &&
       C.metalCount(b) === 35 && blade === 31 && tang.length === 4 &&
       tang.every((i) => i % N === 3) && b.rows === 11 && b.cols === 7 && N === 11;
@@ -7052,7 +7107,7 @@ section('The Forge: a dagger blank');
     for (const i of b.route) if (!C.applyStrike(g, i)) return false;
     const sc = C.scoreGame(g);
     return g.status === 'complete' && sc.quality === 100 && sc.stats.perfect === 35 &&
-      sc.stats.squares === 35 && b.route.some((i) => C.inTang(b, i));
+      sc.stats.squares === 35 && b.route.some((i) => C.inRough(b, i));
   })());
 
   ok('the forge rules hold on the dagger: a third strike spends a square and it blanks behind you', (() => {
@@ -7087,50 +7142,7 @@ section('The Forge: a dagger blank');
   })());
 
   ok('a perfect dagger can be forged from every one of its 35 opening squares', (() => {
-    // Warnsdorff-ordered depth-first search over two visits a square, with a
-    // cut for any square that can no longer be reached
-    const adj = {}, into = {};
-    for (const i of metal) { adj[i] = C.metalMovesFrom(b, b.pieces[i], i); into[i] = []; }
-    for (const i of metal) for (const j of adj[i]) into[j].push(i);
-    function perfectFrom(start, seed) {
-      const rnd = C.mulberry32(seed);
-      const cnt = new Int32Array(N * N);
-      const route = [start]; cnt[start] = 1;
-      let nodes = 0;
-      const reachable = () => {
-        for (const j of metal) {
-          if (cnt[j] >= 2) continue;
-          if (!into[j].some((s) => cnt[s] < 2 || s === route[route.length - 1])) return false;
-        }
-        return true;
-      };
-      const dfs = () => {
-        if (route.length === 70) return true;
-        if (++nodes > 400000) return false;
-        const cur = route[route.length - 1];
-        const next = adj[cur].filter((j) => cnt[j] < 2)
-          .map((j) => ({ j, k: adj[j].filter((x) => cnt[x] < 2).length + cnt[j] * 0.5 + rnd() * 0.9 }))
-          .sort((x, y) => x.k - y.k);
-        for (const { j } of next) {
-          cnt[j]++; route.push(j);
-          if (reachable() && dfs()) return true;
-          route.pop(); cnt[j]--;
-          if (nodes > 400000) return false;
-        }
-        return false;
-      };
-      return dfs() ? route.slice() : null;
-    }
-    const missing = [];
-    for (const s of metal) {
-      let found = null;
-      for (let k = 0; k < 40 && !found; k++) found = perfectFrom(s, k * 7919 + s);
-      if (!found) { missing.push(s); continue; }
-      // and each one is checked by the game itself, not only by the search
-      const g = game();
-      for (const i of found) if (!C.applyStrike(g, i)) { missing.push(s); break; }
-      if (g.status !== 'complete' || C.scoreGame(g).quality !== 100) missing.push(s);
-    }
+    const missing = openingsWithoutAPerfectPiece('dagger');
     return missing.length === 0 || (console.log('    no perfect route from', missing.join(',')), false);
   })());
 
@@ -7156,6 +7168,164 @@ section('The Forge: a dagger blank');
   })());
 
   ok('the piece lists only the symbols it carries', C.forgePieceSymbols(b).join(',') === 'K,R,B,N,2,3');
+}
+
+section('The Forge: six designs');
+{
+  const ids = C.FORGE_PIECE_ORDER;
+  const board = (id) => C.forgePieceBoard(id);
+  const metalOf = (b) => { const out = []; for (let i = 0; i < b.size * b.size; i++) if (C.isMetal(b, i)) out.push(i); return out; };
+  const sorted = (list) => list.slice().sort((x, y) => x - y).join(',');
+  const game = (id) => C.createGame(board(id), { mode: 'forge', rnd: C.mulberry32(9) });
+
+  ok('the gallery offers six designs, gentlest first, the dagger leading',
+    ids.join(',') === 'dagger,shortsword,spearhead,axe,mace,longsword' && C.FORGE_PIECE_DEFAULT === 'dagger' &&
+    ids.every((id) => C.FORGE_PIECES[id] && C.FORGE_PIECES[id].name && C.FORGE_PIECES[id].level && C.FORGE_PIECES[id].blurb),
+    ids.join(','));
+
+  for (const id of ids) {
+    const b = board(id), def = C.FORGE_PIECES[id], metal = metalOf(b), N = b.size;
+    ok(def.name + ': laid out as drawn, every square of metal carrying a symbol and the air none', (() => {
+      if (!b || b.rows !== def.rows.length || metal.length !== def.rows.join('').replace(/\./g, '').length) return false;
+      for (let i = 0; i < N * N; i++) {
+        if (C.isMetal(b, i) ? !C.PIECES[b.pieces[i]] : b.pieces[i] !== null) return false;
+      }
+      // the drawing is trimmed to the piece: no empty row or column at its edges
+      const row = (r) => def.rows[r].replace(/\./g, '').length > 0;
+      const col = (c) => def.rows.some((line) => line[c] && line[c] !== '.');
+      return row(0) && row(b.rows - 1) && col(0) && col(b.cols - 1);
+    })());
+    ok(def.name + ': its stored route is a perfect solution over one connected piece of metal',
+      C.validateBoard(b) && C.isStronglyConnected(N, b.pieces, b.shape) && b.route.length === metal.length * 2);
+    ok(def.name + ': every square belongs to a named part, and one part is the rough iron a handle hides', (() => {
+      const counts = b.parts.map(() => 0);
+      for (const i of metal) { const k = b.area[i]; if (!(k >= 0)) return false; counts[k]++; }
+      return counts.every((n) => n > 0) && b.parts.some((p) => p.rough) && b.parts.some((p) => !p.rough) &&
+        metal.every((i) => C.pieceArea(b, i) === b.parts[b.area[i]]);
+    })());
+    ok(def.name + ': every symbol moves across it exactly as the rules say, and only onto metal', (() => {
+      for (const i of metal) {
+        const r = Math.floor(i / N), c = i % N;
+        for (const p of ['K', 'R', 'B', 'N', 'Q', '2', '3', '4', '5']) {
+          const got = C.metalMovesFrom(b, p, i);
+          if (sorted(got) !== sorted(referenceMoves(def.rows, N, p, r, c))) return false;
+          if (got.some((j) => !C.isMetal(b, j))) return false;
+        }
+      }
+      return true;
+    })());
+    ok(def.name + ': air is never struck, and every metal square is an opening', (() => {
+      const g = game(id);
+      if (sorted(C.legalTargets(g)) !== sorted(metal)) return false;
+      for (const i of metal) {
+        g.current = i; g.status = 'playing';
+        if (C.legalTargets(g).some((j) => !C.isMetal(b, j))) return false;
+        for (let j = 0; j < N * N; j++) if (!C.isMetal(b, j) && C.canStrike(g, j)) return false;
+      }
+      return true;
+    })());
+    ok(def.name + ': the stored route forges it to a masterwork, rough iron and all', (() => {
+      const g = game(id);
+      for (const i of b.route) if (!C.applyStrike(g, i)) return false;
+      const sc = C.scoreGame(g);
+      return g.status === 'complete' && sc.quality === 100 && sc.stats.squares === metal.length &&
+        sc.stats.perfect === metal.length && g.morphChance === 0;
+    })());
+    ok(def.name + ': a perfect piece can be forged from every one of its ' + metal.length + ' opening squares', (() => {
+      const missing = openingsWithoutAPerfectPiece(id);
+      return missing.length === 0 || (console.log('    no perfect route from', missing.join(',')), false);
+    })());
+  }
+
+  ok('every design has a silhouette of its own', (() => {
+    const seen = new Set();
+    for (const id of ids) {
+      const outline = C.FORGE_PIECES[id].rows.map((r) => r.replace(/[^.]/g, '#')).join('/');
+      if (seen.has(outline)) return false;
+      seen.add(outline);
+    }
+    return seen.size === 6;
+  })());
+
+  // How hard each one is, measured: a player who only avoids squares they have
+  // already finished, playing at random otherwise, over many seeded games.
+  const clearRate = (id, runs) => {
+    const b = board(id), metal = metalOf(b), rnd = C.mulberry32(11);
+    const adj = {};
+    for (const i of metal) adj[i] = C.metalMovesFrom(b, b.pieces[i], i);
+    let cleared = 0;
+    for (let k = 0; k < runs; k++) {
+      const st = new Int32Array(b.size * b.size), spent = new Uint8Array(b.size * b.size);
+      let cur = metal[Math.floor(rnd() * metal.length)], stuck = false;
+      st[cur] = 1;
+      while (!metal.every((i) => st[i] >= 2)) {
+        const opts = adj[cur].filter((j) => !spent[j]);
+        if (!opts.length) { stuck = true; break; }
+        let pool = opts.filter((j) => st[j] < 2);
+        const safe = pool.filter((j) => adj[j].some((x) => !spent[x] && st[x] < 3));
+        if (safe.length) pool = safe;
+        if (!pool.length) pool = opts;
+        const nx = pool[Math.floor(rnd() * pool.length)];
+        if (st[cur] >= 3) spent[cur] = 1;
+        st[nx]++; if (st[nx] >= 3) spent[nx] = 1;
+        cur = nx;
+      }
+      if (!stuck) cleared++;
+    }
+    return cleared / runs;
+  };
+  const rates = {};
+  for (const id of ids) rates[id] = clearRate(id, 1200);
+  ok('the gallery is in order of difficulty: the dagger is the gentlest and the longsword the hardest',
+    ids.every((id) => rates.dagger >= rates[id] && rates.longsword <= rates[id]) &&
+    rates.dagger > 0.55 && rates.longsword < 0.5,
+    ids.map((id) => id + ' ' + Math.round(rates[id] * 100) + '%').join(', '));
+  const rank = { Introductory: 0, Moderate: 1, Hard: 2, Demanding: 3 };
+  ok('each design\'s label matches how often a careless hand gets it done', ids.every((id, k) =>
+    rank[C.FORGE_PIECES[id].level] !== undefined &&
+    (k === 0 || rank[C.FORGE_PIECES[id].level] >= rank[C.FORGE_PIECES[ids[k - 1]].level])),
+    ids.map((id) => C.FORGE_PIECES[id].level).join(', '));
+
+  // what each shape asks of a player
+  const at = (b, r, c) => r * b.size + c;
+  ok('the spearhead hangs on its neck: only the neck\'s own king steps across it', (() => {
+    const b = board('spearhead');
+    const neck = at(b, 8, 2);
+    if (b.pieces[neck] !== 'K' || metalOf(b).filter((i) => Math.floor(i / b.size) === 8).length !== 1) return false;
+    for (const i of metalOf(b)) {
+      if (b.pieces[i] !== 'K' || i === neck) continue;
+      const r = Math.floor(i / b.size);
+      for (const j of C.metalMovesFrom(b, 'K', i)) {
+        const rr = Math.floor(j / b.size);
+        if ((r <= 7 && rr >= 9) || (r >= 9 && rr <= 7)) return false;
+      }
+    }
+    return true;
+  })());
+  ok('the axe head has an eye: a hole in the metal that rooks slide straight across', (() => {
+    const b = board('axe');
+    const hole = [at(b, 3, 6), at(b, 4, 6), at(b, 5, 6)];
+    const enclosed = hole.every((i) => !C.isMetal(b, i) &&
+      [i - 1, i + 1, i - b.size, i + b.size].every((j) => C.isMetal(b, j) || hole.includes(j)));
+    const across = C.metalMovesFrom(b, b.pieces[at(b, 3, 7)], at(b, 3, 7)).includes(at(b, 3, 5));
+    return enclosed && b.pieces[at(b, 3, 7)] === 'R' && across;
+  })());
+  ok('the mace head carries no rook and no queen: every move is close work', (() => {
+    const b = board('mace');
+    return !b.pieces.includes('R') && !b.pieces.includes('Q') &&
+      metalOf(b).every((i) => !/[4-9]/.test(b.pieces[i]));
+  })());
+  ok('the longsword is a corridor three squares wide for eleven rows, flaring at the guard', (() => {
+    const rows = C.FORGE_PIECES.longsword.rows.map((r) => r.replace(/\./g, '').length);
+    return rows.slice(1, 12).every((w) => w === 3) && rows[12] === 5 && rows.length === 15;
+  })());
+  ok('the dagger is untouched by the gallery: same drawing, same route, same 35 squares', (() => {
+    const b = board('dagger');
+    return C.FORGE_PIECES.dagger.rows.join('/') ===
+      '...R.../..BKB../.N3K3N./K2RNR2K/BKN2NKB/.RBKBR./..N3N../...K.../...2.../...K.../...R...' &&
+      C.metalCount(b) === 35 && b.route.length === 70;
+  })());
+  ok('an unknown design is refused rather than half-built', C.forgePieceBoard('halberd') === null);
 }
 
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
