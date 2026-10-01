@@ -1,0 +1,277 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00000000C4E5541AB54CDA26 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000C4E554179E3779B1 /* AppDelegate.swift */; };
+		00000000C4E5541B538453D7 /* GameViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000C4E554183C6EF362 /* GameViewController.swift */; };
+		00000000C4E5541BF1BBCD88 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 00000000C4E55418DAA66D13 /* Assets.xcassets */; };
+		00000000C4E5541C8FF34739 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 00000000C4E5541978DDE6C4 /* LaunchScreen.storyboard */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		00000000C4E5541E6A99B44C /* Checksmith.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Checksmith.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		00000000C4E554179E3779B1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		00000000C4E554183C6EF362 /* GameViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameViewController.swift; sourceTree = "<group>"; };
+		00000000C4E55418DAA66D13 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		00000000C4E5541978DDE6C4 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		00000000C4E5541A17156075 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		00000000C4E554221FE68E72 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00000000C4E5541F08D12DFD = {
+			isa = PBXGroup;
+			children = (
+				00000000C4E5541FA708A7AE /* Checksmith */,
+				00000000C4E554204540215F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		00000000C4E5541FA708A7AE /* Checksmith */ = {
+			isa = PBXGroup;
+			children = (
+				00000000C4E554179E3779B1 /* AppDelegate.swift */,
+				00000000C4E554183C6EF362 /* GameViewController.swift */,
+				00000000C4E55418DAA66D13 /* Assets.xcassets */,
+				00000000C4E5541978DDE6C4 /* LaunchScreen.storyboard */,
+				00000000C4E5541A17156075 /* Info.plist */,
+			);
+			path = Checksmith;
+			sourceTree = "<group>";
+		};
+		00000000C4E554204540215F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				00000000C4E5541E6A99B44C /* Checksmith.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		00000000C4E5541DCC623A9B /* Checksmith */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00000000C4E55423FA8CFB85 /* Build configuration list for PBXNativeTarget "Checksmith" */;
+			buildPhases = (
+				00000000C4E55422BE1E0823 /* Bundle the game page */,
+				00000000C4E55420E3779B10 /* Sources */,
+				00000000C4E554221FE68E72 /* Frameworks */,
+				00000000C4E5542181AF14C1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Checksmith;
+			productName = Checksmith;
+			productReference = 00000000C4E5541E6A99B44C /* Checksmith.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		00000000C4E5541D2E2AC0EA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					00000000C4E5541DCC623A9B = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 00000000C4E554235C5581D4 /* Build configuration list for PBXProject "Checksmith" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 00000000C4E5541F08D12DFD;
+			productRefGroup = 00000000C4E554204540215F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				00000000C4E5541DCC623A9B /* Checksmith */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		00000000C4E5542181AF14C1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000C4E5541BF1BBCD88 /* Assets.xcassets in Resources */,
+				00000000C4E5541C8FF34739 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		00000000C4E55422BE1E0823 /* Bundle the game page */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../index.html",
+			);
+			name = "Bundle the game page";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/index.html",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# The game is one self-contained file at the repository root.\n# Copy it in on every build so the app can never ship a stale page.\nset -e\ncp \"$SRCROOT/../index.html\" \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/index.html\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		00000000C4E55420E3779B10 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000C4E5541AB54CDA26 /* AppDelegate.swift in Sources */,
+				00000000C4E5541B538453D7 /* GameViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		00000000C4E5542498C47536 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		00000000C4E5542536FBEEE7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		00000000C4E55425D5336898 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Checksmith/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bluespindash.checksmith;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		00000000C4E55426736AE249 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Checksmith/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bluespindash.checksmith;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00000000C4E554235C5581D4 /* Build configuration list for PBXProject "Checksmith" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000C4E5542498C47536 /* Debug */,
+				00000000C4E5542536FBEEE7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000C4E55423FA8CFB85 /* Build configuration list for PBXNativeTarget "Checksmith" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000C4E55425D5336898 /* Debug */,
+				00000000C4E55426736AE249 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 00000000C4E5541D2E2AC0EA /* Project object */;
+}

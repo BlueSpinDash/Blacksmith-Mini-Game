@@ -1,0 +1,39 @@
+# XcodeGen spec. The checked-in Checksmith.xcodeproj is generated from
+# ios/tools/make-project.py and needs no tooling, but if you would rather have
+# Xcode's own project file, install xcodegen and run `xcodegen` in this folder.
+name: Checksmith
+options:
+  bundleIdPrefix: com.bluespindash
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    MARKETING_VERSION: "1.16.0"
+    CURRENT_PROJECT_VERSION: "19"
+    SWIFT_VERSION: "5.0"
+targets:
+  Checksmith:
+    type: application
+    platform: iOS
+    sources:
+      - path: Checksmith
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bluespindash.checksmith
+        INFOPLIST_FILE: Checksmith/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+    preBuildScripts:
+      - name: Bundle the game page
+        script: |
+          # The game is one self-contained file at the repository root.
+          # Copy it in on every build so the app can never ship a stale page.
+          set -e
+          cp "$SRCROOT/../index.html" "$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/index.html"
+        inputFiles:
+          - $(SRCROOT)/../index.html
+        outputFiles:
+          - $(BUILT_PRODUCTS_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/index.html
