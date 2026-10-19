@@ -546,8 +546,8 @@ async function run() {
   const label = await page.getAttribute('.tile[data-i="0"]', 'aria-label');
   ok('tiles are named with position, symbol, how worked they are and reachability',
     /row 1, column 1, (King|Rook|Bishop|Knight|Queen|Two|Three|Four|Five), /.test(label) &&
-    /(\d+ strikes?, |hardened, \d+ blows? to break the crust)/.test(label) &&
-    /(legal|not reachable|hammer is here)/.test(label), label);
+    /(\d+ strikes?, |hardened, \d+ strikes? to break the crust)/.test(label) &&
+    /(legal|not reachable|you are here)/.test(label), label);
   ok('progress is exposed as a live region',
     await page.evaluate(() => document.getElementById('live').getAttribute('aria-live') === 'polite'));
   await page.keyboard.press('Tab');
@@ -655,7 +655,7 @@ async function run() {
   await page.click('.mode-card[data-mode="forge"]');
   ok('the Forge offers no difficulty: it offers its designs instead',
     await page.isHidden('#titleDiffBlock') && await page.isVisible('#forgeNote') &&
-    /six handcrafted designs/i.test(await page.textContent('#forgeNote')) &&
+    /6 weapon designs/i.test(await page.textContent('#forgeNote')) &&
     /weapon design/i.test(await page.textContent('.mode-card[data-mode="forge"] .mc-desc')));
   await page.click('.mode-card[data-mode="endless"]');
   ok('picking a mode checks it and unchecks the other',
@@ -757,7 +757,7 @@ async function run() {
   ok('squares-hit is counted on screen', one.hits === '1/9');
   ok('the banner reports the reshape odds and the next whole payout', await page.evaluate(
     () => /% reshape/.test(document.getElementById('matSub2').textContent) &&
-          /\+\d+ gold next board/.test(document.getElementById('matSub2').textContent)),
+          /\+\d+ gold next clear/.test(document.getElementById('matSub2').textContent)),
     await page.textContent('#matSub2'));
   await page.screenshot({ path: path.join(SHOTS, '07-endless-bronze.png'), fullPage: true });
 
@@ -938,7 +938,7 @@ async function run() {
   ok('the upgrade level goes up', postBuy.level === preBuy.level + 1);
   ok('both are written to storage',
     postBuy.stored.gold === postBuy.gold && postBuy.stored.lvl === postBuy.level);
-  ok('the shop redraws with the new effect', /gold a board/i.test(postBuy.label), postBuy.label);
+  ok('the shop redraws with the new effect', /gold per board/i.test(postBuy.label), postBuy.label);
   ok('every upgrade offers ten levels', await page.evaluate(
     () => Array.from(document.querySelectorAll('.sr-lvl')).every((n) => /of 10$/.test(n.textContent))));
   ok('the shop explains the score bonus', await page.evaluate(
@@ -1354,7 +1354,7 @@ async function run() {
   ok('the match reaches a decided end', match.over === true, String(match.turns) + ' turns');
   ok('someone is declared the winner', match.winner === 'you' || match.winner === 'foe');
   ok('the result sheet explains the outcome',
-    match.dialog && /win/i.test(match.label) && match.caption === 'YOUR RECORD HERE');
+    match.dialog && /win/i.test(match.label) && match.caption === 'RECORD AT THIS SETTING');
   ok('the match freezes once decided', match.frozenTurn === 'over');
   ok('strikes after the end change nothing', await page.evaluate(async () => {
     const F = window.CHECKSMITH;
@@ -1486,7 +1486,7 @@ async function run() {
     // scheduled milliseconds later and would overwrite the region
     const said = document.getElementById('live').textContent;
     F.app.token++;                                   // and cancel that turn
-    return /other smith/.test(said);
+    return /to the rival/.test(said);
   }));
 
   section('Versus: the powers on the board');
@@ -1745,7 +1745,7 @@ async function run() {
       .map((u) => u.getAttribute('href'))
   }));
   ok('a new forge asks what the smith served their time at',
-    /What did you learn/i.test(setup.title), setup.title);
+    /Choose Starting Crafts/i.test(setup.title), setup.title);
   ok('every craft is offered as a card', setup.cards === setup.crafts,
     setup.cards + ' of ' + setup.crafts);
   ok('each card wears the sprite of the blueprint it starts you on',
@@ -1964,7 +1964,7 @@ async function run() {
     forged.banner === false && forged.above.join(',') === 'topbar,prompt',
     JSON.stringify(forged.above));
   ok('the prompt says what is on the anvil and what the metal asks',
-    /Silver Stiletto/.test(forged.prompt) && /2 strikes a square/.test(forged.prompt),
+    /Silver Stiletto/.test(forged.prompt) && /2 strikes per square/.test(forged.prompt),
     forged.prompt);
 
   // On its own board, never the live one: striking the order the player is
@@ -2033,12 +2033,12 @@ async function run() {
     const sheet = await page.evaluate(() => document.getElementById('shopSheetBody').innerText);
     if (metal === 'bronze') {
       ok('a batch of one in Bronze is offered as a Novice board',
-        /Novice/.test(sheet) && !/worked a tier harder/.test(sheet), sheet.slice(0, 260));
+        /Novice/.test(sheet) && !/difficulty for Bronze/.test(sheet), sheet.slice(0, 260));
     } else {
       ok('the same batch in Gold is offered as an Apprentice board',
         /Apprentice/.test(sheet) && !/Novice/.test(sheet), sheet.slice(0, 260));
       ok('and the sheet says the metal is what raised it',
-        /Gold is worked a tier harder/.test(sheet), sheet.slice(0, 260));
+        /\+1 difficulty for Gold/.test(sheet), sheet.slice(0, 260));
     }
     // and the board it actually deals matches what it just promised
     await page.click('#shopSheetActions button:not([disabled])');
@@ -2092,7 +2092,7 @@ async function run() {
       ok('its symbol still shows through the crust, because you plan around it',
         crusted.glyph.length > 0, crusted.glyph);
       ok('it says so to a screen reader',
-        /hardened, \d+ blows? to break the crust/.test(crusted.label), crusted.label);
+        /hardened, \d+ strikes? to break the crust/.test(crusted.label), crusted.label);
       ok('and the legend explains the crust when a board carries one',
         /Hardened/.test(crusted.legend) && /crust/.test(crusted.legend),
         crusted.legend.slice(-200));
@@ -2377,11 +2377,11 @@ async function run() {
       made: F.app.shop.orders[0] ? F.app.shop.orders[0].qty : 0,
       silverLeft: F.app.shop.materials.silver };
   });
-  ok('finishing the board ends the order', /Off the anvil/.test(batch.title), batch.title);
+  ok('finishing the board ends the order', /Batch Forged/.test(batch.title), batch.title);
   ok('one puzzle produced the whole batch', batch.orders === 1 && batch.made >= 1);
   ok('the metal was spent only on success',
     batch.silverLeft === 6 - batch.made, JSON.stringify(batch));
-  ok('the batch is not available yet', /storage tomorrow/i.test(batch.body), batch.body);
+  ok('the batch is not available yet', /start of tomorrow/i.test(batch.body), batch.body);
   await page.click('#shopSheetActions button');
   await page.waitForTimeout(250);
   ok('working the anvil spent the phase', await page.evaluate(
@@ -2439,10 +2439,10 @@ async function run() {
       .map((b) => b.textContent)
   }));
   ok('a stand says what it is, what it holds and what it will take',
-    /Display|Stand|Rack|Goods/.test(panel.title) && /Takes/.test(panel.body) &&
-    /Nothing on it/.test(panel.body), JSON.stringify(panel).slice(0, 320));
+    /Display|Stand|Rack|Goods/.test(panel.title) && /Accepts/.test(panel.body) &&
+    /Empty/.test(panel.body), JSON.stringify(panel).slice(0, 320));
   ok('and offers stocking, re-purposing and selling it back',
-    panel.actions.join(',') === 'Stock it,Change what it is,Move it,Sell the stand back,Back',
+    panel.actions.join(',') === 'Stock Stand,Change Stand Type,Move Stand,Sell Stand,Back',
     panel.actions.join(','));
 
   await page.click('#shopSheetActions .btn.primary');
@@ -2455,12 +2455,12 @@ async function run() {
     confirmOff: document.querySelector('#shopSheetActions button').disabled
   }));
   ok('stocking a stand opens straight on what that stand would take',
-    /What goes on it/.test(grid.title) && grid.lines > 0, JSON.stringify(grid));
+    /Choose Items for This Stand/.test(grid.title) && grid.lines > 0, JSON.stringify(grid));
 
   await page.click('#shopSheetBody [data-take]');
   await page.waitForTimeout(120);
   ok('the picker stays open so a stand can be filled in one visit',
-    /of \d+ on it/.test(await page.textContent('#shopSheetBody')));
+    /\d+ \/ \d+ items/.test(await page.textContent('#shopSheetBody')));
   await page.click('#shopSheetActions .btn.ghost');       // back to the floor
   await page.waitForTimeout(120);
   const oneIn = await page.evaluate(() => ({
@@ -2544,12 +2544,12 @@ async function run() {
   }));
   ok('a stand with something on it offers restocking, the price and taking it off',
     held.actions.join(',') ===
-      'Restock,Set the price,Take it off the floor,Move it,Sell the stand back,Back',
+      'Restock,Set Price,Return Items to Storage,Move Stand,Sell Stand,Back',
     held.actions.join(','));
 
   // the price is the player's to set
   await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-    .find((b) => b.textContent === 'Set the price').click());
+    .find((b) => b.textContent === 'Set Price').click());
   await page.waitForTimeout(150);
   const priced = await page.evaluate(() => {
     const body = document.getElementById('shopSheetBody').innerText;
@@ -2615,7 +2615,7 @@ async function run() {
     if (view.bid) {
       seen.offers++;
       if (!view.portrait || !view.wantSprite) seen.artMissing = true;
-      if (/HAPPY TO PAY/i.test(view.bid)) seen.full++;
+      if (/WILL PAY/i.test(view.bid)) seen.full++;
       const canHaggle = view.labels.some((l) => /^Haggle$/.test(l));
       if (canHaggle && seen.haggleScreens < 2) {
         await page.click('#shopSheetActions button:nth-child(2)');
@@ -2625,7 +2625,7 @@ async function run() {
     } else if (view.band) {
       seen.haggleScreens++;
       ok('the haggle screen names the band and reads the odds ' + seen.haggleScreens,
-        /offered/.test(view.band) && /asking/.test(view.band) &&
+        /Their offer/.test(view.band) && /your price/.test(view.band) &&
         ['good', 'fair', 'poor', 'grim'].includes(view.odds), JSON.stringify(view));
       await page.click('#shopSheetBody [data-ask]:nth-child(2)');   // split the difference
       await page.waitForTimeout(70);
@@ -2697,7 +2697,7 @@ async function run() {
     return out;
   });
   ok('a customer who will pay the asking price is still shown to the player',
-    willPay.full && /HAPPY TO PAY/i.test(willPay.text), JSON.stringify(willPay));
+    willPay.full && /WILL PAY/i.test(willPay.text), JSON.stringify(willPay));
   ok('and they are answered, not settled behind the scenes',
     willPay.buttons.some((l) => /^Accept/.test(l)) &&
     !willPay.buttons.some((l) => /^Haggle$/.test(l)), JSON.stringify(willPay.buttons));
@@ -2726,7 +2726,7 @@ async function run() {
   const applicants = await page.evaluate(() => Array.from(
     document.querySelectorAll('.applicant')).map((a) => a.innerText));
   ok('applicants show a name, rank, role and wage', applicants.length === 3 &&
-    applicants.every((t) => /Starts at E/.test(t) && /g\/wk/.test(t)),
+    applicants.every((t) => /E-rank/.test(t) && /g\/wk/.test(t)),
     JSON.stringify(applicants));
   await page.click('#shopSheetBody [data-hire]');
   await page.waitForTimeout(350);
@@ -2807,10 +2807,10 @@ async function run() {
     faces: document.querySelectorAll('#shopSheetBody [data-pick-hand] .portrait').length
   }));
   ok('tapping an empty box asks who should work that phase',
-    /Who works the/.test(whoSheet.title) && whoSheet.cards.length === 2, JSON.stringify(whoSheet));
+    /^Assign /.test(whoSheet.title) && whoSheet.cards.length === 2, JSON.stringify(whoSheet));
   ok('each candidate shows a portrait, name, role, rank and what they bring',
     whoSheet.faces === 2 && whoSheet.cards.every((t) =>
-      /Salesperson/.test(t) && /rank [EDCBAS]/.test(t) && /haggles/.test(t)),
+      /Salesperson/.test(t) && /rank [EDCBAS]/.test(t) && /haggling/.test(t)),
     JSON.stringify(whoSheet.cards));
 
   await page.click('#shopSheetBody [data-pick-hand]');
@@ -2860,7 +2860,7 @@ async function run() {
   ok('a filled box opens the assignment, with its task summarised',
     /Evening/.test(bookDetails.title) && /Bronze/.test(bookDetails.body), JSON.stringify(bookDetails));
   ok('and offers to change the orders, the employee, or drop it',
-    bookDetails.buttons.join(',') === 'Change orders,Change employee,Remove,Back',
+    bookDetails.buttons.join(',') === 'Change Details,Change Employee,Remove,Back',
     JSON.stringify(bookDetails.buttons));
 
   await page.click('#shopSheetActions button:nth-child(3)');
@@ -2898,7 +2898,7 @@ async function run() {
     F.shopRender();
     const box = document.querySelector('#shPanel .roster-box[data-hand="804"]');
     return !!box && box.classList.contains('needs') &&
-      /Needs orders/.test(box.querySelector('.rb-state').textContent);
+      /Needs details/.test(box.querySelector('.rb-state').textContent);
   }));
 
   // active and done are locked, and look it
@@ -3033,7 +3033,7 @@ async function run() {
       faces: cards.filter((c) => c.querySelector('.portrait')).length,
       purses: cards.filter((c) => /\d/.test(c.querySelector('.tc-purse').textContent)).length,
       hidden: cards.filter((c) => /\?\?\?/.test(c.querySelector('.tc-purse').textContent)).length,
-      wants: cards.filter((c) => /after /.test(c.querySelector('.tc-want').textContent)).length,
+      wants: cards.filter((c) => /wants /.test(c.querySelector('.tc-want').textContent)).length,
       wide: panel.scrollWidth > panel.clientWidth + 1 };
   });
   ok('the Town tab lists everybody who shops here, by name',
@@ -3046,7 +3046,7 @@ async function run() {
   ok('an unread customer reads ???', town.hidden > 0, JSON.stringify(town));
   ok('and the roster fits a phone without scrolling sideways', town.wide === false);
   ok('the tab counts what the forge has learned, not what the town is worth',
-    /within reach/.test(town.cap) && /learned about them/.test(town.cap) &&
+    /customers/.test(town.cap) && /details known/.test(town.cap) &&
     !/g between them/.test(town.cap), town.cap);
 
   await page.click('#shPanel [data-town]');
@@ -3057,8 +3057,8 @@ async function run() {
   }));
   ok('somebody\u2019s page is what you know and what you do not',
     /Wealth/.test(person.body) && /Likes/.test(person.body) &&
-    /Has no use for/.test(person.body) && /After/.test(person.body) &&
-    /Bought here/.test(person.body) && /Contracts/.test(person.body),
+    /Dislikes/.test(person.body) && /Wants/.test(person.body) &&
+    /Bought here/.test(person.body) && /Commissions/.test(person.body),
     person.body.slice(0, 300));
   ok('and it never gives a figure for what they are carrying',
     !/Carrying/.test(person.body) && !/Will spend/.test(person.body),
@@ -3176,7 +3176,7 @@ async function run() {
       // the head names them and says what brought them in, and the corner
       // carries what the forge knows of their means - never a figure
       return head.named && head.text.indexOf(head.who) >= 0 &&
-        /after /i.test(head.text) && !/\dg/.test(head.text) &&
+        /wants /i.test(head.text) && !/\dg/.test(head.text) &&
         head.text.toLowerCase().indexOf(head.after.toLowerCase()) >= 0;
     })());
   await page.evaluate(() => {
@@ -3261,8 +3261,8 @@ async function run() {
   ok('a wide tree scrolls in its own frame rather than dragging the sheet',
     tree.sheetWide === false && tree.reachable, JSON.stringify(tree));
   ok('the head of the page counts experience, blueprints and masteries',
-    /IN HAND/i.test(tree.bar) && /EVER EARNED/i.test(tree.bar) &&
-    /BLUEPRINTS/i.test(tree.bar) && /MASTERED/i.test(tree.bar), tree.bar);
+    /^XP \d+/i.test(tree.bar) && /TOTAL XP/i.test(tree.bar) &&
+    /UNLOCKED/i.test(tree.bar) && /MASTERED/i.test(tree.bar), tree.bar);
   ok('the way back to the crafts is on the page', tree.back === true);
   ok('what is held and what is out of reach are told apart on sight',
     tree.unlocked > 0 && tree.locked > 0, JSON.stringify(tree));
@@ -3280,13 +3280,13 @@ async function run() {
   ok('a locked blueprint is named as locked', /Greatsword/i.test(shut.title) &&
     /Locked/i.test(shut.state), JSON.stringify(shut.state));
   ok('and says which blueprint must reach which level',
-    /must reach level/i.test(shut.body) && /Longsword/i.test(shut.body),
+    /Requires .* at level/i.test(shut.body) && /Longsword/i.test(shut.body),
     shut.body.slice(-300));
   ok('it names its craft, its customers and what it is worth',
-    /Swords/.test(shut.body) && /Wanted by/.test(shut.body) && /Worth/.test(shut.body),
+    /Swords/.test(shut.body) && /Wanted by/.test(shut.body) && /Value/.test(shut.body),
     shut.body.slice(0, 300));
   ok('and offers neither the anvil nor a way to buy past it',
-    !shut.actions.some((a) => /anvil|Learn it|further/i.test(a)), shut.actions.join(','));
+    !shut.actions.some((a) => /Forge This Item|Unlock Blueprint|Upgrade Blueprint/i.test(a)), shut.actions.join(','));
 
   // the root of the tree: held, and takeable further with experience
   await page.click('#shopSheetActions .btn.ghost');
@@ -3307,15 +3307,15 @@ async function run() {
   ok('a held blueprint shows its level as pips', root.pips === 5 && root.lit === 1,
     JSON.stringify(root));
   ok('and what it is worth now against what the next level would make it',
-    /Worth/.test(root.body) && /At the next level/.test(root.body), root.body.slice(0, 300));
+    /Value/.test(root.body) && /Next level/.test(root.body), root.body.slice(0, 300));
   ok('an upgrade is offered with its price in experience',
-    root.actions.some((a) => /further/i.test(a) && /xp/.test(a)), root.actions.join(','));
+    root.actions.some((a) => /Upgrade Blueprint/i.test(a) && /XP/.test(a)), root.actions.join(','));
 
   const levelled = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     const before = C.craftXp(sh, 'swords');
     const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-      .find((b) => /further/i.test(b.textContent));
+      .find((b) => /Upgrade Blueprint/i.test(b.textContent));
     btn.click();
     await new Promise((r) => setTimeout(r, 220));
     return { level: C.blueprintLevel(sh, 'shortsword'), spent: before - C.craftXp(sh, 'swords'),
@@ -3351,14 +3351,14 @@ async function run() {
     body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ')
   }));
   ok('an available blueprint is offered to learn, at a price in experience',
-    learn.actions.some((a) => /Learn it/i.test(a) && /xp/.test(a)), learn.actions.join(','));
-  ok('and says what it follows on from', /Follows on from/i.test(learn.body),
+    learn.actions.some((a) => /Unlock Blueprint/i.test(a) && /XP/.test(a)), learn.actions.join(','));
+  ok('and says what it follows on from', /Requires/i.test(learn.body),
     learn.body.slice(0, 300));
 
   const learned = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
     const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-      .find((b) => /Learn it/i.test(b.textContent));
+      .find((b) => /Unlock Blueprint/i.test(b.textContent));
     btn.click();
     await new Promise((r) => setTimeout(r, 220));
     return { level: C.blueprintLevel(sh, 'longsword'),
@@ -3368,7 +3368,7 @@ async function run() {
         .map((b) => b.textContent).join(',') };
   });
   ok('learning it puts it in the book at level one and opens the anvil to it',
-    learned.known && learned.level === 1 && /anvil/.test(learned.actions),
+    learned.known && learned.level === 1 && /Forge This Item/.test(learned.actions),
     JSON.stringify(learned));
   ok('the branch you did not take stays untaken', learned.sibling === false);
 
@@ -3489,7 +3489,7 @@ async function run() {
         stillThere: !!F.shopUi.session.pending };
     });
     ok('they either take it or wave it away, and the offer is spent either way',
-      answer.offers === 1 && /Sold|not interested/.test(answer.title),
+      answer.offers === 1 && /Sold|Alternative Declined/.test(answer.title),
       JSON.stringify(answer));
     if (answer.stillThere) {
       ok('a refusal leaves them standing there wanting what they came for',
@@ -3529,7 +3529,7 @@ async function run() {
     carts: document.querySelectorAll('#shPanel [data-buyvehicle]').length
   }));
   ok('a forge with no land is told what land would be for',
-    /own no land/i.test(propEmpty.text), propEmpty.text.slice(0, 120));
+    /You own no mines/i.test(propEmpty.text), propEmpty.text.slice(0, 120));
   ok('every mineral has a deed on offer',
     propEmpty.deeds === await page.evaluate(() => window.CHECKSMITH.core.SHOP.mines.length),
     String(propEmpty.deeds));
@@ -3615,7 +3615,7 @@ async function run() {
   ok('a handcart brings home five and leaves the rest down the mine',
     fetched.load === 5 && fetched.left === 35 && fetched.yard === 5, JSON.stringify(fetched));
   ok('the metal page keeps raw ore apart from bar stock',
-    /Raw ore/i.test(fetched.text) && /Ingots/i.test(fetched.text),
+    /Ore \d+ \/ \d+/.test(fetched.text) && /Ingots/i.test(fetched.text),
     fetched.text.slice(0, 200));
 
   await page.click('#shPanel [data-smelt="bronze"]');
@@ -3656,7 +3656,7 @@ async function run() {
       text: document.getElementById('shPanel').innerText };
   });
   ok('an offer left with your people waits in the ledger for you',
-    ledger.cards === 1 && /consider/i.test(ledger.text), ledger.text.slice(0, 160));
+    ledger.cards === 1 && /waiting for your answer/i.test(ledger.text), ledger.text.slice(0, 160));
   ok('the contract says who wants what, and by when',
     /Accept/.test(ledger.text) && /Decline/.test(ledger.text), ledger.text.slice(0, 200));
 
@@ -3671,7 +3671,7 @@ async function run() {
   ok('accepting books the contract and pays the advance up front',
     took.taken === 1 && took.offers === 0 && took.paid > 0, JSON.stringify(took));
   ok('and the ledger then shows what is owed on it',
-    /in the crate/i.test(took.text), took.text.slice(0, 220));
+    /still needed/i.test(took.text), took.text.slice(0, 220));
 
   const promised = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -3724,8 +3724,8 @@ async function run() {
     return { trips, sheet, cap: C.vehicleCapacity(cart), qty: com.qty };
   });
   ok('taking it out yourself asks which vehicle and says how many trips',
-    /In the crate/i.test(split.sheet) && /Trips to finish/i.test(split.sheet) &&
-    /costs you the phase/i.test(split.sheet), split.sheet.slice(0, 260));
+    /Waiting to deliver/i.test(split.sheet) && /Trips needed/i.test(split.sheet) &&
+    /uses this phase/i.test(split.sheet), split.sheet.slice(0, 260));
 
   const firstRun = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -3829,12 +3829,12 @@ async function run() {
   const choices = await page.evaluate(() =>
     Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
   ok('a runner is offered market, ore and a delivery',
-    choices.some((l) => /market/i.test(l)) && choices.some((l) => /Collect ore/i.test(l)) &&
-    choices.some((l) => /Make a delivery/i.test(l)), choices.join(','));
+    choices.some((l) => /Buy Ingots/i.test(l)) && choices.some((l) => /Collect Ore/i.test(l)) &&
+    choices.some((l) => /Deliver a Commission/i.test(l)), choices.join(','));
 
   await page.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-      .find((b) => /Make a delivery/i.test(b.textContent));
+      .find((b) => /Deliver a Commission/i.test(b.textContent));
     btn.click();
   });
   await page.waitForTimeout(220);
@@ -3846,8 +3846,8 @@ async function run() {
       disabled: body.querySelectorAll('[data-sel="vehicle"] option[disabled]').length };
   });
   ok('the delivery screen names the contract, the customer and the cart',
-    /Contract/i.test(ship.text) && /Going to/i.test(ship.text) &&
-    /Still owed them/i.test(ship.text) && /holds/i.test(ship.text) &&
+    /Commission/i.test(ship.text) && /Customer/i.test(ship.text) &&
+    /Still to deliver/i.test(ship.text) && /Vehicle capacity/i.test(ship.text) &&
     /Due/i.test(ship.text), ship.text.slice(0, 300));
   ok('it offers every vehicle owned, and every contract ready to go',
     ship.commissions >= 1 && ship.vehicles === 2, JSON.stringify(ship));
@@ -3909,7 +3909,7 @@ async function run() {
       marks: panel.querySelectorAll('.rb-repeat').length };
   });
   ok('the staff screen says what is kept and what is not',
-    roster.tools && /Nothing is kept yet/i.test(roster.note) && roster.marks === 0,
+    roster.tools && /No recurring assignments/i.test(roster.note) && roster.marks === 0,
     JSON.stringify(roster));
 
   // keep the smith's morning box
@@ -3918,11 +3918,11 @@ async function run() {
   const picker = await page.evaluate(() =>
     Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent));
   ok('a box offers to be kept as well as filled for today',
-    picker.some((l) => /Keep this box every day/i.test(l)), picker.join(','));
+    picker.some((l) => /^Repeat Daily$/i.test(l)), picker.join(','));
 
   await page.evaluate(() => {
     const btn = Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-      .find((b) => /Keep this box/i.test(b.textContent));
+      .find((b) => /Repeat Daily/i.test(b.textContent));
     btn.click();
   });
   await page.waitForTimeout(220);
@@ -3936,11 +3936,11 @@ async function run() {
       batch: !!body.querySelector('[data-num="qty"]') };
   });
   ok('the editor asks who holds it, with auto-fill offered first',
-    editor.who >= 2 && /auto/i.test(editor.auto), JSON.stringify(editor).slice(0, 220));
+    editor.who >= 2 && /Any available/i.test(editor.auto), JSON.stringify(editor).slice(0, 220));
   ok('and asks a smith what to make, in what, and how many',
     editor.item && editor.material && editor.batch, JSON.stringify(editor).slice(0, 220));
   ok('it says what it would do as things stand',
-    /As things stand/i.test(editor.text), editor.text.slice(-200));
+    /If it ran now/i.test(editor.text), editor.text.slice(-200));
 
   const written = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -3955,7 +3955,7 @@ async function run() {
   ok('keeping a box writes it into the standing roster',
     written.slot && written.on && written.plan.item, JSON.stringify(written).slice(0, 200));
   ok('and the box is marked as kept on the grid',
-    written.marks === 1 && /1 box is kept/i.test(written.note), JSON.stringify(written).slice(0, 200));
+    written.marks === 1 && /1 recurring assignment/i.test(written.note), JSON.stringify(written).slice(0, 200));
 
   const morning = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -4026,7 +4026,7 @@ async function run() {
       misses: document.querySelectorAll('#shopSheetBody .rr-row.miss').length };
   });
   ok('the morning reports every box the roster filled and every one it did not',
-    /books itself/i.test(summary.body) && summary.rows >= 2 && summary.misses >= 1,
+    /Daily assignments/i.test(summary.body) && summary.rows >= 2 && summary.misses >= 1,
     summary.body.slice(0, 280));
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
     await page.click('#shopSheetActions button:nth-child(1)');
@@ -4088,7 +4088,7 @@ async function run() {
       ready: panel.querySelectorAll('.crew.ready').length };
   });
   ok('the screen says who has earned a promotion without opening anyone',
-    /Wyn Tarrow/.test(due.call) && /earned a promotion/i.test(due.call),
+    /Wyn Tarrow/.test(due.call) && /ready for promotion/i.test(due.call),
     JSON.stringify(due));
   ok('and the hand themselves is marked on the list',
     due.flags === 1 && due.ready === 1, JSON.stringify(due));
@@ -4104,17 +4104,17 @@ async function run() {
       .map((b) => b.innerText.trim())
   }));
   ok('their panel says what they can do now and what the next rank buys',
-    panelText.perks === 2 && /Now, at E/.test(panelText.body) && /At D/.test(panelText.body),
+    panelText.perks === 2 && /Current \(E-rank\)/.test(panelText.body) && /After promotion \(D-rank\)/.test(panelText.body),
     panelText.body.slice(0, 260));
   ok('and offers the rank up',
-    panelText.acts.some((a) => /Rank up to D/i.test(a)), JSON.stringify(panelText.acts));
+    panelText.acts.some((a) => /Promote to D/i.test(a)), JSON.stringify(panelText.acts));
 
   const ranked = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
     const before = { rank: sh.staff[0].rank, power: sh.staff[0].power,
       wage: sh.staff[0].wage, phase: sh.phaseIndex, day: sh.day };
     const btn = Array.from(document.querySelectorAll('#shopSheetActions button'))
-      .find((b) => /Rank up/i.test(b.innerText));
+      .find((b) => /Promote to/i.test(b.innerText));
     btn.click();
     await new Promise((r) => setTimeout(r, 260));
     const hand = sh.staff[0];
@@ -4129,7 +4129,7 @@ async function run() {
     ranked.phase === ranked.before.phase && ranked.day === ranked.before.day,
     JSON.stringify({ was: ranked.before.phase, now: ranked.phase }));
   ok('the panel now reads as a D with the road to C ahead',
-    /Now, at D/.test(ranked.body) && /At C/.test(ranked.body),
+    /Current \(D-rank\)/.test(ranked.body) && /After promotion \(C-rank\)/.test(ranked.body),
     ranked.body.slice(0, 220));
 
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
@@ -4194,7 +4194,7 @@ async function run() {
     const F = window.CHECKSMITH, sh = F.app.shop;
     const was = { phase: sh.phaseIndex, day: sh.day };
     Array.from(document.querySelectorAll('#shopSheetActions button'))
-      .find((b) => /Never mind/i.test(b.innerText)).click();
+      .find((b) => /^Close$/i.test(b.innerText.trim())).click();
     await new Promise((r) => setTimeout(r, 220));
     return { was: was, phase: sh.phaseIndex, day: sh.day,
       open: !document.getElementById('shopSheet').hidden };
@@ -4265,7 +4265,7 @@ async function run() {
   ok('buying the forge track is worth one more ingot, at once',
     forgeBuy.now === forgeBuy.was + 1, JSON.stringify(forgeBuy).slice(0, 150));
   ok('and the card redraws to the new capacity',
-    new RegExp(forgeBuy.now + ' ingots a forging phase').test(forgeBuy.text),
+    new RegExp('Max batch: ' + forgeBuy.now + ' items').test(forgeBuy.text),
     forgeBuy.text.slice(0, 200));
 
   const employed = await page.evaluate(async () => {
@@ -4310,7 +4310,7 @@ async function run() {
       room: C.standCap(sh) - sh.stands.length };
   });
   ok('the Shop says how much floor space is left',
-    /room for \d+ more/i.test(standBuy.cap) && /Stands \d+ \/ \d+/.test(standBuy.sheet),
+    /\d+ empty spaces?/i.test(standBuy.cap) && /Stands \d+ \/ \d+/.test(standBuy.sheet),
     JSON.stringify({ cap: standBuy.cap, sheet: standBuy.sheet.slice(0, 120) }));
   ok('and buying a stand there puts one on the floor',
     standBuy.stands === standBuy.was + 1, JSON.stringify(standBuy));
@@ -4360,7 +4360,7 @@ async function run() {
     display.price > display.was.price,
     JSON.stringify({ was: display.was.price, now: display.price }));
   ok('and the card shows the percentage it now carries',
-    /\+2\.5% on what it sells for/.test(display.text), display.text.slice(0, 220));
+    /\+2\.5% sale price/.test(display.text), display.text.slice(0, 220));
 
   const broke = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
@@ -4419,24 +4419,24 @@ async function run() {
   const counter = await stationOf('counter');
   ok('tapping the counter asks who will tend the store',
     counter.open && /counter/i.test(counter.title) &&
-    counter.acts.indexOf('Tend it yourself') >= 0 &&
+    counter.acts.indexOf('Tend the Store') >= 0 &&
     counter.acts.some((a) => /salesperson/i.test(a)), JSON.stringify(counter));
   ok('and the panel docks below the room rather than covering it', counter.docked);
   const forge = await stationOf('forge');
   ok('tapping the forge offers the anvil or a smith',
-    /forge/i.test(forge.title) && forge.acts.indexOf('Forge a batch yourself') >= 0 &&
+    /forge/i.test(forge.title) && forge.acts.indexOf('Forge Batch') >= 0 &&
     forge.acts.some((a) => /smith/i.test(a)), JSON.stringify(forge));
   const stBoard = await stationOf('board');
   ok('the noticeboard opens staff and recruiting',
-    /noticeboard/i.test(stBoard.title) && stBoard.acts.indexOf('Search for Employees') >= 0,
+    /staff/i.test(stBoard.title) && stBoard.acts.indexOf('Search for Employees') >= 0,
     JSON.stringify(stBoard));
   const store = await stationOf('store');
   ok('the storeroom opens metal and the runner',
-    /storeroom/i.test(store.title) && store.acts.indexOf('Buy materials yourself') >= 0,
+    /storeroom/i.test(store.title) && store.acts.indexOf('Buy Materials') >= 0,
     JSON.stringify(store));
   const door = await stationOf('door');
   ok('the door opens deliveries without making one',
-    /door/i.test(door.title) && door.acts.indexOf('Deliveries') >= 0 && door.gold === door.was.gold,
+    /door/i.test(door.title) && door.acts.indexOf('Ledger') >= 0 && door.gold === door.was.gold,
     JSON.stringify(door));
   const table = await stationOf('table');
   ok('the blueprint table opens the Almanac', /almanac/i.test(table.title), JSON.stringify(table));
@@ -4593,7 +4593,7 @@ async function run() {
     const after = { gold: sh.gold, phase: sh.phaseIndex, shelf: C.countShelf(sh),
       xp: sh.staff.map((e) => e.xp).join(',') };
     const summary = !document.getElementById('shopSheet').hidden &&
-      /is done/.test(document.getElementById('shopSheetTitle').textContent);
+      /summary/.test(document.getElementById('shopSheetTitle').textContent);
     F.setPhaseAnim(false);
     return { now: now, after: after, playing: playing, summary: summary,
       replaySaved: !!(saved && saved.replay),
@@ -4621,9 +4621,9 @@ async function run() {
     open: !document.getElementById('shopSheet').hidden,
     title: document.getElementById('shopSheetTitle').textContent }));
   ok('a summary left unseen is shown again on reopening',
-    stResumed.open && /is done/.test(stResumed.title), JSON.stringify(stResumed));
+    stResumed.open && /summary/.test(stResumed.title), JSON.stringify(stResumed));
   await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
-    .find((b) => b.textContent === 'Right then').click());
+    .find((b) => b.textContent === 'Close').click());
   await page.waitForTimeout(200);
   const stCleared = await page.evaluate(() => {
     const F = window.CHECKSMITH;
@@ -4717,7 +4717,7 @@ async function run() {
     const remembered = F.shopUi.tab;
     // a station still reaches straight into a drawer
     F.shopOpenStation('door');
-    Array.from(document.querySelectorAll('#shopSheetActions button')).find((b) => b.textContent === 'Deliveries').click();
+    Array.from(document.querySelectorAll('#shopSheetActions button')).find((b) => b.textContent === 'Ledger').click();
     await new Promise((r) => setTimeout(r, 60));
     const fromDoor = F.shopUi.tab;
     F.shopUi.tab = null; F.shopRender();
@@ -4727,7 +4727,7 @@ async function run() {
   ok('the shop opens on the room with every drawer shut', drawers.shut, JSON.stringify(drawers));
   ok('eight screens sit in three drawers',
     drawers.groups.join(',') === 'Inventory,Business,Staff' &&
-    drawers.inBiz.subs.join(',') === 'Growth,Ledger,Properties,Town' && drawers.inBiz.panel,
+    drawers.inBiz.subs.join(',') === 'Growth,Ledger,Properties,Customers' && drawers.inBiz.panel,
     JSON.stringify(drawers));
   ok('a drawer closes again and remembers where it was left',
     drawers.ledger === 'ledger' && drawers.closed && drawers.remembered === 'ledger', JSON.stringify(drawers));
@@ -5210,7 +5210,7 @@ async function run() {
       retry: document.getElementById('rRetry').textContent }));
     ok('walking onto the tang\'s second king with nowhere left to go strands the piece',
       stranded.status === 'lost' && stranded.results && stranded.label === 'Stranded' &&
-      stranded.piece === 'Dagger' && stranded.retry === 'Back to the Anvil', JSON.stringify(stranded));
+      stranded.piece === 'Dagger' && stranded.retry === 'Try Again', JSON.stringify(stranded));
     await page.click('#rRetry');
     await page.waitForTimeout(200);
     ok('and back at the anvil it is cold again', await page.evaluate(() =>
@@ -5717,7 +5717,7 @@ async function run() {
 
   const first = await openShop('Cinderhall');
   ok('a first visit offers a new forge, not a saved one',
-    /opens a new forge/.test(first.line) && first.begin === 'Begin' && first.rows.length === 0,
+    /starts a new forge/.test(first.line) && first.begin === 'Begin' && first.rows.length === 0,
     JSON.stringify(first));
   ok('and it is opened under the typed name',
     (await page.evaluate(() => window.CHECKSMITH.app.shop.name)) === 'Cinderhall');
@@ -5735,7 +5735,7 @@ async function run() {
   await page.reload();
   const second = await openShop();
   ok('the title screen lists the saved forge and offers to carry it on',
-    second.begin === 'Carry on' && second.rows.length === 1 &&
+    second.begin === 'Continue' && second.rows.length === 1 &&
     /^Cinderhall /.test(second.rows[0]) && /Day 4/.test(second.rows[0]) &&
     /1,777g/.test(second.rows[0]) && /Cinderhall/.test(second.line),
     JSON.stringify(second));
@@ -5760,7 +5760,7 @@ async function run() {
   await page.reload();
   const third = await openShop();
   ok('a batch left on the anvil is announced on the forge\'s row',
-    third.rows.length === 1 && /on the anvil/.test(third.rows[0]), JSON.stringify(third.rows));
+    third.rows.length === 1 && /order in progress/.test(third.rows[0]), JSON.stringify(third.rows));
   const resumed = await page.evaluate(() => {
     const g = window.CHECKSMITH.app.game;
     return g ? { pieces: g.board.pieces.join(''), strikes: g.strikes.join(','),

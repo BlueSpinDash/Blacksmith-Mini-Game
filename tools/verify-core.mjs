@@ -1987,7 +1987,7 @@ section('Versus: points, allowance and defeat');
     m.you.points === 1000 - C.upgradeById('shatter').cost && m.you.earned === earnedBefore);
   ok('only one upgrade is allowed a turn',
     C.versusUpgradeCheck(m, 'you', 'repair', 0).ok === false &&
-    C.versusUpgradeCheck(m, 'you', 'shatter', 6).why === 'already used this turn');
+    C.versusUpgradeCheck(m, 'you', 'shatter', 6).why === 'a power was already used this turn');
   ok('an unaffordable purchase spends nothing', (() => {
     const g = mk();
     g.you.points = 5;
@@ -3512,7 +3512,7 @@ section('Open Your Forge: the board you worked is what it is worth');
     session.queue = [knight.id];
     session.at = 0;
     const e = C.counterNext(session, s);
-    return e.kind === 'leave' && /rough/.test(e.why) && e.name === knight.name;
+    return e.kind === 'leave' && /below their standards/.test(e.why) && e.name === knight.name;
   })());
 
   ok('two of a trade do not hold the same standard to the point', (() => {
@@ -5894,7 +5894,7 @@ section('Open Your Forge: a roster that keeps itself');
     C.setStanding(s, 'salesperson', PH[1], null, {});
     const day = C.shopEndDay(s);
     const put = day.roster.filter((r) => r.ok);
-    return put.length === 1 && day.roster.some((r) => !r.ok && /nobody free/i.test(r.why));
+    return put.length === 1 && day.roster.some((r) => !r.ok && /no free employee/i.test(r.why));
   })());
 
   ok('a box nobody can fill is left empty and says why', (() => {
@@ -5903,7 +5903,7 @@ section('Open Your Forge: a roster that keeps itself');
       upTo: 10, cap: 500 });
     const day = C.shopEndDay(s);
     return day.roster.length === 1 && !day.roster[0].ok &&
-      /nobody free/i.test(day.roster[0].why) && Object.keys(s.assignments).length === 0;
+      /no free employee/i.test(day.roster[0].why) && Object.keys(s.assignments).length === 0;
   })());
 
   ok('a hand who has left hands their box back to nobody', (() => {
@@ -5997,7 +5997,7 @@ section('Open Your Forge: what a kept box is told to do');
     const full = C.planOrder(shop, 'runner', plan, PH[0]);
     shop.ore = {};
     const empty = C.planOrder(shop, 'runner', plan, PH[0]);
-    return !full.ok && /still holds/i.test(full.why) && empty.ok;
+    return !full.ok && /already holds/i.test(full.why) && empty.ok;
   })());
 
   ok('a delivery takes the contract due soonest', (() => {
@@ -6024,7 +6024,7 @@ section('Open Your Forge: what a kept box is told to do');
     C.shopBuyVehicle(s, 'cart');
     C.setStanding(s, 'runner', PH[0], 900, { kind: 'deliver' });
     const day = C.shopEndDay(s);
-    return !day.roster[0].ok && /ready to go/i.test(day.roster[0].why) &&
+    return !day.roster[0].ok && /all its items assigned/i.test(day.roster[0].why) &&
       Object.keys(s.assignments).length === 0;
   })());
 

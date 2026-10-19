@@ -296,7 +296,7 @@ So four boards at a 1.25 rate pay 1, 1, 1, 2 — five coins for five rates' wort
 The banner above the board always shows the whole number the next cleared board
 will actually hand you.
 
-The **Forge Shop** on the title screen sells three permanent upgrades, **ten
+**Endless Upgrades** on the title screen sells three permanent upgrades, **ten
 levels each**. Costs grow geometrically — `round(costBase × costGrowth^level)`:
 
 | Upgrade | Per level | At level 10 | Costs (L1 → L10) |
@@ -816,7 +816,7 @@ bought with the business rather than earned, because there was no other way in.
 ### The floor is fixtures, not slots
 
 The premises say how many **display stands** will fit (`SHOP.tiers[].stands`,
-4/6/9/12); each stand is bought separately from the Grow tab and holds six
+4/6/9/12); each stand is bought separately from the Shelves tab and holds six
 pieces of a single line. `SHOP.stands` names the six kinds, and which categories
 each takes is read off the category table (`standCategories`), so a stand can
 never be offered something it was not made for. Moving into bigger premises buys
@@ -876,8 +876,8 @@ turn of the week, a `standards` floor and a standing `want`. They come back.
   will not cross the road for anything under five. It is derived, not a second
   table.
 
-The **Town** tab lists everybody by name with their face, trade, purse and what
-they are after; tapping one reads them in full.
+The **Customers** tab lists everybody by name with their face, trade, purse and what
+they want; tapping one reads them in full.
 
 ### Pricing and customers
 
@@ -1713,6 +1713,27 @@ The code is split so the rules are testable on their own: the block between
 `/* ==== CORE START ==== */` and `/* ==== CORE END ==== */` holds movement, board
 generation and validation, game state and scoring, and touches no DOM, audio or
 timers. Rendering, animation, sound and input sit below it.
+
+## Player-facing text
+
+Every label, button, prompt and description says what a feature does, in plain
+terms, with the numbers the code actually uses (1.37 audit). The conventions:
+
+- **Buttons** are short actions: *Hire · 9g/wk*, *Unlock Blueprint · 70 XP*,
+  *Accept Commission*, *Deliver (Uses Phase)*. Anything that spends the phase
+  says so on the button or in the line above it.
+- **One name per thing**: *commission* (a customer's bulk request, never
+  *contract*), *order* (a batch at the anvil), *stand*,
+  *storage*, *ore storage*, *staff place*, *floor space*, *XP*, *rival* (Versus),
+  *Customers* tab, *Shelves* tab, *Endless Upgrades*.
+- **Numbers come from the tables.** Text that quotes a value reads it from
+  `CONFIG` or `SHOP` (`SHOP.commission.repFailed`, `SHOP.mining.hireWeeks`,
+  `CONFIG.endless.morphStep`, ...), so a rebalance never leaves a stale figure.
+- **How to Play is generated**: `helpHtml()` builds the help sheet at boot from
+  the same tables (symbol pools by board size, metal strike counts, Versus
+  powers, growth tracks, vehicles, quality bands), one short section per mode.
+- Error messages from the core (`why`) are lower-case fragments that read on
+  their own in a toast: *requires 18 reputation*, *storage is full*.
 
 ## Tests
 
