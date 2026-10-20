@@ -2593,7 +2593,8 @@ async function run() {
 
   // Every customer has to be a beat of their own: a banner, an offer, a
   // decision and a stamped outcome. Nothing may resolve off-screen.
-  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, booked: 0, beats: 0 };
+  const seen = { offers: 0, full: 0, haggleScreens: 0, sold: 0, left: 0, booked: 0, beats: 0,
+    specials: 0 };
   let guard = 0;
   while ((await page.isVisible('#shopSheet')) && guard++ < 60) {
     const view = await page.evaluate(() => ({
@@ -2609,10 +2610,20 @@ async function run() {
       wantSprite: !!document.querySelector('.cust-want .sprite'),
       stampArt: !!document.querySelector('.stamp .sprite, .stamp .portrait'),
       odds: document.querySelector('.odds') ? document.querySelector('.odds').dataset.read : null,
+      special: !!document.querySelector('#shopSheetBody [data-special-offer]'),
       labels: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
     }));
     if (/Sales Report/.test(view.title)) break;
     seen.beats++;
+
+    // a special commission is a beat of its own, answered on its own screen
+    if (view.special) {
+      seen.specials++;
+      if (!view.head) seen.artMissing = true;
+      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.waitForTimeout(110);
+      continue;
+    }
 
     if (view.bid) {
       seen.offers++;
@@ -2666,7 +2677,8 @@ async function run() {
   // failed counter is shown twice.
   ok('every customer ends in exactly one stamp',
     seen.sold === report.tally.sold && seen.left === report.tally.left &&
-    seen.booked === (report.tally.taken || 0) &&
+    seen.booked === (report.tally.taken || 0) + (report.tally.specialTaken || 0) &&
+    seen.specials === (report.tally.specialTaken || 0) &&
     seen.sold + seen.left + seen.booked + (report.tally.declined || 0) ===
       report.tally.customers,
     JSON.stringify([seen, report.tally]));
@@ -3245,7 +3257,9 @@ async function run() {
     }
     const canvas = body.querySelector('.alm-canvas');
     const scroll = body.querySelector('.alm-scroll');
-    return { nodes: nodes.length, want: C.disciplineItems('swords').length,
+    // the tree is the ordinary blueprints; a named masterwork is listed beside it
+    return { nodes: nodes.length, want: C.disciplineItems('swords').filter((it) => !it.special).length,
+      named: body.querySelectorAll('.alm-special').length,
       lines: body.querySelectorAll('.alm-line').length,
       sprites: body.querySelectorAll('.alm-node .sprite').length,
       bar: body.querySelector('.craft-bar').innerText.replace(/\s+/g, ' '),
@@ -3259,6 +3273,8 @@ async function run() {
   });
   ok('a craft opens as a tree with a node for every blueprint',
     tree.nodes === tree.want && tree.nodes > 1, JSON.stringify(tree));
+  ok('and its named masterwork is listed beside the tree, not on it', tree.named === 1,
+    JSON.stringify(tree));
   ok('every node wears its own sprite', tree.sprites === tree.nodes, JSON.stringify(tree));
   ok('the steps of the progression are drawn as lines', tree.lines >= tree.nodes - 1,
     JSON.stringify(tree));
@@ -4876,7 +4892,10 @@ async function run() {
       const key = C.lineKey('shortsword', 'bronze');
       if (C.countStorage(sh) < 20) C.addStorage(sh, key, 20, 80, 1);
       const stand = sh.stands.find((st) => st.type === 'weapon' && C.standPlaced(st));
-      // half full, so a Store Hand always has room to work whatever was sold
+      // half full of the line in storage, so a Store Hand always has room to
+      // work and something of the right kind to bring out, whatever an earlier
+      // check left standing there
+      if (stand && stand.key && stand.key !== key) { stand.key = null; stand.qty = 0; stand.price = 0; }
       if (stand && !stand.qty) C.shopStockStand(sh, stand.id, key, 3);
       else if (stand) stand.qty = Math.min(stand.qty, 3);
       const all = {
@@ -6883,6 +6902,422 @@ async function run() {
       JSON.stringify(forgeAgain).slice(0, 200));
 
     ok('none of it raises an error', calmErrs.length === 0, calmErrs.slice(0, 3).join(' | '));
+    await ctx.close();
+  }
+
+  /* ============ special commissions ============ */
+  /* One named piece, asked for by one trade, made once and by the player
+     alone: offered, declined and offered again, accepted at the counter,
+     designed and molded a phase at a time, then attempted on its own
+     silhouette - put down and picked up, finished imperfectly, stranded,
+     abandoned and finally forged perfectly - and the blueprint it earns
+     taken into the Almanac and the forge's list. */
+  section('Open Your Forge: special commissions');
+  {
+    ctx = await browser.newContext({ viewport: { width: 360, height: 900 } });
+    page = await ctx.newPage();
+    const spErrs = [];
+    page.on('pageerror', (e) => spErrs.push(String(e)));
+    await page.goto(FILE);
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    const openForge = async (name) => {
+      await page.click('.mode-card[data-mode="shop"]');
+      await page.click('#beginBtn');
+      if (await page.isVisible('#nameForge')) {
+        await page.fill('#nameForgeInput', name || 'Masterworks');
+        await page.click('#nameForgeGo');
+      }
+      await page.waitForFunction(() => !document.getElementById('shopView').hidden || !!window.CHECKSMITH.app.game,
+        null, { timeout: 15000 });
+      await page.waitForTimeout(250);
+      await chooseCrafts(page);
+      await installStock(page);
+      await page.evaluate(() => {
+        const F = window.CHECKSMITH;
+        F.setPhaseAnim(false);
+        F.core.CONFIG.animation.strikeMs = 12;
+      });
+    };
+    const sheet = () => page.evaluate(() => ({
+      open: !document.getElementById('shopSheet').hidden,
+      title: document.getElementById('shopSheetTitle').textContent,
+      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+      buttons: Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .map((b) => b.textContent + (b.disabled ? ' (off)' : ''))
+    }));
+    const press = async (label) => {
+      await page.evaluate((l) => {
+        const b = Array.from(document.querySelectorAll('#shopSheetActions button'))
+          .find((x) => x.textContent === l || x.textContent.indexOf(l) === 0);
+        b.click();
+      }, label);
+      await page.waitForTimeout(160);
+    };
+    const closeSheets = async () => {
+      for (let k = 0; k < 60 && (await page.isVisible('#shopSheet')); k++) {
+        await page.click('#shopSheetActions button:first-child');
+        await page.waitForTimeout(110);
+      }
+    };
+    const state = () => page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      const rec = C.specialRecord(sh, 'embercleaver');
+      return { stage: C.specialStage(sh, 'embercleaver'), tick: sh.day * 3 + sh.phaseIndex,
+        bronze: sh.materials.bronze, attempts: rec ? rec.attempts : 0,
+        design: rec ? rec.design : 0, mold: rec ? rec.mold : 0,
+        known: C.recipeKnown(sh, 'embercleaver'), offers: (sh.specialOffers || []).length };
+    });
+    const ledgerCard = () => page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      F.shopUi.tab = 'ledger';
+      F.shopRender();
+      const card = document.querySelector('#shPanel [data-special-card="embercleaver"]');
+      const btn = card && card.querySelector('[data-special-act]');
+      const panel = document.getElementById('shPanel');
+      return { text: card ? card.innerText.replace(/\s+/g, ' ') : null,
+        btn: btn ? btn.textContent : null, btnOff: btn ? btn.disabled : null,
+        wide: panel.scrollWidth > panel.clientWidth + 1 || document.documentElement.scrollWidth > innerWidth };
+    });
+
+    await openForge();
+    // a forge with the craft and the name for the cleaver, and a cook in front
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      C.takeUpDiscipline(sh, 'household', 'bought');
+      sh.reputation = 30; sh.gold = 5000; sh.materials.bronze = 12;
+      F.testStock(sh, C.lineKey('cookknife', 'bronze'), 30, 90, 20);
+      let cook = sh.town.find((o) => o.type === 'cook') || C.makeTownsfolk(sh, 'cook');
+      cook.gold = 800;
+      sh.town.splice(sh.town.indexOf(cook), 1); sh.town.unshift(cook);
+      F.shopRender();
+    });
+
+    // 1. a salesperson takes it down, and it waits for the player after the phase
+    const queued = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.staff.push({ id: 7701, name: 'Rhea Counter', role: 'salesperson', rank: 'C', power: 3, wage: 20, xp: 0, face: 'merchant' });
+      C.shopAssign(sh, 7701, {}, C.shopPhase(sh));
+      const keep = sh.rnd; sh.rnd = () => 0;
+      const tick = sh.day * 3 + sh.phaseIndex;
+      F.shopSpendPhase(null);
+      sh.rnd = keep;
+      await new Promise((r) => setTimeout(r, 250));
+      const body = document.getElementById('shopSheetBody');
+      return { tick: sh.day * 3 + sh.phaseIndex - tick, title: document.getElementById('shopSheetTitle').textContent,
+        text: body.innerText.replace(/\s+/g, ' '), take: !!body.querySelector('[data-special-take="embercleaver"]'),
+        offers: sh.specialOffers.length, stage: C.specialStage(sh, 'embercleaver'),
+        bulk: sh.commissionOffers.length };
+    });
+    ok('a salesperson takes a special commission down and it is shown after the phase',
+      queued.tick === 1 && /summary/.test(queued.title) && queued.take && queued.offers === 1 &&
+      queued.stage === 'offered' && /special commission offer is waiting/.test(queued.text) &&
+      /Embercleaver/.test(queued.text), JSON.stringify(queued).slice(0, 300));
+    const ledgerOffer = await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      document.querySelector('#shopSheetActions button').click();
+      F.shopUi.tab = 'ledger'; F.shopRender();
+      const card = document.querySelector('#shPanel [data-special-offer="embercleaver"]');
+      return { text: card ? card.innerText.replace(/\s+/g, ' ') : '', sprite: !!(card && card.querySelector('.sprite.named')),
+        badge: document.querySelector('#shTabs .tg-note') ? document.querySelector('#shTabs .tg-note').textContent : '' };
+    });
+    ok('the Ledger shows the offer in full: who, what, the stages, the metal and the reputation',
+      /Embercleaver/.test(ledgerOffer.text) && /Cook/.test(ledgerOffer.text) &&
+      /Household Goods/.test(ledgerOffer.text) && /DESIGN 1 phase/i.test(ledgerOffer.text) &&
+      /MOLD 1 phase/i.test(ledgerOffer.text) && /2 Bronze/.test(ledgerOffer.text) &&
+      /reputation 12/.test(ledgerOffer.text) && /No deadline/.test(ledgerOffer.text) && ledgerOffer.sprite,
+      ledgerOffer.text.slice(0, 300));
+    const declined = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      const tick = sh.day * 3 + sh.phaseIndex;
+      document.querySelector('#shPanel [data-special-drop="embercleaver"]').click();
+      return { tick: sh.day * 3 + sh.phaseIndex - tick, offers: sh.specialOffers.length,
+        stage: C.specialStage(sh, 'embercleaver'), eligible: C.specialEligible(sh, 'embercleaver'),
+        card: !!document.querySelector('#shPanel [data-special-offer="embercleaver"]') };
+    });
+    ok('declining is free, clears the offer and leaves it to be put again later',
+      declined.tick === 0 && declined.offers === 0 && declined.stage === 'open' && !declined.eligible &&
+      !declined.card, JSON.stringify(declined));
+
+    // 2. days later the cook asks again, at the player's own counter
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.day += C.SHOP.special.cooldown;
+      sh.phaseIndex = 0;
+      sh.assignments = {};
+      window.__keep = sh.rnd; sh.rnd = () => 0;
+      F.shopUi.tab = null; F.shopRender();
+    });
+    const before = await state();
+    await page.click('#shActions [data-act="tend"]');
+    await page.waitForTimeout(300);
+    const asked = await sheet();
+    ok('a customer of the right trade asks at the counter and describes the piece',
+      asked.title === 'Special Commission' && /Embercleaver/.test(asked.body) &&
+      /oversized/.test(asked.body) && /Cook/.test(asked.body) &&
+      asked.buttons.join() === 'Accept Commission,Decline', JSON.stringify(asked).slice(0, 300));
+    await press('Accept Commission');
+    await page.evaluate(() => { window.CHECKSMITH.app.shop.rnd = window.__keep; });
+    const stamped = await sheet();
+    const took = await state();
+    ok('accepting is stamped and costs nothing', /Special Commission Accepted/.test(stamped.title) &&
+      /added to Special Commissions in the Ledger/.test(stamped.body) && took.stage === 'design' &&
+      took.bronze === before.bronze, JSON.stringify([stamped.title, took]));
+    await closeSheets();
+
+    // 3. design and mold: one phase of the player's each
+    let card = await ledgerCard();
+    ok('the Ledger card shows the stage, the progress and the next action',
+      /DESIGN 0 \/ 1/i.test(card.text) && /MOLD 0 \/ 1/i.test(card.text) && /Attempts so far: 0/.test(card.text) &&
+      card.btn === 'Work on Design (Uses Phase)' && !card.wide, JSON.stringify(card).slice(0, 300));
+    const t0 = await state();
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(250);
+    await closeSheets();
+    const t1 = await state();
+    card = await ledgerCard();
+    ok('working on the design uses exactly one phase and counts once',
+      t1.tick === t0.tick + 1 && t1.design === 1 && t1.stage === 'mold' && card.btn === 'Fashion Mold (Uses Phase)',
+      JSON.stringify([t0, t1, card.btn]));
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(250);
+    await closeSheets();
+    const t2 = await state();
+    card = await ledgerCard();
+    ok('fashioning the mold uses exactly one phase, and then it is ready to forge',
+      t2.tick === t1.tick + 1 && t2.mold === 1 && t2.stage === 'ready' && card.btn === 'Attempt Forge',
+      JSON.stringify([t2, card.btn]));
+
+    // 4. the attempt sheet says what it costs, and refuses without the metal
+    await page.evaluate(() => { window.CHECKSMITH.app.shop.materials.bronze = 1; });
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(200);
+    const short = await sheet();
+    ok('without the ingots the attempt cannot start, and says why',
+      /Attempt Forge/.test(short.title) && /requires 2 Bronze ingots/.test(short.body) &&
+      short.buttons[0] === 'Start Attempt · 2 Bronze (off)', JSON.stringify(short).slice(0, 300));
+    await press('Back');
+    await page.evaluate(() => { window.CHECKSMITH.app.shop.materials.bronze = 12; window.CHECKSMITH.shopRender(); });
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(200);
+    const full = await sheet();
+    ok('the sheet shows the metal required and the ingots held, before anything is spent',
+      /Ingots required/.test(full.body) && /2 Bronze/.test(full.body) && /Ingots in stock/.test(full.body) &&
+      /12/.test(full.body) && /not returned/.test(full.body) && full.buttons[0] === 'Start Attempt · 2 Bronze',
+      full.body.slice(0, 300));
+    // a double tap starts one attempt and charges once
+    await page.evaluate(() => {
+      const b = document.querySelector('#shopSheetActions button');
+      b.click(); b.click();
+    });
+    await page.waitForTimeout(300);
+    const anvil = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game, sh = F.app.shop;
+      return { shaped: !!(g && g.board.shape), special: g && g.board.special, perfect: g && g.perfect,
+        squares: g && C.metalCount(g.board), bronze: sh.materials.bronze,
+        attempts: C.specialRecord(sh, 'embercleaver').attempts,
+        menu: document.getElementById('menuActionBtn').textContent,
+        restart: document.getElementById('restartBtn').hidden,
+        bar: !document.getElementById('pieceBar').hidden && document.getElementById('pieceName').textContent,
+        prompt: document.getElementById('promptText').textContent,
+        air: document.querySelectorAll('#board .tile[data-air]').length };
+    });
+    ok('one attempt starts, charged once, on the piece’s own silhouette',
+      anvil.shaped && anvil.special === 'embercleaver' && anvil.perfect === 1 && anvil.squares === 26 &&
+      anvil.air > 0 && anvil.bronze === 10 && anvil.attempts === 1, JSON.stringify(anvil));
+    ok('the anvil names the piece, says perfect is required, and offers no free restart',
+      anvil.bar === 'Embercleaver' && /exactly 1 strike/.test(anvil.prompt) && /perfect/.test(anvil.prompt) &&
+      anvil.menu === 'Abandon Attempt' && anvil.restart, JSON.stringify(anvil));
+
+    // 5. put down half way and picked up again: the same attempt, not charged again
+    const midway = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, g = F.app.game;
+      for (const i of g.board.route.slice(0, 3)) {
+        for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        F.tap(i);
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+      return { strikes: g.strikes.join(','), current: g.current };
+    });
+    await page.reload();
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.waitForTimeout(150);
+    const row = await page.$$eval('#shopSlots .forge-slot', (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ')));
+    await openForge();
+    const resumed = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game, sh = F.app.shop;
+      return { at: !!g && g.board.special, strikes: g && g.strikes.join(','), current: g && g.current,
+        bronze: sh.materials.bronze, attempts: C.specialRecord(sh, 'embercleaver').attempts,
+        stage: C.specialStage(sh, 'embercleaver'), menu: document.getElementById('menuActionBtn').textContent };
+    });
+    ok('the forge’s row says an attempt is in progress', /special commission attempt in progress/.test(row.join(' ')),
+      row.join(' | '));
+    ok('reopened, it is the same attempt on the same blows, and nothing is charged again',
+      resumed.at === 'embercleaver' && resumed.strikes === midway.strikes && resumed.current === midway.current &&
+      resumed.bronze === 10 && resumed.attempts === 1 && resumed.stage === 'forging' &&
+      resumed.menu === 'Abandon Attempt', JSON.stringify([midway, resumed]).slice(0, 400));
+
+    // 6. finished, but imperfectly: no blueprint, metal gone, progress kept
+    const imperfect = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, g = F.app.game;
+      const r = g.board.route;
+      // every square of the route struck as it should be, one of them once too often
+      for (let k = 0; k < r.length - 1; k++) g.strikes[r[k]] = 1;
+      g.strikes[r[2]] = 2;
+      g.totalStrikes = r.length;
+      g.current = r[r.length - 2];
+      g.status = 'playing';
+      F.tap(r[r.length - 1]);
+      for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((res) => setTimeout(res, 10));
+      await new Promise((res) => setTimeout(res, 300));
+      return { title: document.getElementById('shopSheetTitle').textContent,
+        body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
+    });
+    const afterImperfect = await state();
+    ok('a finished but imperfect piece shows its quality and does not complete the commission',
+      imperfect.title === 'Forged Imperfectly' && /quality \d+/i.test(imperfect.body) &&
+      !/quality 100\b/i.test(imperfect.body.split('The commission')[0]) && /ingots are spent/.test(imperfect.body) &&
+      afterImperfect.stage === 'ready' && !afterImperfect.known && afterImperfect.bronze === 10 &&
+      afterImperfect.design === 1 && afterImperfect.mold === 1, JSON.stringify([imperfect, afterImperfect]).slice(0, 400));
+    const tickA = afterImperfect.tick;
+    await press('Return to Shop');
+    await closeSheets();
+    ok('and the attempt used its phase', (await state()).tick === tickA + 1);
+
+    // 7. run out of moves: the ordinary failure, progress kept
+    await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.tab = 'ledger'; F.shopRender(); });
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(200);
+    await press('Start Attempt');
+    await page.waitForTimeout(250);
+    const failed = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      // always the first move offered: a plain smith who does not plan ahead
+      for (let k = 0; k < 80 && (g.status === 'ready' || g.status === 'playing'); k++) {
+        for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        const t = C.legalTargets(g);
+        if (!t.length) break;
+        F.tap(t[0]);
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 300));
+      return { status: g.status, title: document.getElementById('shopSheetTitle').textContent,
+        body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
+    });
+    const afterFail = await state();
+    ok('running out of legal moves fails the attempt the ordinary way, keeping the progress',
+      failed.status === 'lost' && failed.title === 'Attempt Failed' && /No legal moves/.test(failed.body) &&
+      afterFail.stage === 'ready' && afterFail.bronze === 8 && afterFail.attempts === 2 &&
+      afterFail.design === 1 && afterFail.mold === 1, JSON.stringify([failed, afterFail]).slice(0, 400));
+    await press('Return to Shop');
+    await closeSheets();
+
+    // 8. abandoned, with a warning that the metal is lost
+    await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.tab = 'ledger'; F.shopRender(); });
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(200);
+    await press('Start Attempt');
+    await page.waitForTimeout(250);
+    const t3 = await state();
+    await page.click('#menuActionBtn');
+    await page.waitForTimeout(150);
+    const warn = await page.evaluate(() => ({ open: !document.getElementById('confirm').hidden,
+      text: document.getElementById('confirm').innerText.replace(/\s+/g, ' ') }));
+    await page.click('#confirmYes');
+    await page.waitForTimeout(300);
+    await closeSheets();
+    const afterAbandon = await state();
+    ok('abandoning warns that the committed ingots are lost',
+      warn.open && /2 Bronze ingots committed to this attempt are lost/.test(warn.text), warn.text);
+    ok('and leaves the commission ready, the metal spent and the phase used',
+      afterAbandon.stage === 'ready' && afterAbandon.bronze === 6 && afterAbandon.attempts === 3 &&
+      afterAbandon.tick === t3.tick + 1 && !afterAbandon.known, JSON.stringify([t3, afterAbandon]));
+
+    // 9. perfect: delivered, and the blueprint is the forge's
+    await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.tab = 'ledger'; F.shopRender(); });
+    await page.click('#shPanel [data-special-act="embercleaver"]');
+    await page.waitForTimeout(200);
+    await press('Start Attempt');
+    await page.waitForTimeout(250);
+    const perfect = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, g = F.app.game;
+      for (const i of g.board.route.slice()) {
+        for (let n = 0; n < 60 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        F.tap(i);
+        await new Promise((r) => setTimeout(r, 14));
+      }
+      for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+      await new Promise((r) => setTimeout(r, 300));
+      return { title: document.getElementById('shopSheetTitle').textContent,
+        body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
+    });
+    const done = await state();
+    ok('a perfect forge completes the commission and unlocks the blueprint',
+      perfect.title === 'Commission Complete' && /quality 100/i.test(perfect.body) &&
+      /delivered to/.test(perfect.body) && /Blueprint unlocked/i.test(perfect.body) &&
+      done.stage === 'done' && done.known && done.bronze === 4 && done.attempts === 4,
+      JSON.stringify([perfect, done]).slice(0, 400));
+    await press('Return to Shop');
+    await closeSheets();
+    card = await ledgerCard();
+    const after = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      return { storage: C.countStorage(sh), learned: sh.learned.filter((l) => l.id === 'embercleaver').length,
+        offer: (() => { sh.rnd = () => 0; const o = C.rollSpecial(sh, sh.town.find((x) => x.type === 'cook')); return o; })() };
+    });
+    ok('the piece went to the customer, not to storage, and the Ledger marks it completed',
+      after.storage === 0 && /COMPLETED/i.test(card.text) && /Delivered on day/.test(card.text) &&
+      after.learned === 1 && after.offer === null, JSON.stringify([after, card.text]).slice(0, 300));
+
+    // 10. the book: earned here, locked with its reason elsewhere, and forgeable
+    const book = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      F.shopOpenAlmanac();
+      await new Promise((r) => setTimeout(r, 100));
+      document.querySelector('#shopSheetBody [data-craft="household"]').click();
+      await new Promise((r) => setTimeout(r, 120));
+      const earned = document.querySelector('#shopSheetBody .alm-special');
+      const mine = { text: earned ? earned.innerText.replace(/\s+/g, ' ') : '', earned: !!(earned && earned.classList.contains('earned')),
+        treeHas: !!document.querySelector('#shopSheetBody .alm-node[data-recipe="embercleaver"]') };
+      document.querySelector('#shopSheetBody [data-craft-back]').click();
+      await new Promise((r) => setTimeout(r, 100));
+      document.querySelector('#shopSheetBody [data-craft="swords"]').click();
+      await new Promise((r) => setTimeout(r, 120));
+      const locked = document.querySelector('#shopSheetBody .alm-special');
+      const other = { text: locked ? locked.innerText.replace(/\s+/g, ' ') : '',
+        earned: !!(locked && locked.classList.contains('earned')) };
+      locked.click();
+      await new Promise((r) => setTimeout(r, 120));
+      const page2 = { title: document.getElementById('shopSheetTitle').textContent,
+        body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+        buttons: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent) };
+      F.shopSheetClose();
+      return { mine, other, page2, known: C.knownRecipes(sh).some((it) => it.id === 'embercleaver'),
+        forge: C.forgeCheck(sh, 'embercleaver', 'bronze', 1).ok };
+    });
+    ok('the Almanac lists the earned masterwork beside its craft’s tree',
+      book.mine.earned && /Embercleaver/.test(book.mine.text) && /Earned/.test(book.mine.text) && !book.mine.treeHas,
+      JSON.stringify(book.mine));
+    ok('and one not yet earned as a special discovery, with how to earn it',
+      !book.other.earned && /Vowkeeper/.test(book.other.text) && /Special Commission/.test(book.other.text) &&
+      /Knight/.test(book.other.text) && /reputation 70/.test(book.other.text), JSON.stringify(book.other));
+    ok('its page cannot be bought with experience', book.page2.title === 'Vowkeeper' &&
+      /Special Commission/.test(book.page2.body) && !book.page2.buttons.some((b) => /Unlock/.test(b)),
+      JSON.stringify(book.page2).slice(0, 300));
+    ok('the earned blueprint is on the forge’s list for copies', book.known && book.forge, JSON.stringify(book));
+
+    // 11. copies on the floor, marked as named work, and the screens fit a phone
+    const floor = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      F.testStock(sh, C.lineKey('embercleaver', 'bronze'), 6, 90);
+      F.shopUi.tab = 'shelf'; F.shopRender();
+      return { named: document.querySelectorAll('#shPanel .sprite.named, #shThings .sprite.named, #shScene use[href="#it-embercleaver"]').length };
+    });
+    ok('copies stand on the floor and are drawn as named work', floor.named > 0, JSON.stringify(floor));
+
+    ok('none of it raises an error', spErrs.length === 0, spErrs.slice(0, 3).join(' | '));
     await ctx.close();
   }
 

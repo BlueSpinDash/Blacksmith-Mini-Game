@@ -1239,6 +1239,81 @@ created or dropped on the way.
 Expiry runs at the **turn of the day**, in `shopEndDay`, so a calendar advanced
 by any route catches every deadline it passed.
 
+### Special commissions: one named piece, made once (1.42)
+
+Eight one-off requests, each from one trade, each for a named masterwork that
+the player must design, mold and forge **perfectly** themselves. A perfect
+forge delivers the piece to its customer and puts its blueprint in the book
+for good; after that it is an ordinary recipe that you and your Smiths make
+copies of. They never touch the bulk orders above: no deadline, no quantity,
+no delivery run, no place among `maxActive`, and their own record
+(`shop.specials`, by permanent id) and offer queue (`shop.specialOffers`).
+
+| Item | Trade | Craft | Rep | Design | Mold | Each attempt | Puzzle |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Embercleaver | Cook | Household Goods | 12 | 1 | 1 | 2 Bronze | 26 squares × 1 strike |
+| Deepvein | Miner | Tools | 18 | 1 | 2 | 3 Bronze | 24 × 1 |
+| Harvestmoon | Farmer | Farming Equipment | 26 | 2 | 2 | 2 Silver | 24 × 2 |
+| Thornwatch | Hunter | Spears | 36 | 2 | 2 | 3 Silver | 29 × 2 |
+| Gatewarden | Town Guard | Shields | 46 | 2 | 3 | 3 Gold | 29 × 3 |
+| Whisperfang | Rogue | Daggers | 56 | 3 | 3 | 3 Gold | 23 × 3 |
+| Vowkeeper | Knight | Swords | 70 | 3 | 4 | 4 Mithril | 23 × 4 |
+| Sovereign’s Aegis | Noble | Body Armor | 85 | 4 | 4 | 4 Adamantine | 22 × 5 |
+
+**Being asked.** A commission is *eligible* once the forge has its reputation
+and has taken up its craft; it is never accepted for you. On each visit by a
+customer of its trade, `rollSpecial` puts it with chance `SHOP.special.odds`
+(25%), rising by `step` (15%) for every eligible visit that did not, up to
+certainty. `patience` (8) bounds the wait: once a commission has been eligible
+through that many selling phases unasked, somebody of its trade is put in the
+next queue, and asks. `seatSpecialPatrons` moves one of that trade into town
+if nobody follows it. Measured over 150 forges per commission, every one was
+put within 9 selling phases of becoming eligible, median 1–4. The player
+answers at the counter; a Salesperson writes it down (`queueSpecial`) and it
+waits in the phase summary and the Ledger, one offer per commission at most.
+Answering is free. A declined commission comes back after `cooldown` (5
+days); one accepted or completed never does. The customer who asks spends
+their visit asking, as with a bulk order.
+
+**The work.** From the Ledger's *Special Commissions* section: *Work on Design
+(Uses Phase)* and *Fashion Mold (Uses Phase)* each spend one of the player's
+phases and add one to that stage (`specialWork`); no employee can do either.
+*Attempt Forge* opens a sheet with the metal required and the ingots held;
+*Start Attempt* commits the ingots **when the attempt starts**
+(`beginSpecialAttempt`, refused without them or while one is under way), and
+the piece goes on the anvil. The attempt is recorded on the commission
+(`rec.attempt`) and the board in the save slot, so a game closed half way
+reopens on the same blows without charging again; *Restart Board* is hidden,
+and *Abandon Attempt* always asks first and says the ingots are lost.
+`finishSpecialAttempt` closes it once: only a completed board at quality 100
+completes the commission. An imperfect finish shows its quality; running out
+of legal moves is the ordinary failure; either way the metal is gone and the
+design and mold are kept. Each attempt uses the phase.
+
+**The puzzles.** Each piece is a handcrafted silhouette built by the same
+`shapedPieceBoard` the Forge's designs use, with its own symbols and named
+parts, struck as often as its metal asks (`specialBoard`). Every layout was
+searched for with `tools/design-specials.mjs` (route first, symbols fitted to
+it, then the game's own `validateBoard`), and each stored `route` is one
+perfect solution: the test suite validates all eight and plays each route to
+quality 100. No two share a shape or a layout, and none ever reshapes.
+
+**The blueprint.** The eight items are ordinary catalogue entries marked
+`special`, priced about 1.35–1.45× the dearest comparable recipe in their
+craft (Embercleaver 58g, Deepvein 62g, Harvestmoon 70g, Thornwatch 112g,
+Gatewarden 168g, Whisperfang 128g, Vowkeeper 124g, Sovereign’s Aegis 206g, all
+in bronze). `learnRecipe` refuses them except from a completed commission, and
+`unlockBlueprint` refuses them outright, so neither experience nor an edited
+save can unlock one early; `restoreShop` drops a named blueprint whose
+commission is not done. Once earned, copies use the ordinary square board of
+the item's size, any metal and batch, the normal difficulty, experience and
+blueprint levels, and Smiths make them through the roster. They are left out
+of `deriveCustomerLikes`, so no trade's tastes change: copies sell to whoever
+already likes their craft, and the trades in `tags` may come in asking for one
+by name once it exists. Named work is edged in gold wherever it is drawn
+(`.sprite.named`). In the Almanac each craft lists its masterwork beside the
+tree, locked with the reason, or earned with its level.
+
 ### Property, miners and ore
 
 The **Property** tab sells deeds to mines. You may own as many of one mineral as
@@ -1792,6 +1867,8 @@ CONFIG.versus.generation               // attempts and mobility tolerance for bo
 SHOP.materials                         // strikes per square, ingot cost and value
 SHOP.categories                        // the sixteen shelves of the catalogue
 SHOP.items                             // every recipe: size, price, tree depth, needs, tags
+SHOP.special                           // special commission odds, step, patience and cooldown
+SHOP.specials                          // the eight: trade, reputation, phases, metal, silhouette
 SHOP.categories[].root / .blurb        // each craft's first blueprint, and its card
 SHOP.craft.maxLevel / .levelValue      // how far a blueprint goes, and what each level is worth
 SHOP.craft.xpBase / .xpPerSize         // experience for one piece, and what a bigger board adds
@@ -1868,8 +1945,9 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 985 rule/generation checks
-node tools/verify-ui.mjs                                    # 946 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 1036 rule/generation checks
+node tools/verify-ui.mjs                                    # 974 browser checks (Playwright)
+node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

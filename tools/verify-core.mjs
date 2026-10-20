@@ -7,6 +7,9 @@ const src = coreSource();
 let pass = 0;
 const failures = [];
 function ok(name, cond, detail) {
+  // a check written as `(() => ...)` without the call used to pass on the
+  // function itself being truthy; it is run instead
+  if (typeof cond === 'function') cond = cond();
   if (cond) { pass++; console.log('  PASS  ' + name); }
   else { failures.push(name + (detail ? ' -> ' + detail : '')); console.log('  FAIL  ' + name + (detail ? ' -> ' + detail : '')); }
 }
@@ -2473,9 +2476,16 @@ section('Open Your Forge: the crafts and their trees');
       return it && it.cat === c.id && C.recipeParents(it.id).length === 0;
     })));
 
+  // a craft's tree is its ordinary blueprints; the named masterworks earned
+  // by special commissions stand beside it, outside it
+  const tree = (catId) => C.disciplineItems(catId).filter((it) => !it.special);
   ok('every craft has exactly one root, so there is one way in', (() =>
     C.SHOP.categories.every((c) =>
-      C.disciplineItems(c.id).filter((it) => C.recipeParents(it.id).length === 0).length === 1)));
+      tree(c.id).filter((it) => C.recipeParents(it.id).length === 0).length === 1)));
+  ok('a named masterwork waits on no blueprint and leads to none', () =>
+    C.SHOP.items.filter((it) => it.special).every((it) =>
+      C.recipeParents(it.id).length === 0 && C.recipeChildren(it.id).length === 0 &&
+      !C.disciplineTree(it.cat).nodes.some((n) => n.id === it.id)));
 
   ok('no blueprint waits on one from another craft', (() =>
     C.SHOP.items.every((it) => (it.needs || []).every((n) => {
@@ -2494,7 +2504,7 @@ section('Open Your Forge: the crafts and their trees');
         }
       };
       walk(c.root);
-      return C.disciplineItems(c.id).every((it) => seen[it.id]);
+      return tree(c.id).every((it) => seen[it.id]);
     })));
 
   ok('no blueprint is its own ancestor', (() => {
@@ -2927,7 +2937,7 @@ section('Open Your Forge: the tree draws without overlapping itself');
   ok('every craft lays out with a node for each blueprint', (() =>
     C.SHOP.categories.every((c) => {
       const tree = C.disciplineTree(c.id);
-      return tree.nodes.length === C.disciplineItems(c.id).length;
+      return tree.nodes.length === C.disciplineItems(c.id).filter((it) => !it.special).length;
     })));
 
   ok('no two nodes share a place on the page', (() =>
@@ -4678,6 +4688,9 @@ section('Commissions: a lot, a deadline and a price');
       'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
+    // the special commissions this forge qualifies for were turned down this
+    // week, so it is a bulk order the farmers come in with
+    C.declineSpecial(s, 'harvestmoon'); C.declineSpecial(s, 'embercleaver');
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
     s.rnd = () => 0.05;                            // under the odds, every time
     const session = C.openCounter(s, { kind: 'player', power: 0, name: 'You' });
@@ -4693,6 +4706,9 @@ section('Commissions: a lot, a deadline and a price');
       'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
+    // the special commissions this forge qualifies for were turned down this
+    // week, so it is a bulk order the farmers come in with
+    C.declineSpecial(s, 'harvestmoon'); C.declineSpecial(s, 'embercleaver');
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
     s.rnd = () => 0.05;
     const session = C.openCounter(s, { kind: 'player', power: 0, name: 'You' });
@@ -4707,6 +4723,9 @@ section('Commissions: a lot, a deadline and a price');
       'daggers', 'farming', 'household');
     stock(s, C.lineKey('dagger', 'bronze'), 6, 100);
     s.reputation = 60;
+    // the special commissions this forge qualifies for were turned down this
+    // week, so it is a bulk order the farmers come in with
+    C.declineSpecial(s, 'harvestmoon'); C.declineSpecial(s, 'embercleaver');
     for (let i = 0; i < 6; i++) { const one = C.makeTownsfolk(s, 'farmer'); one.gold = 4000; }
     s.rnd = () => 0.05;
     const e = { id: 1, name: 'Sal', role: 'salesperson', rank: 'C', power: 3, wage: 30 };
@@ -7805,6 +7824,507 @@ section('Open Your Forge: the anvil never reshapes');
     for (let r = 0; r < C.CONFIG.endless.morphEvery; r++) C.beginRound(g, b);
     return g.morphChance > C.CONFIG.endless.morphBase;
   })());
+}
+
+/* Special commissions: eight named masterworks, each put by one trade, made
+   once by the player, and earning its blueprint for good. */
+section('Open Your Forge: special commissions');
+{
+  const SP = C.SHOP.specials;
+  const PH = C.SHOP.phases;
+  // a forge that qualifies for one: the craft taken up, the name made
+  const ready = (id, seed) => {
+    const def = C.specialDef(id);
+    const s = C.createShop({ rnd: C.mulberry32(seed || 5001), gold: 20000 });
+    C.takeUpDiscipline(s, C.shopItem(id).cat, 'apprenticed');
+    s.reputation = def.rep;
+    return s;
+  };
+  const patron = (s, type) => s.town.find((o) => o.type === type) || C.makeTownsfolk(s, type);
+  const offerFor = (s, id) => {
+    const def = C.specialDef(id);
+    const one = patron(s, def.customer);
+    const keep = s.rnd; s.rnd = () => 0;
+    const offer = C.rollSpecial(s, one);
+    s.rnd = keep;
+    return offer;
+  };
+  // take it on and finish the design and the mold
+  const readied = (id, seed) => {
+    const s = ready(id, seed);
+    C.acceptSpecial(s, offerFor(s, id));
+    const def = C.specialDef(id);
+    for (let i = 0; i < def.design + def.mold; i++) C.specialWork(s, id);
+    s.materials[def.material] = def.qty * 3;
+    return s;
+  };
+  // play the stored perfect route on the piece, under the forge's own rules
+  const playPerfect = (board) => {
+    const g = C.createGame(board, { mode: 'forge', rules: 'shop', perfect: board.visits,
+      spent: board.visits + 1, ladder: ['Bronze', 'Silver', 'Gold', 'Mithril', 'Adamantine'] });
+    for (const i of board.route) if (!C.applyStrike(g, i)) return { g, ok: false };
+    return { g, ok: true };
+  };
+
+  const table = {
+    embercleaver: ['cook', 'household', 12, 1, 1, 'bronze', 2],
+    deepvein: ['miner', 'tools', 18, 1, 2, 'bronze', 3],
+    harvestmoon: ['farmer', 'farming', 26, 2, 2, 'silver', 2],
+    thornwatch: ['hunter', 'spears', 36, 2, 2, 'silver', 3],
+    gatewarden: ['guard', 'shields', 46, 2, 3, 'gold', 3],
+    whisperfang: ['rogue', 'daggers', 56, 3, 3, 'gold', 3],
+    vowkeeper: ['knight', 'swords', 70, 3, 4, 'mithril', 4],
+    aegis: ['noble', 'armor', 85, 4, 4, 'adamantine', 4]
+  };
+  ok('there are exactly the eight, each with its own permanent id and blueprint', () =>
+    SP.length === 8 && new Set(SP.map((d) => d.id)).size === 8 &&
+    SP.every((d) => table[d.id] && C.shopItem(d.id) && C.shopItem(d.id).special === true));
+  ok('each asks what the brief set: trade, craft, reputation, phases, metal and ingots', () =>
+    SP.every((d) => {
+      const t = table[d.id];
+      return d.customer === t[0] && C.shopItem(d.id).cat === t[1] && d.rep === t[2] &&
+        d.design === t[3] && d.mold === t[4] && d.material === t[5] && d.qty === t[6] &&
+        !!C.shopCustomerType(d.customer) && !!C.shopCategory(t[1]);
+    }));
+  ok('Sovereign’s Aegis keeps its name', C.shopItem('aegis').name === 'Sovereign’s Aegis');
+
+  // ---------- the eight puzzles ----------
+  const boards = SP.map((d) => C.specialBoard(d.id));
+  ok('every piece is its own silhouette, not a square board', () =>
+    boards.every((b) => b && b.shape && C.metalCount(b) < b.size * b.size));
+  ok('every piece is struck as often as its metal asks', () =>
+    SP.every((d, k) => boards[k].visits === C.shopMaterial(d.material).strikes));
+  ok('every stored route is a valid perfect solution at that count (validateBoard)', () =>
+    boards.every((b) => C.validateBoard(b, b.visits)));
+  const played = boards.map(playPerfect);
+  ok('every one, played along its route, finishes at quality 100', () =>
+    played.every((p) => p.ok && p.g.status === 'complete' && C.scoreGame(p.g).quality === 100),
+    JSON.stringify(played.map((p) => [p.ok, p.g.status, C.scoreGame(p.g).quality])));
+  ok('and every square takes exactly its count, none overstruck', () =>
+    played.every((p) => {
+      const st = C.gameStats(p.g);
+      return st.overstrikes === 0 && st.perfect === st.squares && st.spent === 0;
+    }));
+  ok('no two silhouettes are the same shape, even moved or flipped', () => {
+    const sig = (b) => {
+      const rows = [];
+      for (let r = 0; r < b.rows; r++) {
+        let line = '';
+        for (let c = 0; c < b.cols; c++) line += C.isMetal(b, r * b.size + c) ? '#' : '.';
+        rows.push(line);
+      }
+      const forms = [rows, rows.slice().reverse(), rows.map((l) => l.split('').reverse().join('')),
+        rows.slice().reverse().map((l) => l.split('').reverse().join(''))];
+      return forms.map((f) => f.join('/')).sort()[0];
+    };
+    return new Set(boards.map(sig)).size === 8;
+  });
+  ok('and no two carry the same symbols', () =>
+    new Set(boards.map((b) => b.pieces.join(''))).size === 8);
+  ok('every piece is in one piece of metal: orthogonally connected', () => boards.every((b) => {
+    const metal = []; for (let i = 0; i < b.size * b.size; i++) if (C.isMetal(b, i)) metal.push(i);
+    const seen = new Set([metal[0]]), stack = [metal[0]];
+    while (stack.length) {
+      const i = stack.pop(), r = Math.floor(i / b.size), c = i % b.size;
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const rr = r + dr, cc = c + dc, j = rr * b.size + cc;
+        if (rr < 0 || cc < 0 || rr >= b.size || cc >= b.size || seen.has(j) || !C.isMetal(b, j)) continue;
+        seen.add(j); stack.push(j);
+      }
+    }
+    return seen.size === metal.length;
+  }));
+  ok('the special puzzles never reshape, as no Open Your Forge board does', () => boards.every((b) => {
+    const g = C.createGame(b, { mode: 'forge', rules: 'shop', perfect: b.visits, spent: b.visits + 1 });
+    return g.morphChance === 0 && !C.canReshape(g);
+  }));
+
+  // ---------- who asks, and when ----------
+  ok('each is put only by its own trade', () => SP.every((d) => {
+    const s = ready(d.id, 5101);
+    s.rnd = () => 0;
+    const others = C.SHOP.customers.filter((c) => c.id !== d.customer);
+    const wrong = others.some((c) => C.rollSpecial(s, C.makeTownsfolk(s, c.id)));
+    return !wrong && !!C.rollSpecial(s, patron(s, d.customer));
+  }));
+  ok('below its reputation it is never put; at it, it may be', () => SP.every((d) => {
+    const s = ready(d.id, 5102);
+    s.reputation = d.rep - 0.5;
+    const before = C.specialEligible(s, d.id);
+    s.reputation = d.rep;
+    return !before && C.specialEligible(s, d.id);
+  }));
+  ok('reputation makes it eligible, nothing more: it still has to be put and accepted', () => {
+    const s = ready('embercleaver', 5103);
+    return C.specialStage(s, 'embercleaver') === 'open' && !C.recipeKnown(s, 'embercleaver');
+  });
+  ok('without its craft taken up it is never put, whatever the name', () => SP.every((d) => {
+    const s = C.createShop({ rnd: C.mulberry32(5104) });
+    s.reputation = 100;
+    return !C.specialEligible(s, d.id);
+  }));
+
+  ok('a salesperson’s phases bring it in, and never twice', () => {
+    const s = ready('harvestmoon', 5105);
+    C.takeUpDiscipline(s, 'farming');
+    stock(s, C.lineKey('hoe', 'bronze'), 30, 90);
+    for (let i = 0; i < 4; i++) {
+      const one = C.makeTownsfolk(s, 'farmer');
+      one.gold = 3000;
+      s.town.unshift(s.town.pop());               // first through the door
+    }
+    s.rnd = () => 0.01;
+    for (let k = 0; k < 6; k++) C.runCounter(s, { kind: 'staff', power: 2, name: 'S' });
+    return s.specialOffers.length === 1 && s.specialOffers[0].special === 'harvestmoon' &&
+      !C.queueSpecial(s, Object.assign({}, s.specialOffers[0])) && s.specialOffers.length === 1;
+  });
+  ok('the bulk order book is never touched by one', () => {
+    const s = ready('harvestmoon', 5106);
+    const offer = offerFor(s, 'harvestmoon');
+    C.queueSpecial(s, offer);
+    C.acceptSpecialOffer(s, 'harvestmoon');
+    return s.commissions.length === 0 && s.commissionOffers.length === 0;
+  });
+  ok('random, but not left to luck: put within its patience on every seed', () => {
+    let worst = 0;
+    for (const d of SP) {
+      for (let seed = 1; seed <= 25; seed++) {
+        const s = ready(d.id, 6000 + seed);
+        C.growTown(s);
+        const key = C.lineKey(C.disciplineRoot(C.shopItem(d.id).cat), 'bronze');
+        let n = 0;
+        for (; n < 30 && !C.specialOfferById(s, d.id); n++) {
+          stock(s, key, 30, 90);
+          C.runCounter(s, { kind: 'staff', power: 2, name: 'S' });
+        }
+        worst = Math.max(worst, n);
+      }
+    }
+    return worst <= C.SHOP.special.patience + 1;
+  });
+  ok('a forge that qualifies has somebody of that trade in town to ask', () => SP.every((d) => {
+    const s = ready(d.id, 5107);
+    s.town = s.town.filter((o) => o.type !== d.customer);
+    C.seatSpecialPatrons(s);
+    return s.town.some((o) => o.type === d.customer);
+  }));
+
+  // ---------- answering ----------
+  ok('accepting is free and is never offered again', () => {
+    const s = ready('embercleaver', 5108);
+    const gold = s.gold, tick = s.day * 3 + s.phaseIndex;
+    const res = C.acceptSpecial(s, offerFor(s, 'embercleaver'));
+    const again = offerFor(s, 'embercleaver');
+    return res.ok && s.gold === gold && s.day * 3 + s.phaseIndex === tick && again === null &&
+      !C.specialEligible(s, 'embercleaver') && C.specialStage(s, 'embercleaver') === 'design';
+  });
+  ok('a second accept cannot restart it', () => {
+    const s = ready('embercleaver', 5109);
+    const offer = offerFor(s, 'embercleaver');
+    C.acceptSpecial(s, offer);
+    C.specialWork(s, 'embercleaver');
+    const res = C.acceptSpecial(s, offer);
+    return !res.ok && C.specialRecord(s, 'embercleaver').design === 1;
+  });
+  ok('declined, it stays eligible: back once its cooldown has passed', () => {
+    const s = ready('deepvein', 5110);
+    C.queueSpecial(s, offerFor(s, 'deepvein'));
+    C.declineSpecial(s, 'deepvein');
+    const during = C.specialEligible(s, 'deepvein');
+    s.day += C.SHOP.special.cooldown;
+    return !during && s.specialOffers.length === 0 && C.specialEligible(s, 'deepvein') &&
+      C.specialRecord(s, 'deepvein').status === 'open';
+  });
+
+  // ---------- design and mold ----------
+  ok('design then mold, one phase of work each, never past what is asked', () => {
+    const s = ready('gatewarden', 5111);
+    C.acceptSpecial(s, offerFor(s, 'gatewarden'));
+    const seen = [];
+    for (let i = 0; i < 7; i++) {
+      const res = C.specialWork(s, 'gatewarden');
+      seen.push(res.ok ? res.stage + ':' + res.design + '/' + res.mold : 'refused');
+    }
+    return seen.join(',') === 'design:1/0,design:2/0,mold:2/1,mold:2/2,mold:2/3,refused,refused' &&
+      C.specialStage(s, 'gatewarden') === 'ready';
+  });
+  ok('the forge cannot be attempted before the design and the mold are done', () => {
+    const s = ready('gatewarden', 5112);
+    C.acceptSpecial(s, offerFor(s, 'gatewarden'));
+    s.materials.gold = 10;
+    C.specialWork(s, 'gatewarden');
+    const res = C.beginSpecialAttempt(s, 'gatewarden');
+    return !res.ok && s.materials.gold === 10;
+  });
+  ok('no employee can do the work: no staff job touches a special commission', () => {
+    const s = readied('embercleaver', 5113);
+    const before = JSON.stringify(C.specialRecord(s, 'embercleaver'));
+    s.staff.push({ id: 900, name: 'Smith', role: 'smith', rank: 'C', power: 3, wage: 20, xp: 0 });
+    const booked = C.shopAssign(s, 900, { order: { item: 'embercleaver', material: 'bronze', qty: 1 } }, PH[0]);
+    for (let i = 0; i < 3; i++) C.shopAdvancePhase(s);
+    return JSON.stringify(C.specialRecord(s, 'embercleaver')) === before &&
+      !C.recipeKnown(s, 'embercleaver') && s.orders.every((o) => o.item !== 'embercleaver') &&
+      !s.log.some((r) => r.ok && r.item === 'embercleaver') && booked !== undefined;
+  });
+
+  // ---------- attempts ----------
+  ok('an attempt commits its ingots exactly once, when it starts', () => {
+    const s = readied('thornwatch', 5114);
+    const was = s.materials.silver;
+    const a = C.beginSpecialAttempt(s, 'thornwatch');
+    const b = C.beginSpecialAttempt(s, 'thornwatch');
+    return a.ok && !b.ok && s.materials.silver === was - 3 && C.specialRecord(s, 'thornwatch').attempts === 1 &&
+      C.specialStage(s, 'thornwatch') === 'forging';
+  });
+  ok('without the ingots an attempt does not start, and nothing is taken', () => {
+    const s = readied('thornwatch', 5115);
+    s.materials.silver = 2;
+    const res = C.beginSpecialAttempt(s, 'thornwatch');
+    return !res.ok && /3 Silver/.test(res.why) && s.materials.silver === 2 &&
+      C.specialRecord(s, 'thornwatch').attempts === 0;
+  });
+  ok('an imperfect finish keeps the design and mold, spends the metal and unlocks nothing', () => {
+    const s = readied('whisperfang', 5116);
+    const was = s.materials.gold;
+    C.beginSpecialAttempt(s, 'whisperfang');
+    const res = C.finishSpecialAttempt(s, 'whisperfang', 'complete', 94);
+    const rec = C.specialRecord(s, 'whisperfang');
+    return res.ok && !res.done && s.materials.gold === was - 3 && rec.design === 3 && rec.mold === 3 &&
+      C.specialStage(s, 'whisperfang') === 'ready' && !C.recipeKnown(s, 'whisperfang') && rec.best === 94;
+  });
+  ok('a real imperfect board scores below 100 and does not complete it', () => {
+    const s = readied('embercleaver', 5117);
+    C.beginSpecialAttempt(s, 'embercleaver');
+    const b = C.specialBoard('embercleaver');
+    const g = C.createGame(b, { mode: 'forge', rules: 'shop', perfect: 1, spent: 2 });
+    for (const i of b.route) C.applyStrike(g, i);
+    g.strikes[b.route[3]] += 1;                    // one square struck once too often
+    const q = C.scoreGame(g).quality;
+    const res = C.finishSpecialAttempt(s, 'embercleaver', 'complete', q);
+    return q < 100 && !res.done && C.specialStage(s, 'embercleaver') === 'ready';
+  });
+  ok('running out of legal moves is the ordinary failure, and keeps the progress', () => {
+    let lost = null;
+    const b = C.specialBoard('deepvein');
+    for (let seed = 1; seed < 60 && !lost; seed++) {
+      const r = C.mulberry32(seed);
+      const g = C.createGame(b, { mode: 'forge', rules: 'shop', perfect: 1, spent: 2 });
+      while (g.status === 'ready' || g.status === 'playing') {
+        const t = C.legalTargets(g);
+        if (!t.length) break;
+        C.applyStrike(g, t[Math.floor(r() * t.length)]);
+      }
+      if (g.status === 'lost') lost = g;
+    }
+    const s = readied('deepvein', 5118);
+    C.beginSpecialAttempt(s, 'deepvein');
+    const res = C.finishSpecialAttempt(s, 'deepvein', 'lost', C.scoreGame(lost).quality);
+    const rec = C.specialRecord(s, 'deepvein');
+    return !!lost && C.legalTargets(lost).length === 0 && !res.done && rec.design === 1 && rec.mold === 2 &&
+      C.specialStage(s, 'deepvein') === 'ready';
+  });
+  ok('another attempt can follow a failed one, with fresh ingots each time', () => {
+    const s = readied('deepvein', 5119);
+    const was = s.materials.bronze;
+    C.beginSpecialAttempt(s, 'deepvein'); C.finishSpecialAttempt(s, 'deepvein', 'lost', 40);
+    C.beginSpecialAttempt(s, 'deepvein'); C.finishSpecialAttempt(s, 'deepvein', 'abandoned', 0);
+    const third = C.beginSpecialAttempt(s, 'deepvein');
+    return third.ok && s.materials.bronze === was - 9 && C.specialRecord(s, 'deepvein').attempts === 3;
+  });
+  ok('a perfect forge completes it and unlocks the blueprint exactly once', () => {
+    const s = readied('vowkeeper', 5120);
+    C.beginSpecialAttempt(s, 'vowkeeper');
+    const first = C.finishSpecialAttempt(s, 'vowkeeper', 'complete', 100);
+    const again = C.finishSpecialAttempt(s, 'vowkeeper', 'complete', 100);
+    const learned = s.learned.filter((l) => l.id === 'vowkeeper').length;
+    return first.ok && first.done && first.learned && !again.ok && learned === 1 &&
+      C.recipeKnown(s, 'vowkeeper') && C.specialStage(s, 'vowkeeper') === 'done' &&
+      C.blueprintLevel(s, 'vowkeeper') === 1;
+  });
+  ok('the original goes to its customer, never into storage', () => {
+    const s = readied('embercleaver', 5121);
+    C.beginSpecialAttempt(s, 'embercleaver');
+    C.finishSpecialAttempt(s, 'embercleaver', 'complete', 100);
+    return Object.keys(s.storage).length === 0 && s.orders.length === 0;
+  });
+  ok('no gold is paid for it: the blueprint is the reward', () => {
+    const s = readied('embercleaver', 5122);
+    const gold = s.gold;
+    C.beginSpecialAttempt(s, 'embercleaver');
+    C.finishSpecialAttempt(s, 'embercleaver', 'complete', 100);
+    return s.gold === gold;
+  });
+  ok('a completed commission is never put again', () => {
+    const s = readied('embercleaver', 5123);
+    C.beginSpecialAttempt(s, 'embercleaver');
+    C.finishSpecialAttempt(s, 'embercleaver', 'complete', 100);
+    s.rnd = () => 0;
+    return !C.specialEligible(s, 'embercleaver') && C.rollSpecial(s, patron(s, 'cook')) === null &&
+      !C.acceptSpecial(s, { special: 'embercleaver', name: 'X' }).ok;
+  });
+
+  // ---------- the blueprint ----------
+  ok('a named blueprint cannot be bought with experience or learned any other way', () => {
+    const s = ready('vowkeeper', 5124);
+    s.xp.swords = 1e6;
+    const bought = C.unlockBlueprint(s, 'vowkeeper');
+    const studied = C.learnRecipe(s, 'vowkeeper', 'study');
+    const sneaked = C.learnRecipe(s, 'vowkeeper', 'special');
+    return !bought.ok && /Special Commission/.test(bought.why) && !studied && !sneaked &&
+      !C.recipeKnown(s, 'vowkeeper') && s.xp.swords === 1e6 &&
+      C.recipeStatus(s, 'vowkeeper').special && !C.recipeStatus(s, 'vowkeeper').buyable;
+  });
+  ok('until it is earned, nobody can forge a copy - player or smith', () => {
+    const s = ready('embercleaver', 5125);
+    s.materials.bronze = 10;
+    s.staff.push({ id: 901, name: 'Smith', role: 'smith', rank: 'B', power: 4, wage: 20, xp: 0 });
+    C.shopAssign(s, 901, { order: { item: 'embercleaver', material: 'bronze', qty: 1 } }, C.shopPhase(s));
+    const reports = C.runAssignments(s);
+    return !C.forgeCheck(s, 'embercleaver', 'bronze', 1).ok &&
+      reports.every((r) => !(r.ok && r.item === 'embercleaver'));
+  });
+  const earned = (id, seed) => {
+    const s = readied(id, seed);
+    C.beginSpecialAttempt(s, id);
+    C.finishSpecialAttempt(s, id, 'complete', 100);
+    return s;
+  };
+  ok('once earned, you forge copies the ordinary way, on the ordinary board', () => {
+    const s = earned('embercleaver', 5126);
+    s.materials.silver = 5;
+    const spec = C.forgeBoardSpec(s, 'embercleaver', 'silver', 2);
+    const check = C.forgeCheck(s, 'embercleaver', 'silver', 2);
+    const res = C.shopFinishForge(s, 'embercleaver', 'silver', 2, 90, 'you');
+    return check.ok && res.ok && !spec.shape &&
+      spec.size === C.shopItem('embercleaver').size && spec.visits === 2 &&
+      s.orders.some((o) => o.item === 'embercleaver' && o.qty === 2) && s.materials.silver === 3;
+  });
+  ok('and a smith forges copies through the ordinary roster', () => {
+    const s = earned('embercleaver', 5127);
+    s.materials.bronze = 10;
+    s.staff.push({ id: 902, name: 'Smith', role: 'smith', rank: 'B', power: 4, wage: 20, xp: 0 });
+    C.shopAssign(s, 902, { order: { item: 'embercleaver', material: 'bronze', qty: 2 } }, C.shopPhase(s));
+    const reports = C.runAssignments(s);
+    return reports.some((r) => r.ok && r.kind === 'smith' && r.item === 'embercleaver') &&
+      s.orders.some((o) => o.item === 'embercleaver' && o.maker === 'Smith');
+  });
+  ok('copies need no design, mold or perfect puzzle, and earn the craft’s experience', () => {
+    const s = earned('harvestmoon', 5128);
+    const xp = C.craftXp(s, 'farming');
+    s.materials.bronze = 5;
+    C.shopFinishForge(s, 'harvestmoon', 'bronze', 1, 60, 'you');
+    return C.craftXp(s, 'farming') > xp && C.specialStage(s, 'harvestmoon') === 'done';
+  });
+  ok('the blueprint levels up like any other', () => {
+    const s = earned('harvestmoon', 5129);
+    s.xp.farming = 100000;
+    const res = C.upgradeBlueprint(s, 'harvestmoon');
+    return res.ok && C.blueprintLevel(s, 'harvestmoon') === 2;
+  });
+  ok('copies are stocked, shown and sold like any other line', () => {
+    const s = earned('embercleaver', 5130);
+    const key = C.lineKey('embercleaver', 'bronze');
+    C.addStorage(s, key, 6, 90, 1);
+    stock(s, key, 6, 90);
+    for (let i = 0; i < 5; i++) { const one = C.makeTownsfolk(s, 'cook'); one.gold = 5000; }
+    let sold = 0;
+    for (let k = 0; k < 6 && !sold; k++) {
+      const r = C.runCounter(s, { kind: 'staff', power: 4, name: 'S' });
+      sold += (r.lines && r.lines[key]) || 0;
+      stock(s, key, 6, 90);
+    }
+    return sold > 0 && C.standForItem('embercleaver') === 'goods';
+  });
+  ok('a copy is worth more than anything comparable in its craft', () => SP.every((d) => {
+    const it = C.shopItem(d.id);
+    const peers = C.SHOP.items.filter((o) => o.cat === it.cat && !o.special && o.size <= it.size);
+    return peers.length && peers.every((o) => o.price < it.price);
+  }));
+  ok('it is wanted by the trades that already like its craft; no taste has moved', () => {
+    const counts = {}, totals = {};
+    for (const item of C.SHOP.items) {
+      if (item.special) continue;
+      totals[item.cat] = (totals[item.cat] || 0) + 1;
+      for (const who of item.tags || []) {
+        counts[who] = counts[who] || {};
+        counts[who][item.cat] = (counts[who][item.cat] || 0) + 1;
+      }
+    }
+    return C.SHOP.customers.every((c) => C.SHOP.categories.every((cat) => {
+      const want = (counts[c.id] || {})[cat.id] || 0;
+      const expect = want ? Math.max(1, Math.round(want / totals[cat.id] * 3)) : undefined;
+      return c.likes[cat.id] === expect;
+    })) && SP.every((d) => (C.SHOP.customers.find((c) => c.id === d.customer).likes[C.shopItem(d.id).cat] || 0) > 0);
+  });
+
+  // ---------- saved and restored ----------
+  const round = (s) => C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(1));
+  ok('every state survives a save: offered, declined, in progress, mid-attempt and done', () => {
+    const s = C.createShop({ rnd: C.mulberry32(5131), gold: 20000 });
+    for (const c of ['household', 'tools', 'farming', 'spears', 'shields']) C.takeUpDiscipline(s, c);
+    s.reputation = 90;
+    C.queueSpecial(s, offerFor(s, 'embercleaver'));               // offered
+    C.declineSpecial(s, 'deepvein');                               // declined, cooling
+    C.acceptSpecial(s, offerFor(s, 'harvestmoon')); C.specialWork(s, 'harvestmoon');   // design 1/2
+    C.acceptSpecial(s, offerFor(s, 'thornwatch'));
+    for (let i = 0; i < 4; i++) C.specialWork(s, 'thornwatch');
+    s.materials.silver = 9; C.beginSpecialAttempt(s, 'thornwatch');                   // mid-attempt
+    C.acceptSpecial(s, offerFor(s, 'gatewarden'));
+    for (let i = 0; i < 5; i++) C.specialWork(s, 'gatewarden');
+    s.materials.gold = 9; C.beginSpecialAttempt(s, 'gatewarden');
+    C.finishSpecialAttempt(s, 'gatewarden', 'complete', 100);                         // done
+    const back = round(s);
+    const st = (id) => C.specialStage(back, id);
+    return st('embercleaver') === 'offered' && st('deepvein') === 'open' &&
+      !C.specialEligible(back, 'deepvein') &&
+      st('harvestmoon') === 'design' && C.specialRecord(back, 'harvestmoon').design === 1 &&
+      st('thornwatch') === 'forging' && C.specialRecord(back, 'thornwatch').attempts === 1 &&
+      back.materials.silver === 6 &&
+      st('gatewarden') === 'done' && C.recipeKnown(back, 'gatewarden') &&
+      back.specialOffers.length === 1 && JSON.stringify(back.specials) === JSON.stringify(s.specials);
+  });
+  ok('reloading mid-attempt never charges again or counts another attempt', () => {
+    const s = readied('thornwatch', 5132);
+    C.beginSpecialAttempt(s, 'thornwatch');
+    let back = s;
+    for (let i = 0; i < 3; i++) back = round(back);
+    const again = C.beginSpecialAttempt(back, 'thornwatch');
+    return !again.ok && back.materials.silver === s.materials.silver &&
+      C.specialRecord(back, 'thornwatch').attempts === 1 && C.specialStage(back, 'thornwatch') === 'forging';
+  });
+  ok('a save from 1.41, with none of this in it, loads intact and starts with none', () => {
+    const s = ready('embercleaver', 5133);
+    s.gold = 4321; s.materials.bronze = 7;
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    delete data.specials; delete data.specialOffers;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back && back.gold === 4321 && back.materials.bronze === 7 &&
+      JSON.stringify(back.specials) === '{}' && back.specialOffers.length === 0 &&
+      back.disciplines.join() === s.disciplines.join() && C.specialEligible(back, 'embercleaver');
+  });
+  ok('an edited save cannot hand out a named blueprint or skip a stage', () => {
+    const s = ready('embercleaver', 5134);
+    C.acceptSpecial(s, offerFor(s, 'embercleaver'));
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    data.blueprints.embercleaver = 5;
+    data.specials.embercleaver.design = 99;
+    data.specials.embercleaver.mold = 99;
+    data.specials.embercleaver.attempt = { day: 1, n: 1 };
+    data.specials.deepvein = { status: 'active', design: 0, mold: 9, attempt: { day: 1 } };
+    data.specialOffers = [{ special: 'embercleaver', name: 'Twice' }, { special: 'nonsense' }];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const e = C.specialRecord(back, 'embercleaver');
+    const d = C.specialRecord(back, 'deepvein');
+    return !C.recipeKnown(back, 'embercleaver') && e.design === 1 && e.mold === 1 && e.attempt &&
+      d.mold === 0 && d.attempt === null && back.specialOffers.length === 0;
+  });
+  ok('a completed one whose blueprint went missing gets it back', () => {
+    const s = earned('embercleaver', 5135);
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    delete data.blueprints.embercleaver;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return C.recipeKnown(back, 'embercleaver') && C.specialStage(back, 'embercleaver') === 'done';
+  });
 }
 
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');

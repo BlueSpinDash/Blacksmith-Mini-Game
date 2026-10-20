@@ -1537,6 +1537,55 @@ input[type=range]{
 }
 .contract-seal{position:absolute;right:9px;bottom:9px;opacity:.5;}
 
+/* ---------- special commissions ----------
+   A named masterwork is the one thing in the shop made for one person, so it
+   is edged in gold wherever it appears, and its card is the forge's own
+   panel rather than a customer's paper. */
+.sprite.named{filter:drop-shadow(0 0 1.3px rgba(243,215,145,.95));}
+.special-card{
+  display:grid;gap:7px;padding:11px 12px;border-radius:10px;text-align:left;
+  background:var(--panel);border:1px solid #6b5a2e;border-left:4px solid var(--gold);
+}
+.special-card.done{border-left-color:#8fb36a;}
+.sp-head{display:flex;align-items:center;gap:10px;}
+.sp-head .nm{flex:1 1 auto;min-width:0;font-size:14px;font-weight:600;color:var(--text);
+  overflow-wrap:anywhere;}
+.sp-head .sub{display:block;font-size:11.5px;font-weight:400;color:var(--muted);}
+.sp-stage{
+  flex:0 0 auto;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);
+  border:1px solid #6b5a2e;border-radius:999px;padding:2px 8px;
+}
+.sp-stage.done{color:#8fb36a;border-color:#4b6a3a;}
+.sp-text{margin:0;font-size:12.5px;line-height:1.45;color:var(--text);}
+.sp-quote{margin:0;font-size:12.5px;line-height:1.45;color:var(--muted);font-style:italic;}
+.sp-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.sp-step{
+  display:grid;gap:2px;min-width:0;padding:6px 7px;border-radius:8px;
+  background:#16181e;border:1px solid var(--edge);
+  font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+}
+.sp-step b{font-size:12.5px;letter-spacing:0;text-transform:none;color:var(--text);
+  overflow-wrap:anywhere;}
+.sp-step.now{border-color:var(--gold);}
+.sp-step.done b{color:#8fb36a;}
+.sp-meta{margin:0;font-size:11.5px;line-height:1.45;color:var(--muted);}
+.sp-actions{display:flex;flex-wrap:wrap;gap:6px;}
+.sp-actions button{
+  min-height:34px;padding:0 12px;font-size:12.5px;border-radius:8px;cursor:pointer;
+  background:#2a2418;color:var(--text);border:1px solid #6b5a2e;
+}
+.sp-actions button.primary{background:var(--gold);color:#2c241a;border-color:var(--gold);font-weight:600;}
+.sp-actions button:disabled{opacity:.45;cursor:not-allowed;}
+.alm-specials{display:grid;gap:6px;}
+.alm-special{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;
+  background:var(--panel);border:1px dashed #6b5a2e;text-align:left;color:var(--text);
+}
+.alm-special.earned{border-style:solid;border-color:var(--gold);}
+.alm-special span{min-width:0;}
+.alm-special .nm{display:block;font-size:13px;font-weight:600;}
+.alm-special .sub{display:block;font-size:11.5px;line-height:1.4;color:var(--muted);}
+
 /* ---------- property ---------- */
 .mine-card{
   display:grid;gap:7px;background:#15161b;border:1px solid var(--edge-soft);
@@ -2059,6 +2108,14 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 <symbol id="it-lockbox" viewBox="0 0 24 24"><rect x="4.2" y="8.6" width="15.6" height="10.4" rx="1.0" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M4.2 11.4 H19.8" stroke="#12141a" stroke-width=".7" opacity=".5"/><path d="M8.6 8.6 V6.6 A3.4 3.4 0 0 1 15.4 6.6 V8.6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="14.4" r="1.7" fill="#f3d791" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M4.2 8.6 H10 V19.0 H4.2 Z" fill="#fff" opacity=".26"/></symbol>
 <symbol id="it-ironcrown" viewBox="0 0 24 24"><path d="M4.60 17.60 L19.40 17.60 L19.40 13.00 L16.40 7.40 L14.00 12.00 L12.00 6.00 L10.00 12.00 L7.60 7.40 L4.60 13.00 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><circle cx="12" cy="9.6" r="1.25" fill="#c0483a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="7.0" cy="11.4" r="1.0" fill="#3f7fc0" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="17.0" cy="11.4" r="1.0" fill="#3f7fc0" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M4.6 17.6 L4.6 13.0 L7.6 7.4 L9.4 12.6 Z" fill="#fff" opacity=".26"/></symbol>
 <symbol id="it-ceremonial" viewBox="0 0 24 24"><path d="M3.20 3.20 Q7.20 9.60 12.40 14.80 L14.80 12.40 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M3.20 3.20 L14.80 12.40 L13.84 13.36 Z" fill="#fff" opacity=".26"/><rect x="9.60" y="12.65" width="8.00" height="1.90" rx=".8" transform="rotate(-45 13.60 13.60)" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="13.90" y="15.25" width="4.60" height="1.90" rx=".8" transform="rotate(45 16.20 16.20)" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="18.60" cy="18.60" r="1.15" fill="#f3d791" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="8.4" cy="8.4" r="1.15" fill="#f3d791" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="11.0" cy="11.0" r=".95" fill="#c0483a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/></symbol>
+<symbol id="it-embercleaver" viewBox="0 0 24 24"><path d="M2.80 4.40 L17.20 4.40 L19.80 2.20 L19.20 5.80 L18.80 15.20 Q10.60 17.40 2.80 14.80 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><circle cx="5.4" cy="7.0" r=".95" fill="#12141a" opacity=".5"/><path d="M5.0 12.8 Q11 14.6 17.0 13.4" fill="none" stroke="#12141a" stroke-width=".55" opacity=".45"/><rect x="16.30" y="16.10" width="7.00" height="2.60" rx=".8" transform="rotate(40 19.80 17.40)" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="21.2" cy="20.2" r=".75" fill="#f3d791" stroke="#12141a" stroke-width=".5"/><path d="M2.8 4.4 H9.6 V15.6 Q6 15.6 2.8 14.8 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-deepvein" viewBox="0 0 24 24"><rect x="10.90" y="6.60" width="2.20" height="15.80" rx=".8" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M1.20 13.40 Q4.20 5.80 11.60 4.40 L16.80 4.40 L21.20 6.40 L17.00 8.60 L12.40 8.40 Q5.60 8.80 1.20 13.40 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><rect x="10.30" y="3.40" width="3.40" height="6.00" rx=".7" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="12" cy="6.4" r=".7" fill="#f3d791" stroke="#12141a" stroke-width=".45"/><path d="M1.2 13.4 Q4.2 5.8 11.6 4.4 L11.6 6.2 Q5.4 7.2 1.2 13.4 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-harvestmoon" viewBox="0 0 24 24"><rect x="2.80" y="16.90" width="7.20" height="2.40" rx=".8" transform="rotate(-54 6.40 18.10)" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M7.20 15.40 Q3.80 6.00 12.40 3.20 Q20.20 1.40 21.60 9.00 Q18.80 4.80 13.20 5.80 Q7.20 7.60 9.20 15.20 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><circle cx="8.2" cy="15.6" r=".85" fill="#f3d791" stroke="#12141a" stroke-width=".5"/><path d="M7.2 15.4 Q3.8 6.0 12.4 3.2 Q7.8 6.4 8.4 15.2 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-thornwatch" viewBox="0 0 24 24"><rect x="0.80" y="13.10" width="17.20" height="1.70" rx=".7" transform="rotate(-45 9.40 13.95)" fill="#8b6b3a" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><rect x="11.70" y="10.20" width="2.60" height="3.60" rx=".6" transform="rotate(45 13.00 12.00)" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M22.00 2.00 Q14.20 2.60 12.80 8.80 L15.20 11.20 Q21.40 9.80 22.00 2.00 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M12.80 8.80 L9.80 8.20 L12.20 10.20 Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M15.20 11.20 L15.80 14.20 L13.80 11.80 Z" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M22 2 Q14.2 2.6 12.8 8.8 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-gatewarden" viewBox="0 0 24 24"><path d="M5.20 2.40 L9.40 2.40 L9.40 4.00 L14.60 4.00 L14.60 2.40 L18.80 2.40 L18.80 15.00 L12.00 21.80 L5.20 15.00 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M6.6 3.8 H8.0 V5.4 H16.0 V3.8 H17.4 V14.4 L12 19.8 L6.6 14.4 Z" fill="none" stroke="#12141a" stroke-width=".55" opacity=".45"/><circle cx="8.8" cy="7.6" r=".55" fill="#12141a" opacity=".55"/><circle cx="15.2" cy="7.6" r=".55" fill="#12141a" opacity=".55"/><circle cx="8.8" cy="13.4" r=".55" fill="#12141a" opacity=".55"/><circle cx="15.2" cy="13.4" r=".55" fill="#12141a" opacity=".55"/><circle cx="12" cy="10.5" r="2.4" fill="currentColor" stroke="#12141a" stroke-width=".6"/><circle cx="12" cy="10.5" r="1.0" fill="#f3d791" stroke="#12141a" stroke-width=".45"/><path d="M5.2 2.4 L9.4 2.4 L9.4 4.0 L12 4.0 L12 21.8 L5.2 15.0 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-whisperfang" viewBox="0 0 24 24"><path d="M19.80 2.20 Q21.40 9.20 13.40 13.40 L10.80 10.80 Q16.80 8.40 19.80 2.20 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M19.8 2.2 Q16.8 8.4 10.8 10.8 L11.9 11.9 Q17.4 9.0 19.8 2.2 Z" fill="#fff" opacity=".26"/><rect x="7.40" y="11.00" width="9.00" height="1.90" rx=".8" transform="rotate(45 11.90 11.95)" fill="currentColor" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><path d="M15.2 15.0 Q17.6 15.4 17.0 18.0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M15.2 15.0 Q17.6 15.4 17.0 18.0" fill="none" stroke="#12141a" stroke-width=".4" stroke-linecap="round" opacity=".6"/><rect x="4.60" y="13.40" width="6.20" height="2.00" rx=".8" transform="rotate(-45 7.70 14.40)" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="4.6" cy="17.6" r="1.25" fill="#f3d791" stroke="#12141a" stroke-width=".6"/></symbol>
+<symbol id="it-vowkeeper" viewBox="0 0 24 24"><path d="M2.40 2.40 Q9.40 9.00 13.80 15.00 L15.00 13.80 Q9.00 9.40 2.40 2.40 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M4.4 4.4 L12.6 12.6" stroke="#12141a" stroke-width=".55" opacity=".5"/><rect x="9.20" y="13.45" width="10.20" height="1.90" rx=".9" transform="rotate(-45 14.30 14.40)" fill="#e2bf5c" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="10.6" cy="18.1" r=".95" fill="#e2bf5c" stroke="#12141a" stroke-width=".5"/><circle cx="18.1" cy="10.6" r=".95" fill="#e2bf5c" stroke="#12141a" stroke-width=".5"/><rect x="14.90" y="16.70" width="4.40" height="1.80" rx=".8" transform="rotate(45 17.10 17.60)" fill="#5b3f24" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="19.9" cy="19.9" r="1.3" fill="#c0483a" stroke="#12141a" stroke-width=".6"/><path d="M2.4 2.4 L15 13.8 L14.4 14.4 Z" fill="#fff" opacity=".26"/></symbol>
+<symbol id="it-aegis" viewBox="0 0 24 24"><path d="M2.40 5.20 L7.60 3.20 L9.60 5.40 L14.40 5.40 L16.40 3.20 L21.60 5.20 L20.80 10.00 L17.00 9.40 L15.20 13.80 L17.60 20.80 L6.40 20.80 L8.80 13.80 L7.00 9.40 L3.20 10.00 Z" fill="currentColor" stroke="#12141a" stroke-width=".75" stroke-linejoin="round"/><path d="M8.8 13.8 H15.2" stroke="#12141a" stroke-width=".55" opacity=".45"/><path d="M12 6.4 L13.7 9.6 L12 13.0 L10.3 9.6 Z" fill="#e2bf5c" stroke="#12141a" stroke-width=".6" stroke-linejoin="round"/><circle cx="12" cy="9.7" r=".7" fill="#c0483a" stroke="#12141a" stroke-width=".4"/><path d="M2.4 5.2 L7.6 3.2 L9.6 5.4 L12 5.4 L12 20.8 L6.4 20.8 L8.8 13.8 L7 9.4 L3.2 10 Z" fill="#fff" opacity=".26"/></symbol>
 <symbol id="it-ingot" viewBox="0 0 24 24">
   <path d="M6.4 9.6h11.2l3 5.6H3.4Z" fill="currentColor" stroke="#12141a" stroke-width=".9" stroke-linejoin="round"/>
   <path d="M6.4 9.6h4l-4 5.6H3.4Z" fill="#fff" opacity=".28"/>
@@ -3390,8 +3447,12 @@ const FORGE_PIECE_DEFAULT = 'dagger';
    `area` names, square by square, which of the design's parts it belongs to
    (-1 for air). */
 function forgePieceBoard(id) {
-  const def = FORGE_PIECES[id];
-  if (!def || !def.rows.length) return null;
+  return shapedPieceBoard(id, FORGE_PIECES[id]);
+}
+/* Any handcrafted silhouette as a board: a Forge design, or a special
+   commission's piece (which then sets its own name and strike count). */
+function shapedPieceBoard(id, def) {
+  if (!def || !def.rows || !def.rows.length) return null;
   const rows = def.rows.length;
   let cols = 0;
   for (const line of def.rows) cols = Math.max(cols, line.length);
@@ -5071,7 +5132,22 @@ const SHOP = {
     { id: 'gatework',       name: 'Decorative Gatework',   cat: 'specialty', size: 5, price:  98, tier: 2, needs: ['lockbox'], tags: ['noble', 'merchant', 'collector'] },
     { id: 'lockbox',        name: 'Lockbox',               cat: 'specialty', size: 4, price:  66, tier: 1, needs: ['manacles'], tags: ['merchant', 'noble', 'collector'] },
     { id: 'ironcrown',      name: 'Iron Crown',            cat: 'specialty', size: 5, price: 160, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] },
-    { id: 'ceremonial',     name: 'Ceremonial Weapon',     cat: 'specialty', size: 6, price: 210, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] }
+    { id: 'ceremonial',     name: 'Ceremonial Weapon',     cat: 'specialty', size: 6, price: 210, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] },
+    /* Named masterworks. Each one is earned only by forging its Special
+       Commission perfectly (SHOP.specials, same id) - never with experience,
+       never bought - and from then on it is an ordinary blueprint: copies are
+       worked on the plain square board of its size, in any metal, by you or a
+       smith. Priced well above anything comparable in its craft, because the
+       pattern cost a commission's worth of work; `tags` only says who asks
+       for it by name once it exists, and never changes what a trade likes. */
+    { id: 'embercleaver',   name: 'Embercleaver',          cat: 'household', size: 4, price:  58, tier: 3, needs: [], tags: ['cook', 'merchant', 'noble'], special: true },
+    { id: 'deepvein',       name: 'Deepvein',              cat: 'tools',     size: 4, price:  62, tier: 3, needs: [], tags: ['miner', 'laborer', 'craftsman'], special: true },
+    { id: 'harvestmoon',    name: 'Harvestmoon',           cat: 'farming',   size: 4, price:  70, tier: 3, needs: [], tags: ['farmer', 'merchant', 'collector'], special: true },
+    { id: 'thornwatch',     name: 'Thornwatch',            cat: 'spears',    size: 5, price: 112, tier: 3, needs: [], tags: ['hunter', 'guard', 'adventurer'], special: true },
+    { id: 'gatewarden',     name: 'Gatewarden',            cat: 'shields',   size: 6, price: 168, tier: 3, needs: [], tags: ['guard', 'soldier', 'knight'], special: true },
+    { id: 'whisperfang',    name: 'Whisperfang',           cat: 'daggers',   size: 5, price: 128, tier: 3, needs: [], tags: ['rogue', 'scout', 'collector'], special: true },
+    { id: 'vowkeeper',      name: 'Vowkeeper',             cat: 'swords',    size: 5, price: 124, tier: 3, needs: [], tags: ['knight', 'noble', 'collector'], special: true },
+    { id: 'aegis',          name: 'Sovereign\u2019s Aegis',  cat: 'armor',     size: 6, price: 206, tier: 3, needs: [], tags: ['noble', 'knight', 'collector'], special: true }
   ],
 
   /* The eight a new forge opens with: one weapon, one blade, one axe, a cap,
@@ -5361,6 +5437,176 @@ const SHOP = {
     repFailed: -7          // and for one missed
   },
 
+  /* ---------- special commissions ----------------------------------------
+     One customer, one named masterwork, once. A special commission is put
+     only by somebody of its own trade, only to a forge with the name for it
+     (`rep`) and only once the forge has taken up the craft it belongs to.
+     It is never a bulk order: no deadline, no quantity, no delivery run and
+     no place among the contracts in the Ledger. The work is the player's
+     alone - `design` phases spent drawing it, `mold` phases fashioning the
+     mold, then the piece itself forged on its own silhouette in its own
+     metal, perfectly. Each attempt commits `qty` ingots of that metal when
+     it starts, kept or not. A perfect piece earns its blueprint for good.
+
+     These rolls are kept apart from the bulk-order ones so neither crowds the
+     other out:
+       odds     the chance an eligible customer puts theirs, on a visit
+       step     added for every eligible visit that did not; with `max` at 1
+                it is certain by the sixth, so a commission the forge
+                qualifies for is never simply left to luck
+       max      the most that chance can climb to
+       cooldown days after a decline before the same commission is put again
+       patience selling phases a commission may stay eligible without being
+                put; on the next one its customer comes in and asks */
+  special: { odds: 0.25, step: 0.15, max: 1, cooldown: 5, patience: 8 },
+
+  /* The eight, gentlest first. `id` is permanent and is also the id of the
+     blueprint it earns. The silhouette is drawn the way the Forge's designs
+     are - a symbol per square of metal, '.' for air, named `parts` with the
+     rough iron marked - and `route` is one perfect solution with every square
+     struck exactly as often as the metal asks, as indices into the piece's
+     square grid. The test suite checks every one with validateBoard. They
+     were laid out with tools/design-specials.mjs. */
+  specials: [
+    { id: 'embercleaver', customer: 'cook', rep: 12, design: 1, mold: 1,
+      material: 'bronze', qty: 2,
+      blurb: 'An oversized cooking cleaver with an unusually broad blade and a hooked tip.',
+      request: 'A cleaver no other kitchen has: oversized, unusually broad in the blade, with a hooked tip.',
+      rows: [
+        '...2KR32',
+        '...3RBK.',
+        'KRN32BBN',
+        '...BKBRK',
+        '....32KR'
+      ],
+      parts: [{ name: 'Blade', cols: [3, 7] }, { name: 'Handle', cols: [0, 2], rough: true }],
+      route: [11,16,17,18,3,5,7,13,27,6,19,38,37,22,4,12,14,21,30,28,29,20,36,39,31,23] },
+    { id: 'deepvein', customer: 'miner', rep: 18, design: 1, mold: 2,
+      material: 'bronze', qty: 3,
+      blurb: 'A mining pickaxe with an elongated head and asymmetrical striking points.',
+      request: 'A pick for the hardest seams: a long head, with a different point at each end.',
+      rows: [
+        '...233...',
+        'BR33R3NRR',
+        'R2.B2K..K',
+        'K...K....',
+        '....N....',
+        '....K....',
+        '....K....',
+        '....B....'
+      ],
+      parts: [{ name: 'Head', rows: [0, 3] }, { name: 'Haft', rows: [4, 7], rough: true }],
+      route: [5,26,17,9,49,58,67,27,18,19,3,23,13,10,14,11,40,21,31,22,4,16,12,15] },
+    { id: 'harvestmoon', customer: 'farmer', rep: 26, design: 2, mold: 2,
+      material: 'silver', qty: 2,
+      blurb: 'A harvesting sickle with an elegantly curved, crescent-shaped blade.',
+      request: 'A sickle to honour my family\u2019s land, with a crescent blade curved like the harvest moon.',
+      rows: [
+        '..3R32K.',
+        '.KR...KK',
+        'BB.....R',
+        '3B......',
+        'KRR.....',
+        '.BBK....',
+        '..KN....',
+        '..R.....',
+        '..3.....'
+      ],
+      parts: [{ name: 'Blade', rows: [0, 6] }, { name: 'Handle', rows: [7, 8], rough: true }],
+      route: [57,74,46,6,5,16,15,25,19,3,4,10,2,27,56,65,47,37,36,28,18,48,38,11,74,46,6,16,25,18,10,2,5,3,
+        4,19,27,57,38,37,36,28,48,56,65,11,47,15] },
+    { id: 'thornwatch', customer: 'hunter', rep: 36, design: 2, mold: 2,
+      material: 'silver', qty: 3, point: true,
+      blurb: 'A hunting spear with a broad leaf-shaped head, side hooks and a reinforced socket.',
+      request: 'A spear for dangerous game: a broad leaf head, side hooks to stop a charge, and a socket that will not split.',
+      rows: [
+        '...2...',
+        '..KB2..',
+        '.N32K3.',
+        '..22B..',
+        '3..R..B',
+        '3RRNB3R',
+        '...R...',
+        '..KBR..',
+        '..RRK..'
+      ],
+      parts: [{ name: 'Head', rows: [0, 3] }, { name: 'Hooks', rows: [4, 5] }, { name: 'Socket', rows: [6, 8], rough: true }],
+      route: [45,74,76,67,13,11,3,23,51,42,22,12,36,65,75,57,66,46,19,30,50,29,48,31,47,20,49,39,21,19,12,
+        42,22,30,11,3,21,23,49,57,75,76,67,65,74,20,50,47,46,51,45,66,36,39,48,29,13,31] },
+    { id: 'gatewarden', customer: 'guard', rep: 46, design: 2, mold: 3,
+      material: 'gold', qty: 3,
+      blurb: 'A ceremonial tower shield with a notched crown, reinforced edges and a shaped central boss.',
+      request: 'A shield worthy of the town\u2019s defenders: tall, notched at the crown, riveted around a central boss.',
+      rows: [
+        'K2.3K',
+        'KB2BR',
+        'N.2.3',
+        'BNRBR',
+        'R.R.3',
+        'R323B',
+        '.KRR.',
+        '..B..'
+      ],
+      parts: [{ name: 'Shield', rows: [0, 7] }],
+      route: [20,44,58,40,8,1,3,0,9,36,49,50,51,43,16,10,4,12,11,32,24,42,28,27,41,18,34,26,25,8,0,9,16,26,
+        58,49,41,28,25,40,43,32,36,11,4,12,44,51,50,10,20,1,3,24,42,27,34,18,8,0,9,36,11,32,16,1,3,
+        27,41,20,44,58,40,43,18,4,12,28,25,10,26,24,51,49,50,34,42] },
+    { id: 'whisperfang', customer: 'rogue', rep: 56, design: 3, mold: 3,
+      material: 'gold', qty: 3, point: true,
+      blurb: 'A dagger with a curved, asymmetrical blade and a hooked guard.',
+      request: 'A blade made for my trade: curved and lopsided like a fang, with a guard that catches.',
+      rows: [
+        '....K.',
+        '...R3.',
+        '..3N..',
+        '.B32..',
+        '.2B2.3',
+        'BKRRB3',
+        '..R...',
+        '..K...',
+        '.33K..'
+      ],
+      parts: [{ name: 'Blade', rows: [0, 4], cols: [0, 4] }, { name: 'Guard', rows: [4, 5] }, { name: 'Grip', rows: [6, 8], rough: true }],
+      route: [73,46,47,74,50,75,65,56,29,4,13,41,12,21,28,38,48,45,37,30,49,39,20,45,75,74,49,29,4,13,37,
+        21,28,20,50,38,30,41,65,73,46,56,47,48,12,39,20,49,29,4,13,37,56,74,46,45,75,65,73,47,50,21,
+        38,28,12,30,48,39,41] },
+    { id: 'vowkeeper', customer: 'knight', rep: 70, design: 3, mold: 4,
+      material: 'mithril', qty: 4, point: true,
+      blurb: 'An ornate longsword with a pronounced crossguard, a carefully shaped blade and a narrow tang.',
+      request: 'A sword to carry the name of my oath: a long, fullered blade, a proud crossguard and a narrow tang.',
+      rows: [
+        '...R...',
+        '..RRB..',
+        '..2.2..',
+        '..2.3..',
+        '..RNB..',
+        'RK322BB',
+        'R..K..R',
+        '...3...',
+        '...3...'
+      ],
+      parts: [{ name: 'Blade', rows: [0, 4] }, { name: 'Crossguard', rows: [5, 6] }, { name: 'Tang', rows: [7, 8], rough: true }],
+      route: [54,60,51,11,12,13,3,75,45,46,38,47,50,20,31,57,49,66,40,48,29,22,39,46,54,57,49,60,51,31,3,
+        48,66,39,50,40,20,13,45,47,22,11,38,29,12,75,51,31,57,47,50,60,54,45,48,46,38,39,20,13,3,66,
+        40,60,54,57,49,29,11,12,75,51,31,3,66,40,50,20,22,39,46,47,22,38,11,13,45,48,29,12,75,49] },
+    { id: 'aegis', customer: 'noble', rep: 85, design: 4, mold: 4,
+      material: 'adamantine', qty: 4,
+      blurb: 'A ceremonial breastplate with prominent shoulders, a narrowed waist and a central crest.',
+      request: 'Armour no other house can match: great shoulders, a narrow waist, and a crest at its heart.',
+      rows: [
+        'RR...3B',
+        'KR.3.2K',
+        '.RK2N2.',
+        '..BBB..',
+        '.3R223.'
+      ],
+      parts: [{ name: 'Breastplate', rows: [0, 4] }],
+      route: [17,1,0,6,30,29,7,15,18,13,19,33,12,25,31,16,8,10,32,23,5,24,0,5,16,8,12,25,13,6,30,31,29,32,
+        18,23,7,1,15,19,33,10,13,6,24,0,5,25,17,12,10,29,32,23,7,1,15,8,12,24,16,17,31,33,30,32,18,
+        13,19,5,23,7,0,1,6,30,29,8,15,16,24,18,33,10,31,19,17,12,25,13,6,30,33,10,0,7,8,1,29,25,31,
+        18,5,24,16,23,17,15,19,32] }
+  ],
+
   roles: [
     { id: 'salesperson', name: 'Salesperson', phase: true,
       blurb: 'Tends the counter for one phase and learns about the customers served.' },
@@ -5510,6 +5756,7 @@ function deriveCustomerLikes() {
   const totals = {};                      // category -> how many recipes in it
   for (const cat of SHOP.categories) totals[cat.id] = 0;
   for (const item of SHOP.items) {
+    if (item.special) continue;
     totals[item.cat] = (totals[item.cat] || 0) + 1;
     for (const who of item.tags || []) {
       if (!counts[who]) counts[who] = {};
@@ -5698,10 +5945,11 @@ function recipeStatus(shop, id) {
   });
   const short = parents.filter(function (p) { return p.level < p.need; });
   const cost = blueprintUnlockCost(id);
-  // a craft you have not taken up hides its whole tree behind that one fact
-  const ready = craft && !short.length;
+  // a craft you have not taken up hides its whole tree behind that one fact,
+  // and a named masterwork is never bought with experience at all
+  const ready = craft && !short.length && !it.special;
   return {
-    id: id, cat: it.cat, known: known, level: level,
+    id: id, cat: it.cat, known: known, level: level, special: !!it.special,
     mastered: level >= SHOP.craft.maxLevel,
     discipline: craft, depth: recipeDepth(id),
     parents: parents, short: short,
@@ -5719,7 +5967,10 @@ function recipeStatus(shop, id) {
 /* Put a blueprint in the book at level 1. Returns false if it was already
    there, so callers report only what actually changed. */
 function learnRecipe(shop, id, how) {
-  if (!shopItem(id) || recipeKnown(shop, id)) return false;
+  const it = shopItem(id);
+  if (!it || recipeKnown(shop, id)) return false;
+  // a named masterwork is earned at the anvil, by its own commission, or not at all
+  if (it.special && (how !== 'special' || specialStage(shop, id) !== 'done')) return false;
   if (!shop.blueprints) shop.blueprints = {};
   shop.blueprints[id] = 1;
   if (shop.known.indexOf(id) < 0) shop.known.push(id);
@@ -5811,6 +6062,7 @@ function unlockBlueprint(shop, id) {
   const st = recipeStatus(shop, id);
   if (!st) return { ok: false, why: 'no such blueprint' };
   if (st.known) return { ok: false, why: 'blueprint already unlocked' };
+  if (st.special) return { ok: false, why: 'earned only by completing its Special Commission' };
   if (!st.discipline) {
     const cat = shopCategory(st.cat);
     return { ok: false, why: 'take up the ' + (cat ? cat.name : 'matching') + ' craft first' };
@@ -5847,15 +6099,18 @@ function upgradeBlueprint(shop, id) {
 /* What this discipline's page of the book comes to, for the header. */
 function disciplineSummary(shop, catId) {
   const mine = disciplineItems(catId);
-  let unlocked = 0, mastered = 0;
+  let unlocked = 0, mastered = 0, count = 0, named = 0, earned = 0;
   for (const it of mine) {
     const level = blueprintLevel(shop, it.id);
+    // the named masterworks are counted apart: they are not on the tree
+    if (it.special) { named++; if (level > 0) earned++; continue; }
+    count++;
     if (level > 0) unlocked++;
     if (level >= SHOP.craft.maxLevel) mastered++;
   }
   return { id: catId, held: hasDiscipline(shop, catId),
     xp: craftXp(shop, catId), total: craftXpTotal(shop, catId),
-    unlocked: unlocked, mastered: mastered, count: mine.length };
+    unlocked: unlocked, mastered: mastered, count: count, named: named, earned: earned };
 }
 
 /* How many of a recipe have ever come off this shop's anvil, and the best
@@ -6322,6 +6577,8 @@ function createShop(opts) {
     vehicles: [],         // carts and wagons; equipment, never used up
     commissions: [],      // contracts taken on
     commissionOffers: [], // contracts put to you and not yet answered
+    specials: {},         // special commission id -> where it stands
+    specialOffers: [],    // special commissions put to you and not yet answered
     applicants: [],
     log: [],              // reports, newest first
     assignments: {},      // employeeId -> { phase, job }
@@ -6370,6 +6627,12 @@ const SHOP_NAME_DEFAULT = 'Your Forge';
 /* A name is typed by hand and read back from storage, so it is flattened,
    trimmed and cut to length before it is ever shown. Anything that comes
    out empty falls back rather than leaving a nameless row on the menu. */
+/* Text read back from a save for showing only, never trusted: control
+   characters and runs of space flattened, cut to length, '' if nothing. */
+function plainText(raw, max) {
+  if (typeof raw !== 'string') return '';
+  return raw.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max || 40);
+}
 function shopNameOf(raw, fallback) {
   const text = String(raw == null ? '' : raw)
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -6451,7 +6714,9 @@ function serializeShop(shop) {
     commissions: shop.commissions.map(function (c) {
       return Object.assign({ delivered: 0 }, c);
     }),
-    commissionOffers: shop.commissionOffers.map(function (c) { return Object.assign({}, c); })
+    commissionOffers: shop.commissionOffers.map(function (c) { return Object.assign({}, c); }),
+    specials: JSON.parse(JSON.stringify(shop.specials || {})),
+    specialOffers: (shop.specialOffers || []).map(function (o) { return Object.assign({}, o); })
   };
 }
 
@@ -6906,6 +7171,73 @@ function restoreShop(data, rnd) {
     }
   }
 
+  /* Special commissions. Where each one stands is read back exactly - a
+     commission accepted stays accepted, one completed stays completed - and
+     checked against its definition, so progress can never run past what the
+     stage asks for and an attempt is only on the anvil where the design and
+     the mold really were finished. A save from before there were any reads
+     as none ever put to the forge. */
+  shop.specials = {};
+  const specials = data.specials && typeof data.specials === 'object' ? data.specials : {};
+  for (const def of SHOP.specials) {
+    const raw = specials[def.id];
+    if (!raw || typeof raw !== 'object') continue;
+    const status = raw.status === 'done' || raw.status === 'active' ? raw.status : 'open';
+    const rec = {
+      status: status,
+      design: whole(raw.design, 0, def.design, 0),
+      mold: whole(raw.mold, 0, def.mold, 0),
+      attempts: whole(raw.attempts, 0, 1e6, 0),
+      attempt: null,
+      best: whole(raw.best, 0, 100, 0),
+      offered: whole(raw.offered, 0, 1e6, 0),
+      declined: whole(raw.declined, 0, 1e6, 0),
+      missed: whole(raw.missed, 0, 1e6, 0),
+      waited: whole(raw.waited, 0, 1e6, 0),
+      coolUntil: whole(raw.coolUntil, 0, 1e6, 0),
+      who: raw.who == null ? null : whole(raw.who, 1, 1e9, 0) || null,
+      customer: plainText(raw.customer, SHOP_NAME_MAX),
+      trade: plainText(raw.trade, SHOP_NAME_MAX),
+      acceptedDay: whole(raw.acceptedDay, 0, 1e6, 0),
+      doneDay: whole(raw.doneDay, 0, 1e6, 0)
+    };
+    if (status === 'open') { rec.design = 0; rec.mold = 0; }
+    if (status === 'done') { rec.design = def.design; rec.mold = def.mold; }
+    // the mold is fashioned from a finished design, never before it
+    if (rec.design < def.design) rec.mold = 0;
+    if (status === 'active' && raw.attempt && typeof raw.attempt === 'object' &&
+        rec.design >= def.design && rec.mold >= def.mold) {
+      rec.attempt = { day: whole(raw.attempt.day, 1, 1e6, shop.day),
+        phase: SHOP.phases.indexOf(raw.attempt.phase) >= 0 ? raw.attempt.phase : shopPhase(shop),
+        material: def.material, qty: def.qty,
+        n: whole(raw.attempt.n, 1, 1e6, Math.max(1, rec.attempts)) };
+      rec.attempts = Math.max(rec.attempts, 1);
+    }
+    shop.specials[def.id] = rec;
+  }
+  // a named blueprint stands where its commission was completed, and only there
+  for (const def of SHOP.specials) {
+    const done = specialStage(shop, def.id) === 'done';
+    const it = shopItem(def.id);
+    if (!done && shop.blueprints[def.id]) delete shop.blueprints[def.id];
+    if (done && !shop.blueprints[def.id] && it && hasDiscipline(shop, it.cat)) {
+      shop.blueprints[def.id] = 1;
+    }
+  }
+  shop.known = Object.keys(shop.blueprints).filter(function (id) { return !!shopItem(id); });
+  shop.specialOffers = [];
+  for (const raw of Array.isArray(data.specialOffers) ? data.specialOffers : []) {
+    if (!raw || !specialDef(raw.special)) continue;
+    // one waiting answer per commission, and never for one already taken
+    if (specialStage(shop, raw.special) !== 'open') continue;
+    const def = specialDef(raw.special);
+    const type = shopCustomerType(raw.type) || shopCustomerType(def.customer);
+    shop.specialOffers.push({ special: def.id,
+      who: raw.who == null ? null : whole(raw.who, 1, 1e9, 0) || null,
+      name: shopNameOf(raw.name, 'A customer'), type: type.id, trade: type.name,
+      day: whole(raw.day, 1, 1e6, shop.day) });
+  }
+
   // ids must not collide with anything restored
   let top = shop.nextId;
   for (const e of shop.staff) top = Math.max(top, e.id + 1);
@@ -7291,6 +7623,9 @@ function pickWeighted(entries, rnd) {
 function openCounter(shop, seller) {
   const count = trafficFor(shop);
   const weights = customerWeights(shop);
+  // a commission the forge now qualifies for has somebody in town to put it
+  seatSpecialPatrons(shop);
+  const asking = specialTrades(shop);
   const queue = [];
   const taken = {};
   let guard = 0;
@@ -7309,6 +7644,17 @@ function openCounter(shop, seller) {
     if (!id) break;
     taken[id] = true;
     queue.push(id);
+  }
+  /* A commission the forge has qualified for through more selling phases
+     than its patience is not left to the draw any longer: somebody of its
+     trade is in today, in place of the last name drawn. */
+  for (const type in asking) {
+    const rec = specialRec(shop, asking[type]);
+    rec.waited += 1;
+    if (!queue.length || rec.waited <= SHOP.special.patience) continue;
+    if (queue.some(function (id) { const one = townsfolkById(shop, id); return one && one.type === type; })) continue;
+    const patron = shop.town.find(function (one) { return one.type === type && !taken[one.id]; });
+    if (patron) { taken[patron.id] = true; queue[queue.length - 1] = patron.id; }
   }
   return {
     seller: seller || { kind: 'player', power: 0, name: 'You' },
@@ -7402,8 +7748,10 @@ function rollWant(shop, one) {
   if (!cat) { one.want = null; return one.want; }
   // one in four is set on a single piece rather than a kind of thing
   if (shop.rnd() < 0.25) {
+    // nobody is set on a named masterwork before the forge can make one
     const picks = SHOP.items.filter(function (it) {
-      return it.cat === cat && (it.tags || []).indexOf(one.type) >= 0;
+      return it.cat === cat && (it.tags || []).indexOf(one.type) >= 0 &&
+        (!it.special || recipeKnown(shop, it.id));
     });
     if (picks.length) {
       one.want = { cat: cat, item: picks[Math.floor(shop.rnd() * picks.length)].id };
@@ -7712,6 +8060,22 @@ function counterNext(session, shop) {
     // this forge has found out about them
     wealth: knowsWealth(one) ? wealthBandOf(one).name : null };
 
+  /* A special commission comes first: one named piece, made once, for this
+     customer. The player answers it there and then; an employee writes it
+     down and the player answers it when the phase closes. Either way the
+     answer is free. */
+  const special = rollSpecial(shop, one);
+  if (special) {
+    session.report.specials = (session.report.specials || 0) + 1;
+    if (session.seller.kind === 'staff') {
+      queueSpecial(shop, special);
+      return Object.assign({}, face, { kind: 'leave',
+        why: 'left a special commission offer in the Ledger', special: special.special, quiet: true });
+    }
+    session.pending = Object.assign({}, face, { kind: 'special', offer: special });
+    return session.pending;
+  }
+
   /* Some customers are not here to buy one of something. A commission is put
      to the seller before anything on the floor is looked at, because it is a
      different conversation: a lot, a deadline and a price, take it or leave
@@ -7869,6 +8233,24 @@ function counterAnswerCommission(session, shop, take) {
   }
   session.report.taken = (session.report.taken || 0) + 1;
   return Object.assign({}, p, { kind: 'contract', commission: offer, advance: res.advance });
+}
+
+/* Answer a special commission put across the counter. Taking it costs
+   nothing and starts nothing - the work is the player's to give phases to -
+   and turning it down leaves it free to be put again another day. */
+function counterAnswerSpecial(session, shop, take) {
+  const p = session.pending;
+  if (!p || p.kind !== 'special') return null;
+  session.pending = null;
+  if (!take) {
+    declineSpecial(shop, p.offer.special);
+    session.report.declined = (session.report.declined || 0) + 1;
+    return Object.assign({}, p, { kind: 'leave', why: 'special commission declined' });
+  }
+  const res = acceptSpecial(shop, p.offer);
+  if (!res.ok) return Object.assign({}, p, { kind: 'leave', why: res.why });
+  session.report.specialTaken = (session.report.specialTaken || 0) + 1;
+  return Object.assign({}, p, { kind: 'special-taken', special: p.offer.special });
 }
 
 /* Answer a haggle. 'accept' takes the offer, 'reject' sends them away, and
@@ -8039,6 +8421,9 @@ function runCounter(shop, seller) {
     if (!event) break;
     // a contract an employee took down is queued, never answered by them
     if (event.kind === 'commission') { session.pending = null; continue; }
+    // a special commission put to an automated counter is turned down, as a
+    // player who did not want it would; an employee never sees one here
+    if (event.kind === 'special') { counterAnswerSpecial(session, shop, false); continue; }
     if (event.kind !== 'offer') continue;
     const choice = autoRespond(session, shop);
     if (choice === 'offer') {
@@ -9268,6 +9653,266 @@ function nextCommissionDue(shop) {
   return soonest;
 }
 
+/* ---------- special commissions ------------------------------------------
+   A named masterwork, made once, by the player, for one customer. Nothing
+   here touches a bulk order: special commissions have their own record
+   (`shop.specials`, by permanent id) and their own queue of offers
+   (`shop.specialOffers`), so neither can take the other's place, inherit its
+   deadline or count against its limits.
+
+   A record is made the first time a commission could have been put to the
+   forge, and from then on says where it stands:
+     status    'open' until accepted, 'active' while it is being worked,
+               'done' for good once forged perfectly. Never goes back.
+     design/mold   phases spent so far on each stage
+     attempts  smithing attempts begun, each of which spent its metal
+     attempt   the attempt on the anvil right now, with what it committed,
+               or null - which is what stops a reload charging it twice
+     missed/waited/coolUntil   for the roll: eligible visits that did not
+               ask, selling phases it has been eligible without being put,
+               and the day a declined commission may be asked again */
+function specialDef(id) {
+  return SHOP.specials.find(function (s) { return s.id === id; }) || null;
+}
+function specialRecord(shop, id) {
+  return (shop.specials && shop.specials[id]) || null;
+}
+function specialRec(shop, id) {
+  if (!shop.specials) shop.specials = {};
+  if (!shop.specials[id]) {
+    shop.specials[id] = { status: 'open', design: 0, mold: 0, attempts: 0, attempt: null,
+      best: 0, offered: 0, declined: 0, missed: 0, waited: 0, coolUntil: 0,
+      who: null, customer: '', trade: '', acceptedDay: 0, doneDay: 0 };
+  }
+  return shop.specials[id];
+}
+function specialOfferById(shop, id) {
+  return (shop.specialOffers || []).find(function (o) { return o.special === id; }) || null;
+}
+
+/* Where one stands, in a word: 'open' (never accepted), 'offered' (put and
+   waiting for an answer), 'design', 'mold', 'ready', 'forging' or 'done'. */
+function specialStage(shop, id) {
+  const def = specialDef(id);
+  if (!def) return null;
+  const rec = specialRecord(shop, id);
+  if (rec && rec.status === 'done') return 'done';
+  if (rec && rec.status === 'active') {
+    if (rec.attempt) return 'forging';
+    if (rec.design < def.design) return 'design';
+    if (rec.mold < def.mold) return 'mold';
+    return 'ready';
+  }
+  return specialOfferById(shop, id) ? 'offered' : 'open';
+}
+
+/* Whether this forge could be asked for it today: never accepted and not
+   already waiting for an answer, the forge has the name for it, and it has
+   taken up the craft the piece belongs to - a commission does not open a
+   door the discipline system keeps shut. */
+function specialEligible(shop, id) {
+  const def = specialDef(id);
+  if (!def || shop.closed) return false;
+  if (specialStage(shop, id) !== 'open') return false;
+  if (shop.reputation < def.rep) return false;
+  const it = shopItem(def.id);
+  if (!it || !hasDiscipline(shop, it.cat)) return false;
+  const rec = specialRecord(shop, id);
+  return !(rec && rec.coolUntil > shop.day);
+}
+
+/* The trades with a commission they could put to this forge right now. */
+function specialTrades(shop) {
+  const out = {};
+  for (const def of SHOP.specials) if (specialEligible(shop, def.id)) out[def.customer] = def.id;
+  return out;
+}
+
+/* Somebody has to be in town to ask. A commission the forge qualifies for
+   whose trade nobody in town follows would otherwise never be put, so the
+   one person it takes moves in. */
+function seatSpecialPatrons(shop) {
+  const added = [];
+  const asking = specialTrades(shop);
+  for (const type in asking) {
+    if (shop.town.some(function (one) { return one.type === type; })) continue;
+    added.push(makeTownsfolk(shop, type));
+  }
+  return added;
+}
+
+/* Does the customer at the counter put theirs? Each eligible visit that
+   does not makes the next likelier, so a commission the forge qualifies for
+   turns up within a few visits rather than being left to luck. */
+function rollSpecial(shop, one) {
+  if (!one) return null;
+  const def = SHOP.specials.find(function (d) {
+    return d.customer === one.type && specialEligible(shop, d.id);
+  });
+  if (!def) return null;
+  const c = SHOP.special;
+  const rec = specialRec(shop, def.id);
+  // a commission that has waited out its patience is put on this visit
+  const chance = rec.waited >= c.patience ? 1 : Math.min(c.max, c.odds + c.step * rec.missed);
+  if (shop.rnd() >= chance) { rec.missed += 1; return null; }
+  rec.missed = 0;
+  rec.waited = 0;
+  rec.offered += 1;
+  const type = shopCustomerType(one.type);
+  return { special: def.id, who: one.id, name: one.name, type: one.type,
+    trade: type ? type.name : one.type, day: shop.day };
+}
+
+/* An employee at the counter writes it down for the player; one waiting
+   answer per commission, ever. */
+function queueSpecial(shop, offer) {
+  if (!offer || !specialDef(offer.special)) return false;
+  if (specialStage(shop, offer.special) !== 'open') return false;
+  if (!shop.specialOffers) shop.specialOffers = [];
+  shop.specialOffers.push(offer);
+  return true;
+}
+
+/* Take it on. Free, and it uses no phase: the work starts when the player
+   gives it a phase of their own. Once taken it is never offered again. */
+function acceptSpecial(shop, offer) {
+  const def = offer && specialDef(offer.special);
+  if (!def) return { ok: false, why: 'no such commission' };
+  const stage = specialStage(shop, def.id);
+  if (stage !== 'open' && stage !== 'offered') {
+    return { ok: false, why: stage === 'done' ? 'that commission is already completed'
+      : 'that commission is already accepted' };
+  }
+  const rec = specialRec(shop, def.id);
+  rec.status = 'active';
+  rec.who = offer.who || null;
+  rec.customer = offer.name || '';
+  rec.trade = offer.trade || '';
+  rec.acceptedDay = shop.day;
+  rec.design = 0; rec.mold = 0; rec.attempt = null;
+  shop.specialOffers = (shop.specialOffers || []).filter(function (o) { return o.special !== def.id; });
+  return { ok: true, special: def.id, record: rec };
+}
+function acceptSpecialOffer(shop, id) {
+  const offer = specialOfferById(shop, id);
+  if (!offer) return { ok: false, why: 'no such offer' };
+  return acceptSpecial(shop, offer);
+}
+
+/* Turn it down. It costs nothing, and the commission may be put again once
+   a few days have passed - it is only ever lost by never being accepted. */
+function declineSpecial(shop, id) {
+  const def = specialDef(id);
+  if (!def) return { ok: false, why: 'no such commission' };
+  const stage = specialStage(shop, id);
+  if (stage !== 'open' && stage !== 'offered') return { ok: false, why: 'that commission is not on offer' };
+  const rec = specialRec(shop, id);
+  rec.declined += 1;
+  rec.missed = 0;
+  rec.waited = 0;
+  rec.coolUntil = shop.day + SHOP.special.cooldown;
+  shop.specialOffers = (shop.specialOffers || []).filter(function (o) { return o.special !== id; });
+  return { ok: true, special: id };
+}
+
+/* One phase of the player's own work on the design or the mold, whichever
+   comes next. The caller spends the phase; this only counts it. */
+function specialWork(shop, id) {
+  const def = specialDef(id);
+  const stage = specialStage(shop, id);
+  if (stage !== 'design' && stage !== 'mold') {
+    return { ok: false, why: stage === 'ready' || stage === 'forging'
+      ? 'the design and the mold are finished' : stage === 'done'
+        ? 'that commission is already completed' : 'that commission has not been accepted' };
+  }
+  const rec = specialRec(shop, id);
+  if (stage === 'design') rec.design = Math.min(def.design, rec.design + 1);
+  else rec.mold = Math.min(def.mold, rec.mold + 1);
+  return { ok: true, stage: stage, design: rec.design, mold: rec.mold,
+    next: specialStage(shop, id) };
+}
+
+/* Whether an attempt could start now, and if not, why. */
+function specialAttemptCheck(shop, id) {
+  const def = specialDef(id);
+  const stage = specialStage(shop, id);
+  if (!def) return { ok: false, why: 'no such commission' };
+  if (stage === 'forging') return { ok: false, why: 'an attempt is already under way' };
+  if (stage === 'done') return { ok: false, why: 'that commission is already completed' };
+  if (stage !== 'ready') return { ok: false, why: 'finish the design and the mold first' };
+  const mt = shopMaterial(def.material);
+  if ((shop.materials[def.material] || 0) < def.qty) {
+    return { ok: false, why: 'requires ' + def.qty + ' ' + mt.name + ' ingots' };
+  }
+  return { ok: true };
+}
+
+/* Commit the metal and start an attempt. The ingots are spent HERE, once,
+   whatever the anvil makes of them; the attempt then stands on the record
+   until it is finished, so a game closed half way through comes back to the
+   same attempt rather than charging for a new one. */
+function beginSpecialAttempt(shop, id) {
+  const check = specialAttemptCheck(shop, id);
+  if (!check.ok) return check;
+  const def = specialDef(id);
+  const rec = specialRec(shop, id);
+  shop.materials[def.material] -= def.qty;
+  rec.attempts += 1;
+  rec.attempt = { day: shop.day, phase: shopPhase(shop), material: def.material,
+    qty: def.qty, n: rec.attempts };
+  return { ok: true, attempt: rec.attempt, spent: def.qty };
+}
+
+/* The attempt is over. Only a finished board at quality 100 completes the
+   commission; anything else - an imperfect finish, a stranded board, an
+   attempt abandoned - leaves it ready for another try, with the design and
+   the mold kept and the metal gone. Calling this with no attempt under way
+   does nothing, so a result shown twice is still paid for once. */
+function finishSpecialAttempt(shop, id, outcome, quality) {
+  const def = specialDef(id);
+  const rec = specialRecord(shop, id);
+  if (!def || !rec || rec.status !== 'active' || !rec.attempt) {
+    return { ok: false, why: 'no attempt under way' };
+  }
+  const q = Math.max(0, Math.min(100, Math.round(Number(quality) || 0)));
+  rec.attempt = null;
+  if (outcome === 'complete') rec.best = Math.max(rec.best || 0, q);
+  if (outcome === 'complete' && q === 100) return completeSpecial(shop, id);
+  return { ok: true, done: false, outcome: outcome, quality: q };
+}
+
+/* A perfect piece. It goes to the customer who asked for it - it never
+   enters storage - and the pattern stays in the book: the blueprint is the
+   reward, and the only one. */
+function completeSpecial(shop, id) {
+  const def = specialDef(id);
+  const rec = specialRec(shop, id);
+  rec.status = 'done';
+  rec.attempt = null;
+  rec.design = def.design;
+  rec.mold = def.mold;
+  rec.doneDay = shop.day;
+  const learned = learnRecipe(shop, def.id, 'special');
+  const one = rec.who ? townsfolkById(shop, rec.who) : null;
+  if (one) one.contracts = (one.contracts || 0) + 1;
+  return { ok: true, done: true, learned: learned, item: def.id, quality: 100 };
+}
+
+/* The puzzle an original is forged on: its own silhouette, struck as often
+   as its metal asks. */
+function specialBoard(id) {
+  const def = specialDef(id);
+  const it = def ? shopItem(def.id) : null;
+  const mt = def ? shopMaterial(def.material) : null;
+  if (!def || !it || !mt) return null;
+  const board = shapedPieceBoard(id, def);
+  if (!board) return null;
+  board.name = it.name;
+  board.special = id;
+  board.visits = mt.strikes;
+  return board;
+}
+
 /* ---------- properties: mines, miners and ore --------------------------
    A mine is a property, not a number on the forge. You may own as many of a
    mineral as you can pay for, each with its own miners, its own upgrades and
@@ -9611,6 +10256,7 @@ const CHECKSMITH_CORE = {
   isMetal: isMetal, metalCount: metalCount, metalMovesFrom: metalMovesFrom,
   FORGE_PIECES: FORGE_PIECES, FORGE_PIECE_DEFAULT: FORGE_PIECE_DEFAULT,
   FORGE_PIECE_ORDER: FORGE_PIECE_ORDER, forgePieceBoard: forgePieceBoard,
+  shapedPieceBoard: shapedPieceBoard,
   forgePieceSymbols: forgePieceSymbols, pieceArea: pieceArea, inRough: inRough,
   pieceNumber: pieceNumber, poolFor: poolFor, poolForSize: poolForSize,
   rollHardening: rollHardening, hasHardening: hasHardening,
@@ -9720,6 +10366,14 @@ const CHECKSMITH_CORE = {
   rollCommission: rollCommission, queueCommission: queueCommission,
   commissionById: commissionById, commissionOfferById: commissionOfferById,
   acceptCommission: acceptCommission, declineCommission: declineCommission,
+  specialDef: specialDef, specialRecord: specialRecord, specialStage: specialStage,
+  specialEligible: specialEligible, specialTrades: specialTrades,
+  seatSpecialPatrons: seatSpecialPatrons, rollSpecial: rollSpecial, queueSpecial: queueSpecial,
+  specialOfferById: specialOfferById, acceptSpecial: acceptSpecial,
+  acceptSpecialOffer: acceptSpecialOffer, declineSpecial: declineSpecial,
+  specialWork: specialWork, specialAttemptCheck: specialAttemptCheck,
+  beginSpecialAttempt: beginSpecialAttempt, finishSpecialAttempt: finishSpecialAttempt,
+  specialBoard: specialBoard, counterAnswerSpecial: counterAnswerSpecial, plainText: plainText,
   allocateCommission: allocateCommission, releaseCommission: releaseCommission,
   deliverCommission: deliverCommission, expireCommissions: expireCommissions,
   commissionLeft: commissionLeft, commissionDone: commissionDone,
@@ -10764,6 +11418,7 @@ function loadBoard(difficulty, done) {
 
 function restartBoard() {
   if (!App.game) return;
+  if (App.mode === 'shop' && SHOPUI.special) return;
   if (App.mode === 'endless') { startRun(); return; }   // a run restarts whole
   if (App.mode === 'shop') {
     startGame(App.game.board, { perfect: App.game.perfect, spent: App.game.spent });
@@ -10955,7 +11610,13 @@ function render() {
     $('promptText').textContent = 'No legal moves remaining.';
   } else if (g.current < 0) {
     $('promptGlyph').textContent = '\u2692';
-    if (App.mode === 'shop' && SHOPUI.order) {
+    if (App.mode === 'shop' && SHOPUI.special) {
+      const def = specialDef(SHOPUI.special);
+      $('promptText').innerHTML = '<b>' + esc(g.board.name) + '</b> \u2014 ' +
+        esc(shopMaterial(def.material).name) + ', exactly ' + g.perfect +
+        (g.perfect === 1 ? ' strike' : ' strikes') + ' per square. Only a perfect forge ' +
+        'completes the commission. Choose any square to begin.';
+    } else if (App.mode === 'shop' && SHOPUI.order) {
       // What is on the anvil and what the metal asks of every square. It used
       // to sit in a banner above the board, which read as a board-size picker.
       const o = SHOPUI.order;
@@ -11190,7 +11851,8 @@ function finish() {
   const result = scoreGame(g);
   if (App.mode === 'shop') {
     SOUNDS.complete(result.quality === 100);
-    shopForgeComplete(result);
+    if (SHOPUI.special) shopSpecialResult('complete', result);
+    else shopForgeComplete(result);
     return;
   }
   const masterwork = result.quality === 100;
@@ -11212,7 +11874,12 @@ function finish() {
 /* Forge: no legal strike remains. */
 function stranded() {
   const g = App.game;
-  if (App.mode === 'shop') { SOUNDS.stranded(); shopForgeFailed(); return; }
+  if (App.mode === 'shop') {
+    SOUNDS.stranded();
+    if (SHOPUI.special) shopSpecialResult('lost', scoreGame(g));
+    else shopForgeFailed();
+    return;
+  }
   App.resultTimer = setTimeout(() => {
     App.resultTimer = null;
     SOUNDS.stranded();
@@ -11918,6 +12585,7 @@ const SHOPUI = {
   tab: 'shelf',
   session: null,      // a selling phase in progress at the counter
   order: null,        // the batch being worked at the anvil
+  special: null,      // ...or the special commission being attempted there
   draft: {},          // scratch numbers for whichever dialog is open
   ringed: null,       // the customer the doorbell has already rung for
   slot: null,         // the stand being filled, while the picker is open
@@ -12023,7 +12691,13 @@ function deleteSlot(id) {
    at the same order. */
 function anvilSnapshot() {
   const g = App.game;
-  if (!SHOPUI.order || !g) return null;
+  if (!g) return null;
+  // a special commission's board is its own definition; only the play is kept
+  if (SHOPUI.special) {
+    return { special: SHOPUI.special, pieces: g.pieces.slice(), strikes: g.strikes.slice(),
+      current: g.current, totalStrikes: g.totalStrikes, status: g.status };
+  }
+  if (!SHOPUI.order) return null;
   return {
     order: Object.assign({}, SHOPUI.order),
     board: { size: g.board.size, difficulty: g.board.difficulty,
@@ -12039,6 +12713,7 @@ function anvilSnapshot() {
 
 /* Restore a half-worked board, or refuse it if it no longer adds up. */
 function resumeAnvil(snap) {
+  if (snap && snap.special) return resumeSpecialAnvil(snap);
   if (!snap || !snap.board || !snap.order) return false;
   const size = snap.board.size, n = size * size;
   if (!(n > 0) || !Array.isArray(snap.pieces) || snap.pieces.length !== n) return false;
@@ -12087,6 +12762,43 @@ function resumeAnvil(snap) {
   render();
   return true;
 }
+/* An attempt put down half way through comes back on the same blows. It is
+   the attempt the record says is under way - nothing is charged again - and
+   one the record does not have is not restored at all. */
+function resumeSpecialAnvil(snap) {
+  const id = snap.special;
+  if (specialStage(shop(), id) !== 'forging') return false;
+  const board = specialBoard(id);
+  if (!board) return false;
+  const n = board.size * board.size;
+  if (!Array.isArray(snap.pieces) || snap.pieces.length !== n) return false;
+  if (!Array.isArray(snap.strikes) || snap.strikes.length !== n) return false;
+  if (snap.status === 'complete' || snap.status === 'lost') return false;
+  // the play has to fit the piece: air stays air, and no count is negative
+  for (let i = 0; i < n; i++) {
+    const metal = isMetal(board, i);
+    const p = snap.pieces[i];
+    if (metal ? !(p === null || PIECES[p]) : p != null) return false;
+    if (!(Number(snap.strikes[i]) >= 0) || (!metal && Number(snap.strikes[i]) !== 0)) return false;
+  }
+  SHOPUI.order = null;
+  SHOPUI.special = id;
+  cancelPending(false);
+  $('shopView').hidden = true;
+  syncModeChrome();
+  buildTiles(board.size, board);
+  App.game = createGame(board, { mode: 'forge', rules: 'shop', perfect: board.visits,
+    spent: board.visits + 1, ladder: shopLadder(), rnd: App.rnd });
+  App.game.pieces = snap.pieces.slice();
+  App.game.strikes = snap.strikes.map(function (s) { return Math.round(Number(s) || 0); });
+  App.game.current = Number.isInteger(snap.current) && isMetal(board, snap.current) ? snap.current : -1;
+  App.game.totalStrikes = Math.max(0, Math.round(Number(snap.totalStrikes) || 0));
+  App.game.status = snap.status === 'playing' ? 'playing' : 'ready';
+  buildLegend();
+  render();
+  return true;
+}
+
 function esc(text) {
   return String(text).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -12105,7 +12817,9 @@ function itemSprite(itemId, materialId, extra) {
   const mt = shopMaterial(materialId);
   const tint = mt && mt.tint ? mt.tint : '#b6bfca';
   const label = mt ? mt.name + ' ' + it.name : it.name;
-  return '<svg class="sprite' + (extra ? ' ' + extra : '') + '" viewBox="0 0 24 24" ' +
+  // a named masterwork is edged in gold wherever it is drawn
+  return '<svg class="sprite' + (it.special ? ' named' : '') + (extra ? ' ' + extra : '') +
+    '" viewBox="0 0 24 24" ' +
     'style="color:' + tint + '" role="img" aria-label="' + esc(label) + '">' +
     '<use href="#it-' + it.id + '"></use></svg>';
 }
@@ -12475,7 +13189,8 @@ function sceneCounterArt() {
 function sceneBoardArt(sh) {
   let s = '<rect x="2" y="2" width="54" height="64" rx="2" fill="#8a6a45" stroke="' + SCENE.out + '" stroke-width="1.5"/>' +
     '<rect x="6" y="6" width="46" height="56" fill="#a07a4c"/>';
-  const due = readyToRank(sh).length + (sh.commissionOffers || []).length;
+  const due = readyToRank(sh).length + (sh.commissionOffers || []).length +
+    (sh.specialOffers || []).length;
   const notes = Math.max(1, Math.min(4, due + 1));
   for (let n = 0; n < notes; n++) {
     const x = 10 + (n % 2) * 21, y = 10 + Math.floor(n / 2) * 24;
@@ -13729,6 +14444,23 @@ function phaseSummaryHtml(replay) {
     }
     html += '</div>';
   }
+  // and the special commissions, answered here or later in the Ledger
+  const named = (sh.specialOffers || []).filter(function (o) { return !!specialDef(o.special); });
+  if (named.length) {
+    html += '<div class="summary-offers"><b>' + named.length +
+      (named.length === 1 ? ' special commission offer is' : ' special commission offers are') +
+      ' waiting for your answer</b>';
+    for (const o of named) {
+      const def = specialDef(o.special);
+      const mt = shopMaterial(def.material);
+      html += '<div class="so-row">' + itemSprite(def.id, def.material) + '<span>' +
+        esc(o.name) + ' (' + esc(o.trade) + '): ' + esc(shopItem(def.id).name) +
+        ' · design ' + def.design + ', mold ' + def.mold + ', ' + def.qty + ' ' + esc(mt.name) +
+        '</span><button type="button" data-special-take="' + def.id + '">Accept</button>' +
+        '<button type="button" data-special-drop="' + def.id + '">Decline</button></div>';
+    }
+    html += '</div>';
+  }
   // an apprentice's closing note says nothing their batch did not already say
   const detail = reports.filter(function (r) {
     return r && r.kind && r.kind !== 'day' && r.kind !== 'apprentice';
@@ -13741,7 +14473,7 @@ function phaseSummaryHtml(replay) {
 }
 function shopShowSummary(replay, done) {
   const reports = replay.reports || [];
-  const offers = (shop().commissionOffers || []).length;
+  const offers = (shop().commissionOffers || []).length + (shop().specialOffers || []).length;
   if (!reports.length && !offers) { if (done) done(); return; }
   const draw = function () {
     shopSheet((replay.closing || 'Phase') + ' summary', phaseSummaryHtml(replay),
@@ -13794,7 +14526,9 @@ function tabGroupOf(tabId) {
 }
 /* What is waiting in each drawer, so a closed one still says so. */
 function tabGroupNote(sh, group) {
-  if (group.id === 'business') return (sh.commissionOffers || []).length;
+  if (group.id === 'business') {
+    return (sh.commissionOffers || []).length + (sh.specialOffers || []).length;
+  }
   if (group.id === 'people') return readyToRank(sh).length;
   return 0;
 }
@@ -14649,6 +15383,9 @@ function contractCardHtml(sh, com, offer) {
 }
 
 function shopLedgerHtml(sh) {
+  return shopContractsHtml(sh) + specialLedgerHtml(sh);
+}
+function shopContractsHtml(sh) {
   const due = nextCommissionDue(sh);
   let html = '<p class="shop-cap">Commissions ' + sh.commissions.length + ' / ' +
     SHOP.commission.maxActive +
@@ -15849,8 +16586,34 @@ function almanacState(sh, id) {
   return st.ready ? 'available' : 'locked';
 }
 
+/* How a named masterwork is earned, or how far its commission has got. */
+function specialBlocker(sh, id) {
+  const def = specialDef(id);
+  const it = shopItem(id);
+  const cat = shopCategory(it.cat);
+  const trade = specialTradeName(def);
+  const stage = specialStage(sh, id);
+  const rec = specialRecord(sh, id);
+  if (stage === 'offered') {
+    return 'Offered by ' + specialOfferById(sh, id).name + ' the ' + trade +
+      '. Answer it in the Ledger';
+  }
+  if (stage === 'design' || stage === 'mold' || stage === 'ready' || stage === 'forging') {
+    return 'Special commission accepted for ' + (rec.customer || 'a customer') + '. Stage: ' +
+      SPECIAL_STAGE_NAMES[stage] + '. See the Ledger';
+  }
+  const need = [];
+  if (!hasDiscipline(sh, it.cat)) need.push('take up the ' + (cat ? cat.name : it.cat) + ' craft');
+  if (sh.reputation < def.rep) {
+    need.push('reach reputation ' + def.rep + ' (you have ' + Math.round(sh.reputation) + ')');
+  }
+  return 'Earned only by completing its Special Commission, which ' + article(trade) + ' ' +
+    trade + ' may offer at your counter' + (need.length ? ' once you ' + need.join(' and ') : '');
+}
+
 /* The one thing standing in the way, in the words the shop would use. */
 function almanacBlocker(sh, st) {
+  if (st.special) return specialBlocker(sh, st.id);
   if (!st.discipline) {
     const cat = shopCategory(st.cat);
     return 'Take up the ' + (cat ? cat.name : 'this') + ' craft first';
@@ -15901,7 +16664,8 @@ function almanacCraftsHtml(sh) {
     const sum = disciplineSummary(sh, c.id);
     const st = disciplineStatus(sh, c.id);
     const root = shopItem(disciplineRoot(c.id));
-    const examples = disciplineItems(c.id).slice(-3).map(function (it) { return it.name; });
+    const examples = disciplineItems(c.id).filter(function (it) { return !it.special; })
+      .slice(-3).map(function (it) { return it.name; });
     html += '<button class="craft-card' + (sum.held ? '' : ' shut') + '" type="button"' +
       ' data-craft="' + esc(c.id) + '" aria-label="' + esc(c.name + ', ' +
         (sum.held ? sum.unlocked + ' of ' + sum.count + ' blueprints unlocked, ' + sum.xp +
@@ -15912,7 +16676,8 @@ function almanacCraftsHtml(sh) {
       (sum.held
         ? '<span class="cc-stats"><b>' + sum.xp + '</b> XP · ' +
           sum.unlocked + '/' + sum.count + ' unlocked' +
-          (sum.mastered ? ' · ' + sum.mastered + ' mastered' : '') + '</span>'
+          (sum.mastered ? ' · ' + sum.mastered + ' mastered' : '') +
+          (sum.earned ? ' · ' + sum.earned + ' named' : '') + '</span>'
         : '<span class="cc-shut">' + (st.repShort
           ? 'Requires ' + terms.rep + ' reputation (you have ' + Math.round(sh.reputation) + ')'
           : 'Take up for ' + coin(terms.cost) + 'g') + '</span>') +
@@ -16008,6 +16773,23 @@ function almanacCraftHtml(sh, catId) {
   html += '<div class="alm-scroll">' + almanacTreeHtml(sh, catId) + '</div>';
   html += '<p class="alm-lead" style="margin-top:8px">Tap a blueprint to unlock or upgrade ' +
     'it, or to see its requirements.</p>';
+  // the named masterworks of this craft, beside the tree rather than on it
+  const named = disciplineItems(catId).filter(function (it) { return it.special; });
+  if (named.length) {
+    html += '<p class="shop-cap" style="margin-top:12px">Special Commission Blueprints</p>' +
+      '<div class="alm-specials">';
+    for (const it of named) {
+      const level = blueprintLevel(sh, it.id);
+      const why = level > 0 ? 'Earned \u00b7 level ' + level + ' of ' + SHOP.craft.maxLevel
+        : specialBlocker(sh, it.id) + '.';
+      html += '<button class="alm-special' + (level > 0 ? ' earned' : '') + '" type="button" ' +
+        'data-recipe="' + esc(it.id) + '" aria-label="' + esc(it.name + ', ' + why) + '">' +
+        blueprintSprite(sh, it.id, 'lg') +
+        '<span><span class="nm">' + esc(it.name) + '</span><span class="sub">' + esc(why) +
+        '</span></span></button>';
+    }
+    html += '</div>';
+  }
   return html;
 }
 
@@ -16052,7 +16834,8 @@ function shopOpenRecipe(id) {
     item.size + '×' + item.size + ' board</span>' +
     '<span class="bp-state ' + state + '">' + esc(state === 'mastered' ? 'Mastered'
       : state === 'unlocked' ? 'Level ' + st.level + ' of ' + SHOP.craft.maxLevel
-        : state === 'available' ? 'Ready to unlock' : 'Locked') + '</span></div>';
+        : state === 'available' ? 'Ready to unlock'
+          : st.special ? 'Special Commission' : 'Locked') + '</span></div>';
 
   if (st.known) {
     const pips = [];
@@ -16087,6 +16870,14 @@ function shopOpenRecipe(id) {
   body += rowHtml('Crafting XP', 'for one bronze item at quality 100',
     craftXpFor(id, 'bronze', 100) + ' ' + esc((cat ? cat.name : '').toLowerCase()) + ' XP');
   body += rowHtml('Wanted by', wants.length ? esc(wants.join(', ')) : 'no customer type', '');
+  if (st.special) {
+    const def = specialDef(id);
+    const mt = shopMaterial(def.material);
+    body += rowHtml('Named masterwork', 'earned by a special commission from ' +
+      article(specialTradeName(def)) + ' ' + esc(specialTradeName(def)) + ' (reputation ' + def.rep +
+      '): design ' + def.design + ', mold ' + def.mold + ', then a perfect forge in ' +
+      def.qty + ' ' + esc(mt.name) + '. Copies need none of that.', '');
+  }
   body += rowHtml('Sold on', esc(stand ? stand.name : 'no stand'), '');
   if (st.parents.length) {
     const p = st.parents[0];
@@ -16356,6 +17147,7 @@ function shopCounterStep() {
   if (event.kind === 'leave') { shopCounterOutcome(event); return; }
   if (event.kind === 'sale') { shopCounterOutcome(event); return; }
   if (event.kind === 'commission') { shopCounterContract(event); return; }
+  if (event.kind === 'special') { shopCounterSpecial(event); return; }
 
   const p = event;
   // the door, but only for somebody new - a haggle redraws this same screen
@@ -16445,6 +17237,36 @@ function shopCounterContract(event) {
       { label: 'Decline Commission', ghost: true,
         onClick: function () { shopCounterAnswerContract(false); } }
     ]);
+}
+
+/* Somebody at the counter asking for one named piece. Answering is free;
+   the work is the player's to give phases to later. */
+function shopCounterSpecial(event) {
+  const sh = shop();
+  const session = SHOPUI.session;
+  const def = specialDef(event.offer.special);
+  if (SHOPUI.ringed !== event) { SHOPUI.ringed = event; SOUNDS.doorbell(); }
+  shopSheet('Special Commission',
+    custLine(session) + custHead(event) +
+    '<p class="cust-want">' + esc(event.name) + ' asks you to make something for them alone.</p>' +
+    specialOfferHtml(sh, def, event.offer, '') + counterLogHtml(),
+    [
+      { label: 'Accept Commission', primary: true,
+        onClick: function () { shopCounterAnswerSpecial(true); } },
+      { label: 'Decline', ghost: true, onClick: function () { shopCounterAnswerSpecial(false); } }
+    ]);
+}
+function shopCounterAnswerSpecial(take) {
+  const session = SHOPUI.session;
+  const result = counterAnswerSpecial(session, shop(), take);
+  if (!result) { shopCounterStep(); return; }
+  if (result.kind === 'special-taken') {
+    SOUNDS.prosper(false);
+    session.events.push({ kind: 'contract', text: result.name + ': special commission for the ' +
+      shopItem(result.special).name + ' accepted' });
+  }
+  shopRenderBar();
+  shopCounterOutcome(result);
 }
 
 function shopCounterAnswerContract(take) {
@@ -16589,7 +17411,8 @@ function shopCounterOutcome(event) {
   }
   const more = session.at < session.queue.length;
   const sold = event.kind === 'sale';
-  const booked = event.kind === 'contract';
+  const special = event.kind === 'special-taken';
+  const booked = event.kind === 'contract' || special;
   // the stamp is the moment the player reads, so the sound lands with it
   if (sold) SOUNDS.coins(Math.min(3, event.price / 60));
   else if (!booked) SOUNDS.walkout();
@@ -16602,18 +17425,22 @@ function shopCounterOutcome(event) {
       : '') +
     '<div class="stamp' + (booked ? ' booked' : sold ? '' : ' lost') + '">' +
     (sold ? lineSprite(event.key, 'xl')
-      : booked ? contractSprite('xl') : portrait(event.type)) +
+      : special ? itemSprite(event.special, specialDef(event.special).material, 'xl')
+        : booked ? contractSprite('xl') : portrait(event.type)) +
     '<span class="word">' + (sold ? 'Sold' : booked ? 'Accepted' : 'No sale') + '</span>' +
     (sold ? '<span class="sum">+' + coin(event.price) + 'g</span>' : '') +
-    (booked ? '<span class="sum">+' + coin(event.advance) + 'g</span>' : '') +
+    (booked && !special ? '<span class="sum">+' + coin(event.advance) + 'g</span>' : '') +
     '<span class="note">' + esc(event.name) +
     (sold ? ' bought the ' + lineName(event.key) + ' (' + esc(event.how) + ').' +
       (event.got ? ' This was the item they wanted.' : '')
-      : booked ? ': ' + event.commission.qty + ' ' + lineName(event.commission.key) +
-        ' due in ' + event.commission.days + ' days. Added to the Ledger.'
-        : ' left: ' + esc(event.why) + '.') +
+      : special ? ': the ' + esc(shopItem(event.special).name) + ' is added to Special ' +
+        'Commissions in the Ledger. No deadline.'
+        : booked ? ': ' + event.commission.qty + ' ' + lineName(event.commission.key) +
+          ' due in ' + event.commission.days + ' days. Added to the Ledger.'
+          : ' left: ' + esc(event.why) + '.') +
     '</span></div>' + counterLogHtml();
-  shopSheet(sold ? 'Sold' : booked ? 'Commission Accepted' : 'No Sale', body,
+  shopSheet(sold ? 'Sold' : special ? 'Special Commission Accepted'
+    : booked ? 'Commission Accepted' : 'No Sale', body,
     [{ label: more ? 'Next Customer' : 'Finish Selling', primary: true,
       onClick: function () {
         if (more) shopCounterStep();
@@ -16792,6 +17619,308 @@ function shopAnswerOffer(id, take) {
   announce('Accepted commission: ' + offer.qty + ' ' + lineName(offer.key) + ' for ' +
     offer.name + '.');
   shopToast(coin(res.advance) + 'g advance received. Due in ' + offer.days + ' days.');
+}
+
+/* ---------- special commissions ------------------------------------------
+   Put at the counter, kept in the Ledger, and worked by the player alone:
+   design, mold, then one perfect forge on the piece's own silhouette. */
+const SPECIAL_STAGE_NAMES = { open: 'Not offered', offered: 'Offered', design: 'Design',
+  mold: 'Mold', ready: 'Ready to Forge', forging: 'Forging', done: 'Completed' };
+
+function specialTradeName(def) {
+  const type = shopCustomerType(def.customer);
+  return type ? type.name : def.customer;
+}
+function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+
+/* What it takes, in the three stages, for an offer and a card alike. */
+function specialStepsHtml(sh, def, rec) {
+  const mt = shopMaterial(def.material);
+  const stage = rec ? specialStage(sh, def.id) : null;
+  const step = function (label, value, key, finished) {
+    return '<span class="sp-step' + (stage === key ? ' now' : '') + (finished ? ' done' : '') + '">' +
+      label + '<b>' + value + '</b></span>';
+  };
+  if (!rec || rec.status === 'open') {
+    return '<div class="sp-steps">' +
+      step('Design', plural(def.design, 'phase', 'phases'), '', false) +
+      step('Mold', plural(def.mold, 'phase', 'phases'), '', false) +
+      step('Forge', def.qty + ' ' + esc(mt.name), '', false) + '</div>';
+  }
+  return '<div class="sp-steps">' +
+    step('Design', rec.design + ' / ' + def.design, 'design', rec.design >= def.design) +
+    step('Mold', rec.mold + ' / ' + def.mold, 'mold', rec.mold >= def.mold) +
+    step('Forge', stage === 'done' ? 'Perfect' : def.qty + ' ' + esc(mt.name), 'ready',
+      stage === 'done') + '</div>';
+}
+
+/* The rules of the forge stage, said once, the same way everywhere. */
+function specialForgeNote(sh, def) {
+  const mt = shopMaterial(def.material);
+  return 'Each forging attempt uses ' + def.qty + ' ' + mt.name + ' ingots and one phase. ' +
+    'Every square needs exactly ' + plural(mt.strikes, 'strike', 'strikes') + '; only a ' +
+    'perfect forge (quality 100) completes it. No deadline.';
+}
+
+/* An offer, at the counter or waiting in the Ledger. */
+function specialOfferHtml(sh, def, offer, buttons) {
+  const it = shopItem(def.id);
+  const cat = shopCategory(it.cat);
+  return '<div class="special-card" data-special-offer="' + def.id + '">' +
+    '<div class="sp-head">' + itemSprite(def.id, def.material, 'xl') +
+    '<span class="nm">' + esc(it.name) + '<span class="sub">' + esc(offer.name) + ', ' +
+    esc(offer.trade || specialTradeName(def)) + ' · ' + esc(cat ? cat.name : it.cat) +
+    '</span></span><span class="sp-stage">Offered</span></div>' +
+    '<p class="sp-text">' + esc(def.blurb) + '</p>' +
+    '<p class="sp-quote">\u201c' + esc(def.request) + '\u201d</p>' +
+    specialStepsHtml(sh, def, null) +
+    '<p class="sp-meta">' + esc(specialForgeNote(sh, def)) + ' A perfect forge unlocks the ' +
+    esc(it.name) + ' blueprint. Requires reputation ' + def.rep + '.</p>' +
+    (buttons ? '<div class="sp-actions">' + buttons + '</div>' : '') + '</div>';
+}
+
+/* A commission taken on, or finished. */
+function specialCardHtml(sh, def) {
+  const rec = specialRecord(sh, def.id);
+  const stage = specialStage(sh, def.id);
+  const it = shopItem(def.id);
+  const mt = shopMaterial(def.material);
+  const cat = shopCategory(it.cat);
+  const done = stage === 'done';
+  let html = '<div class="special-card' + (done ? ' done' : '') + '" data-special-card="' +
+    def.id + '">' +
+    '<div class="sp-head">' + itemSprite(def.id, def.material, 'xl') +
+    '<span class="nm">' + esc(it.name) + '<span class="sub">for ' +
+    esc(rec.customer || 'a customer') + ', ' + esc(rec.trade || specialTradeName(def)) +
+    '</span></span><span class="sp-stage' + (done ? ' done' : '') + '">' +
+    SPECIAL_STAGE_NAMES[stage] + '</span></div>';
+  if (done) {
+    return html + '<p class="sp-text">Delivered on day ' + rec.doneDay + ' after ' +
+      plural(rec.attempts, 'attempt', 'attempts') + '. The ' + esc(it.name) + ' blueprint is ' +
+      'in the Almanac under ' + esc(cat ? cat.name : it.cat) + '.</p></div>';
+  }
+  html += '<p class="sp-text">' + esc(def.blurb) + '</p>' + specialStepsHtml(sh, def, rec);
+  const have = sh.materials[def.material] || 0;
+  html += '<p class="sp-meta">' + esc(specialForgeNote(sh, def)) + ' You have ' + have + ' ' +
+    esc(mt.name) + ' ingots. Attempts so far: ' + rec.attempts +
+    (rec.best ? ' (best quality ' + rec.best + ')' : '') + '.</p>';
+  const blocked = shopPhaseBlocker();
+  let label = '';
+  if (stage === 'design') label = 'Work on Design (Uses Phase)';
+  else if (stage === 'mold') label = 'Fashion Mold (Uses Phase)';
+  else if (stage === 'ready') label = 'Attempt Forge';
+  else if (stage === 'forging') label = 'Resume Attempt';
+  if (stage === 'forging') {
+    html += '<p class="sp-text">An attempt is under way. Its ingots are already spent.</p>';
+  }
+  if (label) {
+    html += '<div class="sp-actions"><button type="button" class="primary" data-special-act="' +
+      def.id + '"' + (blocked && stage !== 'forging' ? ' disabled' : '') + '>' + label +
+      '</button></div>';
+  }
+  return html + '</div>';
+}
+
+/* The Ledger's own section: what is waiting for an answer, what is being
+   worked on and what has been delivered. */
+function specialLedgerHtml(sh) {
+  const offers = (sh.specialOffers || []).filter(function (o) { return !!specialDef(o.special); });
+  const active = SHOP.specials.filter(function (d) {
+    return ['design', 'mold', 'ready', 'forging'].indexOf(specialStage(sh, d.id)) >= 0;
+  });
+  const done = SHOP.specials.filter(function (d) { return specialStage(sh, d.id) === 'done'; });
+  let html = '<p class="shop-cap" style="margin-top:14px">Special Commissions · ' +
+    active.length + ' active · ' + done.length + ' of ' + SHOP.specials.length + ' completed</p>';
+  if (!offers.length && !active.length && !done.length) {
+    return html + '<p class="ledger-note">A special commission is a request for one named item, ' +
+      'made by a customer of a particular trade once your reputation is high enough and you ' +
+      'have taken up the craft it belongs to. You design it, fashion its mold and forge it ' +
+      'yourself; there is no deadline. A perfect forge unlocks its blueprint for good.</p>';
+  }
+  if (offers.length) {
+    html += '<p class="ledger-note"><b>Waiting for your answer.</b> Accepting or declining is ' +
+      'free and uses no phase. A declined commission may be offered again later.</p>' +
+      '<div class="shop-list">';
+    for (const o of offers) {
+      const def = specialDef(o.special);
+      html += specialOfferHtml(sh, def, o,
+        '<button type="button" class="primary" data-special-take="' + def.id + '">Accept</button>' +
+        '<button type="button" data-special-drop="' + def.id + '">Decline</button>');
+    }
+    html += '</div>';
+  }
+  if (active.length || done.length) {
+    html += '<p class="ledger-note">Design and mold phases are yours alone: employees cannot ' +
+      'work on them or forge the original. Progress is kept if an attempt fails.</p>' +
+      '<div class="shop-list">';
+    for (const d of active) html += specialCardHtml(sh, d);
+    for (const d of done) html += specialCardHtml(sh, d);
+    html += '</div>';
+  }
+  return html;
+}
+
+/* Answer one an employee wrote down. */
+function shopAnswerSpecial(id, take) {
+  const sh = shop();
+  const offer = specialOfferById(sh, id);
+  if (!offer) return;
+  const it = shopItem(id);
+  if (!take) {
+    declineSpecial(sh, id);
+    shopRender();
+    announce('Declined ' + offer.name + '\u2019s special commission.');
+    shopToast('Special commission declined. It may be offered again later.');
+    return;
+  }
+  const res = acceptSpecialOffer(sh, id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  SOUNDS.prosper(false);
+  shopRender();
+  announce('Accepted special commission: ' + it.name + ' for ' + offer.name + '.');
+  shopToast(it.name + ' added to Special Commissions in the Ledger.');
+}
+
+/* The one button on a card: design, mold, forge or carry on forging. */
+function shopSpecialAct(id) {
+  const sh = shop();
+  const def = specialDef(id);
+  if (!def) return;
+  const it = shopItem(id);
+  const stage = specialStage(sh, id);
+  // an attempt already paid for carries on where it is, on the same phase
+  if (stage === 'forging') { shopStartSpecialBoard(id); return; }
+  const blocked = shopPhaseBlocker();
+  if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
+  if (stage === 'ready') { shopOpenSpecialAttempt(id); return; }
+  if (stage !== 'design' && stage !== 'mold') return;
+  const res = specialWork(sh, id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  const note = res.stage === 'design'
+    ? (res.next === 'design' ? 'Design ' + res.design + '/' + def.design + ' for the ' + it.name + '.'
+      : 'Design finished for the ' + it.name + '. Fashion the mold next.')
+    : (res.next === 'mold' ? 'Mold ' + res.mold + '/' + def.mold + ' for the ' + it.name + '.'
+      : 'Mold finished. The ' + it.name + ' is ready to forge.');
+  announce(note);
+  shopSpendPhase(note);
+}
+
+/* What an attempt will cost, said before anything is spent. */
+function shopOpenSpecialAttempt(id) {
+  const sh = shop();
+  const def = specialDef(id);
+  const it = shopItem(id);
+  const mt = shopMaterial(def.material);
+  const rec = specialRecord(sh, id);
+  const have = sh.materials[def.material] || 0;
+  const check = specialAttemptCheck(sh, id);
+  const blocked = shopPhaseBlocker();
+  const board = specialBoard(id);
+  let html = '<div class="sp-head">' + itemSprite(id, def.material, 'xl') +
+    '<span class="nm">' + esc(it.name) + '<span class="sub">for ' + esc(rec.customer) + ', ' +
+    esc(rec.trade || specialTradeName(def)) + '</span></span></div>' +
+    '<div class="shop-list" style="margin-top:8px">' +
+    rowHtml('Ingots required', 'committed when the attempt starts', def.qty + ' ' + esc(mt.name)) +
+    rowHtml('Ingots in stock', esc(mt.name), String(have)) +
+    rowHtml('Puzzle', metalCount(board) + ' squares in the shape of the ' + esc(it.name),
+      plural(mt.strikes, 'strike', 'strikes') + ' each') +
+    rowHtml('Attempts so far', rec.best ? 'best quality ' + rec.best : 'none finished yet',
+      String(rec.attempts)) +
+    '</div>' +
+    '<p class="sp-meta" style="margin-top:8px">The ingots are used when the attempt starts and ' +
+    'are not returned, whatever the result. Only a perfect forge (quality 100) completes the ' +
+    'commission. If the piece is imperfect or you run out of moves, the design and mold are ' +
+    'kept and you can try again with another ' + def.qty + ' ' + esc(mt.name) + ' ingots. ' +
+    'The attempt uses this phase.</p>';
+  if (!check.ok) html += '<p class="hire-warn">Cannot start: ' + esc(check.why) + '.</p>';
+  else if (blocked) html += '<p class="hire-warn">' + esc(blocked) + '</p>';
+  shopSheet('Attempt Forge', html, [
+    { label: 'Start Attempt · ' + def.qty + ' ' + mt.name, primary: true,
+      disabled: !check.ok || !!blocked, onClick: function () { shopBeginSpecial(id); } },
+    { label: 'Back', ghost: true, onClick: shopSheetClose }
+  ]);
+}
+
+/* Commit the metal and put the piece on the anvil. A second tap finds the
+   attempt already under way and does nothing. */
+function shopBeginSpecial(id) {
+  if (SHOPUI.special || SHOPUI.order) return;
+  const blocked = shopPhaseBlocker();
+  if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
+  const res = beginSpecialAttempt(shop(), id);
+  if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+  shopStartSpecialBoard(id);
+}
+
+/* The piece on the anvil: its own silhouette, its own metal's strikes. Used
+   for a fresh attempt and for one carried on, which costs nothing more. */
+function shopStartSpecialBoard(id) {
+  const board = specialBoard(id);
+  const def = specialDef(id);
+  if (!board || specialStage(shop(), id) !== 'forging') return;
+  shopSheetClose();
+  SHOPUI.order = null;
+  SHOPUI.special = id;
+  cancelPending(false);
+  App.game = null;
+  $('shopView').hidden = true;
+  syncModeChrome();
+  buildTiles(board.size, board);
+  startGame(board, { perfect: board.visits, spent: board.visits + 1, ladder: shopLadder() });
+  buildLegend();
+  // the attempt and its board are saved before the first blow
+  saveShop();
+  announce(board.name + ' on the anvil. ' + shopMaterial(def.material).name + ': every square ' +
+    'needs exactly ' + plural(board.visits, 'strike', 'strikes') + '. Choose any square to begin.');
+}
+
+/* The attempt is over: say how it went, once, and spend the phase. */
+function shopSpecialResult(outcome, result) {
+  const id = SHOPUI.special;
+  SHOPUI.special = null;
+  const sh = shop();
+  const def = specialDef(id);
+  const it = shopItem(id);
+  const mt = shopMaterial(def.material);
+  const rec = specialRecord(sh, id);
+  const res = finishSpecialAttempt(sh, id, outcome, result ? result.quality : 0);
+  shopReturn();
+  if (!res.ok) return;
+  let title, body, note;
+  if (res.done) {
+    const cat = shopCategory(it.cat);
+    title = 'Commission Complete';
+    body = '<div class="stamp booked">' + itemSprite(id, def.material, 'xl') +
+      '<span class="word">Perfect</span><span class="sum">Quality 100</span>' +
+      '<span class="note">The ' + esc(it.name) + ' is delivered to ' + esc(rec.customer) + '.</span>' +
+      '</div><div class="learned"><b>Blueprint unlocked</b><span>' + esc(it.name) + ' is now in ' +
+      'the Almanac under ' + esc(cat ? cat.name : it.cat) + '. You and your Smiths can forge ' +
+      'copies in any metal, on the ordinary ' + it.size + '\u00d7' + it.size + ' board.</span></div>';
+    note = it.name + ' delivered. Blueprint unlocked.';
+  } else if (outcome === 'complete') {
+    title = 'Forged Imperfectly';
+    body = '<div class="stamp lost">' + itemSprite(id, def.material, 'xl') +
+      '<span class="word">Quality ' + res.quality + '</span>' +
+      '<span class="note">Every square was forged, but some were struck too many times. ' +
+      'The commission needs a perfect forge (quality 100).</span></div>' +
+      '<p class="sp-meta">The ' + def.qty + ' ' + esc(mt.name) + ' ingots are spent. Your ' +
+      'design and mold are kept: try again with another ' + def.qty + ' ' + esc(mt.name) +
+      ' ingots.</p>';
+    note = 'The ' + it.name + ' was forged imperfectly (quality ' + res.quality + ').';
+  } else {
+    title = 'Attempt Failed';
+    body = '<div class="stamp lost">' + itemSprite(id, def.material, 'xl') +
+      '<span class="word">Failed</span><span class="note">No legal moves were left before ' +
+      'every square was finished.</span></div>' +
+      '<p class="sp-meta">The ' + def.qty + ' ' + esc(mt.name) + ' ingots are spent. Your ' +
+      'design and mold are kept: try again with another ' + def.qty + ' ' + esc(mt.name) +
+      ' ingots.</p>';
+    note = 'The ' + it.name + ' attempt failed.';
+  }
+  if (res.done) SOUNDS.prosper(true);
+  announce(title + '. ' + note);
+  shopSheet(title, body, [{ label: 'Return to Shop', primary: true,
+    onClick: function () { shopSheetClose(); shopSpendPhase(note); } }]);
 }
 
 /* Promise everything the storeroom can spare to a contract in one tap: a
@@ -17220,6 +18349,7 @@ function shopStartForge() {
   if (!check.ok) { shopToast(check.why); return; }
   const spec = forgeBoardSpec(sh, d.item, d.material, d.qty);
   SHOPUI.order = { item: d.item, material: d.material, qty: d.qty };
+  SHOPUI.special = null;
   shopSheetClose();
 
   cancelPending(false);
@@ -17615,6 +18745,7 @@ function startShop(resume, name) {
     SHOPUI.tab = null;
     SHOPUI.session = null;
     SHOPUI.order = null;
+    SHOPUI.special = null;
     $('titleScreen').hidden = true;
     $('shopView').hidden = false;
     syncModeChrome();
@@ -17626,7 +18757,7 @@ function startShop(resume, name) {
       return;
     }
     if (resume.anvil && resumeAnvil(resume.anvil)) {
-      announce('Batch in progress restored.');
+      announce(SHOPUI.special ? 'Special commission attempt restored.' : 'Batch in progress restored.');
       return;
     }
     // closed during a phase's playback: the phase itself resolved and was
@@ -17649,6 +18780,7 @@ function startShop(resume, name) {
   SHOPUI.tab = null;
   SHOPUI.session = null;
   SHOPUI.order = null;
+  SHOPUI.special = null;
   $('titleScreen').hidden = true;
   $('shopView').hidden = false;
   syncModeChrome();
@@ -17807,6 +18939,13 @@ function wireShop() {
         : (rows.length ? rows[0].why : 'No assignments were made yesterday.'));
       return;
     }
+    // the ledger's special commissions
+    const stake = t.closest('[data-special-take]');
+    if (stake) { shopAnswerSpecial(stake.dataset.specialTake, true); return; }
+    const sdrop = t.closest('[data-special-drop]');
+    if (sdrop) { shopAnswerSpecial(sdrop.dataset.specialDrop, false); return; }
+    const sact = t.closest('[data-special-act]');
+    if (sact && !sact.disabled) { shopSpecialAct(sact.dataset.specialAct); return; }
     // the ledger
     const take = t.closest('[data-take]');
     if (take) { shopAnswerOffer(Number(take.dataset.take), true); return; }
@@ -18049,6 +19188,13 @@ function wireShop() {
     const alt = e.target.closest ? e.target.closest('[data-alt]') : null;
     if (alt) { shopCounterOfferAlt(alt.dataset.alt); return; }
     // a contract answered from the end-of-phase summary
+    const stake = e.target.closest ? e.target.closest('[data-special-take]') : null;
+    const sdrop = e.target.closest ? e.target.closest('[data-special-drop]') : null;
+    if (stake || sdrop) {
+      shopAnswerSpecial((stake || sdrop).dataset[stake ? 'specialTake' : 'specialDrop'], !!stake);
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
     const otake = e.target.closest ? e.target.closest('[data-offer-take]') : null;
     const odrop = e.target.closest ? e.target.closest('[data-offer-drop]') : null;
     if (otake || odrop) {
@@ -18150,7 +19296,9 @@ function slotLine(slot) {
   return '<span class="fs-line">Day <b>' + sh.day + '</b>, ' + esc(shopPhaseName(sh)) +
     ' \u00b7 <b>' + coin(sh.gold) + 'g</b> \u00b7 ' + shopStars(sh) + ' of 5 \u00b7 ' +
     sh.staff.length + (sh.staff.length === 1 ? ' employee' : ' employees') +
-    (slot.anvil ? ' \u00b7 <span class="fs-anvil">order in progress</span>' : '') +
+    (slot.anvil ? ' \u00b7 <span class="fs-anvil">' +
+      (slot.anvil.special ? 'special commission attempt in progress' : 'order in progress') +
+      '</span>' : '') +
     '</span>';
 }
 
@@ -18294,7 +19442,7 @@ function syncModeChrome() {
   // Open Your Forge owns the screen except while an order is on the anvil,
   // when it borrows the board and nothing else.
   const shop = App.mode === 'shop';
-  const atAnvil = shop && !!SHOPUI.order;
+  const atAnvil = shop && !!(SHOPUI.order || SHOPUI.special);
   if (shop) {
     $('designView').hidden = true;
     $('versusView').hidden = true;
@@ -18308,13 +19456,17 @@ function syncModeChrome() {
     $('statsEndless').hidden = true;
     $('materialBar').hidden = true;
     document.querySelector('.difficulty:not(#titleDiff)').hidden = true;
-    $('pieceBar').hidden = true;
+    // a special commission's piece shows its parts as they are finished; and
+    // an attempt is never restarted for free - its metal is already spent
+    $('pieceBar').hidden = !SHOPUI.special;
     $('restartBtn').textContent = 'Restart Board';
+    $('restartBtn').hidden = !!SHOPUI.special;
     $('newBtn').hidden = true;
     $('menuActionBtn').hidden = false;
-    $('menuActionBtn').textContent = 'Abandon Order';
+    $('menuActionBtn').textContent = SHOPUI.special ? 'Abandon Attempt' : 'Abandon Order';
     return;
   }
+  $('restartBtn').hidden = false;
   $('shopView').hidden = true;
   $('menuActionBtn').textContent = 'Main Menu';
   // The versus match has its own view and its own controls.
@@ -19101,6 +20253,21 @@ function helpHtml() {
     'the balance and costs ' + Math.abs(com.repFailed) + ' reputation; assigned items ' +
     'return to storage.');
 
+  html += H('Special Commissions');
+  html += P('A special commission is a request for one named item, made once. Each comes from ' +
+    'one trade only, once your reputation is high enough and you have taken up the craft it ' +
+    'belongs to: ' + SHOP.specials.map(function (d) {
+      return shopItem(d.id).name + ' (' + specialTradeName(d) + ', ' + d.rep + ')';
+    }).join(', ') + '. Accepting or declining is free; a declined one may be offered again. ' +
+    'There is no deadline.');
+  html += P('You do all the work yourself; employees cannot help. Spend phases on its design, ' +
+    'then on its mold, from the Ledger. Then attempt the forge: each attempt uses one phase ' +
+    'and the stated ingots, spent when it starts. The piece is forged on its own shape, and ' +
+    'every square needs exactly its metal\u2019s number of strikes. Only quality 100 ' +
+    'completes it; an imperfect or failed attempt keeps the design and mold. A perfect ' +
+    'forge delivers the piece and unlocks its blueprint, which you and your Smiths can then ' +
+    'make on the ordinary board like any other.');
+
   html += H('Mines and Vehicles');
   html += P('Buy mine deeds in the Properties tab; each extra mine of the same mineral costs ' +
     'more. Hire Miners for a mine (' + SHOP.mining.hireWeeks + ' weeks of wages up front). ' +
@@ -19294,6 +20461,20 @@ function boot() {
       : 'Your strikes on this board will be lost.', showTitle, 'Return to main menu?', 'Leave');
   });
   $('menuActionBtn').addEventListener('click', () => {
+    if (App.mode === 'shop' && SHOPUI.special) {
+      const def = specialDef(SHOPUI.special);
+      // always asked, struck or not: the metal went in when the attempt began
+      askConfirm('The ' + def.qty + ' ' + shopMaterial(def.material).name + ' ingots committed ' +
+        'to this attempt are lost, and the phase is used. Your design and mold are kept.', () => {
+        if (!SHOPUI.special) return;
+        const id = SHOPUI.special;
+        SHOPUI.special = null;
+        finishSpecialAttempt(shop(), id, 'abandoned', 0);
+        shopReturn();
+        shopSpendPhase('You abandoned the ' + shopItem(id).name + ' attempt. Its ingots are lost.');
+      }, 'Abandon', 'Cancel', 'Abandon attempt?');
+      return;
+    }
     if (App.mode === 'shop') {
       askDiscard('Abandoning this order uses up the phase. The metal is not used.', () => {
         SHOPUI.order = null;
