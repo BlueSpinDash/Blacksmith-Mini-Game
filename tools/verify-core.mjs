@@ -7677,5 +7677,135 @@ section('Open Your Forge: the new upgrades survive being put down');
   })());
 }
 
+/* Open Your Forge's anvil never reshapes a square. One rule in CONFIG.modes,
+   read when a game is made and again on every strike; the Forge and Endless
+   keep theirs. */
+section('Open Your Forge: the anvil never reshapes');
+{
+  // every board an order can be dealt, built and played the way the anvil does
+  const shopGame = (spec, board, extra) => C.createGame(board, Object.assign({ mode: 'forge',
+    rules: 'shop', perfect: spec.perfect, spent: spec.spent, ladder: spec.ladder }, extra || {}));
+
+  ok('the rule is written once: Open Your Forge off, the Forge and Endless on',
+    C.CONFIG.modes.shop.reshape === false && C.reshapeAllowed('shop') === false &&
+    C.reshapeAllowed('forge') === true && C.reshapeAllowed('endless') === true &&
+    C.reshapeAllowed('versus') === true);
+
+  const shop = C.createShop({ rnd: C.mulberry32(4401) });
+  const specs = [];
+  for (const m of C.SHOP.materials) {
+    // one batch on each side of every tier change, up to the largest
+    for (const qty of [1, 3, 4, 7, 10, 12]) specs.push(C.forgeBoardSpec(shop, 'shortsword', m.id, qty));
+  }
+  const tiers = new Set(specs.map((sp) => sp.difficulty));
+
+  ok('orders reach every difficulty, including those whose boards would reshape elsewhere',
+    tiers.size === C.CONFIG.order.length &&
+    specs.some((sp) => C.CONFIG.difficulties[sp.difficulty].morphChance > 0), [...tiers].join(','));
+
+  ok('every material and batch makes a game that cannot reshape, whatever chance is asked for',
+    (() => {
+      for (const sp of specs) {
+        const b = C.makeShopBoard(sp.size, sp.difficulty, sp.visits, C.mulberry32(sp.visits * 13 + sp.size));
+        for (const extra of [{}, { morphChance: 1 }, { morphChance: 0.35 }]) {
+          const g = shopGame(sp, b, extra);
+          if (g.reshapes !== false || g.morphChance !== 0 || C.canReshape(g)) return false;
+        }
+      }
+      return true;
+    })());
+
+  ok('every item size makes the same game', (() => {
+    for (const it of C.SHOP.items) {
+      const sp = C.forgeBoardSpec(shop, it.id, 'bronze', 12);
+      const b = C.makeShopBoard(sp.size, sp.difficulty, sp.visits, C.mulberry32(it.size * 7));
+      const g = shopGame(sp, b);
+      if (g.morphChance !== 0 || C.canReshape(g)) return false;
+    }
+    return true;
+  })());
+
+  /* Played to the end with the chance forced to certainty, as stale state
+     carried in from another mode or an old save would set it: every first
+     strike is past any threshold, and still nothing changes symbol. */
+  const walks = [];
+  for (const m of C.SHOP.materials) {
+    const sp = C.forgeBoardSpec(shop, 'buckler', m.id, 12);
+    const b = C.makeShopBoard(sp.size, sp.difficulty, sp.visits, C.mulberry32(m.strikes * 97));
+    const g = shopGame(sp, b, { rnd: C.mulberry32(m.strikes) });
+    g.morphChance = 1;
+    let morphed = 0, refused = 0;
+    for (const step of b.route) {
+      const res = C.applyStrike(g, step);
+      if (!res) { refused++; break; }
+      if (res.morphed) morphed++;
+    }
+    const st = C.gameStats(g);
+    walks.push({ metal: m.id, tier: sp.difficulty, morphed: morphed, refused: refused,
+      status: g.status, same: g.pieces.join('') === b.pieces.join(''),
+      perfect: g.perfect, over: st.overstrikes, forged: st.forged, squares: st.squares });
+  }
+  ok('a Master board in every metal, played to the end at a forced 100%, never reshapes',
+    walks.every((w) => w.tier === 'master' && w.morphed === 0 && w.same), JSON.stringify(walks));
+  ok('and is still finished the normal way: every square at its metal’s count, none ruined',
+    walks.every((w) => w.refused === 0 && w.status === 'complete' && w.over === 0 &&
+      w.forged === w.squares), JSON.stringify(walks));
+  ok('each metal still asks for its own strikes',
+    walks.map((w) => w.perfect).join(',') === C.SHOP.materials.map((m) => m.strikes).join(','));
+
+  ok('reshape itself refuses an Open Your Forge game', (() => {
+    const sp = C.forgeBoardSpec(shop, 'shortsword', 'bronze', 12);
+    const b = C.makeShopBoard(sp.size, sp.difficulty, sp.visits, C.mulberry32(5));
+    const g = shopGame(sp, b);
+    const was = g.pieces.join('');
+    for (let i = 0; i < g.pieces.length; i++) if (C.reshape(g, i) !== null) return false;
+    return g.pieces.join('') === was;
+  })());
+
+  ok('a game made under these rules never picks a chance back up between boards', (() => {
+    const b = C.makeShopBoard(4, 'master', 2, C.mulberry32(6));
+    const g = C.createGame(b, { mode: 'endless', rules: 'shop' });
+    if (g.morphChance !== 0 || !g.morphFixed) return false;
+    for (let r = 0; r < 12; r++) C.beginRound(g, b);
+    return g.morphChance === 0 && !C.canReshape(g);
+  })());
+
+  ok('a retry is a fresh game under the same rules', (() => {
+    const sp = C.forgeBoardSpec(shop, 'shortsword', 'gold', 12);
+    const b = C.makeShopBoard(sp.size, sp.difficulty, sp.visits, C.mulberry32(7));
+    const first = shopGame(sp, b, { rnd: C.mulberry32(1) });
+    first.morphChance = 1;
+    for (const step of b.route.slice(0, 5)) C.applyStrike(first, step);
+    const again = shopGame(sp, b, { rnd: C.mulberry32(1) });
+    return again.morphChance === 0 && again.totalStrikes === 0 &&
+      again.pieces.join('') === b.pieces.join('');
+  })());
+
+  // the other modes keep what they had
+  ok('the Forge’s square boards still reshape at their difficulty', (() => {
+    const b = C.makeBoard('master', C.mulberry32(8));
+    const g = C.createGame(b, { mode: 'forge', rules: 'forge' });
+    const plain = C.createGame(b);
+    return g.reshapes === true && g.morphChance === C.CONFIG.difficulties.master.morphChance &&
+      plain.morphChance === g.morphChance && C.canReshape(g);
+  })());
+  ok('and a certain chance there still changes a symbol on the first strike', (() => {
+    for (let seed = 1; seed < 40; seed++) {
+      const b = C.makeBoard('master', C.mulberry32(seed));
+      const g = C.createGame(b, { mode: 'forge', rules: 'forge', morphChance: 1, rnd: C.mulberry32(seed) });
+      const res = C.applyStrike(g, b.route[0]);
+      if (res && res.morphed) return true;
+    }
+    return false;
+  })());
+  ok('Endless still starts at its base chance and climbs', (() => {
+    const b = C.makeEndlessBoard('novice', C.mulberry32(9), '');
+    const g = C.createGame(b, { mode: 'endless', rules: 'endless' });
+    if (g.morphChance !== C.CONFIG.endless.morphBase || !C.canReshape(g)) return false;
+    for (let r = 0; r < C.CONFIG.endless.morphEvery; r++) C.beginRound(g, b);
+    return g.morphChance > C.CONFIG.endless.morphBase;
+  })());
+}
+
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');
 process.exit(failures.length ? 1 : 0);

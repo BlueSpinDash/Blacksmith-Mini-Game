@@ -2511,6 +2511,16 @@ const CONFIG = {
     perfect: 2,           // forge mode: strikes that finish a square
     spent: 3              // forge mode: strikes that spend a square and blank it for good
   },
+  /* What each mode's puzzles allow, read by `reshapeAllowed` and nowhere else.
+     Reshaping - a struck square's symbol changing under the hammer - is the
+     forge's and endless's hot metal. Open Your Forge's anvil never reshapes:
+     not for any item, metal, batch or difficulty, not on a retry, and not on
+     a board brought back from a save. A mode missing here allows it. */
+  modes: {
+    forge:   { reshape: true },
+    endless: { reshape: true },
+    shop:    { reshape: false }
+  },
   scoring: {
     penaltyScale: 2       // quality = 100 * (1 - overstrikes / (penaltyScale * N))
   },
@@ -3722,6 +3732,18 @@ function materialFor(round) {
   return { name: list[list.length - 1] + ' ' + romanFor(extra), tier: list.length - 1, mark: romanFor(extra) };
 }
 
+/* Whether a mode's puzzles may reshape a square at all. */
+function reshapeAllowed(mode) {
+  const rules = CONFIG.modes[mode];
+  return !rules || rules.reshape !== false;
+}
+/* Whether this game can reshape a square on the strike being played now. A
+   game made under a mode that forbids it never can, whatever its chance has
+   been set to since. */
+function canReshape(game) {
+  return game.reshapes !== false && game.morphChance > 0;
+}
+
 /* ---------- game state ---------------------------------------------
    Two modes share one board and one hammer.
 
@@ -3739,7 +3761,12 @@ function createGame(board, options) {
   const cfg = CONFIG.difficulties[board.difficulty];
   const mode = opts.mode === 'endless' ? 'endless' : 'forge';
   const upgrades = opts.upgrades || {};
-  const defaultMorph = mode === 'endless'
+  /* `rules` names the mode whose rules the board is played under, when that
+     is not the board's own: Open Your Forge plays the forge board under its
+     own rules. A mode that forbids reshaping pins the chance at zero for the
+     whole game, and no option passed alongside can raise it. */
+  const reshapes = reshapeAllowed(opts.rules || mode);
+  const defaultMorph = !reshapes ? 0 : mode === 'endless'
     ? endlessMorphChance(1, upgrades) : (cfg ? cfg.morphChance : 0);
   return {
     board: board,
@@ -3760,9 +3787,10 @@ function createGame(board, options) {
     goldCarry: 0,                     // the fraction of a coin carried forward
     startTier: board.difficulty,      // the tier the run began on
     upgrades: upgrades,
-    morphChance: typeof opts.morphChance === 'number' ? opts.morphChance : defaultMorph,
+    reshapes: reshapes,
+    morphChance: reshapes && typeof opts.morphChance === 'number' ? opts.morphChance : defaultMorph,
     // an explicitly supplied chance is held for the whole run, not just round one
-    morphFixed: typeof opts.morphChance === 'number',
+    morphFixed: !reshapes || typeof opts.morphChance === 'number',
     morphPool: opts.morphPool ||
       symbolsForSize(board.size),
     // Strikes to finish a square, and the strike that ruins it. The forge and
@@ -3914,6 +3942,7 @@ function canStrike(game, idx) {
    two away from the middle of a 3x3, so reshaping into one there would end
    the board on the spot rather than make it harder. */
 function reshape(game, idx) {
+  if (game.reshapes === false) return null;
   const current = game.pieces[idx];
   const T = tableFor(game.board.size);
   // on a shaped board, somewhere to go has to be somewhere with metal
@@ -3945,7 +3974,7 @@ function strikeEndless(game, idx) {
   // Hot metal: the square just struck may reshape, and because it is the
   // square being stood on, that immediately redirects the next move.
   let morphed = null;
-  if (game.morphChance > 0 && game.rnd() < game.morphChance) {
+  if (canReshape(game) && game.rnd() < game.morphChance) {
     morphed = reshape(game, idx);
   }
 
@@ -3987,7 +4016,9 @@ function beginRound(game, board) {
   game.round += 1;
   game.status = 'ready';
   // the ramp is re-read each round unless the chance was pinned on purpose
-  if (!game.morphFixed) game.morphChance = endlessMorphChance(game.round, game.upgrades);
+  if (!game.morphFixed && game.reshapes !== false) {
+    game.morphChance = endlessMorphChance(game.round, game.upgrades);
+  }
   return game;
 }
 
@@ -4031,7 +4062,7 @@ function strikeForge(game, idx) {
 
   // Only the first strike reshapes a square; after that the symbol is set.
   let morphed = null;
-  if (count === 1 && game.morphChance > 0 && game.rnd() < game.morphChance) {
+  if (count === 1 && canReshape(game) && game.rnd() < game.morphChance) {
     morphed = reshape(game, idx);
   }
 
@@ -9596,6 +9627,7 @@ const CHECKSMITH_CORE = {
   endlessFallbackBoard: endlessFallbackBoard, ENDLESS_FALLBACKS: ENDLESS_FALLBACKS,
   createGame: createGame, legalTargets: legalTargets, canStrike: canStrike, applyStrike: applyStrike,
   isSpent: isSpent, isOver: isOver, isEndless: isEndless, isHit: isHit, reshape: reshape,
+  reshapeAllowed: reshapeAllowed, canReshape: canReshape,
   perfectOf: perfectOf, spentOf: spentOf,
   METAL_PALETTE: METAL_PALETTE, metalPaletteIndex: metalPaletteIndex,
   advanceMaterialTier: advanceMaterialTier, squareMetalTier: squareMetalTier,
@@ -10622,9 +10654,11 @@ function startGame(board, extra) {
   const wantShape = board.shape ? board.piece : null;
   if (App.tiles.length !== size * size || App.tileShape !== wantShape) buildTiles(size, board);
   // Open Your Forge works the ordinary forge board; only the material's
-  // strike thresholds ride along with it.
+  // strike thresholds ride along with it. It is played under its own rules,
+  // laid on last so nothing passed alongside can swap them for another mode's.
   const mode = App.mode === 'shop' ? 'forge' : App.mode;
-  App.game = createGame(board, Object.assign({ mode: mode, upgrades: App.upgrades }, extra || {}));
+  App.game = createGame(board, Object.assign({ mode: mode, upgrades: App.upgrades }, extra || {},
+    { rules: App.mode }));
   hide($('results'));
   render();
 }
@@ -11079,7 +11113,8 @@ function impact(i) {
     if (res.morphed) {
       said += ' Reshaped from ' + PIECES[res.morphed.from].name +
         ' to ' + PIECES[res.morphed.to].name + '.';
-    } else if (before && res.count === 1) {
+    } else if (before && res.count === 1 && canReshape(g)) {
+      // only worth saying where the symbol could have changed
       said += ' Still a ' + PIECES[before].name + '.';
     }
     if (res.spent) said += ' Spent: this square becomes a hole when you leave it.';
@@ -11998,7 +12033,7 @@ function anvilSnapshot() {
     pieces: g.pieces.slice(), strikes: g.strikes.slice(),
     crust: g.crust ? g.crust.slice() : null,
     current: g.current, totalStrikes: g.totalStrikes, status: g.status,
-    perfect: g.perfect, spent: g.spent, morphChance: g.morphChance
+    perfect: g.perfect, spent: g.spent
   };
 }
 
@@ -12031,8 +12066,12 @@ function resumeAnvil(snap) {
   // happened to carry. A board put down before this was settled comes back
   // counting correctly.
   const want = shopMaterial(snap.order.material).strikes;
-  App.game = createGame(board, { mode: 'forge', perfect: want, spent: want + 1,
-    ladder: shopLadder(), morphChance: snap.morphChance, rnd: App.rnd });
+  // Played under Open Your Forge's rules like any new board: a reshape chance
+  // written by an older build is not read back, so a resumed batch can no more
+  // reshape than a fresh one. Symbols it already changed before then stay as
+  // they are, since the route walked so far was walked on them.
+  App.game = createGame(board, { mode: 'forge', rules: 'shop', perfect: want, spent: want + 1,
+    ladder: shopLadder(), rnd: App.rnd });
   App.game.pieces = snap.pieces.slice();
   App.game.strikes = snap.strikes.slice();
   if (Array.isArray(snap.crust) && snap.crust.length === n) {
@@ -15194,7 +15233,8 @@ function shopForgeBody(smith) {
         .map(function (k) { return PIECES[k].name; }).join(', ')) +
       (queensForSize(itNow ? itNow.size : 3) > 0 ? ' and up to ' + queensForSize(itNow.size) + ' Queens' : '') +
       ' \u00b7 difficulty rises every ' + SHOP.batchPerTier + ' items in the batch' +
-      (tierCfg.morphChance > 0 ? ' \u00b7 ' + Math.round(tierCfg.morphChance * 100) +
+      (reshapeAllowed('shop') && tierCfg.morphChance > 0 ? ' \u00b7 ' +
+        Math.round(tierCfg.morphChance * 100) +
         '% chance a square changes symbol on its first strike' : '') +
       (tierCfg.hardenChance > 0 ? ' \u00b7 ' + Math.round(tierCfg.hardenChance * 100) +
         '% chance a square is hardened' : '') +
@@ -17563,7 +17603,10 @@ function startShop(resume, name) {
   App.mode = 'shop';
   cancelPending(false);
   App.game = null;
+  // a Versus match and any power armed in it stay behind, rival's turn included
   App.match = null;
+  VS.targeting = null;
+  if (App.aiTimer) { clearTimeout(App.aiTimer); App.aiTimer = null; }
   if (resume && resume.shop) {
     App.shop = resume.shop;
     App.shopSlot = resume.id;
@@ -18534,7 +18577,7 @@ function buildLegend() {
     .filter((p) => used.indexOf(p) !== -1);
   // a board with crust on it needs the crust explained, and only then
   const crusted = !!(App.game && App.game.board && App.game.board.hard);
-  const reshapes = !!(App.game && App.game.morphChance > 0);
+  const reshapes = !!(App.game && canReshape(App.game));
   body.innerHTML =
     '<p style="margin:6px 0 2px">The symbol on your current square decides which squares you ' +
     'can strike next. Moves pass over other squares' + (piece ? ' and the empty space around ' +
@@ -18992,9 +19035,11 @@ function helpHtml() {
       return m.name + ' ' + m.strikes;
     }).join(', ') + '. A strike past that spends the square and lowers quality. Hardened ' +
     'squares need ' + CONFIG.hardening.min + '–' + CONFIG.hardening.max + ' extra strikes ' +
-    'first, which do not count toward the square.');
+    'first, which do not count toward the square.' +
+    (reshapeAllowed('shop') ? '' : ' Symbols on the anvil never change when struck.'));
   html += P('Every ' + SHOP.batchPerTier + ' items in a batch raises the difficulty one level ' +
-    '(more reshaping and more hardened squares), and ' + hardenFrom.name + ' or higher metals ' +
+    '(' + (reshapeAllowed('shop') ? 'more reshaping and ' : '') + 'more hardened squares), and ' +
+    hardenFrom.name + ' or higher metals ' +
     'add ' + SHOP.hardenBy + ' more. The order sheet shows the difficulty before you start. ' +
     'If you run out of legal moves the batch fails: the phase is used, but no ingots are ' +
     'spent. Finished items go into storage at the start of the next day.');

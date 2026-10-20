@@ -1950,12 +1950,14 @@ async function run() {
     return small.size === large.size &&
       C.poolForSize(small.size).join(',') === C.poolForSize(large.size).join(',');
   }));
+  // Harder here means more crust to break. Symbols never change on this
+  // anvil, however big the batch (its own section checks that end to end).
   ok('and a bigger batch makes that metal harder to work', await page.evaluate(() => {
     const C = window.CHECKSMITH.core;
     const sh = window.CHECKSMITH.app.shop;
     const small = C.CONFIG.difficulties[C.forgeBoardSpec(sh, 'plate', 'bronze', 1).difficulty];
     const large = C.CONFIG.difficulties[C.forgeBoardSpec(sh, 'plate', 'bronze', 7).difficulty];
-    return large.morphChance > small.morphChance && large.hardenChance > small.hardenChance;
+    return large.hardenChance > small.hardenChance && !C.reshapeAllowed('shop');
   }));
 
   // Nothing sits above the board but the top bar and the prompt: a banner up
@@ -6538,6 +6540,351 @@ async function run() {
 
   ok('saving and restoring raises no errors', saveErrs.length === 0, saveErrs.slice(0, 3).join(' | '));
   await ctx.close();
+
+  /* ============ the anvil never reshapes ============ */
+  /* Open Your Forge's anvil never changes a struck square's symbol: not on a
+     new board, a retry or a resumed one, and not after another mode left a
+     certain chance on its game or a Versus Reforge armed. The modes that do
+     reshape are checked on either side of it. */
+  section('Open Your Forge: the anvil never reshapes, whatever came before');
+  {
+    ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
+    page = await ctx.newPage();
+    const calmErrs = [];
+    page.on('pageerror', (e) => calmErrs.push(String(e)));
+    await page.goto(FILE);
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      F.setPhaseAnim(false);
+      F.core.CONFIG.animation.strikeMs = 12;      // a quick hammer; the rules are untouched
+      // walks a list of squares on the live anvil, one blow at a time, noting
+      // anything the player was told about a symbol changing
+      window.__walk = async (steps) => {
+        const said = [];
+        let morphed = 0, refused = 0;
+        const settle = async () => {
+          for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        };
+        for (const i of steps) {
+          const g = F.app.game;
+          if (!g || g.status === 'complete' || g.status === 'lost') break;
+          await settle();
+          const before = g.totalStrikes, sym = g.pieces[i], first = g.strikes[i] === 0 && !g.crust[i];
+          F.tap(i);
+          await new Promise((r) => setTimeout(r, 14));
+          await settle();
+          if (g.totalStrikes === before) { refused++; break; }
+          if (first && g.pieces[i] !== sym) morphed++;
+          said.push(document.getElementById('live').textContent);
+        }
+        return { morphed: morphed, refused: refused,
+          told: said.filter((s) => /Reshaped|Still a /.test(s)).length };
+      };
+    });
+    const toTitle = async () => {
+      await page.evaluate(() => document.getElementById('menuBtn').click());
+      if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+      await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    };
+    // a batch that could not be finished is put down, so the next one can start
+    const leaveAnvil = () => page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      if (F.shopUi.order) { F.shopUi.order = null; F.shopReturn(); }
+    });
+    const clearSheets = async () => {
+      for (let k = 0; k < 8 && (await page.isVisible('#shopSheet')); k++) {
+        await page.click('#shopSheetActions button:first-child');
+        await page.waitForTimeout(120);
+      }
+    };
+
+    // 1. Endless reshapes, and is left with a certain chance on its live game
+    await page.click('.mode-card[data-mode="endless"]');
+    await page.click('#beginBtn');
+    await page.waitForFunction(() => { const g = window.CHECKSMITH.app.game; return g && g.mode === 'endless'; },
+      null, { timeout: 15000 });
+    await page.waitForTimeout(200);
+    const hot = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      const base = g.morphChance, live = C.canReshape(g);
+      g.morphChance = 1;
+      const start = g.board.route ? g.board.route[0] : 0;
+      const walked = await window.__walk([start]);
+      window.__staleGame = F.app.game;
+      return { base: base, want: C.CONFIG.endless.morphBase, live: live, walked: walked };
+    });
+    ok('Endless still reshapes: it opens at its base chance and a certain one changes the struck square',
+      hot.live && hot.base === hot.want && hot.walked.morphed === 1, JSON.stringify(hot));
+    await toTitle();
+
+    // 2. Versus, left with Reforge armed and its match still live
+    await page.click('.mode-card[data-mode="versus"]');
+    await page.click('#beginBtn');
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.match, null, { timeout: 15000 });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, m = F.app.match;
+      m.turn = 'you'; m.upgradeUsed = false; m.you.points = 5000;
+      for (let at = 0; at < m.size * m.size; at++) {
+        m.foe.current = at;
+        if (C.versusReforgeOptions(m, 'you').length) break;
+      }
+      F.vs.targeting = null; F.vs.focus = 'none';
+      F.vsRender();
+    });
+    await page.click('#vsShop [data-buy="reforge"]');
+    await page.waitForTimeout(100);
+    const armed = await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      window.__staleTarget = F.vs.targeting;
+      window.__staleMatch = F.app.match;
+      return F.vs.targeting && F.vs.targeting.id;
+    });
+    ok('Versus still offers Reforge, and it is left armed on the way out', armed === 'reforge', armed);
+    await toTitle();
+
+    /* Put all of it back, as if the way out had not cleared it: a live Endless
+       game with a certain chance, a Versus match and Reforge waiting for a
+       symbol. Opening the forge has to leave every bit of it behind. */
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      F.app.game = window.__staleGame;
+      F.app.match = window.__staleMatch;
+      F.vs.targeting = window.__staleTarget;
+    });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.click('#beginBtn');
+    if (await page.isVisible('#nameForge')) {
+      await page.fill('#nameForgeInput', 'Stillwater');
+      await page.click('#nameForgeGo');
+    }
+    await page.waitForFunction(() => !document.getElementById('shopView').hidden, null, { timeout: 15000 });
+    await page.waitForTimeout(250);
+    await chooseCrafts(page);
+    await installStock(page);
+    const carried = await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      return { game: F.app.game, match: F.app.match, target: F.vs.targeting };
+    });
+    ok('nothing from Endless or Versus comes into the forge: no game, no match, no armed Reforge',
+      carried.game === null && carried.match === null && carried.target === null,
+      JSON.stringify(carried).slice(0, 200));
+
+    // 3. Orders across metals and every difficulty, each played to the end
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.gold = 100000;
+      sh.upgrades.bellows = 8;                   // batches big enough to reach Master
+      for (const m of C.SHOP.materials) sh.materials[m.id] = 80;
+      sh.blueprints.shortsword = Math.max(1, sh.blueprints.shortsword || 0);
+      sh.blueprints.buckler = Math.max(1, sh.blueprints.buckler || 0);
+      F.shopRender();
+    });
+    const orders = [
+      { item: 'shortsword', material: 'bronze', qty: 1 },
+      { item: 'buckler', material: 'silver', qty: 5 },
+      { item: 'shortsword', material: 'gold', qty: 4 },
+      { item: 'buckler', material: 'mithril', qty: 10 },
+      { item: 'shortsword', material: 'adamantine', qty: 11 }
+    ];
+    const played = [];
+    for (const order of orders) {
+      await clearSheets();
+      await page.click('#shActions [data-act="forge"]');
+      await page.waitForSelector('#shopSheet:not([hidden])');
+      const sheet = await page.evaluate((o) => {
+        const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+        Object.assign(F.shopUi.draft, o, { commission: 0 });
+        F.shopUi.redraw();
+        const spec = C.forgeBoardSpec(sh, o.item, o.material, o.qty);
+        return { text: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+          difficulty: spec.difficulty, tierChance: C.CONFIG.difficulties[spec.difficulty].morphChance,
+          tick: sh.day * 3 + sh.phaseIndex, metal: sh.materials[o.material] };
+      }, order);
+      await page.click('#shopSheetActions button:not([disabled])');
+      await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.shopUi.order,
+        null, { timeout: 15000 });
+      await page.waitForTimeout(120);
+      const run = await page.evaluate(async () => {
+        const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+        const opened = { chance: g.morphChance, reshapes: g.reshapes, perfect: g.perfect,
+          legend: document.getElementById('legendBody').textContent };
+        g.morphChance = 1;                       // stale or tampered: the rule still holds
+        const route = g.board.route.slice();
+        const walked = await window.__walk(route);
+        const st = C.gameStats(g);
+        return { opened: opened, walked: walked, status: g.status, over: st.overstrikes,
+          same: g.pieces.join('') === g.board.pieces.join(''),
+          sheet: document.getElementById('shopSheetTitle').textContent };
+      });
+      let after = null;
+      if (/Batch Forged/.test(run.sheet)) {
+        await page.click('#shopSheetActions button');
+        await page.waitForTimeout(250);
+        after = await page.evaluate((o) => {
+          const sh = window.CHECKSMITH.app.shop;
+          return { tick: sh.day * 3 + sh.phaseIndex, metal: sh.materials[o.material] };
+        }, order);
+      }
+      if (!after) await leaveAnvil();
+      played.push({ order: order, sheet: sheet, run: run, after: after });
+    }
+    const tiers = new Set(played.map((p) => p.sheet.difficulty));
+    ok('the orders cover every difficulty, Master included, in five different metals',
+      tiers.size === 4 && tiers.has('master'), [...tiers].join(','));
+    ok('no order sheet says a square may change symbol, even where the tier would elsewhere',
+      played.every((p) => !/changes symbol|reshap/i.test(p.sheet.text)) &&
+      played.some((p) => p.sheet.tierChance > 0), played.map((p) => p.sheet.text.slice(0, 80)).join(' | '));
+    ok('every anvil opens with no chance to reshape, and its legend does not suggest one',
+      played.every((p) => p.run.opened.chance === 0 && p.run.opened.reshapes === false &&
+        !/change symbol/i.test(p.run.opened.legend)), JSON.stringify(played.map((p) => p.run.opened.chance)));
+    ok('played to the end with the chance forced to 100%, no square ever changed symbol',
+      played.every((p) => p.run.walked.morphed === 0 && p.run.same && p.run.walked.told === 0),
+      JSON.stringify(played.map((p) => p.run.walked)));
+    ok('and every batch was forged the normal way: perfect, at its metal’s strikes',
+      played.every((p) => p.run.status === 'complete' && p.run.over === 0 && p.run.walked.refused === 0 &&
+        p.run.opened.perfect === ({ bronze: 1, silver: 2, gold: 3, mithril: 4, adamantine: 5 })[p.order.material]),
+      JSON.stringify(played.map((p) => [p.run.status, p.run.over, p.run.opened.perfect])));
+    ok('each one spent its ingots and exactly one phase',
+      played.every((p) => p.after && p.after.tick === p.sheet.tick + 1 &&
+        p.after.metal === p.sheet.metal - p.order.qty), JSON.stringify(played.map((p) => [p.sheet, p.after].map((x) => x && x.tick))));
+
+    // 4. a retry is the same board under the same rule
+    await clearSheets();
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      Object.assign(F.shopUi.draft, { item: 'buckler', material: 'gold', qty: 11, commission: 0 });
+      F.shopUi.redraw();
+    });
+    await page.click('#shopSheetActions button:not([disabled])');
+    await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.shopUi.order,
+      null, { timeout: 15000 });
+    await page.waitForTimeout(120);
+    const before = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, g = F.app.game;
+      g.morphChance = 1;
+      const walked = await window.__walk(g.board.route.slice(0, 6));
+      return { layout: g.board.pieces.join(''), strikes: F.app.game.totalStrikes, walked: walked };
+    });
+    await page.click('#restartBtn');
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForTimeout(200);
+    const retried = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      const opened = { chance: g.morphChance, reshapes: g.reshapes, strikes: g.totalStrikes,
+        layout: g.board.pieces.join(''), difficulty: g.board.difficulty };
+      g.morphChance = 1;
+      const walked = await window.__walk(g.board.route.slice());
+      return { opened: opened, walked: walked, status: g.status, over: C.gameStats(g).overstrikes };
+    });
+    ok('a restarted board is the same board, cleared, and still cannot reshape',
+      before.walked.morphed === 0 && retried.opened.chance === 0 && retried.opened.reshapes === false &&
+      retried.opened.strikes === 0 && retried.opened.layout === before.layout &&
+      retried.opened.difficulty === 'master', JSON.stringify([before, retried.opened]));
+    ok('and is forged to the end without a symbol changing',
+      retried.walked.morphed === 0 && retried.status === 'complete' && retried.over === 0,
+      JSON.stringify(retried));
+    await clearSheets();
+    await leaveAnvil();
+
+    // 5. a batch put down and picked up again, from a save that still carries a chance
+    await page.click('#shActions [data-act="forge"]');
+    await page.waitForSelector('#shopSheet:not([hidden])');
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      Object.assign(F.shopUi.draft, { item: 'shortsword', material: 'silver', qty: 11, commission: 0 });
+      F.shopUi.redraw();
+    });
+    await page.click('#shopSheetActions button:not([disabled])');
+    await page.waitForFunction(() => window.CHECKSMITH.app.game && window.CHECKSMITH.shopUi.order,
+      null, { timeout: 15000 });
+    await page.waitForTimeout(120);
+    const putDown = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, g = F.app.game;
+      const route = g.board.route.slice();
+      const walked = await window.__walk(route.slice(0, 5));
+      const data = JSON.parse(localStorage.getItem('checksmith:v1') || '{}');
+      const slot = (data.shopSaves || []).find((x) => x.id === F.app.shopSlot);
+      const kept = !!(slot && slot.anvil);
+      const wrote = kept && 'morphChance' in slot.anvil;
+      // what an older build wrote: a reshape chance on the saved board
+      if (kept) { slot.anvil.morphChance = 1; localStorage.setItem('checksmith:v1', JSON.stringify(data)); }
+      return { route: route, done: 5, walked: walked, kept: kept, wrote: wrote,
+        strikes: g.strikes.join(','), pieces: g.pieces.join('') };
+    });
+    ok('a half-worked batch is saved without any reshape chance of its own',
+      putDown.kept && !putDown.wrote && putDown.walked.morphed === 0, JSON.stringify(putDown).slice(0, 200));
+    await page.reload();
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]');
+    await page.click('#beginBtn');
+    await page.waitForFunction(() => !!window.CHECKSMITH.app.game, null, { timeout: 15000 });
+    await page.waitForTimeout(250);
+    const resumed = await page.evaluate(async (left) => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      F.core.CONFIG.animation.strikeMs = 12;
+      const opened = { chance: g.morphChance, reshapes: g.reshapes, strikes: g.strikes.join(','),
+        pieces: g.pieces.join(''), legend: document.getElementById('legendBody').textContent };
+      g.morphChance = 1;
+      // the walk helper went with the reload; the same walk, inline
+      let morphed = 0, refused = 0;
+      for (const i of left) {
+        if (g.status === 'complete' || g.status === 'lost') break;
+        for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        const before = g.totalStrikes, sym = g.pieces[i], first = g.strikes[i] === 0 && !g.crust[i];
+        F.tap(i);
+        await new Promise((r) => setTimeout(r, 14));
+        for (let n = 0; n < 80 && F.app.busy; n++) await new Promise((r) => setTimeout(r, 10));
+        if (g.totalStrikes === before) { refused++; break; }
+        if (first && g.pieces[i] !== sym) morphed++;
+      }
+      return { opened: opened, morphed: morphed, refused: refused, status: g.status,
+        over: C.gameStats(g).overstrikes };
+    }, putDown.route.slice(putDown.done));
+    ok('it comes back on the same blows with no chance to reshape, whatever the save said',
+      resumed.opened.chance === 0 && resumed.opened.reshapes === false &&
+      resumed.opened.strikes === putDown.strikes && resumed.opened.pieces === putDown.pieces &&
+      !/change symbol/i.test(resumed.opened.legend), JSON.stringify(resumed.opened).slice(0, 200));
+    ok('and is finished from there without a symbol changing',
+      resumed.morphed === 0 && resumed.refused === 0 && resumed.status === 'complete' && resumed.over === 0,
+      JSON.stringify(resumed).slice(0, 200));
+    await clearSheets();
+    await leaveAnvil();
+
+    // 6. and the modes that reshape still do, after the forge
+    await toTitle();
+    await page.click('.mode-card[data-mode="endless"]');
+    await page.click('#beginBtn');
+    await page.waitForFunction(() => { const g = window.CHECKSMITH.app.game; return g && g.mode === 'endless'; },
+      null, { timeout: 15000 });
+    const endlessAgain = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      return { chance: g.morphChance, live: C.canReshape(g), base: C.CONFIG.endless.morphBase };
+    });
+    ok('Endless after the forge still opens at its own reshape chance',
+      endlessAgain.live && endlessAgain.chance === endlessAgain.base, JSON.stringify(endlessAgain));
+    await toTitle();
+    await page.click('.mode-card[data-mode="forge"]');
+    await page.click('#beginBtn');
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.CHECKSMITH.squareForge('master'));
+    await page.waitForFunction(() => { const g = window.CHECKSMITH.app.game; return g && !g.board.shape && g.board.size === 6; },
+      null, { timeout: 15000 });
+    const forgeAgain = await page.evaluate(() => {
+      const F = window.CHECKSMITH, C = F.core, g = F.app.game;
+      return { chance: g.morphChance, live: C.canReshape(g), want: C.CONFIG.difficulties.master.morphChance,
+        legend: document.getElementById('legendBody').textContent };
+    });
+    ok('the Forge’s square boards still reshape at their difficulty, and say so',
+      forgeAgain.live && forgeAgain.chance === forgeAgain.want && /change symbol/.test(forgeAgain.legend),
+      JSON.stringify(forgeAgain).slice(0, 200));
+
+    ok('none of it raises an error', calmErrs.length === 0, calmErrs.slice(0, 3).join(' | '));
+    await ctx.close();
+  }
 
   /* ============ several forges at once ============ */
   section('Open Your Forge: a forge for every slot');

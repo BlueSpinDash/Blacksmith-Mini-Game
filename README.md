@@ -139,7 +139,8 @@ Two things make that harder than it sounds:
 **The metal reshapes.** A square's *first* strike can knock it into a different
 piece entirely. Later strikes never change it. The odds rise with difficulty and
 Novice never reshapes at all, so a memorised route is worth less the higher you
-climb — read the board again after every blow.
+climb — read the board again after every blow. (Open Your Forge's anvil is the
+exception: its symbols never change.)
 
 **Third strikes are fatal to the square.** Strike a finished square again and it
 cracks apart. Its symbol carries you away one last time, and then the square goes
@@ -638,12 +639,12 @@ exactly as they did.
 
 Batch size steps the difficulty every `SHOP.batchPerTier` (3) pieces:
 
-| Batch | Tier | Reshape | Hardened |
-| --- | --- | --- | --- |
-| 1–3 | Novice | 0% | 0% |
-| 4–6 | Apprentice | 15% | 10% |
-| 7–9 | Journeyman | 25% | 16% |
-| 10+ | Master | 35% | 22% |
+| Batch | Tier | Hardened |
+| --- | --- | --- |
+| 1–3 | Novice | 0% |
+| 4–6 | Apprentice | 10% |
+| 7–9 | Journeyman | 16% |
+| 10+ | Master | 22% |
 
 The symbols are **not** on that list: the item decides the board size and the
 size decides the symbols, so a dagger is a 3×3 of kings, rooks and numbers
@@ -666,19 +667,9 @@ piece is an Apprentice board, and nine of them is a Master one.
 
 **What the step actually buys, tier by tier.** The board *size* never moves —
 the item owns that, and the size owns the symbols — so a raised tier changes
-how unruly the metal is and nothing else: **reshaping** and **hardened
-squares**. The first step up (Novice → Apprentice) turns both on, 0% → 15%
-reshaping and 0% → 10% hardened. Reshaping is the mechanic the game itself
-calls the risky one: it voids the verified-route guarantee, so a Gold order can
-no longer be walked from a route worked out before the first blow. From there
-the steps raise both: Journeyman 25% and 16%, Master the
-occasional Queen and 35%.
-
-| Step | Pool | Reshape |
-| --- | --- | --- |
-| Novice → Apprentice | unchanged (K, R, B) | 0% → 15% |
-| Apprentice → Journeyman | + Knight | 15% → 25% |
-| Journeyman → Master | + occasional Queen | 25% → 35% |
+one thing on this anvil: **hardened squares**, 0% → 10% → 16% → 22%. The
+tier's reshape chance, which the Forge's square boards and Endless use, is
+never applied here (see *The anvil never reshapes* below).
 
 The piece-movement legend reads the **board's** difficulty rather than the
 player's setting, because in Open Your Forge those are not the same thing — the
@@ -691,10 +682,45 @@ stops at the top, and `forgeDifficulty(material, qty)` is the single answer the
 order sheet and the anvil both read, so the sheet can never name a tier the
 anvil does not deal.
 
-That makes a large batch the efficient choice and the dangerous one at the same
-time: more goods from a single puzzle, on a board much more likely to strand
-you. The order sheet names the tier, its symbols and what batch would step up
+That makes a large batch the efficient choice and the harder one at the same
+time: more goods from a single puzzle, on a board with more crust to work
+through. The order sheet names the tier, its symbols and what batch would step up
 again, before the player commits.
+
+### The anvil never reshapes (1.41)
+
+Open Your Forge's puzzles never change a struck square's symbol. This is the
+"hot metal" reshape that the Forge's square boards and Endless use; Versus's
+*Reforge* is a separate bought power that only ever acts on the Versus match
+boards. The rule is written once, in `CONFIG.modes` (`shop: { reshape: false }`),
+and read only through `reshapeAllowed(mode)`:
+
+- `createGame(board, { rules })` names the mode whose rules a board is played
+  under. Under a mode that forbids reshaping the game is made with
+  `reshapes: false`, its chance pinned at 0 for good (`morphFixed`), and no
+  `morphChance` passed alongside can raise it.
+- Every strike asks `canReshape(game)`, and `reshape` itself refuses such a
+  game, so a chance set on the live game afterwards (by leftover state, an old
+  save or anything else) still changes nothing.
+- Every way onto the anvil goes through it: a new order and *Restart Board*
+  both come through `startGame`, which lays `rules: App.mode` on last, and a
+  batch resumed from a save is rebuilt with `rules: 'shop'`. The anvil's save
+  no longer records a reshape chance, and one written by an older build is
+  ignored; squares an older build had already reshaped keep their symbol,
+  because the route walked so far was walked on it.
+- Opening a forge drops any live Endless game, Versus match, armed Versus
+  power and pending rival turn, along with the hammer timers every mode
+  shares.
+- Nothing promises otherwise: the order sheet no longer quotes a reshape
+  chance, the help says the anvil's symbols never change, and the legend and
+  the "Still a Rook" line after a first strike only appear where a symbol
+  could actually have changed.
+
+Everything else about the anvil is unchanged: chess movement, each metal's
+strikes, spent squares, hardened squares, the metal colour ladder, quality,
+rewards and the phase an order costs. The Forge's square boards still reshape
+at their difficulty, Endless still ramps its chance (less Tempering), and
+Versus still sells Reforge.
 
 | Material | Strikes per square | Ruined on | Ingot | Value |
 | --- | --- | --- | --- | --- |
@@ -1842,8 +1868,8 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 972 rule/generation checks
-node tools/verify-ui.mjs                                    # 929 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 985 rule/generation checks
+node tools/verify-ui.mjs                                    # 946 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
