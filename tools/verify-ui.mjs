@@ -4854,6 +4854,284 @@ async function run() {
   });
   ok('and the day still changes its light', new Set(phaseLight).size === 3, JSON.stringify(phaseLight));
 
+  /* When a phase ends the camera visits each employee who did their job, one
+     at a time: it arrives first, then their animation starts, then it moves
+     on, and at the end it goes back. None of that may change a result. */
+  section('Open Your Forge: the camera shows each worker at their job');
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    F.testKeptShop = C.serializeShop(F.app.shop);
+    // four hands in four corners of the room, all booked for the morning
+    F.testTourShop = function (roles) {
+      const sh = F.app.shop;
+      sh.gold = 50000; sh.reputation = 40; sh.materials.bronze = 40;
+      sh.phaseIndex = 0; sh.closed = false; sh.assignments = {}; sh.standing = [];
+      for (const one of sh.town) one.gold = 4000;
+      const key = C.lineKey('shortsword', 'bronze');
+      if (C.countStorage(sh) < 20) C.addStorage(sh, key, 20, 80, 1);
+      const stand = sh.stands.find((st) => st.type === 'weapon' && C.standPlaced(st));
+      if (stand && !stand.qty) C.shopStockStand(sh, stand.id, key, 3);
+      const all = {
+        salesperson: { id: 901, name: 'Sal Counter', face: 'guard', job: {} },
+        smith: { id: 902, name: 'Smi Anvil', face: 'cleric',
+          job: { order: { item: 'shortsword', material: 'bronze', qty: 2 } } },
+        runner: { id: 903, name: 'Run Door', face: 'farmer', job: { order: { bronze: 3 } } },
+        storehand: { id: 904, name: 'Sto Floor', face: 'miner', job: { order: { keys: [] } } },
+        apprentice: { id: 905, name: 'App Bench', face: 'scout', job: {} }
+      };
+      sh.staff = roles.map((role) => ({ id: all[role].id, name: all[role].name, role: role,
+        rank: 'C', power: 3, wage: 20, xp: 0, face: all[role].face }));
+      for (const role of roles) C.shopAssign(sh, all[role].id, all[role].job, C.SHOP.phases[0]);
+      F.shopSheetClose();
+      F.shopRender();
+    };
+    /* End the phase and watch it to the end. `skipAt`/`grabAt`/`menuAt` act
+       once that many workers have been shown. */
+    F.testTourRun = async function (opt) {
+      const o = opt || {};
+      const scene = document.getElementById('shScene');
+      if (o.home != null) scene.scrollLeft = o.home;
+      await new Promise((r) => setTimeout(r, 60));
+      const home = scene.scrollLeft;
+      const sh = F.app.shop;
+      const before = { tick: sh.day * 3 + sh.phaseIndex };
+      const t0 = Date.now();
+      F.shopSpendPhase(null);
+      const resolved = JSON.stringify(C.serializeShop(F.app.shop));
+      const out = { home: home, before: before, lefts: [], skipped: false, grabbed: null,
+        menuHeld: null, label: document.getElementById('shSkip').textContent };
+      let menuAt = null;
+      while (F.shopUi.playing && Date.now() - t0 < 45000) {
+        const tourShown = (F.shopUi.tourLog || []).filter((x) => x.role).length;
+        out.lefts.push(scene.scrollLeft);
+        if (o.skipAt != null && tourShown >= o.skipAt && !out.skipped) {
+          out.skipped = true;
+          const t = Date.now();
+          document.getElementById('shSkip').click();
+          document.getElementById('shSkip').click();
+          out.skipMs = Date.now() - t;
+          out.restoredAt = scene.scrollLeft;
+        }
+        if (o.grabAt != null && tourShown >= o.grabAt && out.grabbed == null) {
+          scene.scrollLeft = o.grabTo;
+          out.grabbed = scene.scrollLeft;
+        }
+        if (o.menuAt != null && tourShown >= o.menuAt && menuAt == null) {
+          F.shopOpenStation('board');
+          menuAt = { shown: tourShown, left: scene.scrollLeft };
+          await new Promise((r) => setTimeout(r, 5200));
+          out.menuHeld = { shownBefore: menuAt.shown,
+            shownAfter: (F.shopUi.tourLog || []).filter((x) => x.role).length,
+            leftBefore: menuAt.left, leftAfter: scene.scrollLeft,
+            playing: !!F.shopUi.playing,
+            title: document.getElementById('shopSheetTitle').textContent };
+          F.shopSheetClose();
+        }
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      out.ms = Date.now() - t0;
+      out.end = scene.scrollLeft;
+      out.log = (F.shopUi.tourLog || []).slice();
+      out.after = { tick: sh.day * 3 + sh.phaseIndex };
+      out.same = JSON.stringify(C.serializeShop(F.app.shop)) === resolved;
+      out.summary = !document.getElementById('shopSheet').hidden &&
+        /summary/.test(document.getElementById('shopSheetTitle').textContent);
+      for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+        const b = document.querySelector('#shopSheetActions button');
+        if (b) b.click();
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      out.state = JSON.stringify(C.serializeShop(F.app.shop));
+      return out;
+    };
+  });
+  const tourShown = (run) => run.log.filter((x) => x.role);
+  const roleList = (run) => tourShown(run).map((x) => x.role).join(',');
+
+  // the same phase, from the same save and the same dice, watched four ways
+  const tours = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core;
+    F.setPhaseAnim(true);
+    F.setWorkerCam(true);
+    F.testTourShop(['salesperson', 'smith', 'runner', 'storehand']);
+    const snap = C.serializeShop(F.app.shop);
+    const scene = document.getElementById('shScene');
+    const front = scene.scrollWidth - scene.clientWidth;
+    const fresh = () => {
+      F.app.shop = C.restoreShop(JSON.parse(JSON.stringify(snap)), C.mulberry32(4242));
+      F.shopRender();
+    };
+    const out = {};
+    fresh(); out.full = await F.testTourRun({ home: front });
+    fresh(); out.skip = await F.testTourRun({ home: front, skipAt: 1 });
+    fresh(); out.grab = await F.testTourRun({ home: front, grabAt: 1, grabTo: 40 });
+    F.setWorkerCam(false);
+    fresh(); out.off = await F.testTourRun({ home: front });
+    F.setWorkerCam(true);
+    out.front = front;
+    return out;
+  });
+  const tourFull = tours.full;
+  ok('the skip control is labelled Skip Animations', tourFull.label === 'Skip Animations', tourFull.label);
+  ok('every employee who worked gets one turn on camera, one after another',
+    tourShown(tourFull).length === 4 &&
+    new Set(tourShown(tourFull).map((x) => x.role)).size === 4, roleList(tourFull));
+  ok('the camera sweeps the room once, starting from the end it was looking at',
+    roleList(tourFull) === 'runner,salesperson,storehand,smith', roleList(tourFull));
+  ok('each worker is on screen when their animation starts',
+    tourShown(tourFull).every((x) => x.visible), JSON.stringify(tourShown(tourFull)));
+  ok('and the camera moved to reach the ones that were off screen',
+    tourShown(tourFull).filter((x) => x.moved).length >= 2, JSON.stringify(tourShown(tourFull)));
+  ok('no worker’s animation starts before the camera reaches them',
+    tourShown(tourFull).every((x) => x.busyAlready.length === 0), JSON.stringify(tourShown(tourFull)));
+  ok('each one waits for the last to finish',
+    tourShown(tourFull).every((x, i, a) => i === 0 || x.t - a[i - 1].t >= 900), JSON.stringify(tourShown(tourFull).map((x) => x.t)));
+  ok('afterwards the camera is back where the player left it',
+    Math.abs(tourFull.end - tourFull.home) <= 1 && tourFull.home === tours.front, tourFull.home + ' -> ' + tourFull.end);
+  ok('and the phase summary follows', tourFull.summary, JSON.stringify(tourFull).slice(0, 200));
+  ok('watching it changed nothing the phase had already settled', tourFull.same);
+  ok('the phase advanced exactly once', tourFull.after.tick === tourFull.before.tick + 1,
+    JSON.stringify([tourFull.before, tourFull.after]));
+
+  const skip = tours.skip;
+  ok('Skip Animations ends the playback at once',
+    skip.skipped && skip.ms < tourFull.ms - 3000 && skip.summary, skip.ms + 'ms vs ' + tourFull.ms + 'ms');
+  ok('and puts the camera straight back', Math.abs(skip.restoredAt - skip.home) <= 1 &&
+    Math.abs(skip.end - skip.home) <= 1, skip.restoredAt + ' / ' + skip.end + ' / ' + skip.home);
+  ok('skipping (twice) advanced the phase once and changed no result',
+    skip.after.tick === skip.before.tick + 1 && skip.same, JSON.stringify(skip.after));
+
+  const grab = tours.grab;
+  const afterGrab = grab.log.slice(grab.log.findIndex((x) => x.manual) + 1).filter((x) => x.role);
+  ok('moving the camera by hand is noticed', grab.log.some((x) => x.manual) && grab.grabbed === 40,
+    JSON.stringify(grab.log).slice(0, 300));
+  ok('after that the playback still shows everyone, but never moves the camera',
+    tourShown(grab).length === 4 && afterGrab.length >= 1 &&
+    afterGrab.every((x) => x.sl === 40 && !x.moved), JSON.stringify(afterGrab));
+  ok('and does not pull it back at the end', grab.end === 40, String(grab.end));
+
+  const off = tours.off;
+  ok('with automatic viewing off the camera never moves',
+    off.lefts.every((x) => x === off.home) && off.end === off.home,
+    JSON.stringify(off.lefts.filter((x) => x !== off.home).slice(0, 5)));
+  ok('but every worker is still shown in turn', tourShown(off).length === 4 &&
+    tourShown(off).every((x) => !x.moved), roleList(off));
+  ok('every way of watching ends in exactly the same forge',
+    tourFull.state === skip.state && tourFull.state === grab.state && tourFull.state === off.state,
+    [tourFull.state.length, skip.state.length, grab.state.length, off.state.length].join(','));
+
+  // one worker the camera is already looking at: it holds still
+  const steady = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.testTourShop(['smith']);
+    return F.testTourRun({ home: 0 });
+  });
+  ok('a worker already on screen is shown without moving the camera',
+    tourShown(steady).length === 1 && tourShown(steady)[0].role === 'smith' && !tourShown(steady)[0].moved &&
+    steady.lefts.every((x) => x === 0) && steady.end === 0, JSON.stringify(steady.log));
+
+  // nobody working: the phase passes quickly and the camera stays put
+  const empty = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.testTourShop([]);
+    return F.testTourRun({ home: 200 });
+  });
+  ok('with nobody working there is nothing to show and nothing waits',
+    tourShown(empty).length === 0 && empty.ms < 2500 && empty.lefts.every((x) => x === empty.home) &&
+    empty.after.tick === empty.before.tick + 1, JSON.stringify({ ms: empty.ms, log: empty.log }));
+
+  // a hand whose job came to nothing is not shown at work
+  const idle = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    F.testTourShop(['storehand', 'smith']);
+    for (const k in sh.storage) delete sh.storage[k];        // nothing to carry out
+    sh.materials.bronze = 0;                                 // nothing to forge with
+    F.shopRender();
+    return F.testTourRun({ home: 0 });
+  });
+  ok('employees who could not do their job get no work animation',
+    tourShown(idle).length === 0, roleList(idle));
+
+  // an apprentice's work is the player's own batch: shown only when there was one
+  const bench = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.testTourShop(['apprentice']);
+    const idleRun = await F.testTourRun({ home: 0 });
+    F.testTourShop(['apprentice']);
+    F.shopUi.forgedNow = true;                               // as Return to Shop after a batch
+    const forgedRun = await F.testTourRun({ home: 0 });
+    return { idle: idleRun.log, forged: forgedRun.log, left: F.shopUi.forgedNow };
+  });
+  ok('an apprentice is shown helping only in a phase where you forged a batch',
+    bench.idle.filter((x) => x.role).length === 0 &&
+    bench.forged.filter((x) => x.role === 'apprentice' && x.visible).length === 1 &&
+    bench.left === false, JSON.stringify(bench));
+
+  // a Repeat Daily booking is shown exactly like one made by hand
+  const repeat = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.testTourShop(['storehand', 'salesperson']);
+    sh.assignments = {};
+    C.setStanding(sh, 'storehand', C.SHOP.phases[0], 904, { kind: 'shelve' });
+    C.setStanding(sh, 'salesperson', C.SHOP.phases[0], 901, {});
+    sh.phaseIndex = 2;
+    C.shopEndDay(sh);                                        // the new morning books itself
+    const key = C.lineKey('shortsword', 'bronze');
+    if (C.countStorage(sh) < 10) C.addStorage(sh, key, 10, 80, 1);
+    const booked = Object.keys(sh.assignments).length;
+    F.shopRender();
+    const run = await F.testTourRun({ home: 0 });
+    run.booked = booked;
+    return run;
+  });
+  ok('jobs booked by a recurring schedule are shown too',
+    repeat.booked === 2 && tourShown(repeat).some((x) => x.role === 'storehand') &&
+    tourShown(repeat).every((x) => x.visible), JSON.stringify({ booked: repeat.booked, log: repeat.log }));
+
+  // a menu opened mid-playback is waited for, not covered or moved under
+  const tourHeld = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    F.testTourShop(['salesperson', 'smith', 'storehand']);
+    const scene = document.getElementById('shScene');
+    return F.testTourRun({ home: scene.scrollWidth - scene.clientWidth, menuAt: 1 });
+  });
+  ok('an open menu holds the playback: no new worker, no camera move, no summary on top',
+    tourHeld.menuHeld && tourHeld.menuHeld.shownAfter === tourHeld.menuHeld.shownBefore &&
+    tourHeld.menuHeld.leftAfter === tourHeld.menuHeld.leftBefore && tourHeld.menuHeld.playing &&
+    tourHeld.menuHeld.title === 'Staff', JSON.stringify(tourHeld.menuHeld));
+  ok('and once it is closed the playback carries on to the end',
+    tourShown(tourHeld).length === 3 && tourHeld.summary, roleList(tourHeld));
+
+  // the setting itself
+  const pref = await page.evaluate(async () => {
+    const F = window.CHECKSMITH;
+    localStorage.setItem('checksmith:v1', JSON.stringify(Object.assign(
+      JSON.parse(localStorage.getItem('checksmith:v1') || '{}'), { workerCam: undefined })));
+    F.shopOpenStation('sign');
+    await new Promise((r) => setTimeout(r, 120));
+    const box = document.getElementById('shCamPref');
+    const row = box && box.closest('label').textContent.trim();
+    const was = box && box.checked;
+    box.checked = false;
+    Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => b.textContent === 'Save').click();
+    await new Promise((r) => setTimeout(r, 120));
+    const saved = JSON.parse(localStorage.getItem('checksmith:v1') || '{}').workerCam;
+    F.setWorkerCam(true);
+    return { row: row, was: was, saved: saved };
+  });
+  ok('Shop Settings offers Automatically Show Worker Actions, on by default',
+    pref.row === 'Automatically Show Worker Actions' && pref.was === true, JSON.stringify(pref));
+  ok('and switching it off is remembered', pref.saved === false, JSON.stringify(pref));
+
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core;
+    F.setPhaseAnim(false);
+    F.app.shop = C.restoreShop(F.testKeptShop, F.app.rnd);
+    F.shopSheetClose();
+    F.shopRender();
+  });
+
   section('1.34: the room leads, the paperwork waits in drawers');
   const drawers = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;

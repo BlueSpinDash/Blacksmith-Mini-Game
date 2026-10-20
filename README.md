@@ -1400,6 +1400,34 @@ a salesperson brought back (still the player's to accept or decline), and each
 hand's full report a tap away. The playback is on by default, off under
 `prefers-reduced-motion`, and switchable from the sign.
 
+**The camera shows each worker (1.39).** The playback is a sequence of shots,
+one per employee whose job came to something this phase (`phaseShots`): a
+salesperson who served customers, a store hand who shelved stock, a smith who
+forged or smelted, a runner who bought, hauled or delivered, and an apprentice
+only in a phase where the player finished a batch (`SHOPUI.forgedNow`, set by
+*Return to Shop*). A hand who was idle, whose job failed or who produced
+nothing gets no shot. Shots are read off the reports and the crew captured
+before the phase advanced, so Repeat Daily bookings appear like any other.
+
+For each shot the camera pans to frame the worker and their workstation
+(`targetFor`, keeping clear of the Skip Animations button). If they are already
+in view it stays still. The pan is its own `requestAnimationFrame` loop, so it
+knows when it has arrived, and only then does the worker's animation start. The
+shot then waits on that animation's own end event (`animationend`,
+`transitionend`, a Web Animations `finished`), with a timer behind each one
+and a cap on the whole sequence, so a missing or interrupted animation cannot
+hold the phase. Moving figures (customers walking in, the runner leaving) are
+followed. Afterwards the camera pans back to where the player left it.
+
+*Skip Animations* finishes at once and puts the camera back. A drag, wheel,
+arrow key or any scroll the playback did not make hands the camera to the
+player for the rest of the phase: shots still play, but the camera neither
+moves nor returns. *Automatically Show Worker Actions* (Shop Settings, on by
+default, `workerCam` in the store) plays the same sequence with a still camera.
+While a menu or prompt is open nothing moves and no new shot or summary starts.
+A check plays one phase from the same save and the same random seed four ways
+(watched, skipped, camera taken, camera off) and finds the forge identical.
+
 #### 1.34: the room in front, the paperwork behind it
 
 **Lighting stays in the room.** The room's light is drawn in layers at
@@ -1747,7 +1775,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 948 rule/generation checks
-node tools/verify-ui.mjs                                    # 884 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 913 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

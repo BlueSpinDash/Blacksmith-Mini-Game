@@ -825,7 +825,7 @@ input[type=range]{
   font-size:8px;line-height:14px;text-align:center;background:var(--ember);color:#12141a;}
 .fig.staff{animation:scIdle 3.4s ease-in-out infinite;}
 .fig.busy{animation:scWork .32s ease-in-out 4;}
-.fig.leaving{transition:transform 1s ease-in,opacity 1s;transform:translateX(46px);opacity:0;}
+.fig.leaving{animation:none;transition:transform 1s ease-in,opacity 1s;transform:translateX(46px);opacity:0;}
 .fig.walker{cursor:default;}
 @keyframes scIdle{0%,100%{transform:translateY(0);}50%{transform:translateY(-1.5px);}}
 @keyframes scWork{50%{transform:translateY(-4px) rotate(-3deg);}}
@@ -2213,7 +2213,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
           <div class="scene-fx" id="shFx" aria-hidden="true"></div>
         </div>
       </div>
-      <button class="scene-skip" type="button" id="shSkip" hidden>Skip &#9656;</button>
+      <button class="scene-skip" type="button" id="shSkip" hidden>Skip Animations</button>
       <div class="scene-tools" id="shSceneTools">
         <span class="scene-jump">
           <button type="button" data-jump="work" aria-label="Look at the workshop">Workshop</button>
@@ -12895,7 +12895,11 @@ function shopOpenSettings() {
     '<p class="station-note">Up to ' + SHOP_NAME_MAX + ' characters. Shown on the shop sign and ' +
     'the save slot.</p>' +
     '<label class="check-row"><input type="checkbox" id="shAnimPref"' + (phaseAnimOn() ? ' checked' : '') +
-    '> Play the shop animation when a phase ends</label>';
+    '> Play the shop animation when a phase ends</label>' +
+    '<label class="check-row"><input type="checkbox" id="shCamPref"' + (workerCamOn() ? ' checked' : '') +
+    '> Automatically Show Worker Actions</label>' +
+    '<p class="station-note">When a phase ends, the camera moves to each employee in turn ' +
+    'while they do their job, then returns. Needs the shop animation.</p>';
   shopSheet('Shop Settings', body, [
     { label: 'Save', primary: true, onClick: function () {
       const raw = $('shRename').value;
@@ -12903,7 +12907,7 @@ function shopOpenSettings() {
         .map(function (slot) { return slot.name; });
       const want = CHECKSMITH_CORE.shopNameFree(raw.trim() ? raw : sh.name, others);
       const res = shopRename(sh, want);
-      Store.patch({ phaseAnim: !!$('shAnimPref').checked });
+      Store.patch({ phaseAnim: !!$('shAnimPref').checked, workerCam: !!$('shCamPref').checked });
       shopSheetClose();
       shopRender();
       if (res.name !== res.was) {
@@ -13030,13 +13034,6 @@ function sceneWalker(face, from, to, ms) {
   }
   return el;
 }
-function sceneBusy(sel) {
-  const el = $('shThings').querySelector(sel);
-  if (!el) return;
-  el.classList.remove('busy');
-  void el.offsetWidth;
-  el.classList.add('busy');
-}
 /* Swap the displays (and the storeroom shelves) for how they stand NOW. */
 function sceneShowAfter(what) {
   const sh = shop();
@@ -13071,16 +13068,181 @@ function sceneCrewNow(sh) {
   return out;
 }
 
-function shopPlayPhase(reports, note, closing, crew, done) {
+/* ---------- the camera on the workers ---------------------------------
+   While a phase plays back, the camera visits each employee who actually
+   did their job, one at a time: it pans to them, waits until it is there,
+   only THEN starts their animation, holds until that animation reports it
+   has finished, and moves on. At the end it goes back to where the player
+   left it. Like everything else in the playback it is presentation only:
+   every result was settled in shopAdvancePhase before the first frame, so
+   skipping, switching it off or taking the camera by hand cannot change a
+   single job. */
+function workerCamOn() {
+  return Store.read().workerCam !== false;
+}
+/* A menu or a question the player still has to answer. The playback waits
+   for it rather than moving the room, or opening the summary, under it. */
+function scenePromptOpen() {
+  return ['shopSheet', 'confirm', 'help', 'nameForge'].some(function (id) {
+    const el = $(id);
+    return !!(el && !el.hidden);
+  });
+}
+/* One shot per employee whose job came to something this phase. They are
+   read off the reports the phase already produced and the crew captured
+   before it advanced, so a hand booked by Repeat Daily is shown exactly like
+   one booked by hand, and a hand who was idle - or whose job failed, or came
+   to nothing - is not shown at all. x0..x1 and y0 are where the action
+   happens, in room coordinates; `anchor` is the end to show first when the
+   action is wider than the screen. `run` starts the main animation and
+   calls `end` when it has played; `max` is how long it may take at most. */
+function phaseShots(reports, crew, L, forged) {
+  const shots = [];
+  const R = L.R;
+  const got = function (kinds) {
+    return reports.find(function (r) { return r.ok && kinds.indexOf(r.kind) >= 0; }) || null;
+  };
+  const figOf = function (role) {
+    const sel = sceneFigFor(crew, role);
+    return sel ? $('shThings').querySelector(sel) : null;
+  };
+  const station = function (id) { return $('shThings').querySelector('[data-station="' + id + '"]'); };
+  const add = function (role, shot) {
+    const id = crew ? crew[role] : null;
+    const e = id != null ? staffById(shop(), id) : null;
+    shot.role = role;
+    shot.id = id != null ? id : null;
+    shot.who = e ? e.name : (shopRole(role) || {}).name || role;
+    shot.fig = figOf(role);
+    shots.push(shot);
+  };
+
+  const sale = got(['sales']);
+  if (sale && sale.customers > 0) {
+    add('salesperson', { x0: R + 10, x1: R + 290, y0: 38, anchor: 'right', max: 4200,
+      what: 'serving customers at the counter',
+      run: function (T, end) {
+        const seller = this.fig;
+        const doorAt = { x: R + 236, y: 104 }, counterAt = { x: R + 108, y: 108 };
+        const n = Math.max(1, Math.min(3, sale.customers || 1));
+        const walk = 1200;
+        let lead = null;
+        for (let k = 0; k < n; k++) {
+          T.at(k * 320, function () {
+            const w = sceneWalker(T.face(k), doorAt, { x: counterAt.x - k * 30, y: counterAt.y + 4 }, walk);
+            if (k === 0) { lead = w; T.follow(w); }
+          });
+        }
+        T.at(500, function () { T.busy(seller); });
+        // once they are at the counter, the counter and the seller are the action
+        T.at(walk + (n - 1) * 320 + 200, function () {
+          T.follow(null);
+          T.frame({ x0: R + 10, x1: R + 150, y0: 84 }, function () {
+            if (sale.revenue > 0) sceneFloat(R + 60, 96, '+' + coin(sale.revenue) + 'g', 'gold');
+            if (sale.sold > 0) sceneShowAfter('floor');
+            else sceneFloat(R + 60, 96, 'no sale', 'quiet');
+            T.at(900, end);
+          });
+        });
+      } });
+  }
+
+  const hand = got(['storehand']);
+  if (hand && hand.moved > 0) {
+    const fig = figOf('storehand');
+    const fx = fig ? parseFloat(fig.style.left) : NaN;
+    const x = isFinite(fx) ? fx : L.floorX + 60;
+    add('storehand', { x0: x - 48, x1: x + 44, y0: 78, max: 2400,
+      what: 'stocking stands',
+      run: function (T, end) {
+        sceneShowAfter('floor');
+        T.busy(this.fig, function () {
+          sceneFloat(x + 20, 118, '+' + hand.moved + ' shelved');
+          T.at(700, end);
+        });
+      } });
+  }
+
+  const smith = got(['smith', 'smelt']);
+  if (smith && smith.made > 0) {
+    const smelt = smith.kind === 'smelt';
+    add('smith', { x0: 4, x1: smelt ? 112 : 172, y0: 84, max: 2600,
+      what: smelt ? 'smelting ore at the furnace' : 'forging at the anvil',
+      run: function (T, end) {
+        T.busy(station('forge'));
+        if (!smelt) T.busy(station('anvil'));
+        T.busy(this.fig, function () {
+          sceneFloat(smelt ? 60 : 120, smelt ? 104 : 120,
+            smelt ? '+' + smith.made + ' ingots' : '+' + smith.made + ' made');
+          T.at(700, end);
+        });
+      } });
+  }
+
+  // an apprentice's work is the player's own batch: only shown when there was one
+  const help = got(['apprentice']);
+  if (help && forged) {
+    add('apprentice', { x0: 0, x1: 172, y0: 84, max: 2600,
+      what: 'helping with your batch at the anvil',
+      run: function (T, end) {
+        T.busy(station('forge'));
+        T.busy(station('anvil'));
+        T.busy(this.fig, function () {
+          sceneFloat(30, 104, 'batch +' + help.bonus);
+          T.at(700, end);
+        });
+      } });
+  }
+
+  const trip = got(['runner', 'haul', 'delivery']);
+  if (trip && (trip.kind === 'runner' ? trip.ingots > 0 : trip.load > 0)) {
+    add('runner', { x0: R + 214, x1: Math.min(L.W, R + 330), y0: 38, max: 2600,
+      what: trip.kind === 'runner' ? 'buying ingots at the market'
+        : trip.kind === 'haul' ? 'collecting ore from a mine' : 'delivering a commission',
+      run: function (T, end) {
+        const fig = this.fig;
+        sceneFloat(R + 236, 90, trip.kind === 'runner' ? '+' + trip.ingots + ' ingots'
+          : trip.kind === 'haul' ? '+' + trip.load + ' ore' : 'delivered ' + trip.load,
+          trip.kind === 'delivery' ? 'gold' : '');
+        if (trip.kind !== 'delivery') T.at(500, function () { sceneShowAfter('store'); });
+        if (!fig) { T.at(1000, end); return; }
+        T.follow(fig);
+        T.whenEnd(fig, 'transitionend', 1300, function () { T.follow(null); T.at(500, end); });
+        fig.classList.add('leaving');
+      } });
+  }
+  return shots;
+}
+
+function shopPlayPhase(reports, note, closing, crew, done, opts) {
   const sh = shop();
   const L = sceneLayout(sh);
   const view = $('shopView');
+  const scene = $('shScene');
   const timers = [];
+  const listeners = [];
+  const frames = { pan: 0, follow: 0 };
+  const auto = workerCamOn();
+  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const home = scene.scrollLeft;
+  // `last` is where the camera was last put by the playback: anything else
+  // that moves it is the player, and from then on the camera is theirs
+  const cam = { last: home, manual: false, moved: false, pending: null, following: null, press: null };
+  const log = SHOPUI.tourLog = [];
   let finished = false;
+  const at = function (ms, fn) { timers.push(setTimeout(fn, ms)); };
+  const on = function (el, type, fn, o) { el.addEventListener(type, fn, o); listeners.push([el, type, fn, o]); };
+  const setLeft = function (x) { scene.scrollLeft = x; cam.last = scene.scrollLeft; };
+
   const finish = function () {
     if (finished) return;
     finished = true;
     for (const t of timers) clearTimeout(t);
+    cancelAnimationFrame(frames.pan);
+    cancelAnimationFrame(frames.follow);
+    for (const l of listeners) l[0].removeEventListener(l[1], l[2], l[3]);
+    // back where the player left it, unless they took the camera themselves
+    if (auto && !cam.manual && cam.moved) scene.scrollLeft = home;
     SHOPUI.playing = null;
     SHOPUI.sceneOpen = false;
     view.classList.remove('playing');
@@ -13088,10 +13250,147 @@ function shopPlayPhase(reports, note, closing, crew, done) {
     $('shFx').innerHTML = '';
     done();
   };
-  const at = function (ms, fn) { timers.push(setTimeout(fn, ms)); };
   SHOPUI.playing = { finish: finish };
   view.classList.add('playing');
   $('shSkip').hidden = false;
+
+  /* The player taking the camera: a drag, a wheel, the arrow keys, or the
+     room scrolling to anywhere the playback did not put it. */
+  const grab = function () {
+    if (cam.manual || finished) return;
+    cam.manual = true;
+    cam.following = null;
+    cancelAnimationFrame(frames.pan);
+    cancelAnimationFrame(frames.follow);
+    log.push({ manual: true, sl: scene.scrollLeft, t: Date.now() });
+    const p = cam.pending;
+    cam.pending = null;
+    if (p) p();
+  };
+  on(scene, 'pointerdown', function (e) { cam.press = { x: e.clientX }; });
+  on(scene, 'pointermove', function (e) { if (cam.press && Math.abs(e.clientX - cam.press.x) > 8) grab(); });
+  on(window, 'pointerup', function () { cam.press = null; });
+  on(scene, 'wheel', function (e) { if (e.deltaX || e.shiftKey) grab(); }, { passive: true });
+  on(scene, 'keydown', function (e) { if (/^(Arrow|Page|Home|End)/.test(e.key)) grab(); });
+  on(scene, 'scroll', function () { if (Math.abs(scene.scrollLeft - cam.last) > 3) grab(); }, { passive: true });
+
+  /* Where the camera should sit to show an action, or null when it already
+     shows it. The skip button sits over the room's top-right corner, so an
+     action tall enough to reach it keeps clear of it. */
+  const targetFor = function (shot) {
+    const vw = scene.clientWidth, m = 14, sl = scene.scrollLeft;
+    let inset = 0;
+    const skip = $('shSkip');
+    if (skip && !skip.hidden) {
+      const s = skip.getBoundingClientRect(), r = scene.getBoundingClientRect();
+      if (shot.y0 < s.bottom - r.top) inset = Math.max(0, r.right - s.left) + 6;
+    }
+    if (shot.x0 >= sl + m && shot.x1 <= sl + vw - m - inset) return null;
+    const usable = vw - 2 * m - inset;
+    const w = shot.x1 - shot.x0;
+    if (w <= usable) return shot.x0 - m - (usable - w) / 2;
+    return shot.anchor === 'right' ? shot.x1 + m + inset - vw : shot.x0 - m;
+  };
+  /* A smooth pan that says when it has arrived. It is its own frame loop
+     rather than a smooth scrollTo, which has no reliable "arrived" signal,
+     and a timer stands behind it in case frames never come. */
+  const camTo = function (x, then) {
+    if (finished) return;
+    // nothing moves under an open menu: the pan waits for it to close
+    if (auto && !cam.manual && scenePromptOpen()) { at(250, function () { camTo(x, then); }); return; }
+    let called = false;
+    const go = function () { if (!called) { called = true; then(); } };
+    const max = Math.max(0, scene.scrollWidth - scene.clientWidth);
+    const to = Math.max(0, Math.min(max, Math.round(x)));
+    const from = scene.scrollLeft;
+    if (!auto || cam.manual || Math.abs(to - from) < 2) { go(); return; }
+    cam.moved = true;
+    const ms = reduced ? 0 : Math.min(750, 280 + Math.abs(to - from) * 0.9);
+    if (!ms) { setLeft(to); go(); return; }
+    cam.pending = go;
+    let t0 = performance.now(), prev = t0;
+    const step = function (now) {
+      if (finished || cam.manual) return;
+      // a menu opened mid-pan holds the pan where it is
+      if (scenePromptOpen()) { t0 += now - prev; prev = now; frames.pan = requestAnimationFrame(step); return; }
+      prev = now;
+      const k = Math.min(1, (now - t0) / ms);
+      const ease = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+      setLeft(from + (to - from) * ease);
+      if (k < 1) { frames.pan = requestAnimationFrame(step); return; }
+      cam.pending = null;
+      go();
+    };
+    frames.pan = requestAnimationFrame(step);
+    const stuck = function () {
+      if (cam.pending !== go || cam.manual) return;
+      if (scenePromptOpen()) { at(250, stuck); return; }
+      cancelAnimationFrame(frames.pan);
+      cam.pending = null;
+      setLeft(to);
+      go();
+    };
+    at(ms + 400, stuck);
+  };
+  /* Keep a moving figure in view, easing after it rather than jumping. */
+  const follow = function (el) {
+    cancelAnimationFrame(frames.follow);
+    cam.following = el;
+    if (!el || !auto || cam.manual) return;
+    const tick = function () {
+      if (finished || cam.manual || cam.following !== el || !el.isConnected) return;
+      if (scenePromptOpen()) { frames.follow = requestAnimationFrame(tick); return; }
+      const r = scene.getBoundingClientRect(), b = el.getBoundingClientRect();
+      const vw = scene.clientWidth, m = 24;
+      let want = null;
+      if (b.left - r.left < m) want = scene.scrollLeft + (b.left - r.left) - m;
+      else if (b.right - r.left > vw - m) want = scene.scrollLeft + (b.right - r.left) - (vw - m);
+      if (want != null) {
+        const max = Math.max(0, scene.scrollWidth - vw);
+        const to = Math.max(0, Math.min(max, want));
+        if (Math.abs(to - scene.scrollLeft) >= 1) { cam.moved = true; setLeft(scene.scrollLeft + (to - scene.scrollLeft) * 0.25); }
+      }
+      frames.follow = requestAnimationFrame(tick);
+    };
+    frames.follow = requestAnimationFrame(tick);
+  };
+  // a menu open on top waits for the player; nothing moves underneath it
+  const whenClear = function (fn) {
+    if (finished) return;
+    if (scenePromptOpen()) { at(250, function () { whenClear(fn); }); return; }
+    fn();
+  };
+  /* One completion signal, or the timer behind it, whichever comes first. */
+  const whenEnd = function (el, type, ms, fn) {
+    let called = false;
+    const go = function (e) {
+      if (called || (e && e.target !== el)) return;
+      called = true;
+      el && el.removeEventListener(type, go);
+      if (!finished) fn();
+    };
+    if (el) el.addEventListener(type, go);
+    at(ms, function () { go(); });
+  };
+  const faces = (sh.town || []).map(function (one) { return one.type; }).filter(Boolean);
+  const T = {
+    at: at, follow: follow, whenEnd: whenEnd,
+    face: function (n) {
+      return faces.length ? faces[(sh.day * 7 + n * 5) % faces.length] : SHOP.customers[n % SHOP.customers.length].id;
+    },
+    frame: function (region, fn) {
+      const x = targetFor(region);
+      if (x == null) fn(); else camTo(x, fn);
+    },
+    // the work bounce on a figure or a station, and when it has played out
+    busy: function (el, fn) {
+      if (!el) { if (fn) at(900, fn); return; }
+      el.classList.remove('busy');
+      void el.offsetWidth;
+      el.classList.add('busy');
+      if (fn) whenEnd(el, 'animationend', 1700, fn);
+    }
+  };
 
   // the door swings open on the closing phase
   SHOPUI.sceneOpen = true;
@@ -13100,73 +13399,61 @@ function shopPlayPhase(reports, note, closing, crew, done) {
   if (door) door.outerHTML = sceneStation('door', L.R + 214, 38, 72, 112, 12, sceneDoorArt(true),
     'Door', 'The door, open', 'open');
 
-  const doorAt = { x: L.R + 236, y: 104 };
-  const counterAt = { x: L.R + 108, y: 108 };
-  const faces = (sh.town || []).map(function (one) { return one.type; }).filter(Boolean);
-  const face = function (n) { return faces.length ? faces[(sh.day * 7 + n * 5) % faces.length] : SHOP.customers[n % SHOP.customers.length].id; };
-  let t = 300;
-  const by = function (kind) { return reports.filter(function (r) { return r.kind === kind && r.ok; }); };
+  const shots = phaseShots(reports, crew, L, !!(opts && opts.forged));
+  // start from the end of the room the camera is nearest, and sweep it once
+  const mid = home + scene.clientWidth / 2;
+  const centre = function (s) { return (s.x0 + s.x1) / 2; };
+  shots.sort(function (a, b) { return centre(a) - centre(b); });
+  if (Math.abs(mid - centre(shots[shots.length - 1] || { x0: 0, x1: 0 })) <
+      Math.abs(mid - centre(shots[0] || { x0: 0, x1: 0 }))) shots.reverse();
 
-  const sales = by('sales');
-  if (sales.length) {
-    const r = sales[0];
-    const n = Math.max(1, Math.min(3, r.customers || 1));
-    const walk = 1200;
-    for (let k = 0; k < n; k++) {
-      at(t + k * 320, function () { sceneWalker(face(k), doorAt, { x: counterAt.x - k * 30, y: counterAt.y + 4 }, walk); });
+  let n = 0;
+  const next = function () {
+    if (finished) return;
+    if (n >= shots.length) {
+      // all shown: the camera goes home, then the summary
+      whenClear(function () { camTo(cam.manual ? scene.scrollLeft : home, finish); });
+      return;
     }
-    const who = sceneFigFor(crew, 'salesperson');
-    if (who) at(t + 500, function () { sceneBusy(who); });
-    at(t + walk + 200, function () {
-      if (r.revenue > 0) sceneFloat(L.R + 60, 96, '+' + coin(r.revenue) + 'g', 'gold');
-      if (r.sold > 0) sceneShowAfter('floor');
-      else sceneFloat(L.R + 60, 96, 'no sale', 'quiet');
+    const shot = shots[n++];
+    whenClear(function () {
+      const x = auto && !cam.manual ? targetFor(shot) : null;
+      const from = scene.scrollLeft;
+      const ready = function () {
+        if (finished) return;
+        const r = scene.getBoundingClientRect();
+        const b = shot.fig ? shot.fig.getBoundingClientRect() : null;
+        log.push({ role: shot.role, id: shot.id, t: Date.now(), sl: scene.scrollLeft,
+          moved: Math.abs(scene.scrollLeft - from) >= 1,
+          visible: !!b && b.left >= r.left - 1 && b.right <= r.right + 1,
+          busyAlready: shots.slice(n).filter(function (s) {
+            return s.fig && s.fig.classList.contains('busy');
+          }).map(function (s) { return s.role; }) });
+        announce(shot.who + ', ' + (shopRole(shot.role) || {}).name + ': ' + shot.what + '.');
+        let ended = false;
+        const end = function () {
+          if (ended || finished) return;
+          ended = true;
+          follow(null);
+          at(350, next);
+        };
+        // an animation that never reports back cannot hold the phase up
+        at(shot.max, end);
+        try { shot.run.call(shot, T, end); } catch (err) { end(); }
+      };
+      if (x == null) ready(); else camTo(x, ready);
     });
-    t += walk + 900;
-  }
-  const hands = by('storehand');
-  if (hands.length) {
-    const r = hands[0];
-    const who = sceneFigFor(crew, 'storehand');
-    at(t, function () {
-      if (who) sceneBusy(who);
-      sceneShowAfter('floor');
-      if (r.moved > 0) sceneFloat(L.floorX + 60, 118, '+' + r.moved + ' shelved');
-    });
-    t += 800;
-  }
-  const smiths = by('smith').concat(by('smelt'));
-  if (smiths.length || /forge|anvil|batch/i.test(note || '')) {
-    at(t, function () {
-      sceneBusy('[data-station="forge"]');
-      sceneBusy('[data-station="anvil"]');
-      const who = sceneFigFor(crew, 'smith');
-      if (who) sceneBusy(who);
-      for (const r of smiths) {
-        sceneFloat(120, 120, r.kind === 'smelt' ? '+' + r.made + ' ingots' : '+' + r.made + ' made');
-      }
-    });
-    t += 800;
-  }
-  const trips = by('runner').concat(by('haul'), by('delivery'));
-  if (trips.length) {
-    const who = sceneFigFor(crew, 'runner');
-    at(t, function () {
-      if (who) {
-        const el = $('shThings').querySelector(who);
-        if (el) el.classList.add('leaving');
-      }
-      for (const r of trips) {
-        sceneFloat(L.R + 236, 90, r.kind === 'runner' ? '+' + r.ingots + ' ingots'
-          : r.kind === 'haul' ? '+' + r.load + ' ore' : 'delivered ' + r.load, r.kind === 'delivery' ? 'gold' : '');
-      }
-    });
-    at(t + 500, function () { sceneShowAfter('store'); });
-    t += 900;
-  }
-  // a phase with nothing to show still passes, just briefly
-  at(Math.min(4800, Math.max(t + 300, 1300)), finish);
+  };
+  at(shots.length ? 300 : 900, next);
+  // and nothing at all can keep the summary waiting for ever
+  const cap = function () {
+    if (finished) return;
+    if (scenePromptOpen()) { at(500, cap); return; }
+    finish();
+  };
+  at(2500 + shots.length * 6500, cap);
 }
+
 function shopSkipPhase() {
   if (SHOPUI.playing) SHOPUI.playing.finish();
 }
@@ -16530,6 +16817,9 @@ function shopSpendPhase(note) {
   // captured BEFORE the phase advances, because afterwards the roster says
   // who is booked next, and at the turn of the day it is wiped altogether
   const crew = sceneCrewNow(sh);
+  // whether this phase was the player's own batch, which an apprentice helps
+  const forged = !!SHOPUI.forgedNow;
+  SHOPUI.forgedNow = false;
   // the phase resolves HERE, once. Nothing after this line decides anything.
   const result = shopAdvancePhase(sh);
   const reports = result.reports || [];
@@ -16542,7 +16832,7 @@ function shopSpendPhase(note) {
   const replay = SHOPUI.replay;
   const next = function () { shopAfterPhase(replay); };
   if (phaseAnimOn() && !$('shopView').hidden && !sh.closed) {
-    shopPlayPhase(reports, note, closing, crew, next);
+    shopPlayPhase(reports, note, closing, crew, next, { forged: forged });
   } else {
     next();
   }
@@ -16754,7 +17044,7 @@ function shopForgeComplete(result) {
     '</p></div>';
   shopSheet('Batch Forged', body,
     [{ label: 'Return to Shop', primary: true,
-      onClick: function () { shopSheetClose(); shopSpendPhase(null); } }]);
+      onClick: function () { shopSheetClose(); SHOPUI.forgedNow = true; shopSpendPhase(null); } }]);
 }
 
 /* The board was ruined: the phase is gone, the metal is not. */
@@ -18590,6 +18880,11 @@ function helpHtml() {
   html += P('Tap the counter, forge, storeroom, blueprint table, noticeboard, door or sign to ' +
     'see their actions. The Inventory, Business and Staff drawers hold the other tabs. Tap ' +
     'the sign for Shop Settings, including the phase animation.');
+  html += P('When a phase ends, the camera moves to each employee who did their job, one at a ' +
+    'time, and returns to where you left it. <b>Skip Animations</b> ends this at once; ' +
+    'swiping the room takes the camera back for the rest of the phase; and <b>Automatically ' +
+    'Show Worker Actions</b> in Shop Settings turns the camera movement off. None of these ' +
+    'change any result: every job is settled before the animation starts.');
   html += P('Forges save automatically. You can keep up to ' + CHECKSMITH_CORE.SHOP_SAVE_SLOTS +
     ' forges; delete one with its × button on the title screen. Leaving during a selling ' +
     'phase restores the forge to how it was before that phase.');
@@ -18873,6 +19168,7 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   shopOpenBuyStand: shopOpenBuyStand, shopOpenHand: shopOpenHand,
   sceneRender: sceneRender, sceneLayout: sceneLayout, shopOpenStation: shopOpenStation,
   setPhaseAnim: function (on) { Store.patch({ phaseAnim: !!on }); },
+  setWorkerCam: function (on) { Store.patch({ workerCam: !!on }); },
   showDesigns: showDesigns, pickDesign: pickDesign,
   /* The Forge mode works its handcrafted piece now, but the square boards it
      used to deal are still the boards Endless and Open Your Forge's anvil
