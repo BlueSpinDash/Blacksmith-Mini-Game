@@ -2961,27 +2961,31 @@ async function run() {
     sh.gold = 100000;
     F.shopUi.tab = 'grow';
     F.shopRender();
+    const panel = document.getElementById('shPanel');
+    const text = panel.innerText;
+    const cards = Array.from(panel.querySelectorAll('.grow-card .gc-head b')).map((b) => b.innerText);
     const before = { room: C.standCap(sh), staff: C.staffCapacity(sh),
-      rent: C.rentDue(sh), stands: sh.stands.length, floor: C.countShelf(sh) };
-    document.querySelector('#shPanel [data-expand]').click();
-    const after = { room: C.standCap(sh), staff: C.staffCapacity(sh),
       rent: C.rentDue(sh), stands: sh.stands.length, floor: C.countShelf(sh) };
     const gold = sh.gold;
     const up = document.querySelector('#shPanel [data-upgrade="racks"]');
     const storeBefore = C.storageCapacity(sh);
     up.click();
-    return { before, after, goldBefore: gold,
+    return { before, goldBefore: gold, cards: cards,
+      relocation: !!panel.querySelector('[data-expand]') || /Premises|Move to|Corner Forge|Village Smithy/.test(text),
+      rentAfter: C.rentDue(sh),
       upgraded: C.storageCapacity(sh) > storeBefore,
       noDisplays: !document.querySelector('#shPanel [data-upgrade="displays"]'),
       // stands are the Shop's business now, not Growth's
       sellsStands: document.querySelectorAll('#shPanel [data-buy-stand]').length };
   });
-  ok('moving to bigger premises buys floor space and raises the rent',
-    grown.after.room > grown.before.room && grown.after.staff > grown.before.staff &&
-    grown.after.rent > grown.before.rent, JSON.stringify(grown.after));
-  ok('and puts nothing on that floor: the stands are still the ones you bought',
-    grown.after.stands === grown.before.stands &&
-    grown.after.floor === grown.before.floor, JSON.stringify(grown));
+  ok('the Growth tab has no premises card and nothing to move into',
+    grown.relocation === false, JSON.stringify(grown.cards));
+  ok('and offers the three Staffing upgrades and Salesperson Earnings as cards',
+    ['Smith Staffing', 'Store Hand Staffing', 'Runner Staffing', 'Salesperson Earnings',
+      'Employment', 'Store Expansion', 'Forge'].every((c) => grown.cards.indexOf(c) >= 0),
+    JSON.stringify(grown.cards));
+  ok('rent still applies, without any premises to move', grown.rentAfter === grown.before.rent &&
+    grown.rentAfter > 0, String(grown.rentAfter));
   ok('the Grow tab no longer sells stands at all', grown.sellsStands === 0,
     'found ' + grown.sellsStands);
   ok('the old slot upgrade is gone from the Grow tab', grown.noDisplays);
@@ -4870,7 +4874,9 @@ async function run() {
       const key = C.lineKey('shortsword', 'bronze');
       if (C.countStorage(sh) < 20) C.addStorage(sh, key, 20, 80, 1);
       const stand = sh.stands.find((st) => st.type === 'weapon' && C.standPlaced(st));
+      // half full, so a Store Hand always has room to work whatever was sold
       if (stand && !stand.qty) C.shopStockStand(sh, stand.id, key, 3);
+      else if (stand) stand.qty = Math.min(stand.qty, 3);
       const all = {
         salesperson: { id: 901, name: 'Sal Counter', face: 'guard', job: {} },
         smith: { id: 902, name: 'Smi Anvil', face: 'cleric',
@@ -5131,6 +5137,261 @@ async function run() {
     F.shopSheetClose();
     F.shopRender();
   });
+
+  /* Staffing upgrades add places per phase; Salesperson Earnings adds a share
+     of every hired Salesperson's sale. Bought from Growth, used on the Staff
+     screen, resolved in one phase, and kept across a reload. */
+  section('Open Your Forge: Staffing and Salesperson Earnings');
+  const keptForStaffing = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.setPhaseAnim(false);
+    const kept = JSON.stringify(C.serializeShop(sh));
+    sh.gold = 200000; sh.phaseIndex = 0; sh.closed = false;
+    sh.assignments = {}; sh.standing = [];
+    sh.staff = [];
+    for (const k of ['smithSeats', 'storeSeats', 'runnerSeats', 'salesBonus']) delete sh.upgrades[k];
+    sh.blueprints.shortsword = Math.max(1, sh.blueprints.shortsword || 0);
+    sh.materials.bronze = 40;
+    F.shopSheetClose();
+    F.shopUi.tab = 'grow';
+    F.shopRender();
+    return kept;
+  });
+
+  // buying from the Growth cards: twice for Smiths, once each for the rest
+  const seatBuys = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const clock = () => sh.day * 3 + sh.phaseIndex;
+    const tick0 = clock();
+    const card = (title) => Array.from(document.querySelectorAll('#shPanel .grow-card'))
+      .find((c) => c.querySelector('.gc-head b').innerText === title);
+    const read = (title) => {
+      const c = card(title);
+      return { lv: c.querySelector('.gc-lv').innerText,
+        now: c.querySelector('.gc-now').innerText.replace(/\s+/g, ' '),
+        next: c.querySelector('.gc-next').innerText.replace(/\s+/g, ' '),
+        price: (c.querySelector('.gc-buy') || {}).innerText || '' };
+    };
+    const fresh = read('Smith Staffing');
+    const prices = [];
+    for (const [title, times] of [['Smith Staffing', 2], ['Store Hand Staffing', 1],
+      ['Runner Staffing', 1], ['Salesperson Earnings', 2]]) {
+      for (let i = 0; i < times; i++) {
+        const before = sh.gold;
+        const price = parseInt(card(title).querySelector('.gc-buy').innerText.replace(/,/g, ''), 10);
+        card(title).querySelector('.gc-buy').click();
+        await new Promise((r) => setTimeout(r, 60));
+        prices.push(before - sh.gold === price);
+      }
+    }
+    return { fresh: fresh, smith: read('Smith Staffing'), sales: read('Salesperson Earnings'),
+      prices: prices, seats: ['smith', 'storehand', 'runner', 'salesperson'].map((r) => C.phaseSeats(sh, r)),
+      rate: C.salesBonusRate(sh), tick: clock() - tick0, staff: sh.staff.length };
+  });
+  ok('a fresh Staffing card shows its level, what it gives now and next, and its price',
+    seatBuys.fresh.lv === 'Level 0 / 3' && /1 Smith per phase/.test(seatBuys.fresh.now) &&
+    /2 Smiths per phase/.test(seatBuys.fresh.next) && /g$/.test(seatBuys.fresh.price),
+    JSON.stringify(seatBuys.fresh));
+  ok('each purchase costs exactly the price on the card', seatBuys.prices.length === 6 &&
+    seatBuys.prices.every(Boolean), JSON.stringify(seatBuys.prices));
+  ok('two levels of Smith Staffing make three Smiths a phase, and the card says so',
+    seatBuys.seats.join(',') === '3,2,2,1' && seatBuys.smith.lv === 'Level 2 / 3' &&
+    /3 Smiths per phase/.test(seatBuys.smith.now) && /4 Smiths per phase/.test(seatBuys.smith.next),
+    JSON.stringify(seatBuys));
+  ok('Salesperson Earnings shows the same +10% the sales will get',
+    Math.abs(seatBuys.rate - 0.1) < 1e-9 && /\+10% gold/.test(seatBuys.sales.now) &&
+    /\+15% gold/.test(seatBuys.sales.next), JSON.stringify(seatBuys.sales));
+  ok('buying, opening and closing Growth spends no phase and hires nobody',
+    seatBuys.tick === 0 && seatBuys.staff === 0, JSON.stringify(seatBuys));
+
+  // the Staff screen grows a row per place, at once
+  const rows = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    let id = 7300;
+    for (const role of ['smith', 'smith', 'smith', 'storehand', 'storehand', 'runner', 'salesperson']) {
+      sh.staff.push({ id: id++, name: role + ' ' + id, role: role, rank: 'C', power: 3, wage: 20, xp: 0,
+        face: 'guard' });
+    }
+    F.shopUi.tab = 'staff';
+    F.shopRender();
+    const count = (role) => document.querySelectorAll('#shPanel [data-slot-role="' + role + '"]').length;
+    const head = Array.from(document.querySelectorAll('#shPanel .roster-role'))
+      .find((r) => /^Smith/.test(r.querySelector('.roster-head b').innerText));
+    return { smith: count('smith'), storehand: count('storehand'), runner: count('runner'),
+      salesperson: count('salesperson'), head: head.querySelector('.roster-head').innerText,
+      wide: document.getElementById('shPanel').scrollWidth > document.getElementById('shPanel').clientWidth + 1 };
+  });
+  ok('the Staff screen shows a box for every place in every phase',
+    rows.smith === 9 && rows.storehand === 6 && rows.runner === 6 && rows.salesperson === 3,
+    JSON.stringify(rows));
+  ok('and tells hiring apart from places per phase', /3 hired · 3 per phase/.test(rows.head) &&
+    !rows.wide, rows.head);
+
+  // filling the second Store Hand place through the screens themselves
+  const viaUi = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    // something in storage and an empty stand, so there is a job to give
+    const key = C.lineKey('shortsword', 'bronze');
+    C.addStorage(sh, key, 4, 80, 1);
+    const stand = sh.stands.find((st) => st.type === C.standForItem('shortsword') && C.standPlaced(st));
+    stand.key = null; stand.qty = 0;
+    F.shopRender();
+    document.querySelector('#shPanel [data-slot-role="storehand"][data-slot-phase="morning"][data-slot-seat="1"]').click();
+    await wait(120);
+    const title = document.getElementById('shopSheetTitle').textContent;
+    document.querySelector('#shopSheetBody [data-pick-hand]').click();
+    await wait(120);
+    document.querySelector('#shopSheetBody [data-box="' + stand.id + '"]').click();
+    await wait(120);
+    document.querySelector('#shopSheetBody [data-take="' + key + '"]').click();
+    await wait(120);
+    if (F.shopUi.slot !== null) {
+      Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .find((b) => b.textContent === 'Back').click();
+      await wait(120);
+    }
+    Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => b.textContent === 'Assign Job').click();
+    await wait(120);
+    const held = C.assignmentsAt(sh, 'storehand', 'morning');
+    return { title: title, held: held.map((h) => h.seat + ':' + h.staff.id),
+      tick: sh.day * 3 + sh.phaseIndex };
+  });
+  ok('tapping the second place assigns into the second place',
+    /Assign Store Hand 2: Morning/.test(viaUi.title) && viaUi.held.length === 1 &&
+    /^1:/.test(viaUi.held[0]), JSON.stringify(viaUi));
+
+  // and making that place repeat daily
+  const seatRepeat = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    F.shopRender();
+    document.querySelector('#shPanel [data-slot-role="runner"][data-slot-phase="afternoon"][data-slot-seat="1"]').click();
+    await wait(120);
+    Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => b.textContent === 'Repeat Daily').click();
+    await wait(120);
+    const title = document.getElementById('shopSheetTitle').textContent;
+    Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => b.textContent === 'Repeat Daily').click();
+    await wait(150);
+    const slot = C.standingAt(sh, 'runner', 'afternoon', 1);
+    const first = C.standingAt(sh, 'runner', 'afternoon', 0);
+    const box = document.querySelector('#shPanel .roster-role:nth-of-type(n) [data-slot-seat="1"][data-slot-phase="afternoon"][data-slot-role="runner"]') ||
+      Array.from(document.querySelectorAll('#shPanel .roster-box')).find((b) =>
+        /Afternoon, Runner 2/.test(b.getAttribute('aria-label') || ''));
+    return { title: title, seat: slot && slot.seat, first: !!first,
+      marked: !!(box && box.querySelector('.rb-repeat')) };
+  });
+  ok('a second place can repeat daily on its own',
+    /Repeat Daily: Runner 2, Afternoon/.test(seatRepeat.title) && seatRepeat.seat === 1 && !seatRepeat.first &&
+    seatRepeat.marked, JSON.stringify(seatRepeat));
+
+  // three Smiths in one phase: all work, one phase passes, each shown in turn
+  const three = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const smiths = sh.staff.filter((e) => e.role === 'smith');
+    for (const e of smiths) {
+      C.shopAssign(sh, e.id, { order: { item: 'shortsword', material: 'bronze', qty: 2 } }, 'morning');
+    }
+    F.shopRender();
+    const figs = smiths.map((e) => document.querySelector('#shThings [data-crew="' + e.id + '"]'));
+    const lefts = figs.map((f) => f && parseFloat(f.style.left));
+    const before = { tick: sh.day * 3 + sh.phaseIndex, bronze: sh.materials.bronze, orders: sh.orders.length };
+    F.setPhaseAnim(true);
+    F.setWorkerCam(true);
+    F.shopSpendPhase(null);
+    const t0 = Date.now();
+    while (F.shopUi.playing && Date.now() - t0 < 40000) await new Promise((r) => setTimeout(r, 80));
+    const shown = (F.shopUi.tourLog || []).filter((x) => x.role === 'smith');
+    for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+      document.querySelector('#shopSheetActions button').click();
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    F.setPhaseAnim(false);
+    const made = sh.log.filter((r) => r.kind === 'smith' && r.ok && r.day === sh.day);
+    return { lefts: lefts, figs: figs.every(Boolean), before: before,
+      tick: sh.day * 3 + sh.phaseIndex, bronze: sh.materials.bronze, orders: sh.orders.length,
+      made: made.length, ids: new Set(made.map((r) => r.staffId)).size,
+      shown: shown.length, visible: shown.every((x) => x.visible) };
+  });
+  ok('three Smiths stand at three different places in the room',
+    three.figs && new Set(three.lefts).size === 3, JSON.stringify(three.lefts));
+  ok('all three forge in the same phase, and that phase is spent once',
+    three.made === 3 && three.ids === 3 && three.tick === three.before.tick + 1 &&
+    three.before.bronze - three.bronze === 6 && three.orders === three.before.orders + 3,
+    JSON.stringify(three));
+  ok('and the camera shows each of them at work', three.shown === 3 && three.visible,
+    JSON.stringify(three));
+
+  // a hired Salesperson's phase: the share shows in the summary and the gold
+  const earned = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    const sal = sh.staff.find((e) => e.role === 'salesperson');
+    F.testStock(sh, C.lineKey('shortsword', 'bronze'), 30, 90, 40);
+    for (const one of sh.town) one.gold = 5000;
+    sh.reputation = 40;
+    // only the Salesperson works this phase, so the gold moves by the sales alone
+    for (const id in sh.assignments) {
+      if (sh.assignments[id].phase === C.shopPhase(sh) && !sh.assignments[id].done) delete sh.assignments[id];
+    }
+    const res = C.shopAssign(sh, sal.id, {}, C.shopPhase(sh));
+    F.shopRender();
+    const gold = sh.gold;
+    F.shopSpendPhase(null);
+    await new Promise((r) => setTimeout(r, 200));
+    const rep = sh.log.find((r) => r.kind === 'sales' && r.staffId === sal.id);
+    const body = document.getElementById('shopSheetBody').innerText;
+    for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+      document.querySelector('#shopSheetActions button').click();
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    return { booked: res.ok, sold: rep && rep.sold, revenue: rep && rep.revenue, bonus: rep && rep.bonus,
+      gained: sh.gold - gold, summary: body.replace(/\s+/g, ' ') };
+  });
+  ok('a hired Salesperson’s phase earns the share on top of the sales',
+    earned.booked && earned.sold > 0 && earned.bonus > 0 &&
+    Math.abs(earned.bonus - earned.revenue * 0.1) <= earned.sold * 0.5 &&
+    earned.gained === earned.revenue + earned.bonus, JSON.stringify(earned).slice(0, 300));
+  ok('and the phase summary shows it', new RegExp('Salesperson Earnings \\+' + earned.bonus + 'g')
+    .test(earned.summary), earned.summary.slice(0, 300));
+
+  // everything survives closing the game
+  const beforeReload = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    F.shopRender();                                       // rendering puts the forge down
+    return { upgrades: ['smithSeats', 'storeSeats', 'runnerSeats', 'salesBonus'].map((k) => sh.upgrades[k]),
+      standing: sh.standing.map((x) => x.role + '@' + x.phase + '#' + (x.seat || 0)).sort(),
+      staff: sh.staff.length };
+  });
+  await page.reload();
+  await installStock(page);
+  await page.evaluate(() => window.CHECKSMITH.introSkip && window.CHECKSMITH.introSkip());
+  await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+  await page.click('.mode-card[data-mode="shop"]');
+  await page.click('#beginBtn');
+  await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
+  await page.waitForTimeout(250);
+  const afterReload = await page.evaluate(() => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    return { upgrades: ['smithSeats', 'storeSeats', 'runnerSeats', 'salesBonus'].map((k) => sh.upgrades[k]),
+      standing: sh.standing.map((x) => x.role + '@' + x.phase + '#' + (x.seat || 0)).sort(),
+      staff: sh.staff.length, seats: C.phaseSeats(sh, 'smith'), rate: C.salesBonusRate(sh) };
+  });
+  ok('upgrade levels, places and recurring places are all there after a reload',
+    JSON.stringify(afterReload.upgrades) === JSON.stringify(beforeReload.upgrades) &&
+    JSON.stringify(afterReload.standing) === JSON.stringify(beforeReload.standing) &&
+    afterReload.staff === beforeReload.staff && afterReload.seats === 3 &&
+    Math.abs(afterReload.rate - 0.1) < 1e-9, JSON.stringify([beforeReload, afterReload]));
+
+  await page.evaluate((kept) => {
+    const F = window.CHECKSMITH, C = F.core;
+    for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) F.shopSheetClose();
+    F.app.shop = C.restoreShop(JSON.parse(kept), F.app.rnd);
+    F.shopUi.tab = null;
+    F.shopRender();
+  }, keptForStaffing);
 
   section('1.34: the room leads, the paperwork waits in drawers');
   const drawers = await page.evaluate(async () => {

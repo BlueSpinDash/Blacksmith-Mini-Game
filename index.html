@@ -5389,12 +5389,23 @@ const SHOP = {
 
      Every track costs base * growth^level, so the first is an easy yes and
      the tenth is a decision. `forge` is stored under the old `bellows` key
-     so a save made before this existed keeps every level it had bought. */
+     so a save made before this existed keeps every level it had bought.
+
+     `hands` is the HIRING limit: how many people may be on the books. The
+     three Staffing tracks are something else - how many of one role may work
+     in the same phase - and `sales` is the share a hired Salesperson's sales
+     earn on top of the price, `step` per level. Employment runs to 10 levels
+     since moving premises is gone: 4 base places + 10 covers every seat the
+     Staffing tracks can open in one phase (1 + 4 + 4 + 4 + 1). */
   growth: {
-    display: { key: null,      base: 70,  rate: 1.55, max: 4, step: 0.025 },
-    forge:   { key: 'bellows', base: 300, rate: 1.7,  max: 8 },
-    hands:   { key: 'hands',   base: 620, rate: 1.85, max: 6 },
-    floor:   { key: 'floor',   base: 400, rate: 1.75, max: 8 }
+    display:    { key: null,          base: 70,  rate: 1.55, max: 4, step: 0.025 },
+    forge:      { key: 'bellows',     base: 300, rate: 1.7,  max: 8 },
+    hands:      { key: 'hands',       base: 620, rate: 1.85, max: 10 },
+    floor:      { key: 'floor',       base: 400, rate: 1.75, max: 8 },
+    smiths:     { key: 'smithSeats',  base: 900, rate: 2.2,  max: 3, role: 'smith' },
+    storehands: { key: 'storeSeats',  base: 400, rate: 2.0,  max: 3, role: 'storehand' },
+    runners:    { key: 'runnerSeats', base: 600, rate: 2.0,  max: 3, role: 'runner' },
+    sales:      { key: 'salesBonus',  base: 600, rate: 1.8,  max: 5, step: 0.05 }
   },
 
   /* ---------- the building you can see ------------------------------------
@@ -5415,16 +5426,16 @@ const SHOP = {
     { id: 4, name: 'Master Establishment', cols: 10 }
   ],
 
-  /* `stands` is floor space, not stock: it is how many fixtures the premises
-     will physically hold. Moving up does not put anything on the floor - it
-     makes room for stands the player still has to buy. */
-  /* `staff` is the forge's own hiring capacity. Miners are not on it: they
-     are hired against the property they work and counted there. */
+  /* The shop's base rent and capacities, before any Growth. There is no
+     moving any more: every new forge is tier 1 for good, and tiers 2-4 exist
+     only so a save made in bigger premises keeps the rent, staff places,
+     stand spaces, storage and batch size it already had. `staff` is the base
+     hiring limit; miners are not on it. */
   tiers: [
-    { id: 1, name: 'Corner Forge',   rent: 145,  staff: 4,  stands: 4,  storage: 45,  batch: 3,  cost: 0 },
-    { id: 2, name: 'Village Smithy', rent: 620,  staff: 6,  stands: 6,  storage: 90,  batch: 5,  cost: 1800 },
-    { id: 3, name: 'Town Forge',     rent: 1500, staff: 8,  stands: 9,  storage: 170, batch: 7,  cost: 6500 },
-    { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 11, stands: 12, storage: 300, batch: 10, cost: 22000 }
+    { id: 1, name: 'Corner Forge',   rent: 145,  staff: 4,  stands: 4,  storage: 45,  batch: 3 },
+    { id: 2, name: 'Village Smithy', rent: 620,  staff: 6,  stands: 6,  storage: 90,  batch: 5 },
+    { id: 3, name: 'Town Forge',     rent: 1500, staff: 8,  stands: 9,  storage: 170, batch: 7 },
+    { id: 4, name: 'Guild Foundry',  rent: 3400, staff: 11, stands: 12, storage: 300, batch: 10 }
   ],
 
   /* Ore sits in its own store at the forge, apart from the ingots. */
@@ -5920,7 +5931,6 @@ function shopRank(id) { return SHOP.ranks.find(function (r) { return r.id === id
 function shopCustomerType(id) { return SHOP.customers.find(function (c) { return c.id === id; }) || null; }
 function shopUpgradeDef(id) { return SHOP.upgrades.find(function (u) { return u.id === id; }) || null; }
 function shopTier(shop) { return SHOP.tiers[Math.min(shop.tier, SHOP.tiers.length) - 1]; }
-function shopNextTier(shop) { return SHOP.tiers[shop.tier] || null; }
 function shopUpgradeLevel(shop, id) { return shop.upgrades[id] || 0; }
 
 /* ---------- growth: what the place can hold, not what is in it -----------
@@ -6378,7 +6388,7 @@ function serializeShop(shop) {
     orders: shop.orders.map(function (o) { return Object.assign({}, o); }),
     assignments: JSON.parse(JSON.stringify(shop.assignments)),
     standing: shop.standing.map(function (slot) {
-      return { id: slot.id, role: slot.role, phase: slot.phase,
+      return { id: slot.id, role: slot.role, phase: slot.phase, seat: slot.seat || 0,
         staff: slot.staff, plan: JSON.parse(JSON.stringify(slot.plan || {})),
         on: slot.on !== false };
     }),
@@ -6583,7 +6593,20 @@ function restoreShop(data, rnd) {
     if (SHOP.phases.indexOf(a.phase) < 0) continue;
     shop.assignments[id] = { day: whole(a.day, 1, 100000, shop.day), phase: a.phase,
       job: a.job && typeof a.job === 'object' ? a.job : {}, done: a.done === true,
-      standing: a.standing === true };
+      standing: a.standing === true, seat: whole(a.seat, 0, 99, 0) };
+  }
+  /* Seats are unique within a role, day and phase. A save from before there
+     were seats has none, so everybody arrives in seat 0; the second in the
+     same box (if a save ever had one) moves to the next number up rather
+     than being dropped, so no booking is lost. */
+  const held = {};
+  for (const e of shop.staff) {
+    const a = shop.assignments[e.id];
+    if (!a) continue;
+    const box = e.role + '@' + a.day + '@' + a.phase;
+    held[box] = held[box] || [];
+    while (held[box].indexOf(a.seat) >= 0) a.seat++;
+    held[box].push(a.seat);
   }
 
   /* The standing roster. One slot to a box: a save naming the same role and
@@ -6595,13 +6618,15 @@ function restoreShop(data, rnd) {
   const boxes = {};
   for (const raw of Array.isArray(data.standing) ? data.standing : []) {
     if (!raw || !shopRole(raw.role) || SHOP.phases.indexOf(raw.phase) < 0) continue;
-    const box = raw.role + '@' + raw.phase;
+    const seat = whole(raw.seat, 0, 99, 0);
+    if (seat >= phaseSeats(shop, raw.role)) continue;
+    const box = raw.role + '@' + raw.phase + '@' + seat;
     if (boxes[box]) continue;
     boxes[box] = true;
     // a named hand who is no longer on the books falls back to auto-fill
     const named = raw.staff == null ? null : staffById(shop, whole(raw.staff, 1, 1e9, 0));
     shop.standing.push({ id: whole(raw.id, 1, 1e9, shop.nextId++),
-      role: raw.role, phase: raw.phase,
+      role: raw.role, phase: raw.phase, seat: seat,
       staff: named && named.role === raw.role ? named.id : null,
       plan: raw.plan && typeof raw.plan === 'object'
         ? JSON.parse(JSON.stringify(raw.plan)) : {},
@@ -6613,7 +6638,7 @@ function restoreShop(data, rnd) {
     if (!raw || !shopRole(raw.role) || SHOP.phases.indexOf(raw.phase) < 0) continue;
     if (!staffById(shop, whole(raw.staff, 1, 1e9, 0))) continue;
     shop.lastRoster.push({ role: raw.role, phase: raw.phase,
-      staff: whole(raw.staff, 1, 1e9, 0),
+      staff: whole(raw.staff, 1, 1e9, 0), seat: whole(raw.seat, 0, 99, 0),
       job: raw.job && typeof raw.job === 'object'
         ? JSON.parse(JSON.stringify(raw.job)) : {} });
   }
@@ -7029,7 +7054,7 @@ function shopBuyStand(shop, type) {
   const def = shopStandDef(type);
   if (!def) return { ok: false, why: 'no such stand' };
   if (shop.stands.length >= standCap(shop)) {
-    return { ok: false, why: 'no free floor space; buy a Store Expansion or move to bigger premises' };
+    return { ok: false, why: 'no free floor space; buy a Store Expansion to add one' };
   }
   if (shop.gold < def.cost) return { ok: false, why: 'needs ' + def.cost + 'g' };
   shop.gold -= def.cost;
@@ -7257,7 +7282,7 @@ function openCounter(shop, seller) {
   return {
     seller: seller || { kind: 'player', power: 0, name: 'You' },
     queue: queue, at: 0, pending: null,
-    report: { customers: queue.length, sold: 0, revenue: 0, haggles: 0, won: 0, left: 0,
+    report: { customers: queue.length, sold: 0, revenue: 0, bonus: 0, haggles: 0, won: 0, left: 0,
       lines: {}, learned: [] }
   };
 }
@@ -7751,6 +7776,15 @@ function settleSale(session, shop, key, price, how) {
   // the stand stays; only what was standing on it is gone
   if (line.qty <= 0) { line.key = null; line.qty = 0; line.price = 0; }
   shop.gold += price;
+  /* Salesperson Earnings: a hired Salesperson's sale earns the shop a share
+     on top of the price the customer actually paid, after every pricing and
+     haggling adjustment. It is worked out here, once per sale, and the
+     customer's purse pays only the price. */
+  const bonus = session.seller && session.seller.kind === 'staff' ? salesBonusFor(shop, price) : 0;
+  if (bonus > 0) {
+    shop.gold += bonus;
+    session.report.bonus = (session.report.bonus || 0) + bonus;
+  }
   // the money comes out of a real purse, and a purse that is empty stays
   // empty until wages land at the turn of the week
   let got = null;
@@ -7771,7 +7805,16 @@ function settleSale(session, shop, key, price, how) {
   // a fair price on good work is what builds a name
   nudgeReputation(shop, 0.18 + (price <= rec ? 0.09 : 0) + (quality >= 90 ? 0.07 : 0));
   return { kind: 'sale', who: p.who, type: p.type, name: p.name, trade: p.trade,
-    key: key, price: price, how: how, quality: quality, got: got };
+    key: key, price: price, bonus: bonus, how: how, quality: quality, got: got };
+}
+
+/* The Salesperson Earnings share, as a fraction, and what it comes to on one
+   sale: level x step, rounded to whole gold. */
+function salesBonusRate(shop) {
+  return growthLevel(shop, 'sales') * SHOP.growth.sales.step;
+}
+function salesBonusFor(shop, price) {
+  return Math.max(0, Math.round(price * salesBonusRate(shop)));
 }
 
 /* Answer a contract put across the counter. Taking it books it and pays the
@@ -8130,6 +8173,33 @@ function shopFire(shop, staffId) {
 function staffById(shop, id) { return shop.staff.find(function (e) { return e.id === id; }) || null; }
 function staffOfRole(shop, roleId) { return shop.staff.filter(function (e) { return e.role === roleId; }); }
 
+/* ---------- seats: how many of one role may work in the same phase ------
+   One of each role by default. Smith, Store Hand and Runner Staffing each
+   add one more seat to that role in EVERY phase. A seat is not a person:
+   buying one hires nobody, and how many people may be on the books at all is
+   the separate hiring limit (`staffCapacity`). Seats are numbered from 0 so
+   a box on the roster, a recurring schedule and a booking all name the same
+   one. */
+function staffingTrack(roleId) {
+  for (const id in SHOP.growth) if (SHOP.growth[id].role === roleId) return id;
+  return null;
+}
+function phaseSeats(shop, roleId) {
+  const track = staffingTrack(roleId);
+  return 1 + (track ? growthLevel(shop, track) : 0);
+}
+/* The seat numbers already held in one role and phase today, by anybody
+   other than `except`. */
+function seatsTaken(shop, roleId, phase, except) {
+  const out = [];
+  for (const e of shop.staff) {
+    if (e.role !== roleId || e.id === except) continue;
+    const a = shop.assignments[e.id];
+    if (a && a.day === shop.day && a.phase === phase) out.push(a.seat || 0);
+  }
+  return out;
+}
+
 /* ---------- the day's roster -------------------------------------------
    The whole day is planned at once rather than a phase at a time. An
    assignment names the day, the phase it falls in and the job, and one
@@ -8154,8 +8224,10 @@ function assignmentStatus(shop, staffId) {
 }
 
 /* Book an employee into a phase. `phase` defaults to the one in progress,
-   which is what the older one-phase-at-a-time callers still pass. */
-function shopAssign(shop, staffId, job, phase) {
+   which is what the older one-phase-at-a-time callers still pass. `seat`
+   asks for one seat of that role and phase; without it (or if it is taken)
+   the lowest free seat is used. A phase whose seats are all taken refuses. */
+function shopAssign(shop, staffId, job, phase, seat) {
   const e = staffById(shop, staffId);
   if (!e) return { ok: false, why: 'not employed here' };
   const want = phase || shopPhase(shop);
@@ -8165,6 +8237,16 @@ function shopAssign(shop, staffId, job, phase) {
   const already = shop.assignments[e.id];
   if (already && already.day === shop.day) {
     return { ok: false, why: e.name + ' already has work today' };
+  }
+  const seats = phaseSeats(shop, e.role);
+  const taken = seatsTaken(shop, e.role, want, e.id);
+  let pick = Number.isInteger(seat) && seat >= 0 && seat < seats && taken.indexOf(seat) < 0 ? seat : -1;
+  for (let s = 0; pick < 0 && s < seats; s++) if (taken.indexOf(s) < 0) pick = s;
+  if (pick < 0) {
+    const role = shopRole(e.role);
+    return { ok: false, why: 'all ' + seats + ' ' + (role ? role.name : e.role) +
+      (seats === 1 ? ' place' : ' places') + ' in the ' + SHOP.phaseName[want].toLowerCase() +
+      ' are filled' };
   }
   /* A cart can only be in one place. Booking a haul takes the vehicle off the
      yard there and then, so two runners cannot be sent out with it, and the
@@ -8190,9 +8272,9 @@ function shopAssign(shop, staffId, job, phase) {
     }
   }
   shop.assignments[e.id] = { day: shop.day, phase: want, job: job || {}, done: false,
-    standing: !!(job && job.standing) };
+    standing: !!(job && job.standing), seat: pick };
   if (cart) bookVehicle(shop, cart, want);
-  return { ok: true, phase: want };
+  return { ok: true, phase: want, seat: pick };
 }
 
 /* Take an employee off the roster. Only work still ahead may be dropped:
@@ -8221,14 +8303,23 @@ function assignedThisDay(shop, staffId) {
   return a && a.day === shop.day ? a : null;
 }
 
-/* Whoever is booked into this box, or null. */
-function assignmentAt(shop, roleId, phase) {
+/* Everybody booked into one role and phase today, in seat order. */
+function assignmentsAt(shop, roleId, phase) {
+  const out = [];
   for (const e of shop.staff) {
     if (e.role !== roleId) continue;
     const a = shop.assignments[e.id];
-    if (a && a.day === shop.day && a.phase === phase) return { staff: e, job: a.job, done: !!a.done };
+    if (a && a.day === shop.day && a.phase === phase) {
+      out.push({ staff: e, job: a.job, done: !!a.done, seat: a.seat || 0 });
+    }
   }
-  return null;
+  return out.sort(function (x, y) { return x.seat - y.seat; });
+}
+/* Whoever is booked into this box, or null. Without a seat: the first. */
+function assignmentAt(shop, roleId, phase, seat) {
+  const all = assignmentsAt(shop, roleId, phase);
+  if (seat == null) return all[0] || null;
+  return all.find(function (h) { return h.seat === seat; }) || null;
 }
 
 /* Who may still be dropped into this box: the right role, employed, and
@@ -8255,21 +8346,25 @@ function staffCandidates(shop, roleId, phase) {
    standing slot cannot be filled or its orders cannot be met, the box is left
    empty and the morning says why - it never quietly does something else. */
 
-function standingKey(role, phase) { return role + '@' + phase; }
-
-function standingAt(shop, role, phase) {
+/* One standing slot per seat: a role, a phase and a seat number (0 unless
+   a Staffing upgrade has opened more). */
+function standingAt(shop, role, phase, seat) {
+  const s = seat || 0;
   return (shop.standing || []).find(function (slot) {
-    return slot.role === role && slot.phase === phase;
+    return slot.role === role && slot.phase === phase && (slot.seat || 0) === s;
   }) || null;
 }
 
 /* Put a slot in the book, or change the one already there. `staff` is an
    employee id, or null for auto-fill. */
-function setStanding(shop, role, phase, staff, plan) {
-  if (!shopRole(role) || phaseIndexOf(phase) < 0) return { ok: false, why: 'no such slot' };
-  let slot = standingAt(shop, role, phase);
+function setStanding(shop, role, phase, staff, plan, seat) {
+  const s = seat || 0;
+  if (!shopRole(role) || phaseIndexOf(phase) < 0 || !(s >= 0 && s < phaseSeats(shop, role))) {
+    return { ok: false, why: 'no such slot' };
+  }
+  let slot = standingAt(shop, role, phase, s);
   if (!slot) {
-    slot = { id: shop.nextId++, role: role, phase: phase, staff: null, plan: {}, on: true };
+    slot = { id: shop.nextId++, role: role, phase: phase, seat: s, staff: null, plan: {}, on: true };
     shop.standing.push(slot);
   }
   slot.staff = staff == null ? null : staff;
@@ -8277,15 +8372,16 @@ function setStanding(shop, role, phase, staff, plan) {
   slot.on = true;
   return { ok: true, slot: slot };
 }
-function clearStanding(shop, role, phase) {
+function clearStanding(shop, role, phase, seat) {
+  const s = seat || 0;
   const before = (shop.standing || []).length;
   shop.standing = (shop.standing || []).filter(function (slot) {
-    return !(slot.role === role && slot.phase === phase);
+    return !(slot.role === role && slot.phase === phase && (slot.seat || 0) === s);
   });
   return { ok: shop.standing.length < before };
 }
-function toggleStanding(shop, role, phase, on) {
-  const slot = standingAt(shop, role, phase);
+function toggleStanding(shop, role, phase, on, seat) {
+  const slot = standingAt(shop, role, phase, seat);
   if (!slot) return { ok: false, why: 'no repeating assignment there' };
   slot.on = on === undefined ? !slot.on : !!on;
   return { ok: true, on: slot.on };
@@ -8296,29 +8392,56 @@ function toggleStanding(shop, role, phase, on) {
    what exactly should this employee be told to do? A null order means there
    is honestly nothing to do, and the reason is the player's to read. */
 
-/* The contract most worth carting: the one whose day comes soonest. */
-function nextDelivery(shop, phase) {
-  let pick = null;
+/* What other bookings today have already claimed, so a second Runner or
+   Smith in the same day is never planned onto goods, ingots or a delivery
+   somebody else is already down for. Finished jobs have already taken
+   theirs out of the stock, so only work still to run is counted. */
+function bookedToday(shop, role, fn, except) {
+  let n = 0;
+  for (const e of shop.staff) {
+    if (e.role !== role || e.id === except) continue;
+    const a = shop.assignments[e.id];
+    if (!a || a.day !== shop.day || a.done) continue;
+    n += fn((a.job && a.job.order) || {}) || 0;
+  }
+  return n;
+}
+
+/* The contract most worth carting: the one whose day comes soonest, and that
+   still has something on it nobody else is already taking. */
+function nextDelivery(shop, phase, except) {
+  let pick = null, left = 0, ready = 0;
   for (const com of shop.commissions) {
     if (!commissionReady(com)) continue;
-    if (!pick || com.dueDay < pick.dueDay) pick = com;
+    ready++;
+    const free = commissionToShip(com) - bookedToday(shop, 'runner', function (o) {
+      return o.kind === 'deliver' && o.commission === com.id ? o.qty : 0;
+    }, except);
+    if (free <= 0) continue;
+    if (!pick || com.dueDay < pick.dueDay) { pick = com; left = free; }
   }
-  if (!pick) return { ok: false, why: 'no commission has all its items assigned' };
+  if (!pick) {
+    return { ok: false, why: ready ? 'every ready commission already has a Runner delivering it'
+      : 'no commission has all its items assigned' };
+  }
   const cart = bestFreeVehicle(shop, phase);
   if (!cart) return { ok: false, why: 'no vehicle free that phase' };
-  const haul = commissionHaul(shop, pick, cart);
-  if (haul.load <= 0) return { ok: false, why: 'nothing to deliver on this trip' };
+  const load = Math.min(commissionHaul(shop, pick, cart).load, left);
+  if (load <= 0) return { ok: false, why: 'nothing to deliver on this trip' };
   return { ok: true, order: { kind: 'deliver', commission: pick.id,
-    vehicle: cart.id, qty: haul.load } };
+    vehicle: cart.id, qty: load } };
 }
 
 /* A shopping list that tops a metal back up to where the player wants it,
    without spending past the ceiling they set or the gold they have. */
-function restockOrder(shop, plan) {
+function restockOrder(shop, plan, except) {
   const mt = shopMaterial(plan.material);
   if (!mt) return { ok: false, why: 'no such metal' };
   const upTo = Math.max(0, Math.floor(plan.upTo || 0));
-  const held = shop.materials[mt.id] || 0;
+  // ingots another Runner is already going to buy today count as held
+  const held = (shop.materials[mt.id] || 0) + bookedToday(shop, 'runner', function (o) {
+    return o.kind ? 0 : o[mt.id];
+  }, except);
   let want = upTo - held;
   if (want <= 0) return { ok: false, why: mt.name + ' is already stocked to ' + upTo };
   const ceiling = Math.max(0, Math.min(plan.cap === undefined ? Infinity : plan.cap, shop.gold));
@@ -8349,13 +8472,14 @@ function oreRunOrder(shop, plan, phase) {
   return { ok: true, order: { kind: 'ore', mine: mine.id, vehicle: cart.id, qty: want } };
 }
 
-/* What a standing slot's orders come to today, for whoever fills it. */
-function planOrder(shop, role, plan, phase) {
+/* What a standing slot's orders come to today, for whoever fills it.
+   `except` leaves one employee's own booking out of what is spoken for. */
+function planOrder(shop, role, plan, phase, except) {
   const p = plan || {};
   if (role === 'runner') {
-    if (p.kind === 'deliver') return nextDelivery(shop, phase);
+    if (p.kind === 'deliver') return nextDelivery(shop, phase, except);
     if (p.kind === 'ore') return oreRunOrder(shop, p, phase);
-    if (p.kind === 'market') return restockOrder(shop, p);
+    if (p.kind === 'market') return restockOrder(shop, p, except);
     return { ok: false, why: 'no job set' };
   }
   if (role === 'smith') {
@@ -8369,6 +8493,15 @@ function planOrder(shop, role, plan, phase) {
     }
     if (!p.item || !p.material) return { ok: false, why: 'no order set' };
     const qty = Math.max(1, Math.min(batchCapacity(shop), Math.floor(p.qty || 1)));
+    // ingots another Smith is already down to forge with today are spoken for
+    const promised = bookedToday(shop, 'smith', function (o) {
+      return !o.kind && o.material === p.material ? o.qty : 0;
+    }, except);
+    const mtName = (shopMaterial(p.material) || {}).name || p.material;
+    if (promised && (shop.materials[p.material] || 0) - promised < qty) {
+      return { ok: false, why: 'requires ' + qty + ' ' + mtName + ' ingots not already ' +
+        'assigned to another Smith' };
+    }
     const check = forgeCheck(shop, p.item, p.material, qty);
     if (!check.ok) return { ok: false, why: check.why };
     return { ok: true, order: { item: p.item, material: p.material, qty: qty } };
@@ -8409,26 +8542,28 @@ function applyStanding(shop) {
   if (!shop.standing || !shop.standing.length) return rows;
   for (const phase of SHOP.phases) {
     for (const role of SHOP.roles) {
-      const slot = standingAt(shop, role.id, phase);
-      if (!slot || !slot.on) continue;
-      // a box the player already filled by hand today is theirs, not the book's
-      if (assignmentAt(shop, role.id, phase)) continue;
-      const row = { role: role.id, phase: phase, slot: slot.id };
-      const hand = standingHand(shop, slot);
-      if (!hand.ok) { rows.push(Object.assign(row, { ok: false, why: hand.why })); continue; }
-      const orders = planOrder(shop, role.id, slot.plan, phase);
-      if (!orders.ok) {
-        rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: orders.why }));
-        continue;
+      for (let seat = 0; seat < phaseSeats(shop, role.id); seat++) {
+        const slot = standingAt(shop, role.id, phase, seat);
+        if (!slot || !slot.on) continue;
+        // a box the player already filled by hand today is theirs, not the book's
+        if (assignmentAt(shop, role.id, phase, seat)) continue;
+        const row = { role: role.id, phase: phase, slot: slot.id, seat: seat };
+        const hand = standingHand(shop, slot);
+        if (!hand.ok) { rows.push(Object.assign(row, { ok: false, why: hand.why })); continue; }
+        const orders = planOrder(shop, role.id, slot.plan, phase);
+        if (!orders.ok) {
+          rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: orders.why }));
+          continue;
+        }
+        const res = shopAssign(shop, hand.staff.id,
+          { order: orders.order, standing: true }, phase, seat);
+        if (!res.ok) {
+          rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: res.why }));
+          continue;
+        }
+        rows.push(Object.assign(row, { ok: true, who: hand.staff.name,
+          auto: !!hand.auto, staff: hand.staff.id }));
       }
-      const res = shopAssign(shop, hand.staff.id,
-        { order: orders.order, standing: true }, phase);
-      if (!res.ok) {
-        rows.push(Object.assign(row, { ok: false, who: hand.staff.name, why: res.why }));
-        continue;
-      }
-      rows.push(Object.assign(row, { ok: true, who: hand.staff.name,
-        auto: !!hand.auto, staff: hand.staff.id }));
     }
   }
   return rows;
@@ -8441,7 +8576,7 @@ function captureRoster(shop) {
   for (const e of shop.staff) {
     const a = shop.assignments[e.id];
     if (!a || a.day !== shop.day) continue;
-    out.push({ role: e.role, phase: a.phase, staff: e.id,
+    out.push({ role: e.role, phase: a.phase, staff: e.id, seat: a.seat || 0,
       job: JSON.parse(JSON.stringify(a.job || {})) });
   }
   return out;
@@ -8481,7 +8616,7 @@ function repeatRoster(shop) {
           order.qty = commissionHaul(shop, com, cart).load;
         }
       }
-      const res = shopAssign(shop, e.id, job, phase);
+      const res = shopAssign(shop, e.id, job, phase, was.seat || 0);
       rows.push(Object.assign(row, res.ok ? { ok: true, who: e.name }
         : { ok: false, who: e.name, why: res.why }));
     }
@@ -8687,6 +8822,7 @@ function runAssignments(shop) {
     else if (e.role === 'apprentice') report = runApprentice(shop, e);
     // one job, one report, one payment: `a.done` above is what stops a phase
     // being run - and so paid for - twice
+    if (report) report.staffId = e.id;
     if (report) payCrewXp(shop, e, report);
     if (report) reports.push(shopLog(shop, report));
   }
@@ -9438,16 +9574,6 @@ function shopBuyUpgrade(shop, id) {
   shop.upgrades[id] = shopUpgradeLevel(shop, id) + 1;
   return { ok: true, level: shop.upgrades[id], spent: cost };
 }
-/* Bigger premises earn more and cost more every week. That is the trade. */
-function shopExpand(shop) {
-  const next = shopNextTier(shop);
-  if (!next) return { ok: false, why: 'already in the largest premises' };
-  if (shop.gold < next.cost) return { ok: false, why: 'not enough gold' };
-  shop.gold -= next.cost;
-  shop.tier += 1;
-  nudgeReputation(shop, 3);
-  return { ok: true, tier: next };
-}
 
 const CHECKSMITH_CORE = {
   CONFIG: CONFIG, PIECES: PIECES, movesFrom: movesFrom, tableFor: tableFor, isLegalMove: isLegalMove,
@@ -9494,7 +9620,9 @@ const CHECKSMITH_CORE = {
   // Open Your Forge
   SHOP: SHOP, shopMaterial: shopMaterial, shopItem: shopItem, shopCategory: shopCategory,
   shopRole: shopRole, shopRank: shopRank, shopCustomerType: shopCustomerType,
-  shopUpgradeDef: shopUpgradeDef, shopTier: shopTier, shopNextTier: shopNextTier,
+  shopUpgradeDef: shopUpgradeDef, shopTier: shopTier, phaseSeats: phaseSeats,
+  staffingTrack: staffingTrack, assignmentsAt: assignmentsAt, seatsTaken: seatsTaken,
+  bookedToday: bookedToday, salesBonusRate: salesBonusRate, salesBonusFor: salesBonusFor,
   shopUpgradeLevel: shopUpgradeLevel, lineKey: lineKey, splitKey: splitKey, lineName: lineName,
   shelfCapacity: shelfCapacity, storageCapacity: storageCapacity, staffCapacity: staffCapacity,
   shopStandDef: shopStandDef, standCategories: standCategories, standTakes: standTakes,
@@ -9606,7 +9734,7 @@ const CHECKSMITH_CORE = {
   smithQuality: smithQuality, runSmith: runSmith, runStoreHand: runStoreHand,
   runSalesperson: runSalesperson, runAssignments: runAssignments,
   shopAdvancePhase: shopAdvancePhase, shopEndDay: shopEndDay, payWeek: payWeek,
-  shopUpgradeCost: shopUpgradeCost, shopBuyUpgrade: shopBuyUpgrade, shopExpand: shopExpand,
+  shopUpgradeCost: shopUpgradeCost, shopBuyUpgrade: shopBuyUpgrade,
   gameStats: gameStats, scoreGame: scoreGame, RESULT_LABELS: RESULT_LABELS
 };
 /* ==== CORE END ==== */
@@ -11760,6 +11888,7 @@ const SHOPUI = {
   slot: null,         // the stand being filled, while the picker is open
   almanacCat: null,   // the page of the Almanac last read
   planPhase: null,    // the phase the roster is booking into
+  planSeat: null,     // ...and which of that role's places in it
   replacing: null,    // whoever is being swapped out, while the picker is open
   reorder: false,     // changing a booking's orders rather than making one
   mineOpen: null,     // the property whose sheet is open
@@ -12386,26 +12515,44 @@ function sceneFigure(face, apron, extra) {
 /* Where each trade works, for whoever is booked into THIS phase. Somebody
    booked for later, or who has already done their day's work, is not drawn
    at a station they are not at. */
+/* Where each worker of THIS phase stands. With Staffing upgrades there can
+   be several of one role, so each role has a short list of places and its
+   workers take them in seat order: smiths fan out from the anvil (or from
+   the furnace when smelting), store hands go to the next stand that still
+   has room, runners line up inside the door. */
+const SCENE_SMITH_AT = [122, 160, 198, 236, 70, 34];
+const SCENE_SMELT_AT = [34, 70, 160, 198, 236, 122];
 function sceneStaffSpots(sh, L) {
   const phase = shopPhase(sh);
   const out = [];
+  const usedX = {};
+  const room = placedStands(sh).filter(function (st) { return st.qty < standHold(); });
   for (const role of SHOP.roles) {
-    const held = assignmentAt(sh, role.id, phase);
-    if (!held || held.done) continue;
-    const e = held.staff;
-    const order = (held.job && held.job.order) || {};
-    let at = null, where = '';
-    if (role.id === 'salesperson') { at = { x: L.R + 56, y: 104, z: 25 }; where = 'behind the counter'; }
-    else if (role.id === 'smith' && order.kind === 'smelt') { at = { x: 34, y: 112, z: 24 }; where = 'at the furnace'; }
-    else if (role.id === 'smith') { at = { x: 122, y: 118, z: 18 }; where = 'at the anvil'; }
-    else if (role.id === 'apprentice') { at = { x: 2, y: 118, z: 26 }; where = 'helping at the anvil'; }
-    else if (role.id === 'storehand') {
-      const target = placedStands(sh).find(function (st) { return st.qty < standHold(); });
-      const spot = target ? L.spots[target.slot] : L.spots[0];
-      at = { x: (spot ? spot.x : L.floorX) + 44, y: 132, z: 45 };
-      where = 'stocking stands';
-    } else if (role.id === 'runner') { at = { x: L.R + 280, y: 104, z: 22 }; where = 'at the door, on an errand'; }
-    if (at) out.push({ e: e, at: at, where: where, role: role });
+    let n = 0;
+    for (const held of assignmentsAt(sh, role.id, phase)) {
+      const k = n++;
+      if (held.done) continue;
+      const e = held.staff;
+      const order = (held.job && held.job.order) || {};
+      let at = null, where = '';
+      if (role.id === 'salesperson') { at = { x: L.R + 56, y: 104, z: 25 }; where = 'behind the counter'; }
+      else if (role.id === 'smith') {
+        const smelt = order.kind === 'smelt';
+        const x = (smelt ? SCENE_SMELT_AT : SCENE_SMITH_AT).find(function (v) { return !usedX[v]; });
+        usedX[x] = true;
+        at = { x: x, y: smelt && x < 110 ? 112 : 118, z: 18 + k };
+        where = smelt ? 'at the furnace' : 'at the anvil';
+      } else if (role.id === 'apprentice') { at = { x: 2, y: 118, z: 26 }; where = 'helping at the anvil'; }
+      else if (role.id === 'storehand') {
+        const target = room[k] || room[0];
+        const spot = target ? L.spots[target.slot] : L.spots[k] || L.spots[0];
+        at = { x: (spot ? spot.x : L.floorX) + 44 - (room[k] ? 0 : k * 10), y: 132, z: 45 + k };
+        where = 'stocking stands';
+      } else if (role.id === 'runner') {
+        at = { x: L.R + 280 - k * 36, y: 104, z: 22 + k }; where = 'at the door, on an errand';
+      }
+      if (at) out.push({ e: e, at: at, where: where, role: role });
+    }
   }
   return out;
 }
@@ -12681,12 +12828,18 @@ function stationCrewList(sh, roleId, roleName) {
 }
 function stationBox(sh, roleId) {
   const phase = shopPhase(sh);
-  const held = assignmentAt(sh, roleId, phase);
+  const all = assignmentsAt(sh, roleId, phase);
+  const seats = phaseSeats(sh, roleId);
+  let free = -1;
+  for (let s = 0; free < 0 && s < seats; s++) {
+    if (!all.some(function (h) { return h.seat === s; })) free = s;
+  }
   return {
-    held: held,
+    held: free < 0 ? all[0] || null : null,
+    all: all,
     open: function () {
-      if (held) shopOpenAssignment(held.staff.id);
-      else shopOpenHandPicker(roleId, phase);
+      if (free >= 0) shopOpenHandPicker(roleId, phase, free);
+      else shopOpenAssignment(all[0].staff.id);
     }
   };
 }
@@ -12769,8 +12922,10 @@ function shopOpenStation(id) {
   if (id === 'store') {
     const run = stationBox(sh, 'runner');
     let body = '<p class="station-note">Finished items in storage: ' + countStorage(sh) + ' / ' +
-      storageCapacity(sh) + '.' + (run.held ? ' <b>' + esc(run.held.staff.name) +
-      '</b> is assigned as Runner this ' + pn + '.' : '') +
+      storageCapacity(sh) + '.' + (run.all.length ? ' <b>' + esc(run.all.map(function (h) {
+        return h.staff.name;
+      }).join(', ')) + '</b> ' + (run.all.length === 1 ? 'is' : 'are') + ' assigned as Runner' +
+      (run.all.length === 1 ? '' : 's') + ' this ' + pn + '.' : '') +
       '</p><div class="shop-list">';
     let any = false;
     for (const m of SHOP.materials) {
@@ -13053,17 +13208,20 @@ function sceneShowAfter(what) {
    roster would find whoever is booked for the NEXT phase, and at the turn
    of the day there is no roster left to ask at all. */
 function sceneFigFor(crew, role) {
-  const id = crew && crew[role];
+  const ids = crew && crew[role];
+  const id = Array.isArray(ids) ? ids[0] : ids;
   return id != null ? '[data-crew="' + id + '"]' : null;
 }
-/* Who is at each station right now, by trade. Called before a phase is
-   resolved, so the playback can find the people who actually did the work. */
+/* Who is at each station right now, by trade: a list per role, since
+   Staffing upgrades let several of one role work at once. Called before a
+   phase is resolved, so the playback can find who actually did the work. */
 function sceneCrewNow(sh) {
   const phase = shopPhase(sh);
   const out = {};
   for (const role of SHOP.roles) {
-    const held = assignmentAt(sh, role.id, phase);
-    if (held && !held.done) out[role.id] = held.staff.id;
+    const ids = assignmentsAt(sh, role.id, phase).filter(function (h) { return !h.done; })
+      .map(function (h) { return h.staff.id; });
+    if (ids.length) out[role.id] = ids;
   }
   return out;
 }
@@ -13099,38 +13257,41 @@ function scenePromptOpen() {
 function phaseShots(reports, crew, L, forged) {
   const shots = [];
   const R = L.R;
-  const got = function (kinds) {
-    return reports.find(function (r) { return r.ok && kinds.indexOf(r.kind) >= 0; }) || null;
-  };
-  const figOf = function (role) {
-    const sel = sceneFigFor(crew, role);
-    return sel ? $('shThings').querySelector(sel) : null;
-  };
   const station = function (id) { return $('shThings').querySelector('[data-station="' + id + '"]'); };
-  const add = function (role, shot) {
-    const id = crew ? crew[role] : null;
+  /* Whose report this is. Reports name their employee; one from before they
+     did falls back to the first of that role the crew list holds. */
+  const add = function (role, report, shot) {
+    let id = report && report.staffId != null ? report.staffId : null;
+    if (id == null && crew && crew[role] != null) id = [].concat(crew[role])[0];
     const e = id != null ? staffById(shop(), id) : null;
     shot.role = role;
-    shot.id = id != null ? id : null;
-    shot.who = e ? e.name : (shopRole(role) || {}).name || role;
-    shot.fig = figOf(role);
+    shot.id = id;
+    shot.who = e ? e.name : (report && report.who) || (shopRole(role) || {}).name || role;
+    shot.fig = id != null ? $('shThings').querySelector('[data-crew="' + id + '"]') : null;
     shots.push(shot);
+    return shot;
+  };
+  const figX = function (fig, fallback) {
+    const x = fig ? parseFloat(fig.style.left) : NaN;
+    return isFinite(x) ? x : fallback;
+  };
+  const done = function (kinds) {
+    return reports.filter(function (r) { return r && r.ok && kinds.indexOf(r.kind) >= 0; });
   };
 
-  const sale = got(['sales']);
-  if (sale && sale.customers > 0) {
-    add('salesperson', { x0: R + 10, x1: R + 290, y0: 38, anchor: 'right', max: 4200,
+  for (const sale of done(['sales'])) {
+    if (!(sale.customers > 0)) continue;
+    add('salesperson', sale, { x0: R + 10, x1: R + 290, y0: 38, anchor: 'right', max: 4200,
       what: 'serving customers at the counter',
       run: function (T, end) {
         const seller = this.fig;
         const doorAt = { x: R + 236, y: 104 }, counterAt = { x: R + 108, y: 108 };
         const n = Math.max(1, Math.min(3, sale.customers || 1));
         const walk = 1200;
-        let lead = null;
         for (let k = 0; k < n; k++) {
           T.at(k * 320, function () {
             const w = sceneWalker(T.face(k), doorAt, { x: counterAt.x - k * 30, y: counterAt.y + 4 }, walk);
-            if (k === 0) { lead = w; T.follow(w); }
+            if (k === 0) T.follow(w);
           });
         }
         T.at(500, function () { T.busy(seller); });
@@ -13138,7 +13299,8 @@ function phaseShots(reports, crew, L, forged) {
         T.at(walk + (n - 1) * 320 + 200, function () {
           T.follow(null);
           T.frame({ x0: R + 10, x1: R + 150, y0: 84 }, function () {
-            if (sale.revenue > 0) sceneFloat(R + 60, 96, '+' + coin(sale.revenue) + 'g', 'gold');
+            const gold = (sale.revenue || 0) + (sale.bonus || 0);
+            if (gold > 0) sceneFloat(R + 60, 96, '+' + coin(gold) + 'g', 'gold');
             if (sale.sold > 0) sceneShowAfter('floor');
             else sceneFloat(R + 60, 96, 'no sale', 'quiet');
             T.at(900, end);
@@ -13147,42 +13309,47 @@ function phaseShots(reports, crew, L, forged) {
       } });
   }
 
-  const hand = got(['storehand']);
-  if (hand && hand.moved > 0) {
-    const fig = figOf('storehand');
-    const fx = fig ? parseFloat(fig.style.left) : NaN;
-    const x = isFinite(fx) ? fx : L.floorX + 60;
-    add('storehand', { x0: x - 48, x1: x + 44, y0: 78, max: 2400,
-      what: 'stocking stands',
+  for (const hand of done(['storehand'])) {
+    if (!(hand.moved > 0)) continue;
+    const shot = add('storehand', hand, { y0: 78, max: 2400, what: 'stocking stands',
       run: function (T, end) {
+        const x = this.x;
         sceneShowAfter('floor');
         T.busy(this.fig, function () {
           sceneFloat(x + 20, 118, '+' + hand.moved + ' shelved');
           T.at(700, end);
         });
       } });
+    shot.x = figX(shot.fig, L.floorX + 60);
+    shot.x0 = shot.x - 48;
+    shot.x1 = shot.x + 44;
   }
 
-  const smith = got(['smith', 'smelt']);
-  if (smith && smith.made > 0) {
+  for (const smith of done(['smith', 'smelt'])) {
+    if (!(smith.made > 0)) continue;
     const smelt = smith.kind === 'smelt';
-    add('smith', { x0: 4, x1: smelt ? 112 : 172, y0: 84, max: 2600,
+    const shot = add('smith', smith, { y0: 84, max: 2600,
       what: smelt ? 'smelting ore at the furnace' : 'forging at the anvil',
       run: function (T, end) {
+        const x = this.x;
         T.busy(station('forge'));
         if (!smelt) T.busy(station('anvil'));
         T.busy(this.fig, function () {
-          sceneFloat(smelt ? 60 : 120, smelt ? 104 : 120,
+          sceneFloat(x + 20, smelt ? 104 : 120,
             smelt ? '+' + smith.made + ' ingots' : '+' + smith.made + ' made');
           T.at(700, end);
         });
       } });
+    // the worker and the furnace or anvil they are working
+    shot.x = figX(shot.fig, smelt ? 34 : 122);
+    shot.x0 = Math.min(smelt ? 4 : 110, shot.x) - 8;
+    shot.x1 = Math.max(smelt ? 108 : 172, shot.x + 40) + 8;
   }
 
   // an apprentice's work is the player's own batch: only shown when there was one
-  const help = got(['apprentice']);
-  if (help && forged) {
-    add('apprentice', { x0: 0, x1: 172, y0: 84, max: 2600,
+  for (const help of done(['apprentice'])) {
+    if (!forged) continue;
+    add('apprentice', help, { x0: 0, x1: 172, y0: 84, max: 2600,
       what: 'helping with your batch at the anvil',
       run: function (T, end) {
         T.busy(station('forge'));
@@ -13194,14 +13361,14 @@ function phaseShots(reports, crew, L, forged) {
       } });
   }
 
-  const trip = got(['runner', 'haul', 'delivery']);
-  if (trip && (trip.kind === 'runner' ? trip.ingots > 0 : trip.load > 0)) {
-    add('runner', { x0: R + 214, x1: Math.min(L.W, R + 330), y0: 38, max: 2600,
+  for (const trip of done(['runner', 'haul', 'delivery'])) {
+    if (!(trip.kind === 'runner' ? trip.ingots > 0 : trip.load > 0)) continue;
+    const shot = add('runner', trip, { y0: 38, max: 2600,
       what: trip.kind === 'runner' ? 'buying ingots at the market'
         : trip.kind === 'haul' ? 'collecting ore from a mine' : 'delivering a commission',
       run: function (T, end) {
         const fig = this.fig;
-        sceneFloat(R + 236, 90, trip.kind === 'runner' ? '+' + trip.ingots + ' ingots'
+        sceneFloat(this.x + 10, 90, trip.kind === 'runner' ? '+' + trip.ingots + ' ingots'
           : trip.kind === 'haul' ? '+' + trip.load + ' ore' : 'delivered ' + trip.load,
           trip.kind === 'delivery' ? 'gold' : '');
         if (trip.kind !== 'delivery') T.at(500, function () { sceneShowAfter('store'); });
@@ -13210,6 +13377,10 @@ function phaseShots(reports, crew, L, forged) {
         T.whenEnd(fig, 'transitionend', 1300, function () { T.follow(null); T.at(500, end); });
         fig.classList.add('leaving');
       } });
+    // the runner and the door they leave by, and the few steps out of it
+    shot.x = figX(shot.fig, R + 280);
+    shot.x0 = Math.min(R + 214, shot.x) - 8;
+    shot.x1 = Math.min(L.W, Math.max(R + 290, shot.x + 86));
   }
   return shots;
 }
@@ -13462,14 +13633,14 @@ function shopSkipPhase() {
    One sheet for the whole phase, saying only what actually happened. The
    full account of each hand's work is still there, a tap away. */
 function phaseTotals(reports) {
-  const t = { revenue: 0, sold: 0, customers: 0, ingots: 0, spent: 0, ore: 0, made: 0,
+  const t = { revenue: 0, bonus: 0, sold: 0, customers: 0, ingots: 0, spent: 0, ore: 0, made: 0,
     smelted: 0, shelved: 0, trips: 0, carried: 0, paid: 0, offers: 0, xp: [], ready: [], failed: [] };
   for (const r of reports) {
     if (!r) continue;
     if (!r.ok) { t.failed.push((r.who || 'An employee') + ': ' + (r.why || 'could not do the job')); continue; }
     if (r.kind === 'sales') {
       t.revenue += r.revenue || 0; t.sold += r.sold || 0; t.customers += r.customers || 0;
-      t.offers += r.offers || 0;
+      t.offers += r.offers || 0; t.bonus += r.bonus || 0;
     }
     if (r.kind === 'runner') { t.ingots += r.ingots || 0; t.spent += r.actual || 0; }
     if (r.kind === 'haul') t.ore += r.load || 0;
@@ -13489,6 +13660,7 @@ function phaseSummaryHtml(replay) {
   const rows = [];
   const row = function (k, v, good) { rows.push('<dt>' + k + '</dt><dd' + (good ? ' class="good"' : '') + '>' + v + '</dd>'); };
   if (t.revenue || t.sold) row('Sales', coin(t.revenue) + 'g', true);
+  if (t.bonus) row('Salesperson Earnings', '+' + coin(t.bonus) + 'g', true);
   if (t.sold) row('Items sold', t.sold);
   if (t.ingots) row('Metal bought', t.ingots + ' ingots for ' + coin(t.spent) + 'g');
   if (t.ore) row('Ore collected', t.ore);
@@ -13738,35 +13910,38 @@ function jobWord(sh, employee, job) {
 
 /* Why a standing box came up empty this morning, in the words the morning
    report used. Read back off the day's own log so the two cannot disagree. */
-function standingWhyEmpty(sh, role, phase) {
+function standingWhyEmpty(sh, role, phase, seat) {
   for (const entry of sh.log) {
     if (entry.kind !== 'day' || entry.day !== sh.day) continue;
     for (const row of entry.roster || []) {
-      if (row.role === role && row.phase === phase && !row.ok) return row.why;
+      if (row.role === role && row.phase === phase && (row.seat || 0) === (seat || 0) &&
+          !row.ok) return row.why;
     }
     break;
   }
   return '';
 }
 
-function rosterBox(sh, role, phase) {
+function rosterBox(sh, role, phase, seat) {
   const when = '<span class="rb-when">' + esc(SHOP.phaseName[phase]) + '</span>';
-  const held = assignmentAt(sh, role.id, phase);
+  const held = assignmentAt(sh, role.id, phase, seat);
   const past = phaseIndexOf(phase) < sh.phaseIndex;
+  const many = phaseSeats(sh, role.id) > 1;
+  const place = many ? ' ' + (seat + 1) : '';
 
-  const standing = standingAt(sh, role.id, phase);
+  const standing = standingAt(sh, role.id, phase, seat);
   const mark = standing && standing.on
     ? '<span class="rb-repeat" aria-hidden="true">\u21ba</span>' : '';
 
   if (!held) {
     const open = staffCandidates(sh, role.id, phase).length > 0;
     // a box the standing roster could not fill this morning still says so
-    const why = standing && standing.on ? standingWhyEmpty(sh, role.id, phase) : '';
+    const why = standing && standing.on ? standingWhyEmpty(sh, role.id, phase, seat) : '';
     return '<button class="roster-box empty' + (standing && standing.on ? ' standing' : '') +
       '" type="button"' +
-      (open || standing ? ' data-slot-role="' + role.id + '" data-slot-phase="' + phase + '"'
-        : ' disabled') +
-      ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name +
+      (open || standing ? ' data-slot-role="' + role.id + '" data-slot-phase="' + phase + '"' +
+        ' data-slot-seat="' + seat + '"' : ' disabled') +
+      ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + place +
         (standing && standing.on ? ', repeats daily' : '') +
         (why ? ', unfilled: ' + why
           : open ? ', assign employee' : past ? ', this phase has passed' : ', nobody available')) +
@@ -13786,7 +13961,7 @@ function rosterBox(sh, role, phase) {
   return '<button class="roster-box ' + status + (gap ? ' needs' : '') +
     (kept ? ' kept' : '') + '" type="button"' +
     ' data-hand="' + e.id + '"' +
-    ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + ', ' + e.name +
+    ' aria-label="' + esc(SHOP.phaseName[phase] + ', ' + role.name + place + ', ' + e.name +
       ', rank ' + e.rank + ', ' + (gap ? errand + ', ' + gap : word) +
       (kept ? ', recurring assignment' : '')) + '">' +
     when + mark + staffPortrait(e) +
@@ -13797,8 +13972,8 @@ function rosterBox(sh, role, phase) {
 }
 
 function shopRosterHtml(sh) {
-  let html = '<p class="shop-cap">Staff ' + sh.staff.length + ' / ' + staffCapacity(sh) +
-    ' · wages ' + coin(wageBill(sh)) + 'g per week · day ' + sh.day + ', ' +
+  let html = '<p class="shop-cap">Hired ' + sh.staff.length + ' / ' + staffCapacity(sh) +
+    ' staff places · wages ' + coin(wageBill(sh)) + 'g per week · day ' + sh.day + ', ' +
     esc(shopPhaseName(sh)) + '</p>';
   if (!sh.staff.length) {
     return html + '<p class="shop-empty">You have no employees. Use Search for Employees to ' +
@@ -13815,7 +13990,8 @@ function shopRosterHtml(sh) {
   }
   const kept = (sh.standing || []).filter(function (slot) { return slot.on; }).length;
   html += '<p class="roster-note">Assigning work is free and does not use your phase. Each ' +
-    'job runs automatically when its phase ends. Each employee can take one job per day.</p>';
+    'job runs automatically when its phase ends. Each employee can take one job per day. ' +
+    'Each row is one place per phase; Staffing upgrades in Growth add rows.</p>';
   html += '<div class="roster-tools">' +
     '<span class="rt-note">' + (kept
       ? '<b>' + kept + '</b> recurring ' + (kept === 1 ? 'assignment' : 'assignments') +
@@ -13828,11 +14004,19 @@ function shopRosterHtml(sh) {
 
   for (const role of SHOP.roles) {
     const mine = staffOfRole(sh, role.id);
+    // every seat the Staffing upgrades allow, plus any a save brought with it
+    let seats = phaseSeats(sh, role.id);
+    for (const phase of SHOP.phases) {
+      for (const h of assignmentsAt(sh, role.id, phase)) seats = Math.max(seats, h.seat + 1);
+    }
     html += '<div class="roster-role"><div class="roster-head"><b>' + esc(role.name) + '</b>' +
       '<span class="what">' + esc(role.blurb) + '</span>' +
-      '<span class="what" style="flex:0 0 auto">' + mine.length + ' hired</span></div>' +
+      '<span class="what" style="flex:0 0 auto">' + mine.length + ' hired · ' +
+      phaseSeats(sh, role.id) + ' per phase</span></div>' +
       '<div class="roster-grid">';
-    for (const phase of SHOP.phases) html += rosterBox(sh, role, phase);
+    for (let seat = 0; seat < seats; seat++) {
+      for (const phase of SHOP.phases) html += rosterBox(sh, role, phase, seat);
+    }
     html += '</div></div>';
   }
   html += '<div class="shop-list">';
@@ -13989,12 +14173,15 @@ function shopRankUp(id) {
 }
 
 /* ---------- filling a box ---------- */
-function shopOpenHandPicker(roleId, phase) {
+function shopOpenHandPicker(roleId, phase, seat) {
   const sh = shop();
   const role = shopRole(roleId);
   const free = staffCandidates(sh, roleId, phase);
-  const standing = standingAt(sh, roleId, phase);
+  const s = seat || 0;
+  const standing = standingAt(sh, roleId, phase, s);
   SHOPUI.planPhase = phase;
+  SHOPUI.planSeat = s;
+  const many = phaseSeats(sh, roleId) > 1;
 
   let html = '<p class="roster-note">' + esc(role.blurb) + '</p>';
   if (standing) {
@@ -14027,16 +14214,17 @@ function shopOpenHandPicker(roleId, phase) {
   const acts = [];
   acts.push({ label: standing ? 'Edit Daily Assignment' : 'Repeat Daily',
     primary: !free.length,
-    onClick: function () { shopOpenStanding(roleId, phase); } });
+    onClick: function () { shopOpenStanding(roleId, phase, s); } });
   if (standing) {
     acts.push({ label: standing.on ? 'Pause' : 'Resume', onClick: function () {
-      toggleStanding(shop(), roleId, phase);
+      toggleStanding(shop(), roleId, phase, undefined, s);
       shopRender();
-      shopOpenHandPicker(roleId, phase);
+      shopOpenHandPicker(roleId, phase, s);
     } });
   }
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet('Assign ' + role.name + ': ' + SHOP.phaseName[phase], html, acts);
+  shopSheet('Assign ' + role.name + (many ? ' ' + (s + 1) : '') + ': ' + SHOP.phaseName[phase],
+    html, acts);
 }
 
 /* A standing slot's orders in one line, for the cards that show it. */
@@ -14073,10 +14261,13 @@ function standingPlanLine(sh, roleId, plan) {
    The editor for one standing slot: who holds it, what they are told to do,
    and whether it is running. Everything it writes is read back at the turn of
    the day, so what is set here is exactly what happens tomorrow morning. */
-function shopOpenStanding(roleId, phase) {
+function shopOpenStanding(roleId, phase, seat) {
   const sh = shop();
   const role = shopRole(roleId);
-  const was = standingAt(sh, roleId, phase);
+  const s = seat || 0;
+  const was = standingAt(sh, roleId, phase, s);
+  const here = assignmentAt(sh, roleId, phase, s);
+  const many = phaseSeats(sh, roleId) > 1;
   const d = SHOPUI.draft = Object.assign({
     staff: was ? was.staff : null
   }, was ? JSON.parse(JSON.stringify(was.plan || {})) : standingDefault(sh, roleId));
@@ -14103,7 +14294,7 @@ function shopOpenStanding(roleId, phase) {
     html += standingPlanFields(sh2, roleId, d);
 
     // what it would do if the day turned right now
-    const test = planOrder(sh2, roleId, d, phase);
+    const test = planOrder(sh2, roleId, d, phase, here ? here.staff.id : undefined);
     html += '<div class="sheet-total' + (test.ok ? '' : ' short') + '">' +
       '<span>If it ran now</span><b>' +
       esc(test.ok ? 'ready' : test.why) + '</b></div>';
@@ -14114,12 +14305,12 @@ function shopOpenStanding(roleId, phase) {
           const plan = Object.assign({}, d);
           delete plan.staff;
           const res = setStanding(shop(), roleId, phase,
-            d.staff === '' || d.staff == null ? null : Number(d.staff), plan);
+            d.staff === '' || d.staff == null ? null : Number(d.staff), plan, s);
           if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
           /* Fill it for the rest of today too, so setting a box up is felt
              now rather than tomorrow. Phases already gone are left alone. */
           const filled = phaseIndexOf(phase) >= shop().phaseIndex &&
-            !assignmentAt(shop(), roleId, phase)
+            !assignmentAt(shop(), roleId, phase, s)
             ? applyStandingSlot(shop(), res.slot) : null;
           SOUNDS.shelve();
           shopSheetClose();
@@ -14134,14 +14325,15 @@ function shopOpenStanding(roleId, phase) {
     ];
     if (was) {
       acts.push({ label: 'Stop Repeating', onClick: function () {
-        clearStanding(shop(), roleId, phase);
+        clearStanding(shop(), roleId, phase, s);
         shopSheetClose();
         shopRender();
         shopToast('Recurring assignment removed.');
       } });
     }
     acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-    shopSheet('Repeat Daily: ' + role.name + ', ' + SHOP.phaseName[phase], html, acts);
+    shopSheet('Repeat Daily: ' + role.name + (many ? ' ' + (s + 1) : '') + ', ' +
+      SHOP.phaseName[phase], html, acts);
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -14271,7 +14463,7 @@ function applyStandingSlot(shop, slot) {
   const orders = planOrder(shop, slot.role, slot.plan, slot.phase);
   if (!orders.ok) return { ok: false, why: orders.why, who: hand.staff.name };
   const res = shopAssign(shop, hand.staff.id, { order: orders.order, standing: true },
-    slot.phase);
+    slot.phase, slot.seat || 0);
   return res.ok ? { ok: true, who: hand.staff.name } : { ok: false, why: res.why };
 }
 
@@ -14325,7 +14517,7 @@ function shopOpenAssignment(staffId) {
     }
     buttons.push({ label: 'Change Employee', onClick: function () {
       SHOPUI.replacing = e.id;
-      shopOpenHandPicker(e.role, a.phase);
+      shopOpenHandPicker(e.role, a.phase, a.seat || 0);
     } });
     buttons.push({ label: 'Remove', onClick: function () {
       const res = shopUnassign(sh, e.id);
@@ -14710,8 +14902,33 @@ function shopGrowthHtml(sh) {
     sh.staff.length + ' of ' + staffCapacity(sh) + ' staff places filled',
     (staffCapacity(sh) + 1) + ' staff places',
     growthCost(sh, 'hands'), sh.gold, 'data-grow="hands"',
-    'Adds 1 empty staff place. Hire someone into it with <b>Search for Employees</b>. ' +
-    'Miners do not use staff places.');
+    'Raises how many employees you can hire by 1. How many can work in the same phase is ' +
+    'set by the Staffing upgrades below. Hire with <b>Search for Employees</b>. Miners do ' +
+    'not use staff places.');
+
+  /* 3b. Staffing: how many of one role may work in the same phase. */
+  for (const id of ['smiths', 'storehands', 'runners']) {
+    const def = SHOP.growth[id];
+    const role = shopRole(def.role);
+    const lv = growthLevel(sh, id);
+    const seats = phaseSeats(sh, def.role);
+    const plural = function (n) { return n + ' ' + role.name + (n === 1 ? '' : 's'); };
+    html += growthCard(role.name + ' Staffing', lv, def.max,
+      plural(seats) + ' per phase', plural(seats + 1) + ' per phase',
+      growthCost(sh, id), sh.gold, 'data-grow="' + id + '"',
+      'Lets one more ' + role.name + ' work in every phase, each with their own job. ' +
+      'Does not hire anyone. You have ' + staffOfRole(sh, def.role).length + ' hired.');
+  }
+
+  /* 3c. Salesperson Earnings: a share on top of what a hired Salesperson sells. */
+  const sales = SHOP.growth.sales;
+  const sLvl = growthLevel(sh, 'sales');
+  const pct = function (lv) { return '+' + Math.round(lv * sales.step * 1000) / 10 + '%'; };
+  html += growthCard('Salesperson Earnings', sLvl, sales.max,
+    pct(sLvl) + ' gold on Salesperson sales', pct(sLvl + 1) + ' gold on Salesperson sales',
+    growthCost(sh, 'sales'), sh.gold, 'data-grow="sales"',
+    'Each sale a hired Salesperson makes earns this much extra, on top of the final ' +
+    'price. Sales you make yourself are not affected.');
 
   /* 4. Store expansion: floor space, which is not a stand. */
   const sLv = growthLevel(sh, 'floor');
@@ -14734,25 +14951,9 @@ function shopGrowthHtml(sh) {
       : 'Every space has a stand, so another stand needs more space first.'));
   html += '</div>';
 
-  /* The premises themselves, and the older fittings, below the four tracks -
-     they are still growth, but they are not what this tab is organised by. */
-  const tier = shopTier(sh), next = shopNextTier(sh);
-  html += '<p class="shop-cap">Premises</p><div class="shop-list">';
-  html += rowHtml('<b>' + esc(tier.name) + '</b>',
-    'Rent ' + coin(tier.rent) + 'g per week · ' + staffCapacity(sh) + ' staff places · ' +
-    standCap(sh) + ' stand spaces · ' + storageCapacity(sh) + ' storage · max batch ' +
-    batchCapacity(sh), '');
-  if (next) {
-    html += '<div class="shop-row">' +
-      '<span class="nm">Move to ' + esc(next.name) + '</span>' +
-      '<button data-expand="1"' + (sh.gold < next.cost ? ' disabled' : '') + '>' +
-      coin(next.cost) + 'g</button>' +
-      '<span class="sub">+' + (next.staff - tier.staff) + ' staff places · +' +
-      (next.stands - tier.stands) + ' stand spaces · +' + (next.storage - tier.storage) +
-      ' storage · +' + (next.batch - tier.batch) + ' max batch · rent becomes ' +
-      coin(next.rent) + 'g per week</span>' +
-      '</div>';
-  }
+  /* The older fittings, below the cards. */
+  html += '<p class="shop-cap">Other Upgrades · rent ' + coin(rentDue(sh)) + 'g per week</p>' +
+    '<div class="shop-list">';
   for (const u of SHOP.upgrades) {
     const level = shopUpgradeLevel(sh, u.id);
     const cost = shopUpgradeCost(sh, u.id);
@@ -15262,7 +15463,7 @@ function shopOpenBuyStand() {
     ' · ' + (room > 0 ? room + ' empty ' + (room === 1 ? 'space' : 'spaces') : 'no empty space') + '</p>';
   if (room <= 0) {
     body += '<p class="hire-warn">Every floor space has a stand. Buy a <b>Store Expansion</b> ' +
-      'in <b>Growth</b>, or move to bigger premises, to add space.</p>';
+      'in <b>Growth</b> to add space.</p>';
     shopSheet('Buy Stand', body,
       [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
     return;
@@ -16037,7 +16238,7 @@ function shopOpenHire(tradeId) {
     html += '<p class="hire-warn">' + (trade.mine
       ? esc(mine.name) + ' has no free shaft. Buy another shaft for this mine first.'
       : 'All ' + staffCapacity(sh) + ' staff places are filled. Buy an Employment ' +
-        'upgrade in Growth or move to bigger premises.') + '</p>';
+        'upgrade in Growth to hire more.') + '</p>';
   }
 
   const list = trade.mine ? (mine.applicants || []) : (sh.applicants || []);
@@ -16417,6 +16618,8 @@ function reportBody(r) {
       '<dt>Customers</dt><dd>' + r.customers + '</dd>' +
       '<dt>Items sold</dt><dd>' + r.sold + '</dd>' +
       '<dt>Revenue</dt><dd class="good">' + coin(r.revenue) + 'g</dd>' +
+      (r.bonus > 0 ? '<dt>Salesperson Earnings</dt><dd class="good">+' + coin(r.bonus) + 'g</dd>' +
+        '<dt>Total income</dt><dd class="good">' + coin(r.revenue + r.bonus) + 'g</dd>' : '') +
       '<dt>Haggles attempted</dt><dd>' + r.haggles + '</dd>' +
       '<dt>Haggles won</dt><dd>' + r.won + '</dd>' +
       '<dt>Left without buying</dt><dd>' + r.left + '</dd>' +
@@ -17073,7 +17276,7 @@ function shopSendStaff(id, again) {
   SHOPUI.reorder = !!again;
   if (e.role === 'salesperson' || e.role === 'apprentice') {
     if (!again) {
-      const res = shopAssign(sh, e.id, {}, phase);
+      const res = shopAssign(sh, e.id, {}, phase, SHOPUI.planSeat);
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
     }
     shopSheetClose();
@@ -17352,7 +17555,7 @@ function rosterBook(employee, job) {
     a.job = job || {};
     return { ok: true, phase: a.phase };
   }
-  return shopAssign(sh, employee.id, job, phase);
+  return shopAssign(sh, employee.id, job, phase, SHOPUI.planSeat);
 }
 
 /* ---------- starting and leaving --------------------------------------- */
@@ -17600,11 +17803,19 @@ function wireShop() {
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
       SOUNDS.prosper(false);
       shopRender();
+      const def = growthDef(id);
+      const role = def.role ? shopRole(def.role) : null;
       shopToast(id === 'forge'
         ? 'Max batch size is now ' + batchCapacity(shop()) + ' items.'
         : id === 'hands'
           ? 'Staff places: ' + staffCapacity(shop()) + '. Use Hire Staff to fill them.'
-          : 'Floor spaces: ' + standCap(shop()) + '. Buy stands from the Shelves tab.');
+          : role
+            ? phaseSeats(shop(), def.role) + ' ' + role.name + 's can now work in each phase. ' +
+              'The new places are on the Staff tab.'
+            : id === 'sales'
+              ? 'Salesperson sales now earn +' + Math.round(salesBonusRate(shop()) * 1000) / 10 +
+                '% gold.'
+              : 'Floor spaces: ' + standCap(shop()) + '. Buy stands from the Shelves tab.');
       return;
     }
     const gstand = t.closest('[data-grow-stand]');
@@ -17621,19 +17832,12 @@ function wireShop() {
     const slot = t.closest('[data-slot-role]');
     if (slot && !slot.disabled) {
       SHOPUI.replacing = null;
-      shopOpenHandPicker(slot.dataset.slotRole, slot.dataset.slotPhase);
+      shopOpenHandPicker(slot.dataset.slotRole, slot.dataset.slotPhase,
+        Number(slot.dataset.slotSeat) || 0);
       return;
     }
     const hand = t.closest('[data-hand]');
     if (hand && !hand.disabled) { shopOpenAssignment(Number(hand.dataset.hand)); return; }
-    const ex = t.closest('[data-expand]');
-    if (ex && !ex.disabled) {
-      const res = shopExpand(shop());
-      if (res.ok) SOUNDS.prosper(true); else SOUNDS.invalid();
-      shopToast(res.ok ? 'Moved to the ' + res.tier.name + '. Rent is now ' +
-        coin(res.tier.rent) + 'g per week.' : res.why);
-      shopRender();
-    }
   });
   $('shAdvanceBtn').addEventListener('click', function () {
     shopSpendPhase(shopPhaseName(shop()) + ' ended.');
@@ -17902,7 +18106,7 @@ function slotLine(slot) {
   if (!sh) return '<span class="fs-line">Save data unreadable. This forge cannot be opened.</span>';
   return '<span class="fs-line">Day <b>' + sh.day + '</b>, ' + esc(shopPhaseName(sh)) +
     ' \u00b7 <b>' + coin(sh.gold) + 'g</b> \u00b7 ' + shopStars(sh) + ' of 5 \u00b7 ' +
-    esc(shopTier(sh).name) +
+    sh.staff.length + (sh.staff.length === 1 ? ' employee' : ' employees') +
     (slot.anvil ? ' \u00b7 <span class="fs-anvil">order in progress</span>' : '') +
     '</span>';
 }
@@ -18778,8 +18982,8 @@ function helpHtml() {
     'and vehicles, and managing the Ledger are free.');
   html += P('Rent and wages (staff and Miners) are paid every ' + SHOP.weekLength +
     ' days. If you cannot ' +
-    'pay, the forge closes. A new forge starts with ' + coin(SHOP.startGold) + 'g, ' +
-    and(stock) + ', in the ' + tier1.name + ' (rent ' + coin(tier1.rent) + 'g per week).');
+    'pay, the forge closes. A new forge starts with ' + coin(SHOP.startGold) + 'g and ' +
+    and(stock) + '. Rent is ' + coin(tier1.rent) + 'g per week.');
 
   html += H('Forging Items');
   html += P('Choose an item, a metal and a batch size. One puzzle forges the whole batch and ' +
@@ -18829,10 +19033,12 @@ function helpHtml() {
     return '<b>' + r.name + '</b>: ' + r.blurb;
   }).concat(['<b>Miner</b>: works a mine you own. Does not use a staff place.']));
   html += P('<b>Hire Staff</b> shows applicants for one role. Searching is free; hiring uses ' +
-    'the phase. Everyone starts at E-rank and wages are paid weekly. Staff places come from ' +
-    'your premises and Employment upgrades.');
+    'the phase. Everyone starts at E-rank and wages are paid weekly. Staff places (how many ' +
+    'you can hire) start at ' + tier1.staff + ' and rise with Employment upgrades.');
   html += P('Assign work on the Staff tab: tap a phase box and choose an employee. Assigning ' +
-    'is free. Each employee does one job per day. <b>Repeat Daily</b> refills an assignment ' +
+    'is free. Each employee does one job per day. One of each role can work per phase; ' +
+    'Smith, Store Hand and Runner Staffing each add one more place for that role in every ' +
+    'phase, and all of them work in the same phase. <b>Repeat Daily</b> refills an assignment ' +
     'every morning; <b>Repeat Yesterday</b> copies the previous day’s assignments. Employees ' +
     'earn XP from completed work and can be promoted ' +
     SHOP.ranks.map(function (r) { return r.id; }).join(' → ') + ' on the Staff tab. ' +
@@ -18870,10 +19076,15 @@ function helpHtml() {
     '<b>Forge</b>: +1 maximum batch size per level (' + gr.forge.max + ' levels).',
     '<b>Employment</b>: +1 staff place per level (' + gr.hands.max + ' levels).',
     '<b>Store Expansion</b>: +1 floor space per level (' + gr.floor.max + ' levels).'
-  ].concat(SHOP.upgrades.map(function (u) {
+  ].concat(['smiths', 'storehands', 'runners'].map(function (id) {
+    const role = shopRole(gr[id].role);
+    return '<b>' + role.name + ' Staffing</b>: +1 ' + role.name + ' working in every phase per ' +
+      'level (' + gr[id].max + ' levels). Does not hire anyone.';
+  })).concat(['<b>Salesperson Earnings</b>: +' + pct(gr.sales.step) + ' gold on every sale a ' +
+    'hired Salesperson makes, per level (' + gr.sales.max + ' levels). Your own sales are ' +
+    'not affected.']).concat(SHOP.upgrades.map(function (u) {
     return '<b>' + u.name + '</b>: ' + u.blurb.replace(/\.$/, '') + ' (' + u.max + ' levels).';
-  })).concat(['<b>Premises</b>: move to a bigger building (' + and(names(SHOP.tiers)) +
-    ') for more staff places, floor spaces, storage and batch size, at a higher rent.']));
+  })));
   html += P('Each level costs more than the last.');
 
   html += H('The Shop Screen');

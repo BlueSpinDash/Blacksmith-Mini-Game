@@ -3276,14 +3276,26 @@ section('Open Your Forge: production and stock');
     return easy.ok && stand.type === 'shield' && !hard.ok && stand.type === 'shield';
   })());
 
-  ok('bigger premises make room for more stands, and do not fill it', (() => {
+  ok('there is no moving premises any more: nothing to buy, nothing priced', (() => {
+    return C.shopExpand === undefined && C.shopNextTier === undefined &&
+      C.SHOP.tiers.every((t) => t.cost === undefined);
+  })());
+
+  ok('a new forge stays in its first premises and pays its rent', (() => {
     const s = C.createShop({ rnd: C.mulberry32(17), gold: 100000 });
-    const before = [C.standCap(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
-    const floor = C.countShelf(s), stands = s.stands.length;
-    C.shopExpand(s);
-    const after = [C.standCap(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s)];
-    return after.every((v, i) => v > before[i]) && C.rentDue(s) > C.SHOP.tiers[0].rent &&
-      s.stands.length === stands && C.countShelf(s) === floor;
+    return s.tier === 1 && C.rentDue(s) === C.SHOP.tiers[0].rent;
+  })());
+
+  ok('a save made in bigger premises keeps their rent and every capacity', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(18), gold: 100000 });
+    s.tier = 3;
+    const before = [C.standCap(s), C.storageCapacity(s), C.staffCapacity(s), C.batchCapacity(s),
+      C.rentDue(s)];
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(18));
+    const after = [C.standCap(back), C.storageCapacity(back), C.staffCapacity(back),
+      C.batchCapacity(back), C.rentDue(back)];
+    return back.tier === 3 && JSON.stringify(after) === JSON.stringify(before) &&
+      C.rentDue(back) === C.SHOP.tiers[2].rent;
   })());
 }
 
@@ -5673,11 +5685,12 @@ section('Open Your Forge: a runner on the road');
     const cart = C.shopBuyVehicle(s, 'cart').vehicle;
     s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
     s.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
+    s.upgrades.runnerSeats = 1;                  // two Runner places, so the cart is what refuses
     const first = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
       vehicle: cart.id, qty: 5 } });
     const second = C.shopAssign(s, 2, { order: { kind: 'deliver', commission: com.id,
       vehicle: cart.id, qty: 5 } });
-    return first.ok && !second.ok && C.freeVehicles(s).length === 0;
+    return first.ok && !second.ok && /in use/.test(second.why) && C.freeVehicles(s).length === 0;
   })());
 
   ok('two carts are two runners out at once', (() => {
@@ -5685,6 +5698,7 @@ section('Open Your Forge: a runner on the road');
     const com = readyContract(s);
     const one = C.shopBuyVehicle(s, 'cart').vehicle;
     const two = C.shopBuyVehicle(s, 'cart').vehicle;
+    s.upgrades.runnerSeats = 1;                  // Runner Staffing: two Runners a phase
     s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30 });
     s.staff.push({ id: 2, name: 'S', role: 'runner', rank: 'C', power: 3, wage: 30 });
     const first = C.shopAssign(s, 1, { order: { kind: 'deliver', commission: com.id,
@@ -7326,6 +7340,341 @@ section('The Forge: six designs');
       C.metalCount(b) === 35 && b.route.length === 70;
   })());
   ok('an unknown design is refused rather than half-built', C.forgePieceBoard('halberd') === null);
+}
+
+section('Open Your Forge: Staffing upgrades add places per phase');
+{
+  const G = C.SHOP.growth;
+  const hand = (s, id, role, extra) => {
+    s.staff.push(Object.assign({ id: id, name: role + ' ' + id, role: role, rank: 'C', power: 3,
+      wage: 30, xp: 0, face: 'traveler' }, extra || {}));
+    return id;
+  };
+
+  ok('Smith, Store Hand and Runner Staffing are three tracks named after the roles', (() => {
+    return ['smiths', 'storehands', 'runners'].every((id) => G[id] && G[id].key && G[id].max === 3) &&
+      G.smiths.role === 'smith' && G.storehands.role === 'storehand' && G.runners.role === 'runner' &&
+      C.staffingTrack('salesperson') === null && C.staffingTrack('apprentice') === null;
+  })());
+
+  ok('each level costs base x rate^level, adds one place, and the fourth is refused', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3001), gold: 100000 });
+    const hires = C.staffCapacity(s), staff = s.staff.length;
+    const seen = [];
+    let spent = 0;
+    for (let i = 0; i < 3; i++) {
+      const cost = C.growthCost(s, 'smiths');
+      const before = s.gold;
+      const res = C.shopBuyGrowth(s, 'smiths');
+      seen.push(res.ok && cost === Math.round(G.smiths.base * Math.pow(G.smiths.rate, i)) &&
+        before - s.gold === cost && C.phaseSeats(s, 'smith') === 2 + i);
+      spent += cost;
+    }
+    const fourth = C.shopBuyGrowth(s, 'smiths');
+    return seen.every(Boolean) && !fourth.ok && C.phaseSeats(s, 'smith') === 4 &&
+      s.gold === 100000 - spent && C.staffCapacity(s) === hires && s.staff.length === staff &&
+      C.phaseSeats(s, 'storehand') === 1 && C.phaseSeats(s, 'runner') === 1;
+  })());
+
+  ok('a role takes only as many places in a phase as it has bought', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3002) });
+    hand(s, 1, 'smith'); hand(s, 2, 'smith'); hand(s, 3, 'smith');
+    const order = { order: { item: 'shortsword', material: 'bronze', qty: 1 } };
+    const a = C.shopAssign(s, 1, order, PH[0]);
+    const refused = C.shopAssign(s, 2, order, PH[0]);
+    s.upgrades[G.smiths.key] = 1;
+    const b = C.shopAssign(s, 2, order, PH[0]);
+    const c = C.shopAssign(s, 3, order, PH[0]);
+    const later = C.shopAssign(s, 3, order, PH[1]);
+    return a.ok && a.seat === 0 && !refused.ok && /all 1 Smith place/.test(refused.why) &&
+      b.ok && b.seat === 1 && !c.ok && /all 2 Smith places/.test(c.why) && later.ok &&
+      C.assignmentsAt(s, 'smith', PH[0]).map((h) => h.staff.id).join(',') === '1,2';
+  })());
+
+  ok('an employee still takes one job a day, whatever the places', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3003) });
+    s.upgrades[G.runners.key] = 3;
+    hand(s, 1, 'runner');
+    const a = C.shopAssign(s, 1, { order: { bronze: 1 } }, PH[0]);
+    const twice = C.shopAssign(s, 1, { order: { bronze: 1 } }, PH[0]);
+    const other = C.shopAssign(s, 1, { order: { bronze: 1 } }, PH[1]);
+    return a.ok && !twice.ok && !other.ok && /already has work today/.test(other.why);
+  })());
+
+  ok('a booking asks for a place; a taken one falls back to the lowest free', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3004) });
+    s.upgrades[G.storehands.key] = 2;
+    hand(s, 1, 'storehand'); hand(s, 2, 'storehand'); hand(s, 3, 'storehand');
+    const job = { order: { keys: [] } };
+    const a = C.shopAssign(s, 1, job, PH[0], 2);
+    const b = C.shopAssign(s, 2, job, PH[0], 2);
+    const c = C.shopAssign(s, 3, job, PH[0], 7);
+    return a.seat === 2 && b.seat === 0 && c.seat === 1;
+  })());
+
+  ok('every Smith in a phase works in that phase, and the phase advances once', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3005) });
+    s.upgrades[G.smiths.key] = 2;
+    s.blueprints.shortsword = 1;
+    s.materials.bronze = 30;
+    for (const id of [1, 2, 3]) hand(s, id, 'smith');
+    for (const id of [1, 2, 3]) {
+      C.shopAssign(s, id, { order: { item: 'shortsword', material: 'bronze', qty: 3 } }, PH[0]);
+    }
+    const res = C.shopAdvancePhase(s);
+    const smiths = res.reports.filter((r) => r.kind === 'smith');
+    return smiths.length === 3 && smiths.every((r) => r.ok) &&
+      new Set(smiths.map((r) => r.staffId)).size === 3 &&
+      s.materials.bronze === 21 && s.orders.length === 3 && s.phaseIndex === 1 &&
+      s.staff.every((e) => e.xp > 0) && Object.values(s.assignments).every((a) => a.done);
+  })());
+
+  ok('two Smiths cannot forge with the same ingots', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3006) });
+    s.upgrades[G.smiths.key] = 1;
+    s.blueprints.shortsword = 1;
+    s.materials.bronze = 4;
+    hand(s, 1, 'smith'); hand(s, 2, 'smith');
+    C.shopAssign(s, 1, { order: { item: 'shortsword', material: 'bronze', qty: 3 } }, PH[0]);
+    C.shopAssign(s, 2, { order: { item: 'shortsword', material: 'bronze', qty: 3 } }, PH[0]);
+    const res = C.shopAdvancePhase(s);
+    const one = res.reports.find((r) => r.staffId === 1);
+    const two = res.reports.find((r) => r.staffId === 2);
+    return one.ok && !two.ok && /ingots/.test(two.why) && s.materials.bronze === 1 &&
+      s.orders.length === 1 && s.staff[0].xp > 0 && s.staff[1].xp === 0;
+  })());
+
+  ok('a recurring Smith is not planned onto ingots another Smith already has', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3007) });
+    s.upgrades[G.smiths.key] = 1;
+    s.blueprints.shortsword = 1;
+    s.materials.bronze = 4;
+    hand(s, 1, 'smith'); hand(s, 2, 'smith');
+    const plan = { item: 'shortsword', material: 'bronze', qty: 3 };
+    C.setStanding(s, 'smith', PH[0], 1, plan, 0);
+    C.setStanding(s, 'smith', PH[0], 2, plan, 1);
+    s.phaseIndex = 2;
+    const day = C.shopEndDay(s);
+    const rows = day.roster.filter((r) => r.role === 'smith');
+    return rows.length === 2 && rows[0].ok && rows[0].seat === 0 && !rows[1].ok &&
+      /not already assigned to another Smith/.test(rows[1].why);
+  })());
+
+  ok('two Store Hands share the storage between them, never double-counting it', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3008) });
+    s.upgrades[G.storehands.key] = 1;
+    hand(s, 1, 'storehand'); hand(s, 2, 'storehand');
+    C.addStorage(s, C.lineKey('shortsword', 'bronze'), 5, 80, 1);
+    const before = C.countStorage(s) + C.countShelf(s);
+    C.shopAssign(s, 1, { order: { keys: [] } }, PH[0]);
+    C.shopAssign(s, 2, { order: { keys: [] } }, PH[0]);
+    const res = C.shopAdvancePhase(s);
+    const moved = res.reports.filter((r) => r.kind === 'storehand').map((r) => r.moved);
+    return moved.length === 2 && moved[0] + moved[1] <= 5 &&
+      C.countStorage(s) + C.countShelf(s) === before;
+  })());
+
+  ok('two Runners restocking one metal are not both sent to buy the same ingots', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3009), gold: 50000 });
+    s.upgrades[G.runners.key] = 1;
+    s.materials.bronze = 10;
+    hand(s, 1, 'runner'); hand(s, 2, 'runner');
+    const plan = { kind: 'market', material: 'bronze', upTo: 20, cap: 100000 };
+    C.setStanding(s, 'runner', PH[0], null, plan, 0);
+    C.setStanding(s, 'runner', PH[0], null, plan, 1);
+    s.phaseIndex = 2;
+    const day = C.shopEndDay(s);
+    const rows = day.roster.filter((r) => r.role === 'runner');
+    const res = C.shopAdvancePhase(s);
+    return rows.length === 2 && rows[0].ok && !rows[1].ok && /already stocked/.test(rows[1].why) &&
+      s.materials.bronze === 20 &&
+      res.reports.filter((r) => r.kind === 'runner' && r.ok).length === 1;
+  })());
+
+  ok('two Runners deliver one commission between them, and it is paid once', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3010), gold: 200000 });
+    const com = readyContract(s);
+    C.shopBuyVehicle(s, 'cart');
+    C.shopBuyVehicle(s, 'cart');
+    s.upgrades[G.runners.key] = 1;
+    hand(s, 1, 'runner'); hand(s, 2, 'runner');
+    C.setStanding(s, 'runner', PH[0], null, { kind: 'deliver' }, 0);
+    C.setStanding(s, 'runner', PH[0], null, { kind: 'deliver' }, 1);
+    s.phaseIndex = 2;
+    const day = C.shopEndDay(s);
+    const planned = Object.values(s.assignments).map((a) => a.job.order.qty);
+    const goldBefore = s.gold;
+    const res = C.shopAdvancePhase(s);
+    const trips = res.reports.filter((r) => r.kind === 'delivery');
+    const carried = trips.filter((r) => r.ok).reduce((t, r) => t + r.load, 0);
+    const paid = trips.filter((r) => r.ok && r.done).length;
+    const stillOpen = s.commissions.some((c) => c.id === com.id);
+    return day.roster.filter((r) => r.role === 'runner').every((r) => r.ok) &&
+      planned.reduce((t, q) => t + q, 0) <= com.qty && carried <= com.qty &&
+      (stillOpen ? paid === 0 && s.gold === goldBefore : paid === 1 && carried === com.qty);
+  })());
+
+  ok('recurring schedules keep one slot per place, and fill every place', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3011) });
+    const refused = C.setStanding(s, 'salesperson', PH[0], null, {}, 1);
+    s.upgrades[G.storehands.key] = 2;
+    for (const id of [1, 2, 3]) hand(s, id, 'storehand');
+    C.addStorage(s, C.lineKey('shortsword', 'bronze'), 5, 80, 1);
+    for (const seat of [0, 1, 2]) C.setStanding(s, 'storehand', PH[1], null, { kind: 'shelve' }, seat);
+    const slots = s.standing.filter((x) => x.role === 'storehand');
+    s.phaseIndex = 2;
+    const day = C.shopEndDay(s);
+    const booked = C.assignmentsAt(s, 'storehand', PH[1]);
+    const cleared = C.clearStanding(s, 'storehand', PH[1], 1);
+    return !refused.ok && slots.length === 3 && slots.map((x) => x.seat).join(',') === '0,1,2' &&
+      booked.length === 3 && booked.map((h) => h.seat).join(',') === '0,1,2' &&
+      day.roster.filter((r) => r.ok).length === 3 && cleared.ok &&
+      s.standing.filter((x) => x.role === 'storehand').map((x) => x.seat).join(',') === '0,2';
+  })());
+
+  ok('Repeat Yesterday puts everyone back in the place they had', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3012) });
+    s.upgrades[G.runners.key] = 1;
+    hand(s, 1, 'runner'); hand(s, 2, 'runner');
+    C.shopAssign(s, 2, { order: { bronze: 1 } }, PH[2], 1);
+    C.shopAssign(s, 1, { order: { bronze: 1 } }, PH[2], 0);
+    s.phaseIndex = 2;
+    C.shopEndDay(s);
+    const rows = C.repeatRoster(s);
+    return rows.every((r) => r.ok) && C.assignmentAt(s, 'runner', PH[2], 0).staff.id === 1 &&
+      C.assignmentAt(s, 'runner', PH[2], 1).staff.id === 2;
+  })());
+
+  ok('the hiring limit is its own thing: Employment now runs to ten levels', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3013), gold: 1e7 });
+    for (let i = 0; i < 10; i++) C.shopBuyGrowth(s, 'hands');
+    const most = 1 + 4 + 4 + 4 + 1;
+    return G.hands.max === 10 && C.staffCapacity(s) === C.SHOP.tiers[0].staff + 10 &&
+      C.staffCapacity(s) >= most && C.phaseSeats(s, 'smith') === 1;
+  })());
+}
+
+section('Open Your Forge: Salesperson Earnings');
+{
+  const G = C.SHOP.growth;
+  const saleOn = (seller, level, seed) => {
+    const s = C.createShop({ rnd: C.mulberry32(seed) });
+    s.upgrades[G.sales.key] = level;
+    stock(s, C.lineKey('shortsword', 'bronze'), 20, 90, 40);
+    const one = C.makeTownsfolk(s, 'merchant');
+    one.gold = 100000;
+    one.standards = 0;
+    one.want = { cat: 'swords', item: null };
+    const session = C.openCounter(s, seller);
+    session.queue = [one.id];
+    session.at = 0;
+    let ev = null;
+    for (let i = 0; i < 5 && !(ev && ev.kind === 'offer'); i++) {
+      session.at = 0;
+      ev = C.counterNext(session, s);
+    }
+    const gold = s.gold, purse = one.gold;
+    const sale = ev && ev.kind === 'offer' ? C.counterRespond(session, s, 'accept') : null;
+    return { s: s, one: one, sale: sale, gold: gold, purse: purse, report: session.report };
+  };
+
+  ok('one track, +5% a level, five levels, priced like the others', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3101), gold: 1e6 });
+    const costs = [];
+    for (let i = 0; i < 5; i++) { costs.push(C.growthCost(s, 'sales')); C.shopBuyGrowth(s, 'sales'); }
+    return G.sales.step === 0.05 && G.sales.max === 5 && C.salesBonusRate(s) === 0.25 &&
+      costs.every((c, i) => c === Math.round(G.sales.base * Math.pow(G.sales.rate, i))) &&
+      C.growthCost(s, 'sales') === null && C.phaseSeats(s, 'salesperson') === 1;
+  })());
+
+  ok('a hired Salesperson’s sale earns its share on top, once, on the final price', (() => {
+    const r = saleOn({ kind: 'staff', power: 3, name: 'Sal' }, 2, 3102);
+    const price = r.sale && r.sale.price;
+    const bonus = Math.round(price * 0.10);
+    return r.sale && r.sale.kind === 'sale' && r.sale.bonus === bonus && bonus > 0 &&
+      r.s.gold - r.gold === price + bonus && r.report.revenue === price &&
+      r.report.bonus === bonus && r.purse - r.one.gold === price;
+  })());
+
+  ok('your own sales are untouched by it', (() => {
+    const r = saleOn({ kind: 'player', power: 2, name: 'You' }, 5, 3103);
+    return r.sale && r.sale.kind === 'sale' && !r.sale.bonus && r.report.bonus === 0 &&
+      r.s.gold - r.gold === r.sale.price;
+  })());
+
+  ok('a whole phase at the counter: gold gained is revenue plus the share, and no more', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3104) });
+    s.upgrades[G.sales.key] = 3;
+    s.reputation = 40;
+    for (const one of s.town) one.gold = 5000;
+    stock(s, C.lineKey('shortsword', 'bronze'), 30, 90, 40);
+    s.staff.push({ id: 1, name: 'Sal', role: 'salesperson', rank: 'B', power: 4, wage: 60, xp: 0 });
+    C.shopAssign(s, 1, {}, PH[0]);
+    const before = s.gold;
+    const res = C.shopAdvancePhase(s);
+    const rep = res.reports.find((r) => r.kind === 'sales');
+    const rate = C.salesBonusRate(s);
+    return rep && rep.sold > 0 && s.gold - before === rep.revenue + rep.bonus &&
+      Math.abs(rep.bonus - rep.revenue * rate) <= rep.sold * 0.5 + 1e-9 &&
+      res.reports.filter((r) => r.kind === 'sales').length === 1;
+  })());
+
+  ok('with no levels a Salesperson’s sales earn exactly what they did before', (() => {
+    const r = saleOn({ kind: 'staff', power: 3, name: 'Sal' }, 0, 3105);
+    return r.sale && r.sale.kind === 'sale' && r.s.gold - r.gold === r.sale.price && r.report.bonus === 0;
+  })());
+}
+
+section('Open Your Forge: the new upgrades survive being put down');
+{
+  const G = C.SHOP.growth;
+  ok('levels, places, bookings and recurring places all come back', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3201) });
+    s.upgrades[G.smiths.key] = 2; s.upgrades[G.storehands.key] = 1;
+    s.upgrades[G.runners.key] = 3; s.upgrades[G.sales.key] = 4;
+    for (const id of [1, 2, 3]) {
+      s.staff.push({ id: id, name: 'S' + id, role: 'smith', rank: 'C', power: 3, wage: 30, xp: 0 });
+    }
+    const job = { order: { item: 'shortsword', material: 'bronze', qty: 1 } };
+    C.shopAssign(s, 1, job, PH[1], 2);
+    C.shopAssign(s, 2, job, PH[1], 0);
+    C.setStanding(s, 'smith', PH[2], 3, { item: 'shortsword', material: 'bronze', qty: 1 }, 2);
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(1));
+    return back.upgrades[G.smiths.key] === 2 && back.upgrades[G.storehands.key] === 1 &&
+      back.upgrades[G.runners.key] === 3 && back.upgrades[G.sales.key] === 4 &&
+      C.phaseSeats(back, 'smith') === 3 && C.salesBonusRate(back) === 0.2 &&
+      C.assignmentAt(back, 'smith', PH[1], 2).staff.id === 1 &&
+      C.assignmentAt(back, 'smith', PH[1], 0).staff.id === 2 &&
+      C.standingAt(back, 'smith', PH[2], 2).staff === 3;
+  })());
+
+  ok('a save from before places loads with everyone in place one, and nothing lost', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3202) });
+    s.staff.push({ id: 1, name: 'R', role: 'runner', rank: 'C', power: 3, wage: 30, xp: 0 });
+    s.staff.push({ id: 2, name: 'T', role: 'storehand', rank: 'C', power: 3, wage: 30, xp: 0 });
+    C.shopAssign(s, 1, { order: { bronze: 2 } }, PH[1]);
+    C.setStanding(s, 'storehand', PH[0], 2, { kind: 'shelve' });
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    for (const id in data.assignments) delete data.assignments[id].seat;
+    for (const slot of data.standing) delete slot.seat;
+    delete data.upgrades.smithSeats;
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.assignments[1].seat === 0 && back.standing[0].seat === 0 &&
+      C.assignmentAt(back, 'runner', PH[1]).staff.id === 1 &&
+      C.standingAt(back, 'storehand', PH[0]).staff === 2 && C.phaseSeats(back, 'smith') === 1;
+  })());
+
+  ok('two bookings an old save put in one place both survive, in different places', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(3203) });
+    s.staff.push({ id: 1, name: 'A', role: 'smith', rank: 'C', power: 3, wage: 30, xp: 0 });
+    s.staff.push({ id: 2, name: 'B', role: 'smith', rank: 'C', power: 3, wage: 30, xp: 0 });
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    data.assignments = { 1: { day: 1, phase: PH[0], job: {}, done: false },
+      2: { day: 1, phase: PH[0], job: {}, done: false } };
+    const back = C.restoreShop(data, C.mulberry32(1));
+    return back.assignments[1].seat === 0 && back.assignments[2].seat === 1 &&
+      C.assignmentsAt(back, 'smith', PH[0]).length === 2;
+  })());
 }
 
 console.log('\n' + (failures.length ? 'FAILED: ' + failures.length : 'All core checks passed') + ' (' + pass + ' checks)');

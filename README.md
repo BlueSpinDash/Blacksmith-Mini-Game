@@ -719,8 +719,9 @@ Generation holds up across the whole matrix: 240/240 boards over every size 3–
 
 ### One puzzle is one batch
 
-Five swords take **one** board, not five. Batch size comes from the premises,
-the Greater Bellows upgrade and whichever Apprentice is at the anvil. Finish the
+Five swords take **one** board, not five. Batch size comes from the forge
+itself (3 for a new one), the Forge upgrade in Growth and whichever Apprentice
+is at the anvil. Finish the
 board and the ingots are spent and the batch goes on the anvil overnight; ruin
 it and the phase is gone but **the metal is not**. The puzzle's quality score
 becomes the goods' quality, which sets what they are worth.
@@ -815,12 +816,12 @@ bought with the business rather than earned, because there was no other way in.
 
 ### The floor is fixtures, not slots
 
-The premises say how many **display stands** will fit (`SHOP.tiers[].stands`,
-4/6/9/12); each stand is bought separately from the Shelves tab and holds six
-pieces of a single line. `SHOP.stands` names the six kinds, and which categories
+Floor space says how many **display stands** will fit: 4 in a new forge
+(`SHOP.tiers[0].stands`) and one more per Store Expansion level. Each stand is
+bought separately from the Shelves tab and holds six pieces of a single line. `SHOP.stands` names the six kinds, and which categories
 each takes is read off the category table (`standCategories`), so a stand can
-never be offered something it was not made for. Moving into bigger premises buys
-*room* — it never fills that room.
+never be offered something it was not made for. A Store Expansion buys *room*
+— it never fills that room.
 
 A stand is the stock line: `shop.stands` is the only record of what is on the
 floor, and `shelfLine(shop, key)` is how the counter asks about it. Tapping a
@@ -832,7 +833,7 @@ Hand does the same through `shopMoveToShelf`, which places a line on the stand
 already holding it or an empty one that will take it.
 
 Saves from before there were stands carry a `shelf` map; `restoreShop` gives
-each line a stand of the right kind up to what the premises hold and puts the
+each line a stand of the right kind up to what the floor holds and puts the
 overflow into storage rather than dropping it.
 
 ### The board you worked is the price tag
@@ -1266,14 +1267,18 @@ finished ingots, and a forge that never buys a deed plays exactly as it did.
 ### The week
 
 Rent and every wage fall due together at the end of every 7th day. Miss it and
-the shop closes. Premises scale both sides of that:
+the shop closes. There is no moving house (since 1.40): every forge opens as the
+Corner Forge and stays there, growing through Growth instead. Its base figures
+are `SHOP.tiers[0]`:
 
-| Tier | Rent | Staff | Shelf | Storage | Batch | To move in |
-| --- | --- | --- | --- | --- | --- | --- |
-| Corner Forge | 220g | 2 | 14 | 45 | 3 | — |
-| Village Smithy | 620g | 4 | 26 | 90 | 5 | 1,800g |
-| Town Forge | 1,500g | 6 | 44 | 170 | 7 | 6,500g |
-| Guild Foundry | 3,400g | 9 | 70 | 300 | 10 | 22,000g |
+| Rent | Staff places | Stand spaces | Storage | Batch |
+| --- | --- | --- | --- | --- |
+| 145g a week | 4 | 4 | 45 | 3 |
+
+The three larger tiers (Village Smithy, Town Forge, Guild Foundry) are still in
+the table only so a forge saved after moving keeps the rent, staff places, stand
+spaces, storage and batch size it had; nothing can move a forge into or out of
+them.
 
 Five upgrades (bellows, display cases, storage racks, haggler's ledger, painted
 signboard), three levels each, on a framework that takes a new row without
@@ -1326,7 +1331,7 @@ so the mute button and the volume slider own them too.
 | Buying ingots, and the week's rent | `coins`, pitched down and dulled — money going the other way |
 | A piece set on a stand | `shelve` — wood, not metal, over in a blink |
 | A phase turns over | `chime` — one mellow stroke, nothing triumphant |
-| A hand hired, an upgrade, new premises | `prosper` — a rising figure, longer for premises |
+| A hand hired, an upgrade | `prosper` — a rising figure, longer for the bigger moments |
 | The landlord takes the keys | `ruin` — four sawtooth notes falling through a closing filter |
 
 The doorbell rings for a *new* customer only: haggling redraws the same screen,
@@ -1380,7 +1385,10 @@ space (`standCap`), so the room you paid for is the room you see. Each lays out
 `cols × 2` spots; spots past what you own are drawn roped off. The top stage has
 exactly 20 spots, which is what the largest premises plus every Store
 Expansion can hold, and a check walks every tier and expansion level to prove
-there is never floor space with nowhere to stand on it. The sign over the door
+there is never floor space with nowhere to stand on it. A forge opened since
+1.40 starts with 4 spaces and reaches 12 at most, so it tops out at the
+Merchant Forge; the Master Establishment is only seen by saves that had moved
+into larger premises before moving was removed. The sign over the door
 grows grander with the stage; a long name is squeezed to the board with SVG
 `textLength` rather than spilling off it.
 
@@ -1474,16 +1482,20 @@ pointing at Growth instead of selling the space itself. There is exactly one
 `data-buy-stand` emitter and one handler, both inside the Shop sheet, so the
 two tabs cannot drift into doing each other's job.
 
-`SHOP.growth` holds four tracks, all priced `round(base * rate^level)` so each
+`SHOP.growth` holds eight tracks, all priced `round(base * rate^level)` so each
 purchase costs more than the last, and all returning `null` for the cost at
 their ceiling — which every caller reads as "nothing left to buy here".
 
-| Track | Key | Effect a level |
-| --- | --- | --- |
-| `display` | on the stand (`up`) | +2.5% on what that stand sells for |
-| `forge` | `bellows` | +1 ingot a forging phase |
-| `hands` | `hands` | +1 place on the books |
-| `floor` | `floor` | +1 space on the floor |
+| Track | Card | Key | Effect a level | Max | Prices |
+| --- | --- | --- | --- | --- | --- |
+| `display` | the stand's name | on the stand (`up`) | +2.5% on what that stand sells for | 4 | 70g × 1.55ⁿ |
+| `forge` | Forge | `bellows` | +1 item a batch | 8 | 300g × 1.7ⁿ |
+| `hands` | Employment | `hands` | +1 staff place (the hiring limit) | 10 | 620g × 1.85ⁿ |
+| `floor` | Store Expansion | `floor` | +1 space on the floor | 8 | 400g × 1.75ⁿ |
+| `smiths` | Smith Staffing | `smithSeats` | +1 Smith working in each phase | 3 | 900g × 2.2ⁿ |
+| `storehands` | Store Hand Staffing | `storeSeats` | +1 Store Hand working in each phase | 3 | 400g × 2ⁿ |
+| `runners` | Runner Staffing | `runnerSeats` | +1 Runner working in each phase | 3 | 600g × 2ⁿ |
+| `sales` | Salesperson Earnings | `salesBonus` | +5% on every hired Salesperson's sale | 5 | 600g × 1.8ⁿ |
 
 `forge` deliberately stores under the **old `bellows` key**, so a save written
 before this existed walks back in with every level it paid for; `restoreShop`
@@ -1515,11 +1527,66 @@ alternative offered, the price sheet, the stand box — goes through
 `standWorth`, so the floor cannot disagree with the counter about what a piece
 is worth.
 
+### Staffing and Salesperson Earnings (1.40)
+
+**Moving is gone.** The Corner Forge card, *Move to Village Smithy* and every
+other relocation offer, its purchase and its text were removed (`shopExpand`
+and `shopNextTier` no longer exist). Rent still falls due weekly from
+`rentDue(shop)`, now shown in the heading over the older upgrades. A save made
+after moving keeps its tier, so its rent and every capacity it earned stay
+exactly as they were; a check restores a tier-3 save and compares them.
+
+**Hiring and working are two different limits.** Employment raises how many
+people can be on the books. The three Staffing tracks raise how many of one
+role can work **in the same phase**: `phaseSeats(shop, role)` is 1 plus that
+role's Staffing level (Salesperson and Apprentice stay at 1). Buying a level
+hires nobody and promotes nobody. Employment's ceiling went from 6 to 10 so
+the hiring limit can still cover every place the Staffing tracks open.
+
+| Track | Price of each level | Places per phase |
+| --- | --- | --- |
+| Smith Staffing | 900g, 1,980g, 4,356g | 1 → 4 |
+| Store Hand Staffing | 400g, 800g, 1,600g | 1 → 4 |
+| Runner Staffing | 600g, 1,200g, 2,400g | 1 → 4 |
+
+Each place is a **seat**. An assignment carries `seat`, `shopAssign` refuses
+once every seat in that phase is taken (*all 2 Smith places in the morning are
+filled*), and a recurring assignment is kept per seat (`standingAt`,
+`setStanding`, `clearStanding` all take one), so "Smith 2, Morning" can repeat
+daily on its own. The Staff screen draws one row of three boxes per seat as
+soon as a level is bought, and its role heading reads *3 hired · 2 per phase*
+so the two limits are never confused. Every other rule is unchanged: one job
+per employee per day, one trip per vehicle per phase, and the job system's own
+checks for materials, stock, blueprints and contracts.
+
+**Shared things are spent once.** All the work booked for a phase resolves in
+that phase, worker by worker, and each job takes what it uses before the next
+one looks — two Smiths cannot forge from the same ingots, two Store Hands
+cannot carry the same pieces, two Runners cannot take the same cart. Planning
+looks ahead too: a recurring Smith is refused if the ingots it needs are
+already promised to another Smith (`planOrder(..., except)`), a Runner's
+market run counts what other Runners are already buying, and `nextDelivery`
+skips a contract whose goods are already on their way. Each worker's report
+carries `staffId`, so the phase playback shows every worker in turn.
+
+**Salesperson Earnings.** `salesBonusRate(shop)` is 5% a level, up to 25% at
+level 5 (600g, 1,080g, 1,944g, 3,499g, 6,299g). `settleSale` — the one place a
+sale is credited — adds `salesBonusFor(shop, price)` = `round(price × rate)`
+when the seller is a hired Salesperson, on the final price after haggling. It
+is added once per sale, shows in the Salesperson's report and the phase
+summary as its own line, and is paid by the shop, not the customer. The
+player's own sales at the counter never get it, and wages, ranks and
+experience are untouched.
+
+`restoreShop` reads every new key; assignments are given a seat, and two that
+claim the same seat are moved apart. Saves from before 1.40 load with every
+assignment in seat 1.
+
 ### Several forges, each with a name
 
 You name a forge when you open it — the sign over the door, up to 24
 characters — and you can keep **five** going at once. The title screen lists
-them: name, day and phase, purse, stars, premises, and whether a batch is
+them: name, day and phase, purse, stars, staff, and whether a batch is
 sitting on the anvil. Tap a row to pick it, Begin to carry it on. *New forge*
 raises the naming dialog; the × beside a row closes that forge for good and
 asks first, by name. With nothing saved, Begin asks for a name before it opens
@@ -1552,7 +1619,7 @@ does not survive rather than trusting it or throwing: a version it does not know
 is refused outright (version 1, from before names, is still read), numbers are
 clamped to their ranges, goods and orders naming an item or material that no
 longer exists are dropped, staff with an unknown role or rank are left behind, a
-save cannot smuggle in more staff than the premises hold, assignments for people
+save cannot smuggle in more staff than its hiring limit allows, assignments for people
 no longer employed are forgotten, a doctored name cannot smuggle markup or
 length onto the menu, and restored ids are bumped clear of anything still in
 use. Twenty core checks and fifteen browser checks cover exactly those cases.
@@ -1720,7 +1787,8 @@ shop.standing[]                        // the roster kept day after day: role, p
 SHOP.quality / SHOP.qualityBands       // what the puzzle result is worth, and its five names
 SHOP.purseBase                         // what a middling customer thinks twice at
 SHOP.roles / SHOP.ranks                // the five jobs, the six grades and their wages
-SHOP.tiers                             // premises: rent, staff, stands, storage, batch
+SHOP.tiers                             // base rent, staff, stands, storage, batch (tier 1 for new forges)
+SHOP.growth                            // every Growth track: key, price curve, ceiling, step
 SHOP.upgrades                          // the upgrade framework
 SHOP.batchPerTier                      // pieces per step up the difficulty tiers
 SHOP.weekLength / SHOP.startGold       // how long a week is, and what you start with
@@ -1774,8 +1842,8 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 948 rule/generation checks
-node tools/verify-ui.mjs                                    # 913 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 972 rule/generation checks
+node tools/verify-ui.mjs                                    # 929 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 
