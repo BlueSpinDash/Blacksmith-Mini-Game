@@ -15679,10 +15679,23 @@ function hireTrades() {
       ' weeks of wages up front.' }]);
 }
 
+/* Whether the player's own phase can be spent right now, and if not, why.
+   Hiring asks this before it acts, so a hire is never made that the phase
+   could not then be charged for. The search itself never asks: browsing,
+   switching roles and searching again stay free and open either way. */
+function shopPhaseBlocker() {
+  const sh = shop();
+  if (!sh || sh.closed) return 'The forge has closed, so no phases remain.';
+  if (SHOPUI.playing) return 'The last phase is still playing out. Hire once it has ended.';
+  if (SHOPUI.session) return 'This phase is being spent serving customers.';
+  return null;
+}
+
 function shopOpenHire(tradeId) {
   const sh = shop();
   const trades = hireTrades();
   const trade = trades.find(function (t) { return t.id === tradeId; }) || null;
+  const blocked = shopPhaseBlocker();
 
   let html = '<div class="trade-pick">';
   for (const t of trades) {
@@ -15690,6 +15703,10 @@ function shopOpenHire(tradeId) {
       '" data-trade="' + t.id + '">' + esc(t.name) + '</button>';
   }
   html += '</div>';
+  if (blocked) {
+    html += '<p class="hire-warn" data-hire-blocked="1">Hiring is unavailable: ' + esc(blocked) +
+      ' You can still browse applicants.</p>';
+  }
 
   if (!trade) {
     html += '<p class="hire-note">Choose a role to see applicants. Searching is free. ' +
@@ -15745,7 +15762,7 @@ function shopOpenHire(tradeId) {
       '<span class="nm"><span class="rank" data-r="' + a.rank + '" aria-label="' + a.rank +
       ' rank">' + a.rank + '</span> ' + esc(a.name) + '</span>' +
       '<button data-' + (trade.mine ? 'minehire' : 'hire') + '="' + a.id + '"' +
-      (full || poor ? ' disabled' : '') + '>Hire · ' + coin(a.wage) + 'g/wk</button>' +
+      (full || poor || blocked ? ' disabled' : '') + '>Hire · ' + coin(a.wage) + 'g/wk</button>' +
       '<span class="role">E-rank · ' + esc(trade.name) +
       (upfront ? ' · ' + coin(upfront) + 'g up front' + (poor ? ' (not enough gold)' : '') : '') +
       '</span>' +
@@ -17379,6 +17396,9 @@ function wireShop() {
        a refusal (no room, no coin) leaves the day exactly as it was. */
     const hire = e.target.closest ? e.target.closest('[data-hire]') : null;
     if (hire && !hire.disabled) {
+      // checked first, so a hire is only ever made when its phase can be paid
+      const blocked = shopPhaseBlocker();
+      if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
       const res = shopHire(shop(), Number(hire.dataset.hire));
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
       SOUNDS.prosper(false);
@@ -17390,6 +17410,8 @@ function wireShop() {
     }
     const minehire = e.target.closest ? e.target.closest('[data-minehire]') : null;
     if (minehire && !minehire.disabled) {
+      const blocked = shopPhaseBlocker();
+      if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
       const res = shopHireMiner(shop(), SHOPUI.hireMine, Number(minehire.dataset.minehire));
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
       SOUNDS.prosper(false);

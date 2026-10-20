@@ -975,6 +975,14 @@ all plain redraws. Exactly one path spends a phase — a `data-hire` or
 `data-minehire` click that *succeeded* — so a refusal for want of room or coin
 leaves the day untouched.
 
+A hire is only attempted when that phase can actually be paid.
+`shopPhaseBlocker()` names the reason it cannot (the forge has closed, the
+last phase is still playing out, or the counter is open), and while it does
+the search still opens and browses, every hire button is off and the sheet
+says why. Both hire handlers ask it again before calling `shopHire` or
+`shopHireMiner`, so a hire can never land without its phase, and a second tap
+finds the applicant gone or the phase already playing and spends nothing.
+
 ### Rank is earned at the work
 
 `SHOP.ranks[].up` is the pool a hand must fill to leave that rank (60 / 150 /
@@ -1739,7 +1747,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 948 rule/generation checks
-node tools/verify-ui.mjs                                    # 877 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 884 browser checks (Playwright)
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
 

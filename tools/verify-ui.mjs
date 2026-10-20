@@ -4223,6 +4223,164 @@ async function run() {
     engaged.phase !== engaged.was.phase || engaged.day !== engaged.was.day,
     JSON.stringify(engaged));
 
+  /* The search is a menu, not an action. Every way in and out of it is
+     free; a hire is the only thing that spends the phase, it spends exactly
+     one, and when there is no phase to spend it is refused and says why. */
+  section('Open Your Forge: searching is free, hiring costs one phase');
+  const clockOf = () => page.evaluate(() => {
+    const sh = window.CHECKSMITH.app.shop;
+    return { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length, gold: sh.gold };
+  });
+  const tradeTap = (name) => page.evaluate(async (n) => {
+    Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === n).click();
+    await new Promise((r) => setTimeout(r, 180));
+  }, name);
+  await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    // put back afterwards, so the sections that follow see the same forge
+    F.testKept = { staff: sh.staff.slice(), gold: sh.gold, mines: sh.mines.slice(),
+      assignments: sh.assignments };
+    sh.gold = 4000;
+    sh.staff = [];
+    sh.assignments = {};
+    F.shopSheetClose();
+    F.shopRender();
+  });
+
+  const fromBoard = await (async () => {
+    const was = await clockOf();
+    await page.evaluate(async () => {
+      window.CHECKSMITH.shopOpenStation('board');
+      await new Promise((r) => setTimeout(r, 120));
+      Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .find((b) => b.textContent === 'Search for Employees').click();
+      await new Promise((r) => setTimeout(r, 180));
+    });
+    const title = await page.textContent('#shopSheetTitle');
+    for (const t of ['Salesperson', 'Smith', 'Apprentice', 'Miner', 'Runner']) await tradeTap(t);
+    await page.evaluate(async () => {
+      Array.from(document.querySelectorAll('#shopSheetActions button'))
+        .find((b) => b.textContent === 'Search Again').click();
+      await new Promise((r) => setTimeout(r, 180));
+    });
+    const mid = await clockOf();
+    await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+      .find((b) => b.textContent === 'Close').click());
+    await page.waitForTimeout(150);
+    return { title: title, was: was, mid: mid, now: await clockOf() };
+  })();
+  ok('the noticeboard opens the same search, and browsing it costs nothing',
+    fromBoard.title === 'Search for Employees' &&
+    fromBoard.mid.tick === fromBoard.was.tick && fromBoard.now.tick === fromBoard.was.tick &&
+    fromBoard.now.staff === fromBoard.was.staff && fromBoard.now.gold === fromBoard.was.gold,
+    JSON.stringify(fromBoard));
+
+  // a hire that cannot go through - the applicant has gone - spends nothing
+  const failed = await (async () => {
+    await page.evaluate(() => window.CHECKSMITH.shopAct('hire'));
+    await page.waitForTimeout(150);
+    await tradeTap('Runner');
+    const was = await clockOf();
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      const btn = document.querySelector('#shopSheetBody [data-hire]');
+      F.app.shop.applicants = [];
+      btn.click();
+    });
+    await page.waitForTimeout(200);
+    return { was: was, now: await clockOf(),
+      open: !(await page.isHidden('#shopSheet')), toast: await page.textContent('#shPromptText') };
+  })();
+  ok('a failed hire spends no phase and hires nobody',
+    failed.now.tick === failed.was.tick && failed.now.staff === failed.was.staff && failed.open,
+    JSON.stringify(failed));
+
+  // nor does a miner the forge cannot pay up front for
+  const poorMiner = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    if (!sh.mines.length) C.shopBuyMine(sh, 'bronze');
+    sh.gold = 100000;
+    Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === 'Miner').click();
+    await new Promise((r) => setTimeout(r, 180));
+    const was = { tick: sh.day * 3 + sh.phaseIndex, miners: sh.mines[0].miners.length };
+    const btn = document.querySelector('#shopSheetBody [data-minehire]');
+    sh.gold = 0;
+    btn.click();
+    await new Promise((r) => setTimeout(r, 200));
+    return { was: was, tick: sh.day * 3 + sh.phaseIndex, miners: sh.mines[0].miners.length,
+      open: !document.getElementById('shopSheet').hidden };
+  });
+  ok('a miner hire refused for want of gold spends no phase either',
+    poorMiner.tick === poorMiner.was.tick && poorMiner.miners === poorMiner.was.miners &&
+    poorMiner.open, JSON.stringify(poorMiner));
+
+  // with no phase to spend the search still opens and browses, but will not hire
+  const noPhase = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 4000;
+    const out = {};
+    for (const why of ['playing', 'closed']) {
+      if (why === 'playing') F.shopUi.playing = true; else sh.closed = true;
+      Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+        .find((b) => b.innerText.trim() === 'Smith').click();
+      await new Promise((r) => setTimeout(r, 180));
+      const was = { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length };
+      const warn = document.querySelector('#shopSheetBody [data-hire-blocked]');
+      const buttons = Array.from(document.querySelectorAll('#shopSheetBody [data-hire]'));
+      const cards = buttons.length;
+      const allOff = cards > 0 && buttons.every((b) => b.disabled);
+      // and a hire forced through anyway is still refused
+      buttons[0].disabled = false;
+      buttons[0].click();
+      await new Promise((r) => setTimeout(r, 150));
+      out[why] = { warn: warn ? warn.textContent : null, cards: cards, allOff: allOff,
+        tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length, was: was,
+        toast: document.getElementById('shPromptText').textContent };
+      F.shopUi.playing = false;
+      sh.closed = false;
+    }
+    return out;
+  });
+  ok('with no phase to spend, the search still lists applicants',
+    noPhase.playing.cards === 3 && noPhase.closed.cards === 3, JSON.stringify(noPhase).slice(0, 300));
+  ok('but every hire button is off, and the sheet says why',
+    noPhase.playing.allOff && noPhase.closed.allOff &&
+    /Hiring is unavailable/.test(noPhase.playing.warn) && /still playing out/.test(noPhase.playing.warn) &&
+    /no phases remain/.test(noPhase.closed.warn), JSON.stringify(noPhase).slice(0, 400));
+  ok('and a hire forced through is refused without touching the clock',
+    noPhase.playing.tick === noPhase.playing.was.tick && noPhase.playing.staff === noPhase.playing.was.staff &&
+    noPhase.closed.tick === noPhase.closed.was.tick && noPhase.closed.staff === noPhase.closed.was.staff &&
+    /no phases remain/.test(noPhase.closed.toast), JSON.stringify(noPhase).slice(0, 400));
+
+  // a real hire, tapped twice in a row: one employee, one phase
+  const once = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, sh = F.app.shop;
+    Array.from(document.querySelectorAll('#shopSheetBody .trade'))
+      .find((b) => b.innerText.trim() === 'Runner').click();
+    await new Promise((r) => setTimeout(r, 180));
+    const was = { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length };
+    const btn = document.querySelector('#shopSheetBody [data-hire]');
+    btn.click();
+    btn.click();
+    await new Promise((r) => setTimeout(r, 300));
+    for (let i = 0; i < 10 && !document.getElementById('shopSheet').hidden; i++) {
+      const close = document.querySelector('#shopSheetActions button');
+      if (close) close.click();
+      await new Promise((r) => setTimeout(r, 80));
+    }
+    return { was: was, tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length };
+  });
+  ok('a hire tapped twice hires one employee and spends exactly one phase',
+    once.staff === once.was.staff + 1 && once.tick === once.was.tick + 1, JSON.stringify(once));
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH, sh = F.app.shop, kept = F.testKept;
+    sh.staff = kept.staff; sh.gold = kept.gold; sh.mines = kept.mines;
+    sh.assignments = kept.assignments;
+    F.shopRender();
+  });
+
   section('Open Your Forge: Growth buys room, the Shop buys fixtures');
   await page.evaluate(() => {
     const F = window.CHECKSMITH, sh = F.app.shop;
