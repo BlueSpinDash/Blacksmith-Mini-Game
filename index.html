@@ -1404,14 +1404,6 @@ input[type=range]{
   width:100%;margin:-3px 0 0;padding:6px;border-radius:9px;font-size:11.5px;
   background:transparent;border:1px solid var(--edge);color:var(--muted);
 }
-/* asking after a trade: the chips across the top of the hiring sheet */
-.trade-pick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;}
-.trade-pick.sub{margin-top:-4px;}
-.trade-pick .trade{
-  padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;
-  background:var(--panel-2);border:1px solid var(--edge);color:var(--muted);
-}
-.trade-pick .trade.on{background:var(--ember);border-color:var(--ember);color:#12131a;}
 .hire-note{margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.45;}
 .hire-warn{margin:0 0 9px;font-size:12.5px;color:var(--ember);}
 .rank{
@@ -2518,6 +2510,165 @@ body{min-height:0;overscroll-behavior:none;}
 #shWorld[data-view="work"]:not(.moving) .loc-stage:not([data-loc="work"]),
 #shWorld[data-view="floor"]:not(.moving) .loc-stage:not([data-loc="floor"]),
 #shWorld[data-view="front"]:not(.moving) .loc-stage:not([data-loc="front"]){visibility:hidden;}
+
+/* ---------- the dialogs' parts (1.44) ---------- */
+.dlg-hero{display:flex;align-items:center;gap:11px;margin:0 0 9px;padding:9px 10px;border-radius:12px;
+  background:radial-gradient(120% 140% at 0% 50%,#2a2119,#15130f 70%);border:1px solid var(--edge-soft);}
+.dh-art{flex:none;display:grid;place-items:center;width:58px;height:58px;border-radius:12px;
+  background:#120f0d;border:1px solid var(--bronze-d);overflow:hidden;}
+.dh-art .sprite,.dh-art .portrait,.dh-art svg{width:50px;height:50px;border:0;background:none;}
+.dh-text{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.dh-name{font-size:16px;color:var(--gold);font-weight:600;line-height:1.2;overflow-wrap:anywhere;}
+.dh-sub{font-size:12px;color:var(--muted);line-height:1.35;}
+.dh-aside{flex:none;text-align:right;font-size:12px;color:var(--muted);}
+.dh-aside b{display:block;font-size:17px;color:var(--gold);font-variant-numeric:tabular-nums;}
+.dlg-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px;margin:0 0 8px;}
+.dlg-tiles.wide{grid-template-columns:repeat(auto-fill,minmax(146px,1fr));}
+.dlg-tiles.five{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
+.dlg-tiles.three{grid-template-columns:repeat(3,minmax(0,1fr));}
+.dlg-tiles.two{grid-template-columns:repeat(2,minmax(0,1fr));}
+.dlg-tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-width:0;min-height:58px;padding:6px 5px 5px;border-radius:11px;cursor:pointer;text-align:center;color:var(--text);
+  background:linear-gradient(180deg,#221f1b,#181614);border:1px solid var(--edge-soft);}
+.dlg-tile.on{border-color:var(--bronze);background:linear-gradient(180deg,#3a2415,#241a12);
+  box-shadow:0 0 0 1px rgba(202,166,74,.35),0 0 10px rgba(255,138,61,.12);}
+.dlg-tile:disabled{opacity:.42;cursor:default;}
+.dlg-tile .dt-art{display:grid;place-items:center;height:34px;}
+.dlg-tile .dt-art .sprite,.dlg-tile .dt-art .portrait{width:32px;height:32px;border-radius:8px;}
+.dt-name{font-size:12.5px;line-height:1.2;max-width:100%;overflow-wrap:anywhere;}
+.dlg-tile.on .dt-name{color:var(--gold);}
+.dt-sub{font-size:10.5px;line-height:1.25;color:var(--muted);max-width:100%;overflow-wrap:anywhere;}
+.dt-badge{position:absolute;top:3px;right:4px;font-size:10px;color:var(--brass);font-variant-numeric:tabular-nums;}
+/* a row of tiles laid on their side, for longer choices */
+.dlg-tiles.wide .dlg-tile,.dlg-tiles.side .dlg-tile{flex-direction:row;justify-content:flex-start;text-align:left;
+  gap:8px;padding:6px 9px;}
+.dt-text{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;max-width:100%;}
+.dlg-tiles.wide .dt-text,.dlg-tiles.side .dt-text{flex:1 1 auto;align-items:flex-start;}
+.dlg-tiles.wide .dlg-tile,.dlg-tiles.side .dlg-tile{padding-right:30px;}
+.dlg-tiles.four{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;}
+.dlg-tiles.side{grid-template-columns:1fr;}
+.dlg-tiles.five .dlg-tile{min-height:62px;padding:5px 2px 4px;}
+.dlg-tiles.five .dt-name{font-size:11px;}
+.dlg-qty{display:grid;grid-template-columns:auto auto auto;grid-template-areas:"label label label" "step max cap";
+  align-items:center;gap:5px 8px;margin:0 0 9px;padding:8px 10px;border-radius:11px;
+  background:#15130f;border:1px solid var(--edge-soft);}
+.dq-label{grid-area:label;font-size:12.5px;letter-spacing:.07em;font-variant-caps:all-small-caps;color:var(--brass);}
+.dlg-qty .step{grid-area:step;margin:0;}
+.dq-max{grid-area:max;min-height:38px;padding:0 10px;border-radius:9px;cursor:pointer;font-size:12px;
+  background:#211e1c;border:1px solid var(--bronze-d);color:#e8dcc0;}
+.dq-max:disabled{opacity:.4;cursor:default;}
+.dq-cap{grid-area:cap;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.dq-meter{position:relative;display:block;height:6px;border-radius:3px;background:#2a2622;overflow:hidden;}
+.dq-meter i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#8a5a2b,#f3d791);border-radius:3px;}
+.dq-meter i.lim{background:none;border-right:2px solid rgba(232,220,192,.55);border-radius:0;}
+.dq-text{font-size:10.5px;line-height:1.3;color:var(--muted);}
+.dq-text b{color:var(--text);}
+.dlg-sum{display:grid;grid-template-columns:1fr auto;gap:4px 12px;margin:0 0 8px;padding:8px 10px;border-radius:11px;
+  background:#15130f;border:1px solid var(--edge-soft);font-size:13px;}
+.dlg-sum dt{color:var(--muted);min-width:0;}
+.dlg-sum dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;color:var(--text);}
+.dlg-sum dd.gold{color:var(--gold);font-weight:700;}
+.dlg-sum dd.bad,.dlg-sum dd.short{color:var(--danger);}
+.dlg-sum dd.good{color:#9fd49a;}
+.dlg-note,.sheet .dlg-note{margin:0 0 8px;font-size:12px;line-height:1.45;color:var(--muted);}
+.dlg-note.warn,.sheet .dlg-note.warn{color:var(--danger);}
+.dlg-note b{color:var(--text);}
+.dlg-tiles.chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 7px;}
+.dlg-tiles.chips .dlg-tile{min-height:34px;padding:3px 11px;border-radius:999px;flex-direction:row;}
+.dlg-tiles.chips .dlg-tile .dt-name{font-size:12px;}
+.dlg-tiles.chips .dlg-tile{padding-right:11px;gap:6px;}
+.dlg-tiles.chips .dt-art{height:auto;}
+.dlg-tiles.chips .dt-art .sprite,.dlg-tiles.chips .dt-art .portrait,.dlg-tiles.chips .dt-any{width:22px;height:22px;font-size:15px;}
+.dlg-tiles.chips .dt-sub{display:none;}
+.buy-rows{display:flex;flex-direction:column;gap:5px;margin:0 0 8px;}
+.buy-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px;padding:5px 8px;
+  border-radius:11px;background:#15130f;border:1px solid var(--edge-soft);}
+.buy-row.on{border-color:var(--bronze-d);background:linear-gradient(90deg,#2a2016,#15130f);}
+.buy-row .sprite{width:34px;height:34px;}
+.br-text{min-width:0;display:flex;flex-direction:column;line-height:1.25;}
+.br-text b{font-size:13.5px;font-weight:600;}
+.br-text span{font-size:10.5px;color:var(--muted);}
+.buy-row .step input{width:44px;}
+.dlg-sum .up{color:var(--ember);font-size:11.5px;}
+/* how far something has been built up, and what the next step costs */
+.dlg-grow{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 10px;margin:0 0 8px;padding:7px 10px;
+  border-radius:11px;background:#15130f;border:1px dashed var(--bronze-d);}
+.dg-head{flex:1 1 100%;display:flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:.07em;
+  font-variant-caps:all-small-caps;color:var(--brass);}
+.dg-head .pmeter{flex:1 1 auto;width:auto;}
+.dg-head b{letter-spacing:0;color:var(--text);font-variant-numeric:tabular-nums;}
+.dg-now{flex:1 1 auto;font-size:12px;color:var(--text);}
+.dg-next{font-size:11.5px;color:var(--ember);}
+.dlg-pips{display:inline-flex;gap:3px;}
+.dlg-pips i{width:13px;height:7px;border-radius:2px;background:#2a2622;border:1px solid #3a342c;}
+.dlg-pips i.on{background:linear-gradient(90deg,#c08a3e,#f3d791);border-color:#c08a3e;}
+.dlg-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.dlg-qty.slim{grid-template-columns:auto;grid-template-areas:"label" "step";justify-items:start;}
+.dt-any{display:grid;place-items:center;width:30px;height:30px;font-size:20px;color:var(--brass);}
+.win-art .dt-any{width:100%;height:100%;}
+.dlg-cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;margin:0 0 8px;}
+.dlg-cmp .perks{margin:0;}
+.dg-now .xp-bar{display:inline-block;vertical-align:middle;width:90px;}
+.dlg-tile .rank{font-size:10px;}
+.dlg-apps{display:flex;flex-direction:column;gap:5px;margin:0 0 8px;}
+.dlg-apps .applicant{margin:0;}
+.dlg-tiles.opts .dlg-tile{min-height:64px;padding:9px 12px;gap:12px;}
+.dlg-tiles.opts .dt-art .sprite,.dlg-tiles.opts .dt-art .portrait{width:38px;height:38px;}
+.dlg-tiles.opts .dt-name{font-size:14.5px;color:var(--gold);}
+.dlg-tiles.opts .dt-sub{font-size:11.5px;}
+.dlg-tiles.opts .dlg-tile:not(:disabled):hover{border-color:var(--bronze);}
+.dlg-tile.upg{padding-top:9px;}
+.dlg-tile.upg .dt-art{height:auto;margin-bottom:3px;}
+.dlg-tile.upg .dt-badge{position:static;order:5;margin-top:2px;font-size:11.5px;}
+.pstats.four{grid-template-columns:repeat(4,minmax(0,1fr));}
+.pstats.four .pmeter{width:100%;margin:3px 0 0;}
+.dlg-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0 0 8px;}
+.dlg-facts .fact{display:flex;flex-direction:column;gap:2px;min-width:0;padding:7px 9px;border-radius:10px;
+  background:#15130f;border:1px solid var(--edge-soft);}
+.dlg-facts .fact.wide{grid-column:1/-1;}
+.dlg-facts .fk{display:flex;justify-content:space-between;gap:6px;font-size:12px;letter-spacing:.07em;
+  font-variant-caps:all-small-caps;color:var(--muted);}
+.dlg-facts .fk i{font-style:normal;letter-spacing:0;font-variant-caps:normal;font-size:10.5px;color:var(--brass);}
+.dlg-facts .fv{font-size:13px;line-height:1.3;color:var(--text);overflow-wrap:anywhere;}
+.dlg-facts small{font-size:10.5px;line-height:1.3;color:var(--muted);}
+.dlg-qty.name .name-field{width:100%;}
+.dlg-qty.name{justify-items:stretch;}
+.dlg-check{display:flex;flex-direction:column;gap:3px;margin:0 0 7px;padding:9px 10px;border-radius:11px;
+  background:#15130f;border:1px solid var(--edge-soft);}
+.dlg-check label{display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;}
+.dlg-check input{flex:none;width:20px;height:20px;margin:0;accent-color:var(--ember);}
+.dlg-check b{font-weight:600;color:var(--text);}
+.dlg-check small{padding-left:30px;font-size:11px;line-height:1.35;color:var(--muted);}
+#shopSheet .report dl{margin:0 0 8px;padding:8px 10px;border-radius:11px;background:#15130f;
+  border:1px solid var(--edge-soft);}
+#shopSheet .dlg-hero + .report dl,#shopSheet .dlg-hero + .dlg-note + .report dl{margin-top:0;}
+.dlg-tiles.still .dlg-tile{cursor:default;}
+/* a small phone: the same dialogs, a size down, so more of each fits a page */
+@media (max-width:360px),(max-height:640px){
+  .dlg-tiles{grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:5px;margin-bottom:6px;}
+  .dlg-tile{min-height:48px;padding:4px 4px 3px;}
+  .dlg-tile .dt-art{height:26px;}
+  .dlg-tile .dt-art .sprite,.dlg-tile .dt-art .portrait{width:24px;height:24px;}
+  .dt-name{font-size:11.5px;}
+  .dt-sub{font-size:10px;}
+  .dlg-tiles.chips{gap:4px;margin-bottom:5px;}
+  .dlg-tiles.chips .dlg-tile{min-height:30px;padding:2px 9px;}
+  .dlg-tiles.chips .dt-art .sprite,.dlg-tiles.chips .dt-art .portrait,.dlg-tiles.chips .dt-any{width:18px;height:18px;}
+  .dlg-tiles.five .dlg-tile{min-height:52px;padding:4px 1px 3px;}
+  .dlg-tiles.five .dt-name{font-size:9.5px;letter-spacing:-.01em;overflow-wrap:normal;}
+  .dlg-tiles.opts .dlg-tile{min-height:54px;padding:7px 10px;}
+  .dlg-hero{gap:9px;margin-bottom:7px;padding:6px 8px;}
+  .dh-art{width:46px;height:46px;}
+  .dh-art .sprite,.dh-art .portrait,.dh-art svg{width:40px;height:40px;}
+  .dh-name{font-size:14.5px;}
+  .dlg-sum{gap:3px 10px;padding:6px 9px;margin-bottom:6px;}
+  .dlg-qty{padding:6px 8px;margin-bottom:7px;}
+  .dlg-grow{padding:5px 8px;margin-bottom:6px;}
+  .buy-row{padding:3px 7px;}
+  .buy-row .sprite{width:28px;height:28px;}
+}
+#shopSheet .sheet{max-width:440px;}
+.overlay.dock .sheet{max-height:min(100%,calc(78dvh - env(safe-area-inset-bottom)));}
 </style>
 </head>
 <body>
@@ -2974,7 +3125,8 @@ body{min-height:0;overscroll-behavior:none;}
 <!-- Open Your Forge dialogs -->
 <div class="overlay" id="shopSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shopSheetTitle">
   <div class="sheet win">
-    <div class="win-head"><h2 id="shopSheetTitle">&nbsp;</h2><span class="win-back" id="shopSheetBack"></span></div>
+    <div class="win-head"><span class="win-art" id="shopSheetArt" aria-hidden="true"></span>
+      <h2 id="shopSheetTitle">&nbsp;</h2><span class="win-back" id="shopSheetBack"></span></div>
     <div class="win-body" id="shopSheetBody"></div>
     <div class="sheet-actions win-foot" id="shopSheetActions"></div>
   </div>
@@ -14445,27 +14597,54 @@ function stationBox(sh, roleId) {
 /* Empty floor, and floor not yet bought: say what it is and where to go. */
 function shopOpenSpot(slot) {
   const sh = shop();
+  const cap = standCap(sh);
+  const grow = growthRoom(sh, 'floor');
+  const expand = grow ? growthCost(sh, 'floor') : null;
+  const floor = '<div class="dlg-grow"><span class="dg-head">Floor space ' +
+    placeMeter(sh.stands.length, cap) + ' <b>' + sh.stands.length + ' / ' + cap + '</b></span>' +
+    '<span class="dg-next">' + (grow ? 'Store Expansion: +1 space for ' + coin(expand) + 'g (' + grow +
+      ' more possible)' : 'The floor is as large as it can be') + '</span></div>';
   if (!slotUsable(sh, slot)) {
-    shopSheet('Locked floor space',
-      '<p class="station-note">This space is not part of your shop yet. Each <b>Store ' +
-      'Expansion</b> at the Upgrades board unlocks one space; then buy a stand for it by ' +
-      'tapping the empty space.</p>',
-      [{ label: 'Upgrades', primary: true, onClick: function () { shopShowTab('upShop'); } },
-        { label: 'Back', ghost: true, onClick: shopSheetClose }]);
+    const acts = [];
+    if (grow) {
+      acts.push({ label: 'Expand the Floor · ' + coin(expand) + 'g', primary: true, disabled: sh.gold < expand,
+        onClick: function () {
+          const res = shopBuyGrowth(shop(), 'floor');
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          SOUNDS.prosper(false);
+          shopSheetClose();
+          shopRender();
+          shopToast('Floor spaces: ' + standCap(shop()) + '. Tap an empty space to put a stand there.');
+        } });
+    }
+    acts.push({ label: 'Upgrades', primary: !grow, onClick: function () { shopShowTab('upShop'); } });
+    acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+    shopSheet('Locked floor space', floor +
+      dlgNote('Not part of your shop yet. Each Store Expansion opens one more space, in order from the counter.'),
+      acts, standSprite('weapon'));
     return;
   }
   const back = storedStands(sh);
-  shopSheet('Empty floor space',
-    '<p class="station-note">' + (back.length
-      ? back.length + (back.length === 1 ? ' stand is' : ' stands are') +
-        ' in the back, waiting to be placed.'
-      : 'No stands are waiting in the back. Buy a stand to place here.') + '</p>',
+  let body = floor;
+  if (back.length) {
+    body += placeSec('In the back', back.length + ' waiting · tap one to place it');
+    body += '<div class="dlg-tiles' + (back.length > 2 ? '' : ' two') + '">';
+    for (const st of back) {
+      body += dlgTile('data-place-back="' + st.id + '"', { art: standSprite(st.type, 'lg'),
+        name: esc(standTitle(sh, st)), sub: esc(standCategoryNames(st.type).join(', ')),
+        badge: standLevel(st) ? 'Lv ' + standLevel(st) : '' }, false);
+    }
+    body += '</div>';
+  } else {
+    body += dlgNote('No stands are waiting in the back. Buy one to put here.');
+  }
+  shopSheet('Empty floor space', body,
     [back.length
       ? { label: 'Place a Stand', primary: true,
           onClick: function () { shopSheetClose(); shopEditMode(true, back[0].id); } }
       : { label: 'Buy Stand', primary: true, onClick: function () { shopOpenBuyStand(); } },
       { label: 'Edit Shop', onClick: function () { shopSheetClose(); shopEditMode(true); } },
-      { label: 'Back', ghost: true, onClick: shopSheetClose }]);
+      { label: 'Back', ghost: true, onClick: shopSheetClose }], standSprite('weapon'));
 }
 
 /* ---------- the business's name, and how the phase is shown ---------- */
@@ -14477,17 +14656,18 @@ function phaseAnimOn() {
 }
 function shopOpenSettings() {
   const sh = shop();
-  const body = '<div class="pick-row"><label for="shRename">Business name</label>' +
-    '<input id="shRename" class="name-field" type="text" maxlength="' + SHOP_NAME_MAX +
-    '" autocomplete="off" value="' + esc(sh.name) + '"></div>' +
-    '<p class="station-note">Up to ' + SHOP_NAME_MAX + ' characters. Shown on the shop sign and ' +
-    'the save slot.</p>' +
-    '<label class="check-row"><input type="checkbox" id="shAnimPref"' + (phaseAnimOn() ? ' checked' : '') +
-    '> Play the shop animation when a phase ends</label>' +
-    '<label class="check-row"><input type="checkbox" id="shCamPref"' + (workerCamOn() ? ' checked' : '') +
-    '> Automatically Show Worker Actions</label>' +
-    '<p class="station-note">When a phase ends, the camera moves to each employee in turn ' +
-    'while they do their job, then returns. Needs the shop animation.</p>';
+  const body = placeSec('Business name', 'up to ' + SHOP_NAME_MAX + ' characters') +
+    '<div class="dlg-qty slim name"><input id="shRename" class="name-field" type="text" maxlength="' +
+    SHOP_NAME_MAX + '" autocomplete="off" aria-label="Business name" value="' + esc(sh.name) + '">' +
+    '<span class="dq-text">Shown on the shop sign and the save slot.</span></div>' +
+    placeSec('When a phase ends') +
+    '<div class="dlg-check"><label><input type="checkbox" id="shAnimPref" aria-describedby="shAnimNote"' +
+    (phaseAnimOn() ? ' checked' : '') + '><b>Play the shop animation when a phase ends</b></label>' +
+    '<small id="shAnimNote">The shop floor plays out what happened.</small></div>' +
+    '<div class="dlg-check"><label><input type="checkbox" id="shCamPref" aria-describedby="shCamNote"' +
+    (workerCamOn() ? ' checked' : '') + '><b>Automatically Show Worker Actions</b></label>' +
+    '<small id="shCamNote">The camera moves to each employee in turn while they work, then returns. ' +
+    'Needs the shop animation.</small></div>';
   shopSheet('Shop Settings', body, [
     { label: 'Save', primary: true, onClick: function () {
       const raw = $('shRename').value;
@@ -14504,7 +14684,7 @@ function shopOpenSettings() {
       }
     } },
     { label: 'Back', ghost: true, onClick: shopSheetClose }
-  ]);
+  ], '<span class="dt-any" aria-hidden="true">\u2699</span>');
 }
 
 /* ---------- touch ---------------------------------------------------------
@@ -15058,7 +15238,14 @@ function phaseSummaryHtml(replay) {
   if (t.trips) row('Delivered', t.carried + ' items' + (t.paid ? ', ' + coin(t.paid) + 'g paid' : ''), true);
   if (t.xp.length) row('Employee XP', esc(t.xp.join(', ')));
   let html = '';
-  if (replay.note) html += '<p class="station-note">' + esc(replay.note) + '</p>';
+  const took = t.revenue + t.bonus + t.paid;
+  if (rows.length) {
+    html += dlgHero(placeArt(sh, 'ledger'), (replay.closing || 'The phase') + ' is over',
+      [t.sold ? t.sold + ' sold' : '', t.made ? t.made + ' forged' : '', t.trips ? t.carried + ' delivered' : '']
+        .filter(Boolean).join(' · ') || 'Your staff’s work is in',
+      took ? '<b>+' + coin(took) + 'g</b>taken' : t.spent ? '<b>' + coin(t.spent) + 'g</b>spent' : '');
+  }
+  if (replay.note) html += dlgNote(esc(replay.note));
   if (rows.length) html += '<div class="report"><dl>' + rows.join('') + '</dl></div>';
   if (t.ready.length) {
     html += '<div class="rank-call"><b>Ready for promotion</b><span>' + esc(t.ready.join(', ')) +
@@ -16188,46 +16375,40 @@ function shopOpenHand(id) {
   const ready = rankReady(e);
   const up = nextRank(e.rank);
   const pct = need ? Math.max(0, Math.min(100, Math.round(xp / need * 100))) : 100;
+  const step = SHOP.ranks.findIndex(function (r) { return r.id === e.rank; }) + 1;
 
-  let html = '<div class="hand-head">' + staffPortrait(e) +
-    '<div><span class="hh-name">' + esc(e.name) + '</span>' +
-    '<span class="hh-role"><span class="rank" data-r="' + e.rank + '">' + e.rank +
-    '</span> ' + esc(roleName) + ' · ' + coin(e.wage) + 'g per week</span></div></div>';
+  let html = dlgHero(staffPortrait(e, 'lg'), esc(e.name),
+    '<span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' + esc(roleName),
+    '<b>' + coin(e.wage) + 'g</b>per week');
   // what they are doing today, and whether they are free to be given more
   if (isMiner) {
     const home = sh.mines.find(function (m) { return m.miners.indexOf(e) >= 0; });
-    html += '<p class="hand-where"><b>Assigned to</b> ' + esc(home ? home.name : 'a mine') +
-      ' · produces ore at the end of each week</p>';
+    html += dlgSum([{ k: 'Works at', v: esc(home ? home.name : 'a mine') },
+      { k: 'Produces', v: 'ore at the end of each week' }]);
   } else {
     const a = assignedThisDay(sh, e.id);
-    html += '<p class="hand-where"><b>' + (a ? esc(jobWord(sh, e, a.job)) + ', ' +
-      SHOP.phaseName[a.phase].toLowerCase() : 'No assignment today') + '</b> · ' +
-      esc(staffAvailability(sh, e)) + '</p>';
+    html += dlgSum([{ k: 'Today', v: a ? esc(jobWord(sh, e, a.job)) + ', ' +
+      SHOP.phaseName[a.phase].toLowerCase() : 'No assignment' },
+      { k: 'Availability', v: esc(staffAvailability(sh, e)) }]);
   }
-
-  html += '<div class="xp-wrap big"><span class="xp-bar' + (ready ? ' full' : '') +
-    '"><i style="width:' + pct + '%"></i></span><span class="xp-fig">' +
-    (need ? xp + ' / ' + need + ' XP to ' + up.id + '-rank'
-      : 'S-rank (maximum rank)') + '</span></div>';
-
-  if (ready) {
-    html += '<p class="hire-note"><b>Ready for ' + up.id + '-rank.</b> Promotion is free and ' +
-      'uses no phase. XP above ' + need + ' carries over.</p>';
-  } else if (need) {
-    html += '<p class="hire-note">' + (need - xp) + ' more XP needed for promotion. XP is ' +
-      'earned only by completing their assigned work.</p>';
-  }
-
-  html += '<div class="perks"><b>Current (' + e.rank + '-rank)</b><ul>';
+  // the climb: where they are on the ladder, and how far to the next rung
+  html += '<div class="dlg-grow"><span class="dg-head">Rank ' + dlgPips(step, SHOP.ranks.length) +
+    ' <b>' + e.rank + '</b></span>' +
+    '<span class="dg-now"><span class="xp-bar' + (ready ? ' full' : '') + '"><i style="width:' + pct +
+      '%"></i></span> ' + (need ? xp + ' / ' + need + ' XP to ' + up.id + '-rank' : 'S-rank (maximum rank)') + '</span>' +
+    (ready ? '<span class="dg-next">Ready for ' + up.id + '-rank: free, uses no phase; XP above ' + need + ' carries over</span>'
+      : need ? '<span class="dg-next">' + (need - xp) + ' more XP, earned only by finishing assigned work</span>' : '') +
+    '</div>';
+  html += '<div class="dlg-cmp"><div class="perks"><b>Current (' + e.rank + '-rank)</b><ul>';
   for (const line of rankPerks(roleId, e.power)) html += '<li>' + esc(line) + '</li>';
   html += '</ul></div>';
   if (up) {
     html += '<div class="perks next"><b>After promotion (' + up.id + '-rank)</b><ul>';
     for (const line of rankPerks(roleId, up.power)) html += '<li>' + esc(line) + '</li>';
-    html += '</ul><span class="perk-wage">Wage after promotion: about ' +
-      coin(Math.max(1, Math.round(up.wage * (e.wage / shopRank(e.rank).wage)))) +
-      'g per week.</span></div>';
+    html += '</ul><span class="perk-wage">Wage: about ' +
+      coin(Math.max(1, Math.round(up.wage * (e.wage / shopRank(e.rank).wage)))) + 'g per week</span></div>';
   }
+  html += '</div>';
 
   const acts = [];
   if (ready) {
@@ -16237,7 +16418,7 @@ function shopOpenHand(id) {
   // letting somebody go still asks first, the way it always did
   if (!isMiner) acts.push({ label: 'Dismiss', onClick: function () { shopConfirmFire(e.id); } });
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet(esc(e.name), html, acts);
+  shopSheet(esc(e.name), html, acts, staffPortrait(e));
 }
 
 function shopRankUp(id) {
@@ -16261,11 +16442,12 @@ function shopOpenHandPicker(roleId, phase, seat) {
   SHOPUI.planSeat = s;
   const many = phaseSeats(sh, roleId) > 1;
 
-  let html = '<p class="roster-note">' + esc(role.blurb) + '</p>';
+  let html = dlgNote(esc(role.blurb));
+  html += seatStrip(sh, roleId);
   if (standing) {
     // the box is already kept; say what it keeps and offer to change it
     html += '<div class="standing-card' + (standing.on ? '' : ' off') + '">' +
-      '<span class="sc-head">\u21ba Repeats every ' +
+      '<span class="sc-head">↺ Repeats every ' +
       esc(SHOP.phaseName[phase].toLowerCase()) + '</span>' +
       '<span class="sc-who">' + esc(standing.staff == null ? 'Any available employee'
         : (staffById(sh, standing.staff) || {}).name || 'former employee') + '</span>' +
@@ -16274,17 +16456,22 @@ function shopOpenHandPicker(roleId, phase, seat) {
         : 'Paused (not filled automatically)') + '</span></div>';
   }
 
-  if (!free.length) {
-    html += '<p class="shop-empty">No employee with this job is available for that phase.</p>';
+  // everybody in the trade, the busy ones too, so the whole bench is in view
+  const busy = staffOfRole(sh, roleId).filter(function (e) { return free.indexOf(e) < 0; });
+  if (!free.length && !busy.length) {
+    html += dlgNote('Nobody on the books does this job yet.');
   } else {
-    html += '<p class="shop-cap">Assign for today only</p><div class="shop-list">';
+    html += placeSec('Assign for today only', free.length + ' free of ' + (free.length + busy.length));
+    html += '<div class="dlg-tiles wide">';
     for (const e of free) {
-      html += '<button class="hand-line" type="button" data-pick-hand="' + e.id + '">' +
-        staffPortrait(e) +
-        '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
-        esc(e.name) + '</span>' +
-        '<span class="sub">' + esc(role.name) + ' · rank ' + e.rank + ' · ' +
-        esc(rankBenefit(role.id, e)) + '</span></button>';
+      html += dlgTile('data-pick-hand="' + e.id + '"', { art: staffPortrait(e),
+        name: '<span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' + esc(e.name),
+        sub: esc(role.name) + ' · rank ' + e.rank + ' · ' + esc(rankBenefit(role.id, e)) }, false);
+    }
+    for (const e of busy) {
+      html += dlgTile('', { art: staffPortrait(e), off: true,
+        name: '<span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' + esc(e.name),
+        sub: esc(staffAvailability(sh, e)) }, false);
     }
     html += '</div>';
   }
@@ -16300,9 +16487,25 @@ function shopOpenHandPicker(roleId, phase, seat) {
       shopOpenHandPicker(roleId, phase, s);
     } });
   }
+  if (!free.length && !busy.length) {
+    acts.push({ label: 'Search for a ' + role.name, onClick: function () { shopOpenHire(roleId); } });
+  }
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
   shopSheet('Assign ' + role.name + (many ? ' ' + (s + 1) : '') + ': ' + SHOP.phaseName[phase],
-    html, acts);
+    html, acts, free.length ? staffPortrait(free[0]) : '');
+}
+
+/* How many of a trade can work the same phase, and what the next seat costs:
+   the line that tells a growing shop where its bottleneck is. */
+function seatStrip(sh, roleId) {
+  const track = staffingTrack(roleId);
+  if (!track) return '';
+  const seats = phaseSeats(sh, roleId);
+  const more = growthRoom(sh, track);
+  return '<div class="dlg-grow"><span class="dg-head">Places each phase ' +
+    dlgPips(seats, seats + more) + ' <b>' + seats + '</b></span>' +
+    '<span class="dg-next">' + (more ? shopRole(roleId).name + ' Staffing: +1 for ' +
+      coin(growthCost(sh, track)) + 'g at Upgrades' : 'Every place is open') + '</span></div>';
 }
 
 /* A standing slot's orders in one line, for the cards that show it. */
@@ -16353,29 +16556,23 @@ function shopOpenStanding(roleId, phase, seat) {
   const redraw = function () {
     const sh2 = shop();
     const mine = shopRole(roleId);
-    let html = '<p class="roster-note">A recurring assignment is filled automatically at the ' +
-      'start of each day. Normal limits apply: one job per employee per day, one trip per ' +
-      'vehicle per phase, and no purchase you cannot afford. If it cannot be filled, it is ' +
-      'left empty and the day report says why.</p>';
-
     // who holds it
-    html += '<div class="pick-row"><label for="shWho">Employee</label>' +
-      '<select id="shWho" data-sel="staff">' +
-      '<option value="">Any available employee</option>';
-    for (const e of staffOfRole(sh2, roleId)) {
-      html += '<option value="' + e.id + '"' +
-        (String(d.staff) === String(e.id) ? ' selected' : '') + '>' +
-        esc(e.name) + ' — rank ' + e.rank + '</option>';
-    }
-    html += '</select></div>';
+    let html = placeSec('Employee');
+    html += dlgTiles('staff', [{ val: '', art: '<span class="dt-any" aria-hidden="true">↺</span>',
+      name: 'Any available', aria: 'Any available employee' }].concat(staffOfRole(sh2, roleId).map(function (e) {
+      return { val: e.id, art: staffPortrait(e),
+        name: '<span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' + esc(e.name.split(' ')[0]),
+        aria: e.name + ', rank ' + e.rank };
+    })), d.staff == null ? '' : d.staff, { cls: 'chips', label: 'Employee' });
 
     html += standingPlanFields(sh2, roleId, d);
 
     // what it would do if the day turned right now
     const test = planOrder(sh2, roleId, d, phase, here ? here.staff.id : undefined);
-    html += '<div class="sheet-total' + (test.ok ? '' : ' short') + '">' +
-      '<span>If it ran now</span><b>' +
-      esc(test.ok ? 'ready' : test.why) + '</b></div>';
+    html += dlgSum([{ k: 'If it ran now', v: esc(test.ok ? 'ready' : test.why), tone: test.ok ? 'good' : 'short' }]);
+    html += dlgNote('Filled at the start of each day within the usual limits: one job per ' +
+      'employee, one trip per vehicle a phase, nothing you cannot afford. If it cannot be ' +
+      'filled, the day report says why.');
 
     const acts = [
       { label: was ? 'Save Changes' : 'Repeat Daily', primary: true,
@@ -16411,7 +16608,7 @@ function shopOpenStanding(roleId, phase, seat) {
     }
     acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
     shopSheet('Repeat Daily: ' + role.name + (many ? ' ' + (s + 1) : '') + ', ' +
-      SHOP.phaseName[phase], html, acts);
+      SHOP.phaseName[phase], html, acts, '<span class="dt-any" aria-hidden="true">↺</span>');
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -16435,103 +16632,67 @@ function standingDefault(sh, roleId) {
 function standingPlanFields(sh, roleId, d) {
   let html = '';
   if (roleId === 'runner') {
-    html += '<div class="pick-row"><label for="shErrand">Errand</label>' +
-      '<select id="shErrand" data-sel="kind">' +
-      '<option value="market"' + (d.kind === 'market' ? ' selected' : '') + '>Buy ingots</option>' +
-      '<option value="ore"' + (d.kind === 'ore' ? ' selected' : '') + '>Collect ore</option>' +
-      '<option value="deliver"' + (d.kind === 'deliver' ? ' selected' : '') + '>Deliver a commission</option>' +
-      '</select></div>';
+    html += placeSec('Errand');
+    html += dlgTiles('kind', [
+      { val: 'market', art: ingotSprite(d.material || 'bronze'), name: 'Buy ingots' },
+      { val: 'ore', art: oreSprite('bronze'), name: 'Collect ore', off: !sh.mines.length },
+      { val: 'deliver', art: contractSprite(), name: 'Deliver' }
+    ], d.kind, { cls: 'three', label: 'Errand' });
     if (d.kind === 'market') {
-      html += '<div class="pick-row"><label for="shMat">Metal</label>' +
-        '<select id="shMat" data-sel="material">';
-      for (const m of SHOP.materials) {
-        html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
-          esc(m.name) + ' — ' + coin(m.cost) + 'g each · ' + (sh.materials[m.id] || 0) +
-          ' owned</option>';
-      }
-      html += '</select></div>' +
-        '<div class="pick-row"><label>Stock up to</label>' +
-        stepper('upTo', d.upTo || 0, 0, 200) + '</div>' +
-        '<div class="pick-row"><label>Spend at most</label>' +
-        stepper('cap', d.cap || 0, 0, 20000) + '</div>' +
-        '<p class="roster-note">Buys only enough to reach the stock level, and never spends ' +
-        'more than the limit or more gold than you have.</p>';
+      html += dlgTiles('material', SHOP.materials.map(function (m) {
+        return { val: m.id, art: ingotSprite(m.id), name: esc(m.name),
+          sub: coin(m.cost) + 'g · ' + (sh.materials[m.id] || 0) };
+      }), d.material, { cls: 'five', label: 'Metal' });
+      html += '<div class="dlg-pair">' + dlgStep('upTo', 'Stock up to', d.upTo || 0, 0, 200) +
+        dlgStep('cap', 'Spend at most', d.cap || 0, 0, 20000) + '</div>';
+      html += dlgNote('Buys only enough to reach the stock level, and never more than the limit or the gold you have.');
     } else if (d.kind === 'ore') {
       if (!sh.mines.length) {
-        html += '<p class="shop-empty">You do not own a mine. Buy one in Properties.</p>';
+        html += dlgNote('You do not own a mine. Buy one at the Properties board.');
       } else {
-        html += '<div class="pick-row"><label for="shMine">Mine</label>' +
-          '<select id="shMine" data-sel="mine">';
-        for (const m of sh.mines) {
-          html += '<option value="' + m.id + '"' +
-            (String(d.mine) === String(m.id) ? ' selected' : '') + '>' +
-            esc(m.name) + ' — ' + m.ore + ' ore at the mine</option>';
-        }
-        html += '</select></div>' +
-          '<div class="pick-row"><label>Collect up to</label>' +
-          stepper('qty', d.qty || 0, 1, 200) + '</div>' +
-          '<div class="pick-row"><label>Only when ore under</label>' +
-          stepper('below', d.below || 0, 0, 400) + '</div>' +
-          '<p class="roster-note">Set the last value to <b>0</b> to collect every day. ' +
-          'Otherwise the trip is skipped while your ore stock is at or above it. Uses any ' +
-          'vehicle free that phase.</p>';
+        html += dlgTiles('mine', sh.mines.map(function (m) {
+          return { val: m.id, art: mineSprite(m.def), name: esc(m.name), sub: m.ore + ' ore waiting' };
+        }), d.mine, { cls: sh.mines.length > 2 ? '' : 'two', label: 'Mine' });
+        html += '<div class="dlg-pair">' + dlgStep('qty', 'Collect up to', d.qty || 0, 1, 200) +
+          dlgStep('below', 'Only when ore under', d.below || 0, 0, 400) + '</div>';
+        html += dlgNote('Leave the last at <b>0</b> to collect every day; otherwise the trip is ' +
+          'skipped while your ore is at or above it. Uses any vehicle free that phase.');
       }
     } else {
-      html += '<p class="roster-note">Delivers the commission due soonest, using the largest ' +
-        'vehicle free that phase and carrying as much as fits. Skipped if no commission is ' +
-        'ready.</p>';
+      html += dlgNote('Delivers the commission due soonest in the largest vehicle free that ' +
+        'phase, carrying as much as fits. Skipped if no commission is ready.');
     }
     return html;
   }
 
   if (roleId === 'smith') {
-    html += '<div class="pick-row"><label for="shWork">Job</label>' +
-      '<select id="shWork" data-sel="kind">' +
-      '<option value="forge"' + (d.kind !== 'smelt' ? ' selected' : '') + '>Forge items</option>' +
-      '<option value="smelt"' + (d.kind === 'smelt' ? ' selected' : '') + '>Smelt ore</option>' +
-      '</select></div>';
+    html += placeSec('Job');
+    html += dlgTiles('kind', [
+      { val: 'forge', art: itemSprite(d.item || 'shortsword', d.material || 'bronze'), name: 'Forge items' },
+      { val: 'smelt', art: oreSprite(d.material || 'bronze'), name: 'Smelt ore' }
+    ], d.kind === 'smelt' ? 'smelt' : 'forge', { cls: 'chips', label: 'Job' });
     if (d.kind === 'smelt') {
-      html += '<div class="pick-row"><label for="shOre">Ore</label>' +
-        '<select id="shOre" data-sel="material">';
-      for (const m of SHOP.materials) {
-        html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
-          esc(m.name) + ' — ' + (sh.ore[m.id] || 0) + ' ore owned</option>';
-      }
-      html += '</select></div>';
+      html += placeSec('Ore');
+      html += dlgMetalPick(sh, d, false, true);
       return html;
     }
-    const book = knownRecipes(sh);
-    html += '<div class="pick-row"><label for="shItem">Item</label>' +
-      '<select id="shItem" data-sel="item">';
-    for (const it of book) {
-      html += '<option value="' + it.id + '"' + (d.item === it.id ? ' selected' : '') + '>' +
-        esc(it.name) + '</option>';
-    }
-    html += '</select></div>' +
-      '<div class="pick-row"><label for="shMat">Metal</label>' +
-      '<select id="shMat" data-sel="material">';
-    for (const m of SHOP.materials) {
-      html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
-        esc(m.name) + ' — ' + (sh.materials[m.id] || 0) + ' ingots owned</option>';
-    }
-    html += '</select></div>' +
-      '<div class="pick-row"><label>Batch size</label>' +
-      stepper('qty', d.qty || 1, 1, batchCapacity(sh)) + '</div>' +
-      '<p class="roster-note">Forges this batch each day you have the ingots. If you do not, ' +
-      'the job is skipped; nothing else is made instead.</p>';
+    html += placeSec('Item');
+    html += dlgItemPick(sh, d, knownCrafts(sh));
+    html += placeSec('Metal');
+    html += dlgMetalPick(sh, d, false);
+    html += dlgQty('qty', 'Batch size', Math.min(d.qty || 1, batchCapacity(sh)), 1, batchCapacity(sh),
+      { ceiling: batchCapacity(sh) + growthRoom(sh, 'forge'), grow: 'Forge upgrades raise it', unit: 'items' });
     return html;
   }
 
   if (roleId === 'storehand') {
-    return '<p class="roster-note">Moves items from storage onto stands that accept them. ' +
-      'Skipped if storage is empty.</p>';
+    return dlgNote('Moves items from storage onto stands that accept them. Skipped if storage is empty.');
   }
   if (roleId === 'salesperson') {
-    return '<p class="roster-note">Tends the counter for the phase: sells, haggles and learns ' +
-      'about customers. Commission offers are saved for you to accept or decline.</p>';
+    return dlgNote('Tends the counter for the phase: sells, haggles and learns about customers. ' +
+      'Commission offers are saved for you to accept or decline.');
   }
-  return '<p class="roster-note">Raises your maximum batch size when you forge in the same ' +
-    'phase.</p>';
+  return dlgNote('Raises your maximum batch size when you forge in the same phase.');
 }
 
 /* Fill one standing box for today, if it can be filled at all. */
@@ -16572,20 +16733,16 @@ function shopOpenAssignment(staffId) {
       : 'Assigned to the ' + SHOP.phaseName[a.phase].toLowerCase();
 
   const kept = !!(a.job && a.job.standing);
-  const html = '<div class="hand-line" style="cursor:default;margin-bottom:10px">' +
-    staffPortrait(e, 'lg') +
-    '<span class="nm"><span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' +
-    esc(e.name) + '</span>' +
-    '<span class="sub">' + esc(role.name) + ' · ' + coin(e.wage) + 'g per week</span></div>' +
-    '<div class="sheet-total"><span>' + esc(SHOP.phaseName[a.phase]) + '</span><b>' +
-    esc(word) + '</b></div>' +
-    '<div class="sheet-total"><span>Job</span><b>' + esc(jobSummary(sh, e, a.job)) +
-    '</b></div>' +
-    (kept ? '<p class="roster-note">\u21ba Filled by a recurring assignment. Changing or ' +
-      'removing it affects <b>today only</b>; it is filled again tomorrow.</p>' : '') +
-    (gap ? '<p class="roster-note" style="color:var(--danger)">This job cannot run: ' + esc(gap) +
-      '. Set its details before the ' + esc(SHOP.phaseName[a.phase].toLowerCase()) + ' ends.</p>'
-      : '');
+  const html = dlgHero(staffPortrait(e, 'lg'), esc(e.name),
+    '<span class="rank" data-r="' + e.rank + '">' + e.rank + '</span> ' + esc(role.name) + ' · ' +
+      coin(e.wage) + 'g per week', '<b>' + esc(SHOP.phaseName[a.phase]) + '</b>' +
+      (status === 'done' ? 'done' : status === 'active' ? 'now' : 'later')) +
+    dlgSum([{ k: esc(SHOP.phaseName[a.phase]), v: esc(word), tone: status === 'done' ? 'good' : '' },
+      { k: 'Job', v: esc(jobSummary(sh, e, a.job)) }]) +
+    (kept ? dlgNote('↺ Filled by a recurring assignment. Changing or removing it affects ' +
+      '<b>today only</b>; it is filled again tomorrow.') : '') +
+    (gap ? dlgNote('This job cannot run: ' + esc(gap) + '. Set its details before the ' +
+      esc(SHOP.phaseName[a.phase].toLowerCase()) + ' ends.', 'warn') : '');
 
   const buttons = [];
   if (status === 'upcoming') {
@@ -16606,7 +16763,7 @@ function shopOpenAssignment(staffId) {
     } });
   }
   buttons.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet(SHOP.phaseName[a.phase] + ' · ' + role.name, html, buttons);
+  shopSheet(SHOP.phaseName[a.phase] + ' · ' + role.name, html, buttons, staffPortrait(e));
 }
 
 /* ---------- the commission ledger ------------------------------------
@@ -16826,7 +16983,7 @@ function shopRender() {
    Every shop dialog renders into the same sheet. `shopSheet` takes a
    title, a body and a row of buttons; the body's own controls are wired
    by one delegated listener so no dialog has to remember to unbind. */
-function shopSheet(title, bodyHtml, buttons) {
+function shopSheet(title, bodyHtml, buttons, art) {
   const sheet = $('shopSheet');
   const reopening = sheet.hidden;
   // A dialog redraws on every stepper tap and every select. Remember what had
@@ -16844,6 +17001,8 @@ function shopSheet(title, bodyHtml, buttons) {
   sheet.classList.toggle('dock', !$('shopView').hidden && !SHOPUI.sheetFull);
   sheet.querySelector('.sheet').classList.remove('tall');
   $('shopSheetTitle').textContent = title;
+  // what the dialog is about, drawn in its head: a face, a stand, a metal
+  $('shopSheetArt').innerHTML = art || '';
   // a dialog opened afresh starts on its first page; one redrawn in place,
   // or come back to with Back, keeps the page it was on
   const body = $('shopSheetBody');
@@ -16915,26 +17074,178 @@ function stepper(id, value, min, max) {
     '</div>';
 }
 
+/* ---------- the parts every dialog is built from (1.44) ----------------
+   A dialog says what it is about at the top (a picture and a name), lets a
+   choice be made by tapping what is chosen rather than reading a list, shows
+   a quantity against the most it can be today AND the most the shop could
+   ever make it, and ends on the few numbers that decide the action. Lists
+   that grow with the shop (staff, stock, recipes, vehicles) are grids that
+   turn in pages, so a bigger shop is more pages, never smaller print. */
+function dlgHero(art, name, sub, aside) {
+  return '<div class="dlg-hero">' + (art ? '<span class="dh-art">' + art + '</span>' : '') +
+    '<span class="dh-text"><b class="dh-name">' + name + '</b>' +
+    (sub ? '<span class="dh-sub">' + sub + '</span>' : '') + '</span>' +
+    (aside ? '<span class="dh-aside">' + aside + '</span>' : '') + '</div>';
+}
+/* Tiles to choose one of. Each is { val, art, name, sub, badge, off, aria }.
+   A tap sets SHOPUI.draft[key] through the same rules a list would. */
+function dlgTiles(key, list, now, opts) {
+  const o = opts || {};
+  let html = '<div class="dlg-tiles' + (o.cls ? ' ' + o.cls : '') + '" role="radiogroup"' +
+    (o.label ? ' aria-label="' + esc(o.label) + '"' : '') + '>';
+  for (const t of list) {
+    const on = now != null && String(t.val) === String(now);
+    html += dlgTile('role="radio" aria-checked="' + (on ? 'true' : 'false') + '" data-pick="' + key +
+      '" data-val="' + esc(String(t.val)) + '"' + (o.num ? ' data-n=""' : ''), t, on);
+  }
+  return html + '</div>';
+}
+/* One tile, doing whatever its attributes say: `attr` carries the action. */
+function dlgTile(attr, t, on) {
+  return '<button type="button" class="dlg-tile' + (on ? ' on' : '') + (t.cls ? ' ' + t.cls : '') + '" ' +
+    attr + (t.off ? ' disabled' : '') + (t.aria ? ' aria-label="' + esc(t.aria) + '"' : '') + '>' +
+    (t.art ? '<span class="dt-art">' + t.art + '</span>' : '') +
+    '<span class="dt-text"><span class="dt-name">' + t.name + '</span>' +
+    (t.sub ? '<span class="dt-sub">' + t.sub + '</span>' : '') + '</span>' +
+    (t.badge ? '<span class="dt-badge">' + t.badge + '</span>' : '') + '</button>';
+}
+/* Big tiles that each do something when tapped, for a choice between whole
+   jobs. A tile that cannot be taken says why underneath its name. */
+function dlgOptions(list) {
+  SHOPUI.go = list.map(function (o) { return o.go; });
+  let html = '<div class="dlg-tiles side opts">';
+  list.forEach(function (o, i) {
+    html += dlgTile('data-go="' + i + '"' + (o.id ? ' data-opt="' + esc(o.id) + '"' : ''), o, false);
+  });
+  return html + '</div>';
+}
+/* A vehicle to pick, with what it carries; one already out is shown but not
+   offered, so the yard reads the same however many carts it holds. */
+function dlgVehicles(sh, d) {
+  return dlgTiles('vehicle', sh.vehicles.map(function (v) {
+    const free = vehicleFree(sh, v);
+    return { val: v.id, art: vehicleSprite(v.kind), name: esc(vehicleDef(v.kind).name),
+      sub: free ? 'carries ' + vehicleCapacity(v) : 'out this phase', off: !free };
+  }), d.vehicle, { cls: sh.vehicles.length > 2 ? '' : 'two', label: 'Vehicle' });
+}
+/* Short facts, two to a row: a label, what is known, and a word under it. */
+function dlgFacts(list) {
+  let html = '<div class="dlg-facts">';
+  for (const f of list) {
+    if (!f) continue;
+    html += '<div class="fact' + (f.wide ? ' wide' : '') + '"><span class="fk">' + f.k +
+      (f.n ? '<i>' + f.n + '</i>' : '') + '</span><span class="fv">' + f.v + '</span>' +
+      (f.sub ? '<small>' + f.sub + '</small>' : '') + '</div>';
+  }
+  return html + '</div>';
+}
+/* A level out of a maximum, as pips: how far a thing has been built up. */
+function dlgPips(level, max) {
+  let html = '<span class="dlg-pips" role="img" aria-label="level ' + level + ' of ' + max + '">';
+  for (let i = 0; i < max; i++) html += '<i' + (i < level ? ' class="on"' : '') + '></i>';
+  return html + '</span>';
+}
+/* A quantity: the stepper, a Max, and a meter of today's limit against what
+   the shop could grow it to. `grow` names what would raise the limit. */
+function dlgQty(key, label, value, min, max, opts) {
+  const o = opts || {};
+  const ceiling = Math.max(max, o.ceiling || max);
+  return '<div class="dlg-qty"><span class="dq-label">' + label + '</span>' +
+    stepper(key, value, min, max) +
+    (max > min ? '<button type="button" class="dq-max" data-pick="' + key + '" data-val="' + max +
+      '" data-n=""' + (value >= max ? ' disabled' : '') + '>Max</button>' : '') +
+    '<span class="dq-cap">' +
+      '<span class="dq-meter" aria-hidden="true"><i style="width:' +
+        Math.round(100 * value / Math.max(1, ceiling)) + '%"></i><i class="lim" style="width:' +
+        Math.round(100 * max / Math.max(1, ceiling)) + '%"></i></span>' +
+      '<span class="dq-text">' + (o.unit ? esc(o.unit) + ' ' : '') + 'up to <b>' + max + '</b>' +
+        (ceiling > max && o.grow ? ' · ' + esc(o.grow) + ' to ' + ceiling : '') +
+        (o.after ? ' · ' + o.after : '') + '</span>' +
+    '</span></div>';
+}
+/* The few numbers that decide the action, as a short table. */
+function dlgSum(rows) {
+  let html = '<dl class="dlg-sum">';
+  for (const r of rows) {
+    if (!r) continue;
+    html += '<dt>' + r.k + '</dt><dd' + (r.tone ? ' class="' + r.tone + '"' : '') + '>' + r.v + '</dd>';
+  }
+  return html + '</dl>';
+}
+function dlgNote(text, tone) {
+  return '<p class="dlg-note' + (tone ? ' ' + tone : '') + '">' + text + '</p>';
+}
+/* How far a Growth track can still go, for the notes that point at it. */
+function growthRoom(sh, id) {
+  const def = growthDef(id);
+  return def ? Math.max(0, def.max - growthLevel(sh, id)) : 0;
+}
+/* Set one choice in the open dialog's draft. A list and a tile set the same
+   way, so every rule about what a choice implies lives here once. */
+function shopDraftSet(key, raw, numeric) {
+  const d = SHOPUI.draft;
+  // a property, a vehicle, a contract and an employee are known by their
+  // number, not by a name, so those come back as numbers
+  const byId = numeric || key === 'mine' || key === 'vehicle' || key === 'commission' ||
+    (key === 'staff' && raw !== '');
+  d[key] = byId ? Number(raw) : raw;
+  if (key === 'material' || key === 'item') {
+    const cap = batchCapacity(shop());
+    d.qty = Math.max(1, Math.min(d.qty || 1, cap));
+  }
+  // an empty employee choice means auto-fill, not employee number zero
+  if (key === 'staff' && raw === '') d.staff = null;
+  // switching a standing box between errands starts that errand sensibly
+  if (key === 'kind') {
+    const sh = shop();
+    if (d.kind === 'ore' && d.mine === undefined && sh.mines.length) d.mine = sh.mines[0].id;
+    if (d.kind === 'ore' && !d.qty) d.qty = 5;
+    if (d.kind === 'market') {
+      if (!d.material) d.material = 'bronze';
+      if (!d.upTo) d.upTo = 20;
+      if (!d.cap) d.cap = 400;
+    }
+    if (d.kind === 'forge' && !d.item) {
+      const book = knownRecipes(sh);
+      if (book.length) d.item = book[0].id;
+      if (!d.material) d.material = 'bronze';
+      if (!d.qty) d.qty = 1;
+    }
+  }
+  // a contract says what it wants, so choosing one chooses the goods
+  if (key === 'commission') {
+    const com = commissionById(shop(), d.commission);
+    if (com) {
+      const parts = splitKey(com.key);
+      d.item = parts.item;
+      d.material = parts.material;
+      d.qty = Math.max(1, Math.min(d.qty || 1, batchCapacity(shop()), commissionLeft(com)));
+    } else d.commission = 0;
+  }
+}
+
 /* ---------- purchase materials ---------- */
-function shopBuyBody(scale) {
+function shopBuyBody(scale, runner) {
   const sh = shop();
-  let html = '<div class="shop-list">';
+  const d = SHOPUI.draft;
+  // one line per metal: what it is, what it costs, what is held, how many
+  let html = '<div class="buy-rows">';
   for (const m of SHOP.materials) {
-    const qty = SHOPUI.draft[m.id] || 0;
-    html += '<div class="shop-row">' +
-      '<span class="nm">' + ingotSprite(m.id) + ' ' + esc(m.name) + '</span>' +
-      stepper(m.id, qty, 0, 99) +
-      '<span class="sub">' + coin(m.cost) + 'g each · ' + sh.materials[m.id] + ' owned · ' +
-      m.strikes + (m.strikes === 1 ? ' strike' : ' strikes') + ' per square</span>' +
-      '</div>';
+    const qty = d[m.id] || 0;
+    html += '<div class="buy-row' + (qty ? ' on' : '') + '">' + ingotSprite(m.id, 'lg') +
+      '<span class="br-text"><b>' + esc(m.name) + '</b><span>' + coin(m.cost) + 'g each · ' +
+      (sh.materials[m.id] || 0) + ' held · ' + plural(m.strikes, 'strike', 'strikes') + '</span></span>' +
+      stepper(m.id, qty, 0, 99) + '</div>';
   }
   html += '</div>';
-  const total = Math.round(purchaseCost(sh, SHOPUI.draft) * (scale || 1));
-  const short = total > sh.gold;
-  html += '<div class="sheet-total' + (short ? ' short' : '') + '"><span>Total</span><b>' +
-    coin(total) + 'g</b></div>' +
-    '<p style="margin:4px 0 0;font-size:11.5px;color:var(--muted)">You have ' +
-    coin(sh.gold) + 'g.</p>';
+  const total = Math.round(purchaseCost(sh, d) * (scale || 1));
+  const count = SHOP.materials.reduce(function (t, m) { return t + (d[m.id] || 0); }, 0);
+  const short = !runner && total > sh.gold;
+  html += dlgSum([
+    { k: 'Ingots', v: String(count) },
+    { k: runner ? 'Expected cost' : 'Total', v: coin(total) + 'g', tone: short ? 'short' : 'gold' },
+    { k: short ? 'Short by' : 'Gold after', v: coin(Math.abs(sh.gold - total)) + 'g', tone: short ? 'short' : '' }
+  ]);
   return html;
 }
 
@@ -16944,20 +17255,18 @@ function shopOpenBuy(runner) {
     const sh = shop();
     const total = purchaseCost(sh, SHOPUI.draft);
     const short = !runner && total > sh.gold;
-    shopSheet(runner ? 'Runner: ' + runner.name + ' to Market' : 'Purchase Materials',
-      shopBuyBody(1),
+    let body = shopBuyBody(1, runner);
+    body += runner
+      ? dlgNote(esc(runner.name) + ' is ' + runner.rank + '-rank: the price paid may come out higher ' +
+        'or lower than this, and higher ranks do better on average. It does not use your phase.')
+      : dlgNote('Buying it yourself uses this phase. A Runner can go instead.');
+    shopSheet(runner ? 'Runner: ' + runner.name.split(' ')[0] + ' to Market' : 'Purchase Materials', body,
       [
         { label: runner ? 'Assign Errand' : 'Buy (Uses Phase)', primary: true,
           disabled: total <= 0 || short,
           onClick: function () { shopConfirmBuy(runner); } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
-    if (runner) {
-      $('shopSheetBody').insertAdjacentHTML('beforeend',
-        '<p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">' +
-        esc(runner.name) + ' is ' + runner.rank + '-rank. The actual price paid may be higher ' +
-        'or lower than shown; higher ranks get better prices on average.</p>');
-    }
+      ], runner ? staffPortrait(runner) : sceneSupplyArt());
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -16989,114 +17298,119 @@ function firstKnownRecipe() {
   return book.length ? book[0].id : null;
 }
 
+/* The blueprints the forge holds, a craft at a time: chips for the craft,
+   tiles for the items in it. However many blueprints are learned, only one
+   craft's worth is on screen. */
+function knownCrafts(sh) {
+  const book = knownRecipes(sh);
+  return SHOP.categories.filter(function (c) {
+    return book.some(function (it) { return it.cat === c.id; });
+  });
+}
+function dlgItemPick(sh, d, crafts) {
+  const book = knownRecipes(sh);
+  if (!d.cat || !crafts.some(function (c) { return c.id === d.cat; })) {
+    const itNow = shopItem(d.item);
+    d.cat = itNow ? itNow.cat : (crafts[0] || {}).id;
+  }
+  let html = '';
+  if (crafts.length > 1) {
+    html += dlgTiles('cat', crafts.map(function (c) {
+      return { val: c.id, name: esc(c.name) };
+    }), d.cat, { cls: 'chips', label: 'Craft' });
+  }
+  return html + dlgTiles('item', book.filter(function (it) { return it.cat === d.cat; }).map(function (it) {
+    const worth = recommendedPrice(it.id, d.material || 'bronze', 100, blueprintLevel(sh, it.id));
+    return { val: it.id, art: itemSprite(it.id, d.material || 'bronze', 'lg'), name: esc(it.name),
+      sub: it.size + '×' + it.size + ' · ' + coin(worth) + 'g',
+      aria: it.name + ', ' + it.size + ' by ' + it.size + ' board, worth ' + coin(worth) + ' gold' };
+  }), d.item, { label: 'Item' });
+}
+/* The five metals as tiles, with what is held of each. `strict` greys out a
+   metal there is none of, for an order placed now rather than tomorrow. */
+function dlgMetalPick(sh, d, strict, ore) {
+  return dlgTiles('material', SHOP.materials.map(function (m) {
+    const held = (ore ? sh.ore : sh.materials)[m.id] || 0;
+    return { val: m.id, art: ore ? oreSprite(m.id) : ingotSprite(m.id), name: esc(m.name),
+      sub: held + (ore ? ' ore' : ' held'), off: strict && held <= 0,
+      aria: m.name + ', ' + held + (ore ? ' ore' : ' ingots') + ' held' };
+  }), d.material, { cls: 'five', label: ore ? 'Ore' : 'Metal' });
+}
+/* A labelled stepper on its own, for numbers with no growth ceiling. */
+function dlgStep(key, label, value, min, max) {
+  return '<div class="dlg-qty slim"><span class="dq-label">' + label + '</span>' +
+    stepper(key, value, min, max) + '</div>';
+}
 function shopForgeBody(smith) {
   const sh = shop();
   const d = SHOPUI.draft;
   const cap = smith ? Math.min(batchCapacity(sh), 2 + smith.power) : batchCapacity(sh);
   // only what the forge has a blueprint for: the rest of the catalogue is
   // in the Almanac, where the way to it is spelled out
-  const book = knownRecipes(sh);
-  let html = '<div class="pick-row"><label for="shItem">Item</label><select id="shItem" data-sel="item">';
-  for (const c of SHOP.categories) {
-    const mine = book.filter(function (it) { return it.cat === c.id; });
-    if (!mine.length) continue;
-    html += '<optgroup label="' + esc(c.name) + '">';
-    for (const it of mine) {
-      html += '<option value="' + it.id + '"' + (d.item === it.id ? ' selected' : '') + '>' +
-        esc(it.name) + ' — ' + it.size + '×' + it.size + ' board</option>';
-    }
-    html += '</optgroup>';
-  }
-  html += '</select></div>';
-
-  html += '<div class="pick-row"><label for="shMat">Material</label><select id="shMat" data-sel="material">';
-  for (const m of SHOP.materials) {
-    html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
-      esc(m.name) + ' — ' + m.strikes + (m.strikes === 1 ? ' strike' : ' strikes') +
-      ' per square · ' + sh.materials[m.id] + ' owned</option>';
-  }
-  html += '</select></div>';
-
+  const crafts = knownCrafts(sh);
+  const itNow = shopItem(d.item);
+  let html = '';
   /* A smith can be set to work a contract rather than the storeroom. Picking
      one fixes what they make, because a contract is not a suggestion: the
      batch goes into its crate when it comes off the anvil. */
   if (smith && sh.commissions.length) {
-    html += '<div class="pick-row"><label for="shCom">For</label>' +
-      '<select id="shCom" data-sel="commission">' +
-      '<option value="0"' + (!d.commission ? ' selected' : '') + '>Storage</option>';
-    for (const com of sh.commissions) {
-      html += '<option value="' + com.id + '"' + (d.commission === com.id ? ' selected' : '') +
-        '>' + esc(com.name) + '’s commission — ' + commissionLeft(com) + ' more ' +
-        esc(lineName(com.key)) + ', ' + esc(commissionBand(com.quality).name) +
-        ' or better</option>';
-    }
-    html += '</select></div>';
+    html += placeSec('For');
+    html += dlgTiles('commission', [{ val: 0, name: 'Storage', sub: 'to sell' }].concat(
+      sh.commissions.map(function (com) {
+        return { val: com.id, art: lineSprite(com.key), name: esc(com.name),
+          sub: commissionLeft(com) + ' more · ' + esc(commissionBand(com.quality).name) + '+' };
+      })), d.commission || 0, { cls: 'wide', label: 'Who the batch is for' });
     const com = d.commission ? commissionById(sh, d.commission) : null;
     if (com) {
-      html += '<p class="roster-note">' + esc(smith.name) + '’s average quality is about ' +
-        (34 + smith.power * 9) + '. This commission needs ' +
-        esc(commissionBand(com.quality).name) + ' or better; items below that go to storage ' +
-        'instead.</p>';
+      html += dlgNote(esc(smith.name.split(' ')[0]) + '\u2019s work averages about quality ' +
+        (34 + smith.power * 9) + '; anything below ' + esc(commissionBand(com.quality).name) +
+        ' goes to storage instead.');
     }
   }
+  html += placeSec('Item', knownRecipes(sh).length + ' blueprints known');
+  html += dlgItemPick(sh, d, crafts);
+  html += placeSec('Metal');
+  html += dlgMetalPick(sh, d, !smith);
 
-  const qty = d.qty || 1;
+  const qty = Math.max(1, Math.min(d.qty || 1, cap));
+  const ceiling = smith ? cap : cap + growthRoom(sh, 'forge');
+  html += dlgQty('qty', 'Batch size', qty, 1, cap, { ceiling: ceiling,
+    grow: smith ? '' : 'Forge upgrades raise it', unit: 'items' });
+
   // What the board will actually be worked at: the batch, raised by the metal
   // if it is one of the hard ones. The dialog must say the same number the
   // anvil will deal, or choosing an order is choosing blind.
   const mtNow = shopMaterial(d.material);
-  const itNow = shopItem(d.item);
   const tier = forgeDifficulty(d.material, qty);
   const bumped = tier !== batchDifficulty(qty);
   const tierCfg = CONFIG.difficulties[tier];
+  const size = itNow ? itNow.size : 3;
   const nextAt = (Math.floor((qty - 1) / SHOP.batchPerTier) + 1) * SHOP.batchPerTier + 1;
-  html += '<div class="pick-row"><label>Batch size</label>' + stepper('qty', qty, 1, cap) +
-    '<span style="font-size:11.5px;color:var(--muted)">Up to ' + cap +
-    '. One puzzle makes the whole batch.</span></div>';
+  const check = forgeCheck(sh, d.item, d.material, qty);
+  const rows = [];
   if (!smith) {
-    // The batch and the metal between them are the difficulty here, so it has
-    // to be visible while choosing - neither lever is picked anywhere else.
-    html += '<div class="shop-row" style="margin:0 0 10px">' +
-      '<span class="nm">Board difficulty</span>' +
-      '<span class="amt">' + esc(tierCfg.label) + '</span>' +
-      // The item decides the board, and the board decides the symbols. What a
-      // batch raises is how unruly the metal on it is, which is a different
-      // lever and has to read as one.
-      '<span class="sub">' + esc(itNow ? itNow.name : 'This item') + ': ' +
-      (itNow ? itNow.size : 3) + '\u00d7' + (itNow ? itNow.size : 3) + ' board with ' +
-      esc(poolForSize(itNow ? itNow.size : 3)
-        .map(function (k) { return PIECES[k].name; }).join(', ')) +
-      (queensForSize(itNow ? itNow.size : 3) > 0 ? ' and up to ' + queensForSize(itNow.size) + ' Queens' : '') +
-      ' \u00b7 difficulty rises every ' + SHOP.batchPerTier + ' items in the batch' +
-      (reshapeAllowed('shop') && tierCfg.morphChance > 0 ? ' \u00b7 ' +
-        Math.round(tierCfg.morphChance * 100) +
-        '% chance a square changes symbol on its first strike' : '') +
-      (tierCfg.hardenChance > 0 ? ' \u00b7 ' + Math.round(tierCfg.hardenChance * 100) +
-        '% chance a square is hardened' : '') +
-      (bumped ? ' \u00b7 <span style="color:var(--ember)">+' + SHOP.hardenBy + ' difficulty for ' +
-        esc(mtNow ? mtNow.name : 'this metal') + '</span>' : '') +
-      (nextAt <= cap && forgeDifficulty(d.material, nextAt) !== tier
-        ? ' \u00b7 a batch of ' + nextAt + ' raises difficulty again' : '') +
-      '</span></div>';
-  }
-
-  const check = forgeCheck(sh, d.item, d.material, d.qty || 1);
-  const it = shopItem(d.item), mt = shopMaterial(d.material);
-  if (it && mt) {
-    const rec = recommendedPrice(d.item, d.material, 100, blueprintLevel(sh, d.item));
-    html += '<div class="sheet-total' + (check.ok ? '' : ' short') + '"><span>' +
-      itemSprite(d.item, d.material, 'lg') + ' ' + (d.qty || 1) + ' × ' +
-      esc(mt.name) + ' ' + esc(it.name) + '</span><b>' +
-      coin(rec * (d.qty || 1)) + 'g</b></div>' +
-      '<p style="margin:4px 0 0;font-size:11.5px;color:var(--muted)">' +
-      'Uses ' + (d.qty || 1) + ' ' + esc(mt.name) + ' ingot' + ((d.qty || 1) === 1 ? '' : 's') +
-      ', only if the puzzle is completed. Value shown is at quality 100; lower quality is ' +
-      'worth less. Items arrive in storage tomorrow morning.</p>';
-    if (!check.ok) {
-      html += '<p style="margin:6px 0 0;font-size:12px;color:var(--danger)">' +
-        esc(check.why) + '</p>';
+    rows.push({ k: 'Board', v: size + '\u00d7' + size + ' · ' + esc(tierCfg.label) +
+      (bumped ? ' <span class="up">+' + SHOP.hardenBy + ' difficulty for ' + esc(mtNow ? mtNow.name : 'metal') + '</span>' : '') });
+    rows.push({ k: 'Symbols', v: esc(poolForSize(size).map(function (k) { return PIECES[k].name; }).join(', ')) +
+      (queensForSize(size) > 0 ? ', Queens' : '') });
+    const heat = [];
+    if (reshapeAllowed('shop') && tierCfg.morphChance > 0) heat.push(Math.round(tierCfg.morphChance * 100) + '% reshape');
+    if (tierCfg.hardenChance > 0) heat.push(Math.round(tierCfg.hardenChance * 100) + '% hardened');
+    if (heat.length) rows.push({ k: 'Squares', v: heat.join(' · ') });
+    if (nextAt <= cap && forgeDifficulty(d.material, nextAt) !== tier) {
+      rows.push({ k: 'Harder from', v: 'a batch of ' + nextAt });
     }
   }
+  if (itNow && mtNow) {
+    rows.push({ k: 'Ingots', v: qty + ' ' + esc(mtNow.name) + ' of ' + (sh.materials[mtNow.id] || 0),
+      tone: (sh.materials[mtNow.id] || 0) < qty ? 'short' : '' });
+    const rec = recommendedPrice(d.item, d.material, 100, blueprintLevel(sh, d.item));
+    rows.push({ k: 'Worth at quality 100', v: coin(rec * qty) + 'g', tone: 'gold' });
+  }
+  html += dlgSum(rows);
+  html += check.ok
+    ? dlgNote('The ingots are used only if the puzzle is finished. The batch is in storage tomorrow morning.')
+    : dlgNote(esc(check.why) + '.', 'warn');
   return html;
 }
 
@@ -17109,12 +17423,12 @@ function shopOpenForge(smith) {
   if (d.commission && !commissionById(sh, d.commission)) d.commission = 0;
   const redraw = function () {
     const check = forgeCheck(shop(), d.item, d.material, d.qty);
-    shopSheet(smith ? 'Smith: ' + smith.name : 'Forge a Batch', shopForgeBody(smith),
+    shopSheet(smith ? 'Smith: ' + smith.name.split(' ')[0] : 'Forge a Batch', shopForgeBody(smith),
       [
         { label: smith ? 'Assign Order' : 'Start Puzzle', primary: true, disabled: !check.ok,
           onClick: function () { smith ? shopGiveSmithOrder(smith) : shopStartForge(); } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
+      ], d.item ? itemSprite(d.item, d.material || 'bronze', 'lg') : sceneAnvilArt());
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -17144,8 +17458,9 @@ function shopBuyStandFrom(type) {
   const title = standTitle(sh, res.stand);
   announce(title + ' bought for ' + coin(res.spent) + 'g. It is in the back until placed.');
   shopSheet(title + ' bought',
-    '<p class="station-note">The stand is in the back. It cannot sell anything until you place ' +
-    'it on the floor. Placing and moving stands is free.</p>',
+    dlgHero(standSprite(res.stand.type, 'lg'), esc(title), 'In the back · accepts ' +
+      esc(standCategoryNames(res.stand.type).join(', ')), '<b>' + coin(res.spent) + 'g</b>paid') +
+    dlgNote('It sells nothing until it is placed on the floor. Placing and moving stands is free.'),
     [{ label: 'Choose a Space', primary: true,
       onClick: function () { shopSheetClose(); shopEditMode(true, res.stand.id); } },
       { label: 'Place in First Free Space', disabled: firstFreeSlot(sh) == null,
@@ -17155,7 +17470,7 @@ function shopBuyStandFrom(type) {
           shopRender();
           shopToast(title + ' placed on the floor.');
         } },
-      { label: 'Keep in the Back', ghost: true, onClick: shopSheetClose }]);
+      { label: 'Keep in the Back', ghost: true, onClick: shopSheetClose }], standSprite(res.stand.type));
 }
 
 /* ---------- the shop floor ------------------------------------------
@@ -17208,34 +17523,40 @@ function shopOpenStand(standId) {
   const sh = shop();
   const stand = standById(sh, standId);
   if (!stand) return;
-  const def = shopStandDef(stand.type);
   const filled = !!(stand.key && stand.qty > 0);
   const rec = filled ? standWorth(stand) : 0;
   const out = standPlaced(stand);
   const up = standLevel(stand);
-  const bonus = Math.round(up * SHOP.growth.display.step * 1000) / 10;
+  const max = SHOP.growth.display.max;
+  const step = SHOP.growth.display.step;
+  const pct = function (lv) { return '+' + (Math.round(lv * step * 1000) / 10) + '%'; };
   const room = standRoom(sh, stand);
   const spare = filled && sh.storage[stand.key] ? sh.storage[stand.key].qty : 0;
+  const cost = up < max ? standUpgradeCost(stand) : null;
 
-  let body = '<div class="shop-list">';
-  body += rowHtml(standSprite(stand.type) + ' <b>' + esc(standTitle(sh, stand)) + '</b>',
-    out ? 'Placed on the floor' : 'In the back (customers cannot buy from it)',
-    stand.qty + ' / ' + standHold());
-  body += rowHtml('Upgrade level ' + up + ' / ' + SHOP.growth.display.max,
-    up ? '+' + bonus + '% sale price on items sold from it' : 'No sale price bonus (upgrade it at the Upgrades board)',
-    up ? '+' + bonus + '%' : '');
+  let body = dlgHero(filled ? lineSprite(stand.key, 'lg') : standSprite(stand.type, 'lg'),
+    esc(standTitle(sh, stand)),
+    (out ? 'On the floor' : 'In the back: customers cannot buy from it') + ' · accepts ' +
+      esc(standCategoryNames(stand.type).join(', ')),
+    '<b>' + stand.qty + ' / ' + standHold() + '</b>on display');
   if (filled) {
-    body += rowHtml(lineSprite(stand.key) + ' ' + esc(lineName(stand.key)) + ' ×' + stand.qty,
-      '<span class="q-' + qualityBand(stand.quality).tone + '">' +
-      esc(qualityBandName(stand.quality)) + '</span> · quality ' +
-      Math.round(stand.quality) + ' · recommended price ' + coin(rec) + 'g',
-      coin(stand.price) + 'g');
+    const band = qualityBand(stand.quality);
+    body += dlgSum([
+      { k: 'On display', v: stand.qty + ' \u00d7 ' + esc(lineName(stand.key)) },
+      { k: 'Quality', v: '<span class="q-' + band.tone + '">' + esc(qualityBandName(stand.quality)) +
+        '</span> · ' + Math.round(stand.quality) },
+      { k: 'Asking', v: coin(stand.price) + 'g', tone: 'gold' },
+      { k: 'Recommended', v: coin(rec) + 'g' },
+      { k: 'More in storage', v: spare ? String(spare) : 'none', tone: spare ? '' : 'short' }
+    ]);
   } else {
-    body += rowHtml('<span style="color:var(--muted)">Empty</span>',
-      'Stock it with items from storage. Items on display attract customers who want them.', '');
+    body += dlgNote('Empty. Stock it from storage: what is on display brings in the customers who want it.');
   }
-  body += rowHtml('Accepts', esc(standCategoryNames(stand.type).join(', ')), '');
-  body += '</div>';
+  // how far this display has been built up, and what the next level is worth
+  body += '<div class="dlg-grow"><span class="dg-head">Display level ' + dlgPips(up, max) + '</span>' +
+    '<span class="dg-now">' + (up ? pct(up) + ' on everything sold from it' : 'No price bonus yet') + '</span>' +
+    (cost !== null ? '<span class="dg-next">Next: ' + pct(up + 1) + ' for ' + coin(cost) + 'g</span>'
+      : '<span class="dg-next">Fully upgraded</span>') + '</div>';
 
   const acts = [];
   if (!out) {
@@ -17255,6 +17576,17 @@ function shopOpenStand(standId) {
     acts.push({ label: 'Change Stand Type',
       onClick: function () { shopOpenStandType(stand.id); } });
   }
+  if (cost !== null) {
+    acts.push({ label: 'Upgrade \u00b7 ' + coin(cost) + 'g', disabled: sh.gold < cost,
+      onClick: function () {
+        const res = shopUpgradeStand(shop(), stand.id);
+        if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+        SOUNDS.prosper(false);
+        shopRender();
+        shopToast('Display upgraded: ' + pct(res.level) + ' sale price for items on this stand.');
+        shopOpenStand(stand.id);
+      } });
+  }
   if (filled) {
     acts.push({ label: 'Return Items to Storage',
       onClick: function () {
@@ -17271,12 +17603,7 @@ function shopOpenStand(standId) {
   acts.push({ label: 'Sell Stand',
     onClick: function () { shopConfirmSellStand(stand.id); } });
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet(standTitle(sh, stand), body, acts);
-  if (filled && room > 0 && !spare) {
-    $('shopSheetBody').insertAdjacentHTML('beforeend',
-      '<p class="station-note" style="margin-top:8px">No more ' + esc(lineName(stand.key)) +
-      ' in storage to restock with.</p>');
-  }
+  shopSheet(standTitle(sh, stand), body, acts, standSprite(stand.type));
 }
 
 /* What else an empty stand could be. A stand with something on it is not
@@ -17285,20 +17612,18 @@ function shopOpenStandType(standId) {
   const sh = shop();
   const stand = standById(sh, standId);
   if (!stand) return;
-  let body = '<p class="shop-cap">Choose a stand type. Changing an empty stand is free and ' +
-    'keeps its upgrade level.</p><div class="shop-list">';
+  let body = dlgNote('Changing an empty stand is free and keeps its display level.');
+  body += '<div class="dlg-tiles wide">';
   for (const def of SHOP.stands) {
-    body += '<button class="pick-line" type="button" data-stand-type="' +
-      esc(def.id) + '" data-stand-id="' + stand.id + '"' +
-      (def.id === stand.type ? ' disabled' : '') + '>' +
-      '<span class="nm">' + standSprite(def.id) + ' ' + esc(def.name) + '</span>' +
-      '<span class="cnt">' + (def.id === stand.type ? 'current' : '') + '</span>' +
-      '<span class="sub">Accepts ' + esc(standCategoryNames(def.id).join(', ')) + '</span>' +
-      '</button>';
+    const now = def.id === stand.type;
+    body += dlgTile('data-stand-type="' + esc(def.id) + '" data-stand-id="' + stand.id + '"',
+      { art: standSprite(def.id, 'lg'), name: esc(def.name) + (now ? ' <small>(now)</small>' : ''),
+        sub: esc(standCategoryNames(def.id).join(', ')), off: now }, now);
   }
   body += '</div>';
   shopSheet('Change Stand Type', body,
-    [{ label: 'Back', ghost: true, onClick: function () { shopOpenStand(standId); } }]);
+    [{ label: 'Back', ghost: true, onClick: function () { shopOpenStand(standId); } }],
+    standSprite(stand.type));
 }
 
 function shopConfirmSellStand(standId) {
@@ -17308,11 +17633,12 @@ function shopConfirmSellStand(standId) {
   const def = shopStandDef(stand.type);
   const back = Math.floor(def.cost * SHOP.standRefund);
   shopSheet('Sell the ' + def.name + '?',
-    '<p style="margin:0;font-size:13px">Sells for ' + coin(back) + 'g (' +
-    Math.round(SHOP.standRefund * 100) + '% of its price). Any upgrade level is lost. ' +
-    (stand.key && stand.qty > 0
-      ? 'Items on it are returned to storage first.'
-      : 'The floor space stays available.') + '</p>',
+    dlgHero(standSprite(stand.type, 'lg'), esc(standTitle(sh, stand)),
+      'Level ' + standLevel(stand) + ' display', '<b>' + coin(back) + 'g</b>back') +
+    dlgNote(Math.round(SHOP.standRefund * 100) + '% of its price comes back; its display level is lost. ' +
+      (stand.key && stand.qty > 0
+        ? 'Items on it go back to storage first.'
+        : 'The floor space stays free for another stand.')),
     [
       { label: 'Sell Stand', primary: true,
         onClick: function () {
@@ -17324,7 +17650,7 @@ function shopConfirmSellStand(standId) {
           announce(def.name + ' sold for ' + coin(res.back) + 'g.');
         } },
       { label: 'Keep it', ghost: true, onClick: function () { shopOpenStand(standId); } }
-    ]);
+    ], standSprite(stand.type));
 }
 
 /* Buying a stand, from the empty floor space or from the Grow tab. */
@@ -17333,30 +17659,43 @@ function shopConfirmSellStand(standId) {
    for - which is what keeps the two tabs from doing each other's job. */
 function shopOpenBuyStand() {
   const sh = shop();
-  const room = standCap(sh) - sh.stands.length;
-  let body = '<p class="shop-cap">Stands ' + sh.stands.length + ' / ' + standCap(sh) +
-    ' · ' + (room > 0 ? room + ' empty ' + (room === 1 ? 'space' : 'spaces') : 'no empty space') + '</p>';
-  if (room <= 0) {
-    body += '<p class="hire-warn">Every floor space has a stand. Buy a <b>Store Expansion</b> ' +
-      'at the <b>Upgrades</b> board to add space.</p>';
-    shopSheet('Buy Stand', body,
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
-    return;
+  const cap = standCap(sh);
+  const room = cap - sh.stands.length;
+  const grow = growthRoom(sh, 'floor');
+  const expand = grow ? growthCost(sh, 'floor') : null;
+  // the floor: what is used, what is free, and what an expansion would add
+  let body = '<div class="dlg-grow"><span class="dg-head">Floor space ' +
+    placeMeter(sh.stands.length, cap) + ' <b>' + sh.stands.length + ' / ' + cap + '</b></span>' +
+    '<span class="dg-now">' + (room > 0 ? room + ' empty ' + (room === 1 ? 'space' : 'spaces')
+      : 'Every space has a stand') + '</span>' +
+    '<span class="dg-next">' + (grow ? 'Store Expansion: +1 space for ' + coin(expand) + 'g (' + grow +
+      ' more possible)' : 'The floor is as large as it can be') + '</span></div>';
+  const acts = [];
+  if (room <= 0 && grow) {
+    acts.push({ label: 'Expand the Floor \u00b7 ' + coin(expand) + 'g', primary: true, disabled: sh.gold < expand,
+      onClick: function () {
+        const res = shopBuyGrowth(shop(), 'floor');
+        if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+        SOUNDS.prosper(false);
+        shopRender();
+        shopToast('Floor spaces: ' + standCap(shop()) + '.');
+        shopOpenBuyStand();
+      } });
   }
-  body += '<div class="shop-list">';
+  // the catalogue stays in view on a full floor, so the next purchase can be planned
+  body += '<div class="dlg-tiles two">';
   for (const def of SHOP.stands) {
     const mine = sh.stands.filter(function (st) { return st.type === def.id; }).length;
-    body += '<button class="pick-line" type="button" data-buy-stand="' + esc(def.id) + '"' +
-      (sh.gold < def.cost ? ' disabled' : '') + '>' +
-      '<span class="nm">' + standSprite(def.id) + ' ' + esc(def.name) +
-      (mine ? ' <small style="color:var(--muted)">\u00d7' + mine + '</small>' : '') + '</span>' +
-      '<span class="cnt">' + coin(def.cost) + 'g</span>' +
-      '<span class="sub">Accepts ' + esc(standCategoryNames(def.id).join(', ')) + '. ' +
-      'Holds ' + standHold() + ' items of one kind.</span>' +
-      '</button>';
+    body += dlgTile('data-buy-stand="' + esc(def.id) + '"',
+      { art: standSprite(def.id, 'lg'), name: esc(def.name), sub: esc(standCategoryNames(def.id).join(', ')),
+        badge: coin(def.cost) + 'g' + (mine ? ' \u00b7 \u00d7' + mine : ''), off: room <= 0 || sh.gold < def.cost,
+        aria: def.name + ', ' + coin(def.cost) + ' gold, accepts ' + standCategoryNames(def.id).join(', ') }, false);
   }
-  body += '</div>';
-  shopSheet('Buy Stand', body, [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+  body += '</div>' + dlgNote(room > 0
+    ? 'Each stand holds ' + standHold() + ' items of one kind. New stands go in the back until placed.'
+    : 'A stand needs a floor space. ' + (grow ? 'Expand the floor to make room.' : 'Sell a stand to make room.'));
+  acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
+  shopSheet('Buy Stand', body, acts, standSprite('weapon'));
 }
 
 /* ---------- stock the stands ---------- */
@@ -17383,7 +17722,7 @@ function emptyBox(attr, label) {
    is not a thing the player can choose and be told off for. */
 function shopStockPicker(sh) {
   const stand = standById(sh, SHOPUI.slot);
-  if (!stand) return '<p class="shop-empty">That stand no longer exists.</p>';
+  if (!stand) return dlgNote('That stand no longer exists.');
   const def = shopStandDef(stand.type);
   const counts = stockPicked();
   const mine = picksForStand(stand.id);
@@ -17395,28 +17734,28 @@ function shopStockPicker(sh) {
     return !already || k === already;
   });
   const going = stand.qty + mine.length;
-  const head = '<p class="shop-cap">' + esc(def.name) + ' · ' + going + ' / ' + standHold() +
-    ' items · accepts ' + esc(standCategoryNames(stand.type).join(', ')) + '</p>';
+  let html = dlgHero(already ? lineSprite(already, 'lg') : standSprite(stand.type, 'lg'),
+    esc(standTitle(sh, stand)), 'Accepts ' + esc(standCategoryNames(stand.type).join(', ')),
+    '<b>' + going + ' / ' + standHold() + '</b> items after this');
   if (!keys.length || standRoom(shop(), { qty: going }) <= 0) {
-    return head + '<p class="shop-empty">' + (standRoom(shop(), { qty: going }) <= 0
+    return html + dlgNote(standRoom(shop(), { qty: going }) <= 0
       ? 'This ' + esc(def.name) + ' is full.'
       : already
         ? 'No more ' + esc(lineName(already)) + ' in storage. A stand holds one kind of item.'
-        : 'Nothing in storage can go on ' + esc(article(def.name)) + ' ' + esc(def.name) + '.') +
-      '</p>';
+        : 'Nothing in storage can go on ' + esc(article(def.name)) + ' ' + esc(def.name) + '.');
   }
-  let html = head + '<div class="shop-list">';
+  html += placeSec('In storage', 'tap to put one on');
+  html += '<div class="dlg-tiles">';
   for (const key of keys) {
     const lot = sh.storage[key];
     const left = lot.qty - (counts[key] || 0);
     const p = splitKey(key);
-    html += '<button class="pick-line" type="button" data-take="' + esc(key) + '">' +
-      '<span class="nm">' + lineSprite(key) + ' ' + esc(lineName(key)) + '</span>' +
-      '<span class="cnt">' + left + ' in storage</span>' +
-      '<span class="sub"><span class="q-' + qualityBand(lot.quality).tone + '">' +
-      esc(qualityBandName(lot.quality)) + '</span> · recommended price ' +
-      coin(recommendedPrice(p.item, p.material, lot.quality, lot.level)) + 'g</span>' +
-      '</button>';
+    const band = qualityBand(lot.quality);
+    html += dlgTile('data-take="' + esc(key) + '"', { art: lineSprite(key, 'lg'), name: esc(lineName(key)),
+      sub: '<span class="q-' + band.tone + '">' + esc(qualityBandName(lot.quality)) + '</span> · ' +
+        coin(recommendedPrice(p.item, p.material, lot.quality, lot.level)) + 'g',
+      badge: '\u00d7' + left,
+      aria: lineName(key) + ', ' + left + ' in storage, ' + qualityBandName(lot.quality) }, false);
   }
   return html + '</div>';
 }
@@ -17596,28 +17935,9 @@ function shopOpenTownsfolk(id) {
     .filter(function (com) { return com && com.who === one.id; });
   const past = (one.contracts || 0);
 
-  let body = '<div class="cust-page">' + portrait(one.type, 'xl') +
-    '<span class="cp-name">' + esc(one.name) + '</span>' +
-    '<span class="cp-kind">' + esc(type.name) + '</span>' +
-    '<span class="cp-read">' + got.got + ' of ' + got.total + ' details known' +
-    (got.whole ? ' (all)' : '') + '</span></div>';
-
-  body += '<div class="shop-list">';
-  // wealth, as a band and never as a figure
-  body += rowHtml('Wealth', knowsWealth(one)
-    ? 'how much they can spend'
-    : 'not known yet',
-    knowsWealth(one)
-      ? '<span class="know">' + esc(wealthBandOf(one).name) + '</span>'
-      : '<span class="unknown">???</span>');
-  // and the standards that go with it, which is the same question asked twice
-  if (knowsWealth(one)) {
-    const band = qualityBand(one.standards);
-    body += rowHtml('Standards', one.standards <= 0
-      ? 'accepts any quality'
-      : 'will not buy below ' + esc(band.name.toLowerCase()) + ' quality',
-      '<span class="q-' + band.tone + '">' + esc(band.name) + '</span>');
-  }
+  let body = dlgHero(portrait(one.type, 'lg'), esc(one.name), esc(type.name) +
+    (one.lastSeen ? ' · last seen day ' + one.lastSeen : ''),
+    '<b>' + got.got + ' / ' + got.total + '</b>details known' + (got.whole ? ' (all)' : ''));
 
   const listTaste = function (label, cats, seen, blank) {
     const found = cats.filter(function (c) { return seen.indexOf(c) >= 0; });
@@ -17627,34 +17947,36 @@ function shopOpenTownsfolk(id) {
       return cat ? cat.name : c;
     });
     for (let i = 0; i < hidden; i++) names.push('???');
-    return rowHtml(label, names.length ? esc(names.join(', ')) : blank,
-      found.length + '/' + cats.length);
+    return { k: label, n: found.length + '/' + cats.length,
+      v: names.length ? esc(names.join(', ')) : blank };
   };
-  body += listTaste('Likes', taste.likes, known.likes, 'none known yet');
-  body += listTaste('Dislikes', taste.dislikes, known.dislikes, 'none known yet');
-
-  body += rowHtml('Wants', esc(wantName(one)) +
-    (stocked ? ' (on your stands)' : ' (not on your stands)'),
-    stocked ? 'in stock' : '\u2014');
-  body += rowHtml('Bought here', one.bought
-    ? one.bought + (one.bought === 1 ? ' item' : ' items') + ', ' +
-      coin(one.spent) + 'g total'
-    : 'nothing yet',
-    one.lastSeen ? 'last seen day ' + one.lastSeen : '');
-  body += rowHtml('Commissions', deals.length
-    ? deals.map(function (com) {
-      return com.qty + ' \u00d7 ' + lineName(com.key) + ' \u00b7 ' +
-        commissionStateName(sh, com).toLowerCase();
-    }).join(' \u00b7 ')
-    : (past ? 'none open' : 'none yet'),
-    past ? past + ' completed' : '');
-  body += '</div>';
+  const band = knowsWealth(one) ? qualityBand(one.standards) : null;
+  body += dlgFacts([
+    // wealth, as a band and never as a figure
+    { k: 'Wealth', v: knowsWealth(one) ? '<span class="know">' + esc(wealthBandOf(one).name) + '</span>'
+      : '<span class="unknown">???</span>', sub: knowsWealth(one) ? 'how much they can spend' : 'not known yet' },
+    // and the standards that go with it, which is the same question asked twice
+    band ? { k: 'Standards', v: '<span class="q-' + band.tone + '">' + esc(band.name) + '</span>',
+      sub: one.standards <= 0 ? 'accepts any quality' : 'nothing below ' + esc(band.name.toLowerCase()) }
+      : { k: 'Standards', v: '<span class="unknown">???</span>', sub: 'known with their wealth' },
+    listTaste('Likes', taste.likes, known.likes, 'none known yet'),
+    listTaste('Dislikes', taste.dislikes, known.dislikes, 'none known yet'),
+    { k: 'Wants', v: esc(wantName(one)), sub: stocked ? 'on your stands now' : 'not on your stands',
+      n: stocked ? 'in stock' : '' },
+    { k: 'Bought here', v: one.bought ? one.bought + (one.bought === 1 ? ' item' : ' items') : 'nothing yet',
+      sub: one.bought ? coin(one.spent) + 'g in all' : '' },
+    { k: 'Commissions', wide: true, n: past ? past + ' completed' : '',
+      v: deals.length ? deals.map(function (com) {
+        return com.qty + ' × ' + esc(lineName(com.key)) + ' · ' +
+          esc(commissionStateName(sh, com).toLowerCase());
+      }).join('<br>') : (past ? 'none open' : 'none yet') }
+  ]);
 
   if (!got.whole) {
-    body += '<p class="bp-why">Serving this customer at the counter can reveal more. ' +
-      'Higher-ranked Salespeople reveal details more often.</p>';
+    body += dlgNote('Serving them at the counter can reveal more; higher-ranked Salespeople ' +
+      'reveal details more often.');
   }
-  shopSheet(one.name, body, [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+  shopSheet(one.name, body, [{ label: 'Back', ghost: true, onClick: shopSheetClose }], portrait(one.type));
 }
 
 /* ---------- the Checksmith Almanac ------------------------------------
@@ -18128,29 +18450,44 @@ function shopOpenPrice(key) {
   const sh = shop();
   const line = shelfLine(sh, key);
   if (!line) return;
-  const p = splitKey(key);
   // the worth of a piece ON THIS STAND, fixture and all
   const rec = standWorth(line);
+  const up = standLevel(line);
   SHOPUI.draft = { price: line.price };
+  // quick prices either side of the recommended one, the commonest moves
+  const marks = [-15, 0, 10, 25];
   const redraw = function () {
     const price = SHOPUI.draft.price;
     const pct = Math.round((price / rec - 1) * 100);
     const appeal = Math.round(priceAppeal(price, rec) * 100);
-    shopSheet('Price: ' + lineName(key),
-      '<div class="pick-row"><label>Your price</label>' + stepper('price', price, 1, rec * 4) +
-      '</div>' +
-      '<div class="sheet-total"><span>Recommended</span><b>' + coin(rec) + 'g</b></div>' +
-      '<div class="sheet-total"><span>Your price</span><b>' + coin(price) + 'g' +
-      (pct === 0 ? '' : ' (' + (pct > 0 ? '+' : '') + pct + '%)') + '</b></div>' +
-      '<p style="margin:8px 0 0;font-size:12px;color:var(--muted)">At this price, customers are <b>' +
-      appeal + '%</b> as likely to buy as at the recommended price. Higher prices sell ' +
-      'more slowly; lower prices sell faster.</p>',
+    const band = qualityBand(line.quality);
+    let body = dlgHero(lineSprite(key, 'lg'), esc(lineName(key)),
+      '<span class="q-' + band.tone + '">' + esc(qualityBandName(line.quality)) + '</span> · ' +
+        line.qty + ' on display' + (up ? ' · display level ' + up : ''),
+      '<b>' + coin(rec) + 'g</b>recommended');
+    body += '<div class="dlg-qty"><span class="dq-label">Your price</span>' +
+      stepper('price', price, 1, rec * 4) + '<span class="dq-cap">' +
+      '<span class="dq-meter" aria-hidden="true"><i style="width:' + Math.min(100, appeal) + '%"></i></span>' +
+      '<span class="dq-text"><b>' + appeal + '%</b> as likely to sell</span></span></div>';
+    body += dlgTiles('price', marks.map(function (m) {
+      const at = Math.max(1, Math.round(rec * (1 + m / 100)));
+      return { val: at, name: coin(at) + 'g', sub: m === 0 ? 'recommended' : (m > 0 ? '+' : '') + m + '%' };
+    }), price, { cls: 'four', num: true, label: 'Quick prices' });
+    body += dlgSum([
+      { k: 'Recommended', v: coin(rec) + 'g' },
+      { k: 'Your price', v: coin(price) + 'g' + (pct === 0 ? '' : ' (' + (pct > 0 ? '+' : '') + pct + '%)'),
+        tone: pct > 0 ? 'gold' : (pct < 0 ? 'short' : '') },
+      { k: 'All ' + line.qty + ' at this price', v: coin(price * line.qty) + 'g' }
+    ]);
+    body += dlgNote('Higher prices sell more slowly; lower prices sell faster.' +
+      (up < SHOP.growth.display.max ? ' Upgrading the display raises what everything on it is worth.' : ''));
+    shopSheet('Price: ' + lineName(key), body,
       [
         { label: 'Set Price', primary: true,
           onClick: function () { shopSetPrice(sh, key, price); shopSheetClose(); shopRender(); } },
         { label: 'Use Recommended', onClick: function () { SHOPUI.draft.price = rec; redraw(); } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
+      ], standSprite(line.type));
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -18194,34 +18531,36 @@ function shopOpenHire(tradeId) {
   const trade = trades.find(function (t) { return t.id === tradeId; }) || null;
   const blocked = shopPhaseBlocker();
 
-  let html = '<div class="trade-pick">';
+  let html = '<div class="dlg-tiles chips">';
   for (const t of trades) {
-    html += '<button class="trade' + (trade && t.id === trade.id ? ' on' : '') +
-      '" data-trade="' + t.id + '">' + esc(t.name) + '</button>';
+    const have = t.mine ? sh.mines.reduce(function (n, m) { return n + m.miners.length; }, 0)
+      : staffOfRole(sh, t.id).length;
+    html += dlgTile('data-trade="' + t.id + '"', { cls: 'trade', name: esc(t.name),
+      aria: t.name + ', ' + have + ' employed' }, trade && t.id === trade.id);
   }
   html += '</div>';
   if (blocked) {
-    html += '<p class="hire-warn" data-hire-blocked="1">Hiring is unavailable: ' + esc(blocked) +
+    html += '<p class="dlg-note warn hire-warn" data-hire-blocked="1">Hiring is unavailable: ' + esc(blocked) +
       ' You can still browse applicants.</p>';
   }
 
+  const acts = [];
   if (!trade) {
-    html += '<p class="hire-note">Choose a role to see applicants. Searching is free. ' +
-      'Hiring someone uses this phase.</p>';
+    html += hirePlacesStrip(sh, null);
+    html += dlgNote('Choose a trade to see who is looking for work. Searching is free; hiring someone uses this phase.');
     shopSheet('Search for Employees', html,
       [{ label: 'Close', ghost: true, onClick: shopSheetClose }]);
     return;
   }
-
-  html += '<p class="hire-note">' + esc(trade.blurb) + '</p>';
 
   /* A miner is hired against a shaft, so there has to be one to hire them
      into, and the player says which. */
   let mine = null;
   if (trade.mine) {
     if (!sh.mines.length) {
-      html += '<p class="hire-warn">You need a mine to hire Miners. Buy a mine deed ' +
-        'on the ledger\u2019s Properties page.</p>';
+      html += dlgNote(esc(trade.blurb));
+      html += '<p class="dlg-note warn hire-warn">You need a mine to hire Miners. Buy a mine deed ' +
+        'on the ledger’s Properties page.</p>';
       shopSheet('Search for Employees', html,
         [{ label: 'Close', ghost: true, onClick: shopSheetClose }]);
       return;
@@ -18232,47 +18571,83 @@ function shopOpenHire(tradeId) {
     }
     mine = mineById(sh, SHOPUI.hireMine);
     if (sh.mines.length > 1) {
-      html += '<div class="trade-pick sub">';
+      html += '<div class="dlg-tiles' + (sh.mines.length > 2 ? '' : ' two') + '">';
       for (const m of sh.mines) {
-        html += '<button class="trade' + (m.id === mine.id ? ' on' : '') +
-          '" data-hiremine="' + m.id + '">' + esc(m.name) + '</button>';
+        html += dlgTile('data-hiremine="' + m.id + '"', { art: mineSprite(m.def), name: esc(m.name),
+          sub: m.miners.length + ' / ' + mineMinerCap(m) + ' miners' }, m.id === mine.id);
       }
       html += '</div>';
     }
   }
+  html += hirePlacesStrip(sh, mine);
 
   const full = trade.mine ? mine.miners.length >= mineMinerCap(mine)
     : sh.staff.length >= staffCapacity(sh);
   if (full) {
-    html += '<p class="hire-warn">' + (trade.mine
-      ? esc(mine.name) + ' has no free shaft. Buy another shaft for this mine first.'
-      : 'All ' + staffCapacity(sh) + ' staff places are filled. Buy an Employment ' +
-        'upgrade at the Upgrades board to hire more.') + '</p>';
+    const shaft = trade.mine ? mineUpgradeCost(mine, 'shafts') : null;
+    const grow = trade.mine ? shaft !== null : growthRoom(sh, 'hands') > 0;
+    const cost = trade.mine ? shaft : (grow ? growthCost(sh, 'hands') : null);
+    html += '<p class="dlg-note warn hire-warn">' + (trade.mine
+      ? esc(mine.name) + ' has no free shaft.' : 'All ' + staffCapacity(sh) + ' staff places are filled.') +
+      (grow ? '' : ' It cannot be enlarged further.') + '</p>';
+    if (grow) {
+      // making room costs gold, not a phase, so it is offered right here
+      acts.push({ label: (trade.mine ? 'Sink a Shaft' : 'Add a Staff Place') + ' · ' + coin(cost) + 'g',
+        primary: true, disabled: sh.gold < cost, onClick: function () {
+          const res = trade.mine ? shopBuyMineUpgrade(shop(), mine.id, 'shafts') : shopBuyGrowth(shop(), 'hands');
+          if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+          SOUNDS.prosper(false);
+          shopRender();
+          shopToast(trade.mine ? esc(mine.name) + ' now has room for ' + mineMinerCap(mine) + ' miners.'
+            : 'Staff places: ' + staffCapacity(shop()) + '.');
+          shopOpenHire(trade.id);
+        } });
+    }
   }
 
+  html += placeSec(esc(trade.name) + ' applicants', 'hiring uses this phase');
   const list = trade.mine ? (mine.applicants || []) : (sh.applicants || []);
-  html += '<div class="shop-list">';
+  html += '<div class="dlg-apps">';
   for (const a of list) {
     const upfront = trade.mine ? a.wage * SHOP.mining.hireWeeks : 0;
     const poor = upfront > sh.gold;
+    const what = trade.mine ? '' : rankBenefit(trade.id, a);
     html += '<div class="applicant">' + staffPortrait(a) +
       '<span class="nm"><span class="rank" data-r="' + a.rank + '" aria-label="' + a.rank +
       ' rank">' + a.rank + '</span> ' + esc(a.name) + '</span>' +
       '<button data-' + (trade.mine ? 'minehire' : 'hire') + '="' + a.id + '"' +
       (full || poor || blocked ? ' disabled' : '') + '>Hire · ' + coin(a.wage) + 'g/wk</button>' +
-      '<span class="role">E-rank · ' + esc(trade.name) +
+      '<span class="role">E-rank · ' + esc(trade.name) + (what ? ' · ' + esc(what) : '') +
       (upfront ? ' · ' + coin(upfront) + 'g up front' + (poor ? ' (not enough gold)' : '') : '') +
       '</span>' +
       '</div>';
   }
   html += '</div>';
-  html += '<p class="hire-note">Hiring uses this phase. Wages are paid weekly. ' +
-    'Searching again is free.</p>';
+  if (!list.length) html += dlgNote('Nobody is asking for work just now. Search Again to ask around.');
+  html += dlgNote(esc(trade.blurb) + ' Wages are paid weekly; searching again is free.');
 
-  shopSheet('Search for Employees', html, [
-    { label: 'Search Again', onClick: function () { shopHireSearch(trade.id); } },
-    { label: 'Close', ghost: true, onClick: shopSheetClose }
-  ]);
+  acts.push({ label: 'Search Again', onClick: function () { shopHireSearch(trade.id); } });
+  acts.push({ label: 'Close', ghost: true, onClick: shopSheetClose });
+  shopSheet('Search for Employees', html, acts, list.length ? staffPortrait(list[0]) : '');
+}
+
+/* How many people the shop (or a mine) has room for, and how to make more.
+   A growing shop runs into this first, so it sits above the applicants. */
+function hirePlacesStrip(sh, mine) {
+  if (mine) {
+    const cap = mineMinerCap(mine);
+    const shaft = mineUpgradeCost(mine, 'shafts');
+    return '<div class="dlg-grow"><span class="dg-head">Miners at ' + esc(mine.name) + ' ' +
+      placeMeter(mine.miners.length, cap) + ' <b>' + mine.miners.length + ' / ' + cap + '</b></span>' +
+      '<span class="dg-next">' + (shaft !== null ? 'Sink a Shaft: +' + mineUpgradeDef('shafts').miners +
+        ' places for ' + coin(shaft) + 'g' : 'Every shaft is sunk') + '</span></div>';
+  }
+  const cap = staffCapacity(sh);
+  const more = growthRoom(sh, 'hands');
+  return '<div class="dlg-grow"><span class="dg-head">Staff places ' + placeMeter(sh.staff.length, cap) +
+    ' <b>' + sh.staff.length + ' / ' + cap + '</b></span>' +
+    '<span class="dg-next">' + (more ? 'Employment: +1 place for ' + coin(growthCost(sh, 'hands')) +
+      'g (' + more + ' more possible)' : 'Every place is open') + '</span></div>';
 }
 
 /* Turn up a fresh set for a trade, then redraw. Free, as often as they like. */
@@ -18280,7 +18655,11 @@ function shopHireSearch(tradeId) {
   const sh = shop();
   SHOPUI.hireTrade = tradeId;
   if (tradeId === 'miner') {
-    if (sh.mines.length && SHOPUI.hireMine != null) shopSearchMiners(sh, SHOPUI.hireMine);
+    // the first look at miners asks at the first mine, not at none
+    if (sh.mines.length && (SHOPUI.hireMine == null || !mineById(sh, SHOPUI.hireMine))) {
+      SHOPUI.hireMine = sh.mines[0].id;
+    }
+    if (sh.mines.length) shopSearchMiners(sh, SHOPUI.hireMine);
   } else {
     shopSearchStaff(sh, tradeId);
   }
@@ -18364,7 +18743,7 @@ function shopCounterStep() {
         coin(p.recommended) + 'g') +
     '</span></div>' +
     counterLogHtml(),
-    buttons);
+    buttons, lineSprite(p.key));
 }
 
 /* Somebody at the counter with a bulk order rather than a purchase. The whole
@@ -18761,11 +19140,52 @@ function reportTitle(r) {
   return 'Report';
 }
 
+/* The outcome of a report in one line, before the figures behind it. */
+function reportHero(r) {
+  const sold = Object.keys(r.lines || {});
+  if (r.kind === 'sales') {
+    return dlgHero(sold.length ? lineSprite(sold[0], 'lg') : contractSprite('lg'),
+      r.sold ? r.sold + (r.sold === 1 ? ' item sold' : ' items sold') : 'Nothing sold',
+      r.customers + (r.customers === 1 ? ' customer' : ' customers') + ' · ' + r.left + ' left without buying',
+      '<b>' + coin(r.revenue + (r.bonus || 0)) + 'g</b>taken');
+  }
+  if (r.kind === 'runner') {
+    const metal = Object.keys(r.order || {}).find(function (k) { return r.order[k] > 0 && shopMaterial(k); });
+    return dlgHero(ingotSprite(metal || 'bronze', 'lg'), r.ingots + ' ingots bought',
+      'expected ' + coin(r.expected) + 'g', '<b>' + coin(Math.abs(r.diff)) + 'g</b>' + (r.diff <= 0 ? 'saved' : 'extra'));
+  }
+  if (r.kind === 'smith') {
+    return dlgHero(itemSprite(r.item, r.material, 'lg'), r.made + ' × ' + esc(lineName(lineKey(r.item, r.material))),
+      (r.spoiled ? r.spoiled + ' spoiled · ' : '') + 'in storage tomorrow', '<b>' + r.quality + '</b>quality');
+  }
+  if (r.kind === 'delivery') {
+    return dlgHero(lineSprite(r.key, 'lg'), r.load + ' delivered', 'to ' + esc(r.customer),
+      r.done ? '<b>' + coin(r.paid) + 'g</b>paid' : '<b>' + r.left + '</b>still to go');
+  }
+  if (r.kind === 'haul') {
+    return dlgHero(oreSprite(r.material, 'lg'), r.load + ' ore collected', 'from ' + esc(r.mine),
+      '<b>' + r.left + '</b>left there');
+  }
+  if (r.kind === 'smelt') {
+    return dlgHero(ingotSprite(r.material, 'lg'), r.made + ' ' + esc(shopMaterial(r.material).name) + ' ingots',
+      r.left + ' ore remaining', '<b>' + r.rate + '</b>a phase');
+  }
+  if (r.kind === 'storehand') {
+    return dlgHero(sold.length ? lineSprite(sold[0], 'lg') : standSprite('weapon', 'lg'),
+      r.moved + (r.moved === 1 ? ' item stocked' : ' items stocked'), 'could move ' + r.capacity, '');
+  }
+  return '';
+}
+function reportArt(r) {
+  const e = (shop().staff || []).find(function (one) { return one.name === r.who; });
+  return e ? staffPortrait(e) : '';
+}
+
 /* Reports queue up: a phase can end with three of them. */
 function shopShowReport(report, done) {
-  shopSheet(reportTitle(report), reportBody(report),
+  shopSheet(reportTitle(report), reportHero(report) + reportBody(report),
     [{ label: 'Close', primary: true,
-      onClick: function () { shopSheetClose(); if (done) done(); } }]);
+      onClick: function () { shopSheetClose(); if (done) done(); } }], reportArt(report));
 }
 
 function shopShowReports(list, done) {
@@ -18958,29 +19378,26 @@ function shopOpenSpecialAttempt(id) {
   const check = specialAttemptCheck(sh, id);
   const blocked = shopPhaseBlocker();
   const board = specialBoard(id);
-  let html = '<div class="sp-head">' + itemSprite(id, def.material, 'xl') +
-    '<span class="nm">' + esc(it.name) + '<span class="sub">for ' + esc(rec.customer) + ', ' +
-    esc(rec.trade || specialTradeName(def)) + '</span></span></div>' +
-    '<div class="shop-list" style="margin-top:8px">' +
-    rowHtml('Ingots required', 'committed when the attempt starts', def.qty + ' ' + esc(mt.name)) +
-    rowHtml('Ingots in stock', esc(mt.name), String(have)) +
-    rowHtml('Puzzle', metalCount(board) + ' squares in the shape of the ' + esc(it.name),
-      plural(mt.strikes, 'strike', 'strikes') + ' each') +
-    rowHtml('Attempts so far', rec.best ? 'best quality ' + rec.best : 'none finished yet',
-      String(rec.attempts)) +
-    '</div>' +
-    '<p class="sp-meta" style="margin-top:8px">The ingots are used when the attempt starts and ' +
-    'are not returned, whatever the result. Only a perfect forge (quality 100) completes the ' +
-    'commission. If the piece is imperfect or you run out of moves, the design and mold are ' +
-    'kept and you can try again with another ' + def.qty + ' ' + esc(mt.name) + ' ingots. ' +
-    'The attempt uses this phase.</p>';
-  if (!check.ok) html += '<p class="hire-warn">Cannot start: ' + esc(check.why) + '.</p>';
-  else if (blocked) html += '<p class="hire-warn">' + esc(blocked) + '</p>';
+  let html = dlgHero(itemSprite(id, def.material, 'lg'), esc(it.name),
+    'for ' + esc(rec.customer) + ', ' + esc(rec.trade || specialTradeName(def)),
+    '<b>' + (rec.best || '—') + '</b>best so far') +
+    dlgFacts([
+      { k: 'Ingots required', v: def.qty + ' ' + esc(mt.name), sub: 'committed when the attempt starts' },
+      { k: 'Ingots in stock', v: String(have), sub: esc(mt.name), n: have < def.qty ? 'short' : '' },
+      { k: 'Puzzle', v: metalCount(board) + ' squares', sub: 'shaped like the ' + esc(it.name) + ' · ' +
+        plural(mt.strikes, 'strike', 'strikes') + ' each' },
+      { k: 'Attempts so far', v: String(rec.attempts), sub: rec.best ? 'best quality ' + rec.best : 'none finished yet' }
+    ]) +
+    dlgNote('The ingots are used when the attempt starts and are not returned, whatever the result. ' +
+      'Only a perfect forge (quality 100) completes the commission; otherwise the design and mold ' +
+      'are kept for another try with ' + def.qty + ' more ' + esc(mt.name) + ' ingots. The attempt uses this phase.');
+  if (!check.ok) html += dlgNote('Cannot start: ' + esc(check.why) + '.', 'warn');
+  else if (blocked) html += dlgNote(esc(blocked), 'warn');
   shopSheet('Attempt Forge', html, [
     { label: 'Start Attempt · ' + def.qty + ' ' + mt.name, primary: true,
       disabled: !check.ok || !!blocked, onClick: function () { shopBeginSpecial(id); } },
     { label: 'Back', ghost: true, onClick: shopSheetClose }
-  ]);
+  ], itemSprite(id, def.material));
 }
 
 /* Commit the metal and put the piece on the anvil. A second tap finds the
@@ -19089,11 +19506,12 @@ function shopOpenRelease(id) {
   const redraw = function () {
     const d = SHOPUI.draft;
     shopSheet('Return to Storage: ' + com.name,
-      '<p class="roster-note">Items assigned to a commission are held apart from storage. ' +
-      'Returning them makes them available to sell again, and the commission will need ' +
-      'that many more.</p>' +
-      '<div class="pick-row"><label>Quantity</label>' + stepper('qty', d.qty, 1, com.filled) +
-      '</div>',
+      dlgHero(lineSprite(com.key, 'lg'), esc(lineName(com.key)), 'For ' + esc(com.name),
+        '<b>' + com.filled + '</b>assigned') +
+      dlgQty('qty', 'Quantity', d.qty, 1, com.filled, { unit: 'items' }) +
+      dlgSum([{ k: 'Back on sale from storage', v: String(d.qty) },
+        { k: 'The commission will still need', v: String(commissionToMake(com) + d.qty), tone: 'short' }]) +
+      dlgNote('Items assigned to a commission are held apart from storage until they are returned.'),
       [
         { label: 'Return to Storage', primary: true,
           onClick: function () {
@@ -19105,7 +19523,7 @@ function shopOpenRelease(id) {
               (res.lost ? ', ' + res.lost + ' lost (storage full)' : '') + '.');
           } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
+      ], contractSprite());
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -19135,23 +19553,21 @@ function shopHandOver(id) {
     const sh2 = shop();
     const cart = vehicleById(sh2, d.vehicle) || carts[0];
     const haul = commissionHaul(sh2, com, cart);
-    let html = '<p class="roster-note">Delivering yourself uses this phase. Assign a ' +
-      'Runner to deliver without using your phase.</p>' +
-      '<div class="pick-row"><label for="shCart">Vehicle</label>' +
-      '<select id="shCart" data-sel="vehicle">';
-    for (const v of freeVehicles(sh2)) {
-      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') + '>' +
-        esc(vehicleDef(v.kind).name) + ' (carries ' + vehicleCapacity(v) + ')</option>';
-    }
-    html += '</select></div>' +
-      '<div class="sheet-total"><span>Waiting to deliver</span><b>' + haul.waiting + '</b></div>' +
-      '<div class="sheet-total"><span>This trip</span><b>' + haul.load + '</b></div>' +
-      '<div class="sheet-total"><span>Trips needed</span><b>' + haul.trips + '</b></div>' +
-      (haul.load < haul.waiting
-        ? '<p class="roster-note">The remaining items need another trip. The balance is ' +
-          'paid when all items are delivered.</p>'
-        : '<p class="roster-note">This trip completes the commission and collects the ' +
-          'balance.</p>');
+    const days = commissionDaysLeft(sh2, com);
+    let html = dlgHero(lineSprite(com.key, 'lg'), esc(com.name), com.qty + ' × ' + esc(lineName(com.key)) +
+      ' · due ' + (days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days'),
+      '<b>' + coin(com.pay - com.advance) + 'g</b>balance');
+    html += placeSec('Vehicle');
+    html += dlgVehicles(sh2, d);
+    html += dlgSum([
+      { k: 'Waiting to deliver', v: String(haul.waiting) },
+      { k: 'This trip', v: String(haul.load), tone: 'gold' },
+      { k: 'Trips needed', v: String(haul.trips), tone: haul.trips > 1 ? 'short' : '' }
+    ]);
+    html += dlgNote((haul.load < haul.waiting
+      ? 'The rest needs another trip; the balance is paid when everything is delivered. '
+      : 'This trip completes the commission and collects the balance. ') +
+      'Delivering yourself uses this phase; a Runner would not.');
     shopSheet('Deliver to ' + com.name, html, [
       { label: 'Deliver (Uses Phase)', primary: true, disabled: haul.load <= 0,
         onClick: function () {
@@ -19172,7 +19588,7 @@ function shopHandOver(id) {
           }
         } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    ], contractSprite());
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -19208,16 +19624,16 @@ function shopOpenMine(id) {
     const def = mineDef(mine.def);
     const cap = mineStoreCap(mine);
 
-    let html = '<div class="mine-stats" style="margin-bottom:10px">' +
-      '<span>Mineral<b>' + esc(shopMaterial(def.material).name) + '</b></span>' +
-      '<span>Ore stored<b>' + mine.ore + ' / ' + cap + '</b></span>' +
-      '<span>Ore per week<b>' + mineYield(mine) + '</b></span>' +
-      '<span>Miners<b>' + mine.miners.length + ' / ' + mineMinerCap(mine) + '</b></span></div>';
+    let html = placeStats([
+      placeStat('Mineral', esc(shopMaterial(def.material).name)),
+      placeStat('Ore stored', mine.ore + ' / ' + cap, placeMeter(mine.ore, cap), mine.ore >= cap ? 'warn' : ''),
+      placeStat('Per week', String(mineYield(mine)), 'ore'),
+      placeStat('Miners', mine.miners.length + ' / ' + mineMinerCap(mine), placeMeter(mine.miners.length, mineMinerCap(mine)))
+    ]).replace('class="pstats"', 'class="pstats four"');
 
-    html += '<p class="shop-cap">Miners</p>';
+    html += placeSec('Miners', mine.miners.length ? 'tap one for their rank' : '');
     if (!mine.miners.length) {
-      html += '<p class="shop-empty">No Miners. The mine produces no ore without them. ' +
-        'Miners do not use your forge\u2019s staff places.</p>';
+      html += dlgNote('No Miners, so no ore. Miners do not use your forge’s staff places.');
     } else {
       html += '<div class="shop-list">';
       // a miner reads exactly as a forge hand does: rank, the work behind
@@ -19233,7 +19649,7 @@ function shopOpenMine(id) {
     const room = mine.miners.length < mineMinerCap(mine);
     const list = mine.applicants || [];
     if (list.length) {
-      html += '<p class="shop-cap" style="margin-top:10px">Applicants</p><div class="shop-list">';
+      html += placeSec('Applicants', 'hiring costs ' + SHOP.mining.hireWeeks + ' weeks of wages') + '<div class="dlg-apps">';
       for (const one of list) {
         const fee = one.wage * SHOP.mining.hireWeeks;
         html += '<div class="applicant">' + portrait(one.face) +
@@ -19248,20 +19664,18 @@ function shopOpenMine(id) {
       html += '</div>';
     }
 
-    html += '<p class="shop-cap" style="margin-top:10px">Mine Upgrades</p><div class="shop-list">';
+    html += placeSec('Mine Upgrades');
+    html += '<div class="dlg-tiles three">';
     for (const u of SHOP.mineUpgrades) {
       const level = mineLevel(mine, u.id);
       const cost = mineUpgradeCost(mine, u.id);
-      const what = u.miners ? '+' + u.miners + ' miner places per level'
-        : u.store ? '+' + u.store + ' ore storage per level'
-          : '+' + Math.round(u.efficiency * 100) + '% ore per level';
-      html += '<div class="shop-row">' +
-        '<span class="nm">' + esc(u.name) + ' <small style="color:var(--muted)">' + level +
-        '/' + u.max + '</small></span>' +
-        (cost === null ? '<span class="amt">max level</span>'
-          : '<button data-minebuy="' + u.id + '"' + (sh.gold < cost ? ' disabled' : '') + '>' +
-            coin(cost) + 'g</button>') +
-        '<span class="sub">' + what + '</span></div>';
+      const what = u.miners ? '+' + u.miners + ' miner places'
+        : u.store ? '+' + u.store + ' ore storage'
+          : '+' + Math.round(u.efficiency * 100) + '% ore';
+      html += dlgTile('data-minebuy="' + u.id + '"', { cls: 'upg', name: esc(u.name),
+        art: dlgPips(level, u.max), sub: what + ' a level',
+        badge: cost === null ? 'max' : coin(cost) + 'g', off: cost === null || sh.gold < cost,
+        aria: u.name + ', level ' + level + ' of ' + u.max + (cost === null ? ', at its maximum' : ', ' + coin(cost) + ' gold') }, false);
     }
     html += '</div>';
 
@@ -19271,7 +19685,7 @@ function shopOpenMine(id) {
         redraw();
       } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    ], mineSprite(mine.def));
   };
   SHOPUI.mineOpen = id;
   SHOPUI.redraw = redraw;
@@ -19291,12 +19705,15 @@ function shopOpenSmelt(materialId) {
   const redraw = function () {
     const d = SHOPUI.draft;
     shopSheet('Smelt ' + mt.name + ' Ore',
-      '<p class="roster-note">One ore makes one ingot. Smelting yourself uses this phase. ' +
-      'A Smith can smelt instead; higher-ranked Smiths smelt more per phase.</p>' +
-      '<div class="pick-row"><label>Ore to smelt</label>' +
-      stepper('qty', d.qty, 1, most) + '</div>' +
-      '<div class="sheet-total"><span>Ore available</span><b>' + have + '</b></div>' +
-      '<div class="sheet-total"><span>Maximum per phase</span><b>' + rate + '</b></div>',
+      dlgHero(oreSprite(materialId, 'lg'), esc(mt.name) + ' ore', have + ' in the yard · one ore makes one ingot',
+        '<b>' + rate + '</b>a phase') +
+      dlgQty('qty', 'Ore to smelt', d.qty, 1, most, { ceiling: have, unit: 'ore' }) +
+      dlgSum([
+        { k: 'Ore available', v: String(have) },
+        { k: 'Maximum per phase', v: String(rate) },
+        { k: mt.name + ' ingots after', v: String((shop().materials[materialId] || 0) + d.qty), tone: 'gold' }
+      ]) +
+      dlgNote('Smelting yourself uses this phase. A Smith can do it instead, and higher ranks smelt more.'),
       [
         { label: 'Smelt (Uses Phase)', primary: true, onClick: function () {
           const res = shopSmelt(shop(), materialId, SHOPUI.draft.qty);
@@ -19305,7 +19722,7 @@ function shopOpenSmelt(materialId) {
           shopSpendPhase('Smelted ' + res.made + ' ' + mt.name + ' ingots.');
         } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }
-      ]);
+      ], oreSprite(materialId));
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -19402,37 +19819,38 @@ function shopDayBreak(result) {
   const sh = shop();
   shopRender();
   let html = '';
+  // a tile to a thing that arrived overnight, however many there were
+  const tiles = function (list) {
+    return '<div class="dlg-tiles' + (list.length > 2 ? '' : ' two') + ' still">' +
+      list.map(function (t) {
+        // nothing to choose here, so a card rather than a button
+        return dlgTile('', t, false).replace(/^<button type="button"/, '<div').replace(/<\/button>$/, '</div>');
+      }).join('') + '</div>';
+  };
   if (result.delivered && result.delivered.length) {
-    html += '<p style="margin:0 0 8px;font-size:13px">Forged items added to storage:</p>' +
-      '<div class="shop-list">';
-    for (const d of result.delivered) {
-      html += rowHtml(lineSprite(d.key) + ' ' + esc(lineName(d.key)) + ' &times;' + d.qty,
-        'quality ' + Math.round(d.quality) + ' · by ' + esc(d.maker) +
-        (d.lost ? ' · ' + d.lost + ' lost (storage full)' : ''), '');
-    }
-    html += '</div>';
+    html += placeSec('Forged items added to storage');
+    html += tiles(result.delivered.map(function (d) {
+      return { art: lineSprite(d.key), name: esc(lineName(d.key)), badge: '×' + d.qty,
+        sub: 'quality ' + Math.round(d.quality) + ' · ' + esc(d.maker) +
+          (d.lost ? ' · ' + d.lost + ' lost (storage full)' : '') };
+    }));
   }
   // what a night's thinking over the day's work came to. A new blueprint is
   // the quiet half of this mode's progression, so it is told, not filed.
   if (result.learned && result.learned.length) {
-    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px">' +
-      'New blueprints in the Almanac:</p><div class="shop-list">';
-    for (const id of result.learned) {
+    html += placeSec('New blueprints in the Almanac');
+    html += tiles(result.learned.filter(function (id) { return !!shopItem(id); }).map(function (id) {
       const it = shopItem(id);
-      if (!it) continue;
       const cat = shopCategory(it.cat);
-      html += rowHtml(itemSprite(id, 'bronze') + ' ' + esc(it.name),
-        esc(cat ? cat.name : it.cat) + ' · ' + it.size + '×' + it.size + ' board · ' +
-        coin(it.price) + 'g in bronze', 'new');
-    }
-    html += '</div>';
+      return { art: itemSprite(id, 'bronze'), name: esc(it.name), badge: 'new',
+        sub: esc(cat ? cat.name : it.cat) + ' · ' + it.size + '×' + it.size + ' · ' + coin(it.price) + 'g' };
+    }));
   }
   // a contract whose day has gone. The goods come back; the money and the
   // forge's good name do not, so it is said plainly rather than filed.
   if (result.failed && result.failed.length) {
-    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px;' +
-      'color:var(--danger)">Commissions past their deadline (' +
-      SHOP.commission.repFailed + ' reputation each):</p><div class="shop-list">';
+    html += dlgNote('Commissions past their deadline (' + SHOP.commission.repFailed +
+      ' reputation each):', 'warn') + '<div class="shop-list">';
     for (const com of result.failed) {
       html += rowHtml(contractSprite() + ' ' + esc(com.name) + "'s commission",
         com.filled + ' of ' + com.qty + ' ' + esc(lineName(com.key)) + ' · ' +
@@ -19445,19 +19863,14 @@ function shopDayBreak(result) {
   if (result.dug && result.dug.length) {
     const total = result.dug.reduce(function (t, r) { return t + r.kept; }, 0);
     const spoiled = result.dug.reduce(function (t, r) { return t + r.lost; }, 0);
-    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px">' +
-      'Weekly mine production: ' + total + ' ore' +
-      (spoiled ? ', ' + spoiled + ' lost (mine storage full)' : '') +
-      ':</p><div class="shop-list">';
-    for (const row of result.dug) {
-      html += rowHtml(oreSprite(row.material) + ' ' + esc(row.name),
-        (row.miners ? row.miners + (row.miners === 1 ? ' miner · ' : ' miners · ') : 'no miners · ') +
-        row.ore + ' of ' + row.cap + ' stored' +
-        (row.lost ? ' · ' + row.lost + ' lost' : '') +
-        (row.full ? ' · full, send a Runner to collect' : ''),
-        '+' + row.kept);
-    }
-    html += '</div>';
+    html += placeSec('Weekly mine production: ' + total + ' ore',
+      spoiled ? spoiled + ' lost (mine storage full)' : '');
+    html += tiles(result.dug.map(function (row) {
+      return { art: oreSprite(row.material), name: esc(row.name), badge: '+' + row.kept,
+        sub: (row.miners ? row.miners + (row.miners === 1 ? ' miner · ' : ' miners · ') : 'no miners · ') +
+          row.ore + '/' + row.cap + (row.lost ? ' · ' + row.lost + ' lost' : '') +
+          (row.full ? ' · full, send a Runner' : '') };
+    }));
   }
   /* What the standing roster managed this morning. Both halves matter: a box
      that filled itself is the point of the feature, and a box that could not
@@ -19465,9 +19878,8 @@ function shopDayBreak(result) {
   if (result.roster && result.roster.length) {
     const put = result.roster.filter(function (r) { return r.ok; });
     const missed = result.roster.filter(function (r) { return !r.ok; });
-    html += '<p style="margin:' + (html ? '12px' : '0') + ' 0 8px;font-size:13px">' +
-      '\u21ba Daily assignments: ' + put.length + ' filled' +
-      (missed.length ? ', ' + missed.length + ' not filled' : '') + '</p>' +
+    html += placeSec('↺ Daily assignments', put.length + ' filled' +
+      (missed.length ? ', ' + missed.length + ' not filled' : '')) +
       '<div class="roster-report">';
     for (const row of result.roster) {
       const role = shopRole(row.role);
@@ -19484,35 +19896,29 @@ function shopDayBreak(result) {
   if (bill) {
     // the week's reckoning: the money leaving is the sound of it
     if (bill.paid) SOUNDS.coins(3, false);
-    html += '<div class="report"><dl>' +
-      '<dt>Rent</dt><dd>' + coin(bill.rent) + 'g</dd>' +
-      '<dt>Wages</dt><dd>' + coin(bill.wages) + 'g</dd>' +
-      (bill.mines ? '<dt>Miner wages</dt><dd>' + coin(bill.mines) + 'g</dd>' : '') +
-      '<dt>Total due</dt><dd>' + coin(bill.total) + 'g</dd>' +
-      '<dt>Gold</dt><dd class="' + (bill.paid ? 'good' : '') + '">' +
-      coin(bill.gold) + 'g</dd>' +
-      '</dl></div>';
+    html += placeSec(bill.paid ? 'Weekly costs paid' : 'Weekly costs');
+    html += dlgSum([
+      { k: 'Rent', v: coin(bill.rent) + 'g' },
+      { k: 'Wages', v: coin(bill.wages) + 'g' },
+      bill.mines ? { k: 'Miner wages', v: coin(bill.mines) + 'g' } : null,
+      { k: 'Total due', v: coin(bill.total) + 'g' },
+      { k: 'Gold', v: coin(bill.gold) + 'g', tone: bill.paid ? 'gold' : 'bad' }
+    ]);
     html += bill.paid
-      ? '<p style="margin:9px 0 0;font-size:13px;color:var(--brass)">Weekly costs paid.</p>' +
-        (result.wages
-          ? '<p style="margin:7px 0 0;font-size:12.5px;color:var(--muted)">' +
-            'Customers received ' + coin(result.wages.paid) + 'g in weekly income across ' +
-            result.wages.people + ' customers' +
-            (result.wages.arrived
-              ? '; ' + result.wages.arrived + ' new customer' +
-                (result.wages.arrived === 1 ? '' : 's') + ' arrived'
-              : '') + '.</p>'
-          : '')
-      : '<p style="margin:9px 0 0;font-size:13px;color:var(--danger)">You are ' +
-        coin(bill.short) + 'g short of the weekly costs. The forge closes.</p>';
+      ? (result.wages
+        ? dlgNote('Customers received ' + coin(result.wages.paid) + 'g in weekly income across ' +
+          result.wages.people + ' customers' + (result.wages.arrived
+            ? '; ' + result.wages.arrived + ' new customer' + (result.wages.arrived === 1 ? '' : 's') + ' arrived'
+            : '') + '.')
+        : '')
+      : dlgNote('You are ' + coin(bill.short) + 'g short of the weekly costs. The forge closes.', 'warn');
   }
-  if (!html) html = '<p class="shop-empty">Nothing to report.</p>';
+  if (!html) html = dlgNote('Nothing to report.');
 
   if (sh.closed) {
     SOUNDS.ruin();
-    shopSheet('Forge Closed', html + '<p style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">' +
-      'You lasted ' + (sh.day - 1) + ' days and paid ' + sh.rentPaid +
-      (sh.rentPaid === 1 ? ' week' : ' weeks') + ' of rent.</p>',
+    shopSheet('Forge Closed', html + dlgNote('You lasted ' + (sh.day - 1) + ' days and paid ' + sh.rentPaid +
+      (sh.rentPaid === 1 ? ' week' : ' weeks') + ' of rent.'),
       [
         { label: 'Start a New Forge', primary: true,
           onClick: function () { shopSheetClose(); askForgeName(function (name) { startShop(null, name); }); } },
@@ -19522,7 +19928,8 @@ function shopDayBreak(result) {
   }
   shopSheet('Day ' + sh.day, html,
     [{ label: 'Start Day ' + sh.day, primary: true,
-      onClick: function () { shopSheetClose(); shopRender(); shopToast(shopDayNotice(sh)); } }]);
+      onClick: function () { shopSheetClose(); shopRender(); shopToast(shopDayNotice(sh)); } }],
+    placeArt(sh, 'door'));
 }
 
 /* ---------- working an order at the anvil ------------------------------
@@ -19592,20 +19999,22 @@ function shopForgeComplete(result) {
   SHOPUI.order = null;
   const res = shopFinishForge(sh, order.item, order.material, order.qty, result.quality, 'you');
   shopReturn();
-  const body = '<div class="report"><dl>' +
+  const worth = recommendedPrice(order.item, order.material, result.quality,
+    order.level || blueprintLevel(shop(), order.item));
+  const body = dlgHero(itemSprite(order.item, order.material, 'lg'),
+    order.qty + ' × ' + esc(lineName(lineKey(order.item, order.material))), esc(result.label) + ' work',
+    '<b>' + result.quality + '</b>quality') + '<div class="report"><dl>' +
     '<dt>Batch</dt><dd>' + order.qty + ' × ' +
     esc(lineName(lineKey(order.item, order.material))) + '</dd>' +
     '<dt>Quality</dt><dd class="good">' + result.quality + ' · ' + esc(result.label) + '</dd>' +
     '<dt>Ingots spent</dt><dd>' + order.qty + '</dd>' +
-    '<dt>Recommended price</dt><dd class="good">' +
-    coin(recommendedPrice(order.item, order.material, result.quality,
-      order.level || blueprintLevel(shop(), order.item)) * order.qty) + 'g</dd>' +
-    '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
-    (res.ok ? 'The items go into storage at the start of tomorrow.' : esc(res.why)) +
-    '</p></div>';
+    '<dt>Recommended price</dt><dd class="good">' + coin(worth * order.qty) + 'g</dd>' +
+    '</dl></div>' + dlgNote(res.ok ? 'The items go into storage at the start of tomorrow, at about ' +
+      coin(worth) + 'g each.' : esc(res.why), res.ok ? '' : 'warn');
   shopSheet('Batch Forged', body,
     [{ label: 'Return to Shop', primary: true,
-      onClick: function () { shopSheetClose(); SHOPUI.forgedNow = true; shopSpendPhase(null); } }]);
+      onClick: function () { shopSheetClose(); SHOPUI.forgedNow = true; shopSpendPhase(null); } }],
+    itemSprite(order.item, order.material));
 }
 
 /* The board was ruined: the phase is gone, the metal is not. */
@@ -19613,8 +20022,8 @@ function shopForgeFailed() {
   SHOPUI.order = null;
   shopReturn();
   shopSheet('Batch Failed',
-    '<p style="margin:0;font-size:13px">No legal moves were left before every square was ' +
-    'finished. The phase is used, but no ingots were spent.</p>',
+    dlgNote('No legal moves were left before every square was finished. The phase is used, ' +
+      'but no ingots were spent.'),
     [{ label: 'Return to Shop', primary: true,
       onClick: function () { shopSheetClose(); shopSpendPhase(null); } }]);
 }
@@ -19662,18 +20071,27 @@ function shopSendStaff(id, again) {
 /* A runner who could go either way is asked which. A forge with no property
    never sees this at all. */
 function shopOpenErrand(runner, canHaul, canShip) {
-  const acts = [
-    { label: 'Buy Ingots', primary: true,
-      onClick: function () { SHOPUI.draft = {}; shopOpenBuy(runner); } }
-  ];
-  if (canHaul) acts.push({ label: 'Collect Ore', onClick: function () { shopOpenCollect(runner); } });
-  if (canShip) acts.push({ label: 'Deliver a Commission', onClick: function () { shopOpenDeliver(runner); } });
-  acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
-  shopSheet('Runner Job: ' + runner.name.split(' ')[0],
-    '<p class="roster-note">A Runner does one job per phase. Buy Ingots purchases metal at the ' +
-    'market. Collect Ore brings ore from your mine and needs a vehicle. Deliver a Commission ' +
-    'takes assigned items to the customer and needs a vehicle.</p>',
-    acts);
+  const sh = shop();
+  const waiting = sh.mines.reduce(function (n, m) { return n + m.ore; }, 0);
+  const ready = sh.commissions.filter(function (com) { return commissionReady(com); });
+  const carts = freeVehicles(sh).length;
+  const due = ready.length ? Math.min.apply(null, ready.map(function (c) { return commissionDaysLeft(sh, c); })) : 0;
+  const body = dlgNote('A Runner does one job a phase, and none of it uses yours.') + dlgOptions([
+    { id: 'market', art: ingotSprite('bronze'), name: 'Buy Ingots',
+      sub: 'Metal from the market. No vehicle needed.',
+      go: function () { SHOPUI.draft = {}; shopOpenBuy(runner); } },
+    { id: 'ore', art: oreSprite(sh.mines.length ? mineDef(sh.mines[0].def).material : 'bronze'), name: 'Collect Ore',
+      sub: !sh.mines.length ? 'You own no mine yet.' : !canHaul ? 'Needs a vehicle.'
+        : waiting + ' ore waiting at ' + (sh.mines.length === 1 ? sh.mines[0].name : sh.mines.length + ' mines') +
+          ' · ' + carts + ' vehicle' + (carts === 1 ? '' : 's') + ' free',
+      off: !canHaul, go: function () { shopOpenCollect(runner); } },
+    { id: 'deliver', art: contractSprite(), name: 'Deliver a Commission',
+      sub: canShip ? ready.length + ' ready · soonest due ' + (due <= 0 ? 'today' : due === 1 ? 'tomorrow' : 'in ' + due + ' days')
+        : 'No commission has all its items yet.',
+      off: !canShip, go: function () { shopOpenDeliver(runner); } }
+  ]);
+  shopSheet('Runner Job: ' + runner.name.split(' ')[0], body,
+    [{ label: 'Back', ghost: true, onClick: shopSheetClose }], staffPortrait(runner));
 }
 
 /* Sending a runner out with a contract. Everything the choice turns on is on
@@ -19684,63 +20102,51 @@ function shopOpenDeliver(runner) {
   const ready = sh.commissions.filter(function (com) { return commissionReady(com); });
   if (!ready.length) {
     shopSheet('Deliver a Commission',
-      '<p class="shop-empty">No commission has all its items assigned. The Ledger shows how ' +
-      'many each one still needs.</p>',
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+      dlgNote('No commission has all its items assigned. The Ledger shows how many each one still needs.'),
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }], contractSprite());
     return;
   }
   const carts = freeVehicles(sh);
   if (!carts.length) {
     shopSheet('Deliver a Commission',
-      '<p class="shop-empty">' + (sh.vehicles.length
+      dlgNote(sh.vehicles.length
         ? 'All vehicles are in use this phase. Each trip needs its own vehicle.'
-        : 'Deliveries need a vehicle. Buy one at the entrance.') + '</p>',
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+        : 'Deliveries need a vehicle. Buy one at the entrance.'),
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }], contractSprite());
     return;
   }
   const d = SHOPUI.draft = { commission: ready[0].id, vehicle: bestFreeVehicle(sh).id };
+  let was = null;
   const redraw = function () {
     const sh2 = shop();
     const com = commissionById(sh2, d.commission) || ready[0];
     const cart = vehicleById(sh2, d.vehicle) || carts[0];
     const haul = commissionHaul(sh2, com, cart);
     const days = commissionDaysLeft(sh2, com);
-    if (!d.qty || d.qty > haul.load) d.qty = haul.load;
+    // a different load starts at all that fits; the same one keeps its number
+    const key = com.id + ':' + cart.id;
+    if (key !== was || !d.qty || d.qty > haul.load) d.qty = haul.load;
+    was = key;
 
-    let html = '<div class="pick-row"><label for="shCom">Commission</label>' +
-      '<select id="shCom" data-sel="commission">';
-    for (const c of ready) {
-      html += '<option value="' + c.id + '"' + (c.id === com.id ? ' selected' : '') + '>' +
-        esc(c.name) + ' (' + commissionToShip(c) + ' of ' + c.qty + ' to deliver)</option>';
-    }
-    html += '</select></div>';
-
-    html += '<div class="pick-row"><label for="shCart">Vehicle</label>' +
-      '<select id="shCart" data-sel="vehicle">';
-    for (const v of sh2.vehicles) {
-      const free = vehicleFree(sh2, v);
-      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') +
-        (free ? '' : ' disabled') + '>' + esc(vehicleDef(v.kind).name) + ' (carries ' +
-        vehicleCapacity(v) + (free ? '' : ', in use') + ')</option>';
-    }
-    html += '</select></div>';
-
-    html += '<div class="pick-row"><label>Quantity</label>' +
-      stepper('qty', d.qty, 0, Math.max(0, haul.load)) + '</div>' +
-      '<div class="sheet-total"><span>Customer</span><b>' + esc(com.name) + '</b></div>' +
-      '<div class="sheet-total"><span>Still to deliver</span><b>' + haul.waiting + ' of ' +
-      com.qty + '</b></div>' +
-      '<div class="sheet-total"><span>Vehicle capacity</span><b>' +
-      haul.capacity + '</b></div>' +
-      '<div class="sheet-total' + (days <= 1 ? ' short' : '') + '"><span>Due</span><b>' +
-      (days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days') + '</b></div>';
-    if (haul.trips > 1) {
-      html += '<p class="roster-note" style="color:var(--ember)">This vehicle needs ' +
-        haul.trips + ' trips to deliver everything. The balance is paid when all items are ' +
-        'delivered, before the deadline.</p>';
-    } else {
-      html += '<p class="roster-note">One trip delivers everything and collects the balance.</p>';
-    }
+    let html = placeSec('Commission', ready.length + ' ready');
+    html += dlgTiles('commission', ready.map(function (c) {
+      return { val: c.id, art: lineSprite(c.key), name: esc(c.name),
+        sub: commissionToShip(c) + ' of ' + c.qty + ' to deliver' };
+    }), com.id, { cls: 'wide', label: 'Commission' });
+    html += placeSec('Vehicle');
+    html += dlgVehicles(sh2, d);
+    html += dlgQty('qty', 'Quantity', d.qty, 0, Math.max(0, haul.load), { ceiling: haul.waiting,
+      after: haul.load < haul.waiting ? haul.waiting + ' waiting' : '', unit: 'items' });
+    html += dlgSum([
+      { k: 'Customer', v: esc(com.name) },
+      { k: 'Still to deliver', v: haul.waiting + ' of ' + com.qty },
+      { k: 'Vehicle capacity', v: String(haul.capacity) },
+      { k: 'Due', v: days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days', tone: days <= 1 ? 'short' : '' },
+      haul.trips > 1 ? { k: 'Trips needed', v: String(haul.trips), tone: 'short' } : null
+    ]);
+    html += dlgNote(haul.trips > 1
+      ? 'This vehicle needs ' + haul.trips + ' trips. The balance is paid when everything is delivered, before the deadline.'
+      : 'One trip delivers everything and collects the balance.');
 
     shopSheet('Runner: Deliver to ' + com.name, html, [
       { label: 'Assign Delivery', primary: true, disabled: d.qty <= 0,
@@ -19755,7 +20161,7 @@ function shopOpenDeliver(runner) {
           shopToast('Delivery assigned. This does not use your phase.');
         } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    ], staffPortrait(runner));
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -19768,46 +20174,46 @@ function shopOpenCollect(runner) {
   const carts = freeVehicles(sh);
   if (!carts.length) {
     shopSheet('Collect Ore',
-      '<p class="shop-empty">All vehicles are in use this phase. Buy another in the Properties ' +
-      'tab, or assign this job in a later phase.</p>',
-      [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
+      dlgNote('All vehicles are in use this phase. Buy another at the Properties page, or ' +
+        'assign this job in a later phase.'),
+      [{ label: 'Back', ghost: true, onClick: shopSheetClose }], staffPortrait(runner));
     return;
   }
   const d = SHOPUI.draft = {};
-  d.mine = sh.mines[0].id;
-  d.vehicle = carts[0].id;
+  // the mine with the most waiting is the likely trip
+  d.mine = sh.mines.slice().sort(function (a, b) { return b.ore - a.ore; })[0].id;
+  d.vehicle = bestFreeVehicle(sh).id;
+  let was = null;
   const redraw = function () {
     const sh2 = shop();
     const mine = mineById(sh2, d.mine) || sh2.mines[0];
     const cart = vehicleById(sh2, d.vehicle) || carts[0];
     const room = Math.max(0, oreStorageCap(sh2) - countOre(sh2));
     const most = Math.max(0, Math.min(mine.ore, vehicleCapacity(cart), room));
-    if (!d.qty || d.qty > most) d.qty = most;
+    const key = mine.id + ':' + cart.id;
+    if (key !== was || !d.qty || d.qty > most) d.qty = most;
+    was = key;
 
-    let html = '<div class="pick-row"><label for="shMine">Mine</label>' +
-      '<select id="shMine" data-sel="mine">';
-    for (const m of sh2.mines) {
-      html += '<option value="' + m.id + '"' + (m.id === mine.id ? ' selected' : '') + '>' +
-        esc(m.name) + ' (' + m.ore + ' ore stored)</option>';
-    }
-    html += '</select></div>';
-
-    html += '<div class="pick-row"><label for="shCart">Vehicle</label>' +
-      '<select id="shCart" data-sel="vehicle">';
-    for (const v of freeVehicles(sh2)) {
-      html += '<option value="' + v.id + '"' + (v.id === cart.id ? ' selected' : '') + '>' +
-        esc(vehicleDef(v.kind).name) + ' (carries ' + vehicleCapacity(v) + ')</option>';
-    }
-    html += '</select></div>';
-
-    html += '<div class="pick-row"><label>Ore to collect</label>' +
-      stepper('qty', d.qty, 0, Math.max(0, most)) + '</div>' +
-      '<div class="sheet-total"><span>At the mine</span><b>' + mine.ore + ' ore</b></div>' +
-      '<div class="sheet-total"><span>Vehicle capacity</span><b>' +
-      vehicleCapacity(cart) + '</b></div>' +
-      '<div class="sheet-total"><span>Free ore storage</span><b>' + room + '</b></div>' +
-      (most <= 0 ? '<p class="roster-note" style="color:var(--danger)">No ore can be ' +
-        'collected: the mine is empty or your ore storage is full.</p>' : '');
+    let html = placeSec('Mine');
+    html += dlgTiles('mine', sh2.mines.map(function (m) {
+      return { val: m.id, art: mineSprite(m.def), name: esc(m.name), sub: m.ore + ' ore waiting' };
+    }), mine.id, { cls: sh2.mines.length > 2 ? '' : 'two', label: 'Mine' });
+    html += placeSec('Vehicle');
+    html += dlgVehicles(sh2, d);
+    html += dlgQty('qty', 'Ore to collect', d.qty, 0, most, { unit: 'ore' });
+    html += dlgSum([
+      { k: 'At the mine', v: mine.ore + ' ore', tone: mine.ore === most && most ? 'gold' : '' },
+      { k: 'Vehicle capacity', v: String(vehicleCapacity(cart)), tone: vehicleCapacity(cart) === most && most < mine.ore ? 'gold' : '' },
+      { k: 'Free ore storage', v: String(room), tone: room === most && most < mine.ore ? 'gold' : '' }
+    ]);
+    // say which of the three is holding the trip back, and what loosens it
+    let why = '';
+    if (most <= 0) why = mine.ore <= 0 ? 'Nothing to collect: the mine is empty.' : 'Your ore storage is full.';
+    else if (most < mine.ore && room === most) {
+      why = 'Your ore storage is the limit.' + (shopUpgradeCost(sh2, 'racks') !== null
+        ? ' Storage Racks at Upgrades add 20 ore each.' : '');
+    } else if (most < mine.ore) why = 'The vehicle is the limit; a larger one carries more.';
+    if (why) html += dlgNote(why, most <= 0 ? 'warn' : '');
 
     shopSheet('Runner: Collect Ore', html, [
       { label: 'Assign Collection', primary: true, disabled: most <= 0 || d.qty <= 0,
@@ -19821,7 +20227,7 @@ function shopOpenCollect(runner) {
             SHOP.phaseName[res.phase].toLowerCase() + '.');
         } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    ], staffPortrait(runner));
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -19830,15 +20236,19 @@ function shopOpenCollect(runner) {
 /* A smith with ore in the yard can be put on the furnace instead of the
    anvil. They cannot do both in one phase, which is the whole choice. */
 function shopOpenSmithJob(smith) {
+  const sh = shop();
+  const ore = countOre(sh);
+  const rate = smeltRate(smith.power);
   shopSheet('Smith Job: ' + smith.name.split(' ')[0],
-    '<p class="roster-note">A Smith does one job per phase: forge items, or smelt ore into ' +
-    'ingots (one ore makes one ingot). Higher-ranked Smiths smelt more per phase.</p>',
-    [
-      { label: 'Forge Items', primary: true,
-        onClick: function () { shopOpenForge(smith); } },
-      { label: 'Smelt Ore', onClick: function () { shopOpenSmeltJob(smith); } },
-      { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    dlgNote('A Smith does one job a phase: the anvil or the furnace, never both.') + dlgOptions([
+      { id: 'forge', art: itemSprite((knownRecipes(sh)[0] || {}).id || 'shortsword', 'bronze'), name: 'Forge Items',
+        sub: 'A batch of up to ' + Math.min(batchCapacity(sh), 2 + smith.power) + ', at about quality ' +
+          (34 + smith.power * 9) + '.', go: function () { shopOpenForge(smith); } },
+      { id: 'smelt', art: oreSprite('bronze'), name: 'Smelt Ore',
+        sub: ore + ' ore in the yard · ' + rate + ' ingots a phase at ' + smith.rank + '-rank',
+        off: ore <= 0, go: function () { shopOpenSmeltJob(smith); } }
+    ]),
+    [{ label: 'Back', ghost: true, onClick: shopSheetClose }], staffPortrait(smith));
 }
 
 function shopOpenSmeltJob(smith) {
@@ -19849,22 +20259,20 @@ function shopOpenSmeltJob(smith) {
   const redraw = function () {
     const sh2 = shop();
     const rate = smeltRate(smith.power);
-    let html = '<div class="pick-row"><label for="shOre">Ore</label>' +
-      '<select id="shOre" data-sel="material">';
-    for (const m of SHOP.materials) {
-      const have = sh2.ore[m.id] || 0;
-      if (!have) continue;
-      html += '<option value="' + m.id + '"' + (d.material === m.id ? ' selected' : '') + '>' +
-        esc(m.name) + ' (' + have + ' ore)</option>';
-    }
-    html += '</select></div>' +
-      '<div class="sheet-total"><span>Smelting rate</span><b>' +
-      rate + ' per phase</b></div>' +
-      '<div class="sheet-total"><span>Ingots made</span><b>' +
-      Math.min(rate, sh2.ore[d.material] || 0) + '</b></div>';
-
+    const up = nextRank(smith.rank);
+    const have = sh2.ore[d.material] || 0;
+    const made = Math.min(rate, have);
+    let html = placeSec('Ore');
+    html += dlgMetalPick(sh2, d, true, true);
+    html += dlgSum([
+      { k: 'Smelting rate', v: rate + ' per phase' + (up ? ' <span class="up">' + smeltRate(up.power) +
+        ' at ' + up.id + '-rank</span>' : '') },
+      { k: 'Ingots made', v: String(made), tone: 'gold' },
+      { k: 'Ore left after', v: String(have - made) },
+      { k: 'Ingots held after', v: String((sh2.materials[d.material] || 0) + made) }
+    ]);
     shopSheet('Smith: Smelt Ore', html, [
-      { label: 'Assign Smelting', primary: true,
+      { label: 'Assign Smelting', primary: true, disabled: have <= 0,
         onClick: function () {
           const res = rosterBook(smith, { order: { kind: 'smelt', material: d.material } });
           if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
@@ -19874,7 +20282,7 @@ function shopOpenSmeltJob(smith) {
             SHOP.phaseName[res.phase].toLowerCase() + '.');
         } },
       { label: 'Back', ghost: true, onClick: shopSheetClose }
-    ]);
+    ], staffPortrait(smith));
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -20216,8 +20624,15 @@ function wireShop() {
     shopSpendPhase(shopPhaseName(shop()) + ' ended.');
   });
 
-  // dialog controls: steppers, selects, hire and delegate buttons
+  // dialog controls: tiles, steppers, selects, hire and delegate buttons
   $('shopSheetBody').addEventListener('click', function (e) {
+    const pick = e.target.closest ? e.target.closest('[data-pick]') : null;
+    if (pick && !pick.disabled) {
+      shopDraftSet(pick.dataset.pick, pick.dataset.val, pick.dataset.n != null);
+      if (SOUNDS.tick) SOUNDS.tick();
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
     const step = e.target.closest ? e.target.closest('[data-step]') : null;
     if (step) {
       const id = step.dataset.step, by = Number(step.dataset.by);
@@ -20285,6 +20700,14 @@ function wireShop() {
       return;
     }
     // a miner on a mine sheet opens the same panel a forge hand does
+    const go = e.target.closest ? e.target.closest('[data-go]') : null;
+    if (go && !go.disabled) {
+      const fn = (SHOPUI.go || [])[Number(go.dataset.go)];
+      if (fn) { if (SOUNDS.tick) SOUNDS.tick(); fn(); }
+      return;
+    }
+    const placeBack = e.target.closest ? e.target.closest('[data-place-back]') : null;
+    if (placeBack) { shopSheetClose(); shopEditMode(true, Number(placeBack.dataset.placeBack)); return; }
     const dcrew = e.target.closest ? e.target.closest('[data-crew]') : null;
     if (dcrew) { shopOpenHand(Number(dcrew.dataset.crew)); return; }
     const sack = e.target.closest ? e.target.closest('[data-sack]') : null;
@@ -20426,46 +20849,7 @@ function wireShop() {
   $('shopSheetBody').addEventListener('change', function (e) {
     const sel = e.target.closest ? e.target.closest('[data-sel]') : null;
     if (sel) {
-      // a property, a vehicle, a contract and an employee are known by their
-      // number, not by a name, so those come back off the select as numbers
-      const byId = sel.dataset.sel === 'mine' || sel.dataset.sel === 'vehicle' ||
-        sel.dataset.sel === 'commission' ||
-        (sel.dataset.sel === 'staff' && sel.value !== '');
-      SHOPUI.draft[sel.dataset.sel] = byId ? Number(sel.value) : sel.value;
-      if (sel.dataset.sel === 'material' || sel.dataset.sel === 'item') {
-        const cap = batchCapacity(shop());
-        SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1, cap));
-      }
-      // an empty employee select means auto-fill, not employee number zero
-      if (sel.dataset.sel === 'staff' && sel.value === '') SHOPUI.draft.staff = null;
-      // switching a standing box between errands starts that errand sensibly
-      if (sel.dataset.sel === 'kind') {
-        const d = SHOPUI.draft, sh = shop();
-        if (d.kind === 'ore' && d.mine === undefined && sh.mines.length) d.mine = sh.mines[0].id;
-        if (d.kind === 'ore' && !d.qty) d.qty = 5;
-        if (d.kind === 'market') {
-          if (!d.material) d.material = 'bronze';
-          if (!d.upTo) d.upTo = 20;
-          if (!d.cap) d.cap = 400;
-        }
-        if (d.kind === 'forge' && !d.item) {
-          const book = knownRecipes(sh);
-          if (book.length) d.item = book[0].id;
-          if (!d.material) d.material = 'bronze';
-          if (!d.qty) d.qty = 1;
-        }
-      }
-      // a contract says what it wants, so choosing one chooses the goods
-      if (sel.dataset.sel === 'commission') {
-        const com = commissionById(shop(), SHOPUI.draft.commission);
-        if (com) {
-          const parts = splitKey(com.key);
-          SHOPUI.draft.item = parts.item;
-          SHOPUI.draft.material = parts.material;
-          SHOPUI.draft.qty = Math.max(1, Math.min(SHOPUI.draft.qty || 1,
-            batchCapacity(shop()), commissionLeft(com)));
-        } else SHOPUI.draft.commission = 0;
-      }
+      shopDraftSet(sel.dataset.sel, sel.value, false);
       if (SHOPUI.redraw) SHOPUI.redraw();
       return;
     }

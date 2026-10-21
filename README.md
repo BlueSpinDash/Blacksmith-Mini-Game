@@ -2041,6 +2041,77 @@ Android build is held in portrait.
 load as they were; the only new stored data are the remembered completed bulk
 orders, kept beside the saves.
 
+## Dialogs to match the windows (1.45)
+
+Every smaller dialog in Open Your Forge, from buying ingots to a runner's
+errand, is now built like the object windows of 1.44: the thing it is about in
+the head, choices as tiles to tap, and the numbers that decide it in one short
+table. No dialog has a drop-down list any more, and none scrolls; a long one
+turns pages like the windows do.
+
+**The parts.** Each dialog is put together from the same few pieces, so they
+read alike:
+
+- a **hero** card: the item, stand, person, mine or ore the dialog is about,
+  with the one figure that matters most beside it (what it is worth, how many
+  are on display, the wage, the balance owed);
+- **tiles** for every choice, with art and a line under the name: metals with
+  what is held, items with board size and worth, vehicles with what they carry,
+  mines with the ore waiting, employees with their rank. A choice that cannot be
+  taken is shown greyed with the reason, rather than left out, so the dialog
+  looks the same however much the shop owns. Long lists are split: the forge's
+  blueprints are a row of craft chips over one craft's items at a time;
+- a **quantity** box: the stepper, a **Max** button, and a bar showing today's
+  limit against how far it could grow;
+- a **summary** table of the figures behind the choice, in the same place in
+  every dialog;
+- big **option tiles** where the choice is between whole jobs (a runner's
+  market, ore or delivery; a smith's anvil or furnace), each saying what it
+  would do now, or why it cannot.
+
+**Growth in view.** The shop grows, and every dialog that hits a limit says
+which limit it is, how far it can still go and what the next step costs:
+
+- **Forge a Batch**: the batch size against the largest the Forge upgrades
+  allow.
+- **A stand**: its display level as pips, what the level adds to every sale
+  and what the next level costs. The upgrade is bought in the stand's own
+  dialog.
+- **Buy Stand** and an **empty or locked floor space**: floor space used
+  against the floor's size, and what a Store Expansion costs and how many are
+  left. On a full floor the stand catalogue stays in view, greyed, and **Expand
+  the Floor** buys the next space right there.
+- **Search for Employees**: staff places against capacity and the next
+  Employment cost; for miners, the mine's places and the next shaft. When every
+  place is full, **Add a Staff Place** (or **Sink a Shaft**) is the first
+  button.
+- **Assigning a role**: how many of that role may work each phase, and what
+  that role's Staffing upgrade costs. Everyone in the trade is listed, the busy
+  ones greyed with what they are doing.
+- **Collect Ore**: which of the mine, the vehicle and the ore storage is
+  holding the trip back, and what would loosen it (a larger vehicle, or Storage
+  Racks).
+- **Smelting**: the smith's rate now and at the next rank.
+- **Employee card**: the rank ladder as pips, the XP bar, and what the rank
+  gives now and after promotion side by side.
+
+Buying a level, a space or a place from inside a dialog costs gold and never
+the phase, exactly as it does at the Upgrades board.
+
+**Everything else** was brought into line: price presets either side of the
+recommended price with how much less likely a higher price is to sell; the
+Repeat Daily editor as tiles (an employee, the job, the item and metal, the
+batch) with what would happen if it ran now; the customer card as a grid of
+what is known; the delivery and hand-over dialogs with the vehicles as tiles;
+the mine as four figures, its miners, its applicants and three upgrade tiles;
+reports and the phase summary opening on the outcome ("4 items sold", "+233g
+taken"); the morning report as tiles for what was forged, learned and dug; and
+Shop Settings as two clear switches.
+
+**Nothing about the game changed.** The core is byte-for-byte that of 1.44:
+all 1036 core checks pass unchanged and the board fingerprint is the same.
+Saves load as they were.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded
@@ -2184,7 +2255,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 1036 rule/generation checks
-node tools/verify-ui.mjs                                    # 1036 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 1037 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
