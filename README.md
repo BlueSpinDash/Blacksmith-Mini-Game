@@ -2236,6 +2236,13 @@ gone.
 - The third day unlocks the craft and its first blueprint at level 1.
   Blueprints, levels and craft XP work exactly as before.
 
+Sixty-seven new core checks cover these rules, including every rate and range,
+Conservation, Production, the flaws, the slot and rank gates, research costs,
+timing and switching, and saves. Twenty-two new browser checks cover the Smith's
+card, the tree, accepting and choosing, the one-piece order, flaws on the
+hiring board, research in the Almanac and the morning report. The puzzle
+generators are byte-for-byte unchanged.
+
 **Saves** from 1.45 load unchanged. Staff gain no flaws and no
 specializations, every order and lot carries no value bonus, and no study is
 under way. Production orders now also keep their blueprint level and
@@ -2383,8 +2390,8 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 1036 rule/generation checks
-node tools/verify-ui.mjs                                    # 1037 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 1103 rule/generation checks
+node tools/verify-ui.mjs                                    # 1059 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
