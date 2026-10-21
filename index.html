@@ -2667,6 +2667,57 @@ body{min-height:0;overscroll-behavior:none;}
   .buy-row{padding:3px 7px;}
   .buy-row .sprite{width:28px;height:28px;}
 }
+/* quality: a Masterwork is a perfect 100 */
+.gb-v{font-size:10px;color:var(--brass);}
+.q-master{color:var(--gold);font-weight:700;text-shadow:0 0 8px rgba(243,215,145,.45);}
+/* a hand's specialisations and flaw, as chips on a card */
+.sp-chips{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:3px;margin-top:1px;}
+.sp-chip{font-style:normal;font-size:10px;line-height:1.5;padding:0 6px;border-radius:999px;
+  background:#2a2016;border:1px solid var(--bronze-d);color:#e8dcc0;}
+.sp-chip.flaw{background:#2a1512;border-color:#6b2a20;color:#f0a99a;}
+.up-flag.sp{background:var(--gold);color:#1a1208;}
+.flaw-line{grid-column:2/-1;font-size:11px;line-height:1.35;color:#f0a99a;}
+.flaw-line b{color:#ffb8a8;}
+.flaw-line.clean{color:#9fd49a;}
+.rank-call.sp b{color:var(--gold);}
+/* the slots on a card */
+.spec-slots{grid-template-columns:repeat(3,minmax(0,1fr));}
+.dlg-tile.ready{border-color:var(--gold);box-shadow:0 0 0 1px rgba(243,215,145,.35),0 0 10px rgba(243,215,145,.18);}
+.dlg-tile.found{border-style:dashed;border-color:var(--bronze);}
+.dlg-tile.flaw{cursor:default;background:linear-gradient(180deg,#2a1512,#1a0f0d);border-color:#6b2a20;}
+.dlg-tile.flaw .dt-name{color:#ffb8a8;}
+.dlg-tile.empty{cursor:default;background:transparent;border-style:dashed;opacity:.7;}
+.flaw-mark{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:#6b2a20;color:#ffd9cf;font-weight:700;font-size:15px;}
+/* one specialisation's tree: three paths, three levels */
+.sp-tree{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 8px;}
+.sp-path{display:flex;flex-direction:column;align-items:stretch;min-width:0;}
+.sp-head{text-align:center;font-size:12.5px;letter-spacing:.06em;font-variant-caps:all-small-caps;
+  color:var(--brass);margin:0 0 4px;}
+.sp-node{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 3px;border-radius:10px;
+  text-align:center;min-height:44px;justify-content:center;background:#15130f;border:1px solid var(--edge-soft);
+  color:var(--muted);}
+.sp-node b{font-size:12px;font-weight:600;color:inherit;}
+.sp-node small{font-size:10px;line-height:1.2;}
+.sp-node.got{background:linear-gradient(180deg,#3a2415,#241a12);border-color:var(--bronze);color:var(--gold);}
+.sp-node.open{cursor:pointer;border:1px solid var(--gold);color:#fff3d6;background:linear-gradient(180deg,#4a3018,#2c1d10);
+  box-shadow:0 0 0 1px rgba(243,215,145,.4),0 0 12px rgba(255,170,80,.25);animation:spGlow 1.6s ease-in-out infinite alternate;}
+.sp-node.shut{opacity:.6;}
+@keyframes spGlow{from{box-shadow:0 0 0 1px rgba(243,215,145,.3),0 0 6px rgba(255,170,80,.15);}
+  to{box-shadow:0 0 0 1px rgba(243,215,145,.55),0 0 14px rgba(255,170,80,.35);}}
+@media (prefers-reduced-motion:reduce){.sp-node.open{animation:none;}}
+.sp-link{align-self:center;width:2px;height:8px;background:#3a342c;}
+.sp-link.got{background:var(--bronze);}
+.sp-blurb{margin-top:4px;font-size:10.5px;line-height:1.3;color:var(--muted);text-align:center;}
+.sp-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0 0 8px;}
+.sp-step{display:flex;flex-direction:column;gap:2px;padding:5px 7px;border-radius:9px;font-size:11px;
+  color:var(--muted);background:#15130f;border:1px solid var(--edge-soft);}
+.sp-step b{font-size:11.5px;color:var(--text);font-weight:600;}
+.sp-step.done{border-color:var(--bronze-d);}
+.sp-step.done b{color:var(--gold);}
+.sp-step.now{border-color:var(--bronze);}
+.sp-step .xp-bar{display:block;width:100%;}
+.alm-research .nm .dlg-pips{margin-left:6px;vertical-align:middle;}
 #shopSheet .sheet{max-width:440px;}
 .overlay.dock .sheet{max-height:min(100%,calc(78dvh - env(safe-area-inset-bottom)));}
 </style>
@@ -5695,37 +5746,37 @@ const SHOP = {
      own root blueprint - `root` is the recipe taking it up gives you free,
      and it is the one recipe in that discipline with no prerequisite. */
   categories: [
-    { id: 'swords', name: 'Swords', stand: 'weapon', root: 'shortsword',
+    { id: 'swords', name: 'Swords', stand: 'weapon', root: 'shortsword', smith: 'Sword Smith',
       blurb: 'Swords, from the Arming Sword to the Cavalry Saber.' },
-    { id: 'daggers', name: 'Daggers', stand: 'weapon', root: 'dagger',
+    { id: 'daggers', name: 'Daggers', stand: 'weapon', root: 'dagger', smith: 'Dagger Smith',
       blurb: 'Knives and daggers, from the Utility Knife to the Assassin\u2019s Blade.' },
-    { id: 'axes', name: 'Axes', stand: 'weapon', root: 'hatchet',
+    { id: 'axes', name: 'Axes', stand: 'weapon', root: 'hatchet', smith: 'Axe Smith',
       blurb: 'Axes, from the Hatchet to the Executioner Axe.' },
-    { id: 'spears', name: 'Spears', stand: 'weapon', root: 'spear',
+    { id: 'spears', name: 'Spears', stand: 'weapon', root: 'spear', smith: 'Spear Smith',
       blurb: 'Spears and polearms, from the Hunting Spear to the Poleaxe.' },
-    { id: 'maces', name: 'Maces', stand: 'weapon', root: 'mace',
+    { id: 'maces', name: 'Maces', stand: 'weapon', root: 'mace', smith: 'Mace Smith',
       blurb: 'Maces, from the Simple Mace to the Heavy Mace.' },
-    { id: 'hammers', name: 'Hammers', stand: 'weapon', root: 'smithhammer',
+    { id: 'hammers', name: 'Hammers', stand: 'weapon', root: 'smithhammer', smith: 'Hammer Smith',
       blurb: 'Hammers, from the Smithing Hammer to the Bec de Corbin.' },
-    { id: 'shields', name: 'Shields', stand: 'shield', root: 'buckler',
+    { id: 'shields', name: 'Shields', stand: 'shield', root: 'buckler', smith: 'Shield Smith',
       blurb: 'Shields, from the Buckler to the Tower Shield.' },
-    { id: 'helmets', name: 'Helmets', stand: 'helmet', root: 'cap',
+    { id: 'helmets', name: 'Helmets', stand: 'helmet', root: 'cap', smith: 'Helmet Smith',
       blurb: 'Helmets, from the Skull Cap to the Visored Helm.' },
-    { id: 'armor', name: 'Body Armor', stand: 'armor', root: 'chainmail',
+    { id: 'armor', name: 'Body Armor', stand: 'armor', root: 'chainmail', smith: 'Armour Smith',
       blurb: 'Body armour, from the Chain Shirt to Full Plate.' },
-    { id: 'gauntlets', name: 'Gauntlets', stand: 'armor', root: 'gloves',
+    { id: 'gauntlets', name: 'Gauntlets', stand: 'armor', root: 'gloves', smith: 'Gauntlet Smith',
       blurb: 'Gloves and gauntlets, from Reinforced Gloves to Articulated Gauntlets.' },
-    { id: 'boots', name: 'Boots & Greaves', stand: 'armor', root: 'boots',
+    { id: 'boots', name: 'Boots & Greaves', stand: 'armor', root: 'boots', smith: 'Greave Smith',
       blurb: 'Boots and leg armour, from Reinforced Boots to Knight\u2019s Sabatons.' },
-    { id: 'ranged', name: 'Ranged Equipment', stand: 'goods', root: 'arrowheads',
+    { id: 'ranged', name: 'Ranged Equipment', stand: 'goods', root: 'arrowheads', smith: 'Arrowsmith',
       blurb: 'Arrowheads, bolts and crossbow parts.' },
-    { id: 'tools', name: 'Tools', stand: 'tool', root: 'hammer',
+    { id: 'tools', name: 'Tools', stand: 'tool', root: 'hammer', smith: 'Tool Smith',
       blurb: 'Hand tools, from the Pickaxe to the Mining Pick.' },
-    { id: 'farming', name: 'Farming Equipment', stand: 'tool', root: 'hoe',
+    { id: 'farming', name: 'Farming Equipment', stand: 'tool', root: 'hoe', smith: 'Farm Smith',
       blurb: 'Farm tools and horseshoes, from the Hoe to the Plow Blade.' },
-    { id: 'household', name: 'Household Goods', stand: 'goods', root: 'cookknife',
+    { id: 'household', name: 'Household Goods', stand: 'goods', root: 'cookknife', smith: 'Household Smith',
       blurb: 'Kitchen and hearth items, from the Cooking Knife to the Cauldron.' },
-    { id: 'specialty', name: 'Specialty Goods', stand: 'goods', root: 'manacles',
+    { id: 'specialty', name: 'Specialty Goods', stand: 'goods', root: 'manacles', smith: 'Specialty Smith',
       blurb: 'Manacles, lockboxes, gatework, crowns and ceremonial weapons.' }
   ],
 
@@ -5922,15 +5973,17 @@ const SHOP = {
     unlockCost: [0, 70, 160, 300, 520],
     needLevel:  [0, 3, 3, 4, 4],
 
-    /* Taking up a craft you did not start with. The two you choose at the
-       outset are free; every one after that wants a name and money, and both
-       climb with how many you already hold. */
-    startingPicks: 2,
-    disciplineRep: 18,           // for the third; rises per craft held
-    disciplineRepStep: 12,
-    disciplineCost: 900,
-    disciplineCostStep: 1.7      // ...multiplied per craft held
+    /* The two crafts chosen at the outset come free; every one after that is
+       learned by research (SHOP.research). */
+    startingPicks: 2
   },
+
+  /* Learning a craft you did not start with is study, not a purchase. The
+     price is paid when the study begins; it then takes this many full days
+     of your own time, one committed at a time, each begun in a morning. The
+     first craft after the two you chose costs `first`, and every one learned
+     after that `step` more. Abandoned study is not counted. */
+  research: { first: 50, step: 100, days: 3 },
 
   /* What a display stand is and what it will hold. A stand is a fixture:
      the premises say how many will fit, and each one is bought separately
@@ -5956,7 +6009,9 @@ const SHOP = {
     { id: 'plain',      name: 'Plain',      from: 35, tone: 'fair' },
     { id: 'sound',      name: 'Sound',      from: 55, tone: 'good' },
     { id: 'fine',       name: 'Fine',       from: 70, tone: 'fine' },
-    { id: 'masterwork', name: 'Masterwork', from: 85, tone: 'best' }
+    { id: 'superb',     name: 'Superb',     from: 85, tone: 'best' },
+    // a perfect 100, the same mark whether it came off the puzzle or a Smith
+    { id: 'masterwork', name: 'Masterwork', from: 100, tone: 'master' }
   ],
   standHold: 6,                // pieces one stand will hold
   standRefund: 0.5,            // what selling a stand back gets you
@@ -6324,7 +6379,7 @@ const SHOP = {
     { id: 'runner', name: 'Runner', phase: true,
       blurb: 'Buys ingots, collects ore from your mines, or delivers commissions.' },
     { id: 'smith', name: 'Smith', phase: true,
-      blurb: 'Forges a batch without using your phase, or smelts ore into ingots.' },
+      blurb: 'Forges one item a phase without using yours, or smelts ore into ingots.' },
     { id: 'storehand', name: 'Store Hand', phase: true,
       blurb: 'Moves finished items from storage onto your stands.' }
   ],
@@ -6335,13 +6390,17 @@ const SHOP = {
      none. The curve roughly doubles each step, so the first promotion comes
      within a few days of honest work and the last is a season's project. */
   ranks: [
-    { id: 'E', power: 1, wage: 9,   up: 60 },
-    { id: 'D', power: 2, wage: 18,  up: 150 },
-    { id: 'C', power: 3, wage: 34,  up: 320 },
-    { id: 'B', power: 4, wage: 60,  up: 640 },
-    { id: 'A', power: 5, wage: 104, up: 1200 },
-    { id: 'S', power: 6, wage: 180, up: 0 }
+    { id: 'E', power: 1, wage: 9,   up: 60,   craft: 75, quality: [55, 65] },
+    { id: 'D', power: 2, wage: 18,  up: 150,  craft: 80, quality: [60, 70] },
+    { id: 'C', power: 3, wage: 34,  up: 320,  craft: 85, quality: [65, 75] },
+    { id: 'B', power: 4, wage: 60,  up: 640,  craft: 90, quality: [70, 80] },
+    { id: 'A', power: 5, wage: 104, up: 1200, craft: 95, quality: [75, 85] },
+    { id: 'S', power: 6, wage: 180, up: 0,    craft: 98, quality: [80, 90] }
   ],
+  /* `craft` is a Smith's chance in a hundred that one attempt at the anvil
+     comes off at all, and `quality` the range its quality is rolled in,
+     both ends included. The two are independent: a steady hand is not the
+     same thing as a fine one. */
 
   /* What a hand earns for doing their trade. Every figure here is paid for
      WORK THAT HAPPENED: a phase that sold nothing, moved nothing or came
@@ -6357,13 +6416,77 @@ const SHOP = {
       salesperson: { sale: 4, haggle: 2, learned: 3, offer: 8 },
       apprentice:  { batch: 8, piece: 2 },
       runner:      { trip: 10, ingot: 0.4, haul: 10, ore: 0.2, delivery: 14, piece: 0.5 },
-      smith:       { order: 6, piece: 5, smelted: 1.5 },
+      smith:       { attempt: 6, piece: 10, smelted: 1.5 },
       storehand:   { shift: 4, piece: 4 },
       /* A miner's cycle is a week, not a phase, so their figure has to cover
          one against the others' seven. It is set a little under what a hand
          worked every day earns, because a shaft asks nothing of the player. */
       miner:       { week: 80, ore: 1 }
     }
+  },
+
+  /* ---------- specialisations -------------------------------------------
+     A hand grows into a line of work by doing it. Each specialisation is a
+     KIND (what it is about - one craft, or one metal) applied to a TARGET
+     (swords; bronze), so the list is built from the categories and metals
+     themselves and grows with them. Only Smiths have any yet; `role` on a
+     kind and a flaw is what lets another trade be given its own later.
+
+     Every kind has the same shape: a small passive the moment it is
+     accepted, then three perk choices over three paths, each path three
+     levels deep. A path's level is its CURRENT bonus, not one stacked on the
+     levels below it. Flaws are permanent, come with the hire and never move.
+     Specialisations and a flaw share three slots, and only one may be a
+     flaw. */
+  specialties: {
+    slots: 3,
+    maxFlaws: 1,
+    flawChance: 0.3,             // how often an applicant arrives with a flaw
+    discover: 5,                 // XP in a line of work before it is offered
+    // the three perk choices: XP after the last choice, and the rank needed
+    // before any of it can be earned
+    milestones: [{ xp: 10, rank: 'E' }, { xp: 20, rank: 'C' }, { xp: 30, rank: 'A' }],
+    xp: { made: 2, failed: 1, smelted: 1 },
+    kinds: {
+      item: {
+        role: 'smith', label: 'Item',
+        blurb: 'Better work in one craft, whatever the metal.',
+        passive: { value: 1, quality: 1, extra: 1 },
+        paths: [
+          { id: 'value', name: 'Value', stat: 'value', levels: [5, 10, 15],
+            unit: '% sale value', blurb: 'Pieces sell for more.' },
+          { id: 'quality', name: 'Quality', stat: 'quality', levels: [3, 6, 9],
+            unit: ' quality', blurb: 'Finer work in this craft.' },
+          { id: 'production', name: 'Production', stat: 'extra', levels: [2, 4, 6],
+            unit: '% extra-item chance', blurb: 'Sometimes a second piece from the same metal.' }
+        ]
+      },
+      material: {
+        role: 'smith', label: 'Metal',
+        blurb: 'At home with one metal, whatever is made from it.',
+        passive: { conserve: 5, smelt: 1, metal: 1 },
+        paths: [
+          { id: 'conservation', name: 'Conservation', stat: 'conserve', levels: [25, 50, 75],
+            unit: '% to save the ingot', blurb: 'A failed piece sometimes gives its ingot back.' },
+          { id: 'smelting', name: 'Smelting', stat: 'smelt', levels: [2, 4, 6],
+            unit: '% bonus-ingot chance', blurb: 'Smelting the ore sometimes yields an extra ingot.' },
+          { id: 'metallurgy', name: 'Metallurgy', stat: 'metal', levels: [3, 6, 9],
+            unit: ' quality', blurb: 'Finer work in this metal.' }
+        ]
+      }
+    },
+    flaws: [
+      { id: 'careless', name: 'Careless', role: 'smith', stat: 'success', amount: -5,
+        blurb: '\u22125 percentage points to crafting success.' },
+      { id: 'heavy', name: 'Heavy-Handed', role: 'smith', stat: 'quality', amount: -5,
+        blurb: '\u22125 to the quality of every finished item.' },
+      { id: 'wasteful', name: 'Wasteful', role: 'smith', stat: 'waste', amount: 20,
+        blurb: '20% chance a failed attempt spoils one more ingot.' },
+      { id: 'poorsmelter', name: 'Poor Smelter', role: 'smith', stat: 'oreWaste', amount: 10,
+        blurb: '10% chance to waste one more ore while smelting.' },
+      { id: 'shoddy', name: 'Shoddy Workmanship', role: 'smith', stat: 'value', amount: -5,
+        blurb: '\u22125% sale price on everything they make.' }
+    ]
   },
 
   /* ---------- growth ------------------------------------------------------
@@ -6702,42 +6825,84 @@ function takeUpDiscipline(shop, catId, how) {
   return true;
 }
 
-/* What taking up one more craft asks of the forge. Both climb with how many
-   it already holds, so the fifth is a real decision and the third is not
-   out of reach. */
-function disciplineTerms(shop) {
-  const held = (shop.disciplines || []).length;
-  const beyond = Math.max(0, held - SHOP.craft.startingPicks);
-  return {
-    rep: SHOP.craft.disciplineRep + beyond * SHOP.craft.disciplineRepStep,
-    cost: Math.round(SHOP.craft.disciplineCost *
-      Math.pow(SHOP.craft.disciplineCostStep, beyond))
-  };
+/* ---------- research ------------------------------------------------------
+   A craft beyond the two a forge opens with is learned, not bought. The
+   price is paid once, when the study begins; the study then takes the
+   player's whole day, three times over, each day begun in a morning and
+   committed to before it starts. The days need not follow one another: work
+   the forge in between and pick the study up again whenever, for nothing.
+
+   Only one craft is studied at a time. Turning to another throws the first
+   away - its days and the gold paid for it both - and the next price is set
+   by how many crafts have actually been LEARNED, so abandoned study never
+   makes the one after it dearer. */
+function paidCrafts(shop) {
+  return Math.max(0, (shop.disciplines || []).length - SHOP.craft.startingPicks);
 }
-function disciplineStatus(shop, catId) {
+function researchCost(shop) {
+  return SHOP.research.first + SHOP.research.step * paidCrafts(shop);
+}
+/* Whether today is a day of study. The player's own hands are at the books:
+   no forging, no counter, no errands of their own - the staff carry on. */
+function researchingToday(shop) {
+  return !!(shop && shop.research && shop.research.cat && shop.research.today === shop.day);
+}
+function researchStatus(shop, catId) {
   const cat = shopCategory(catId);
   if (!cat) return null;
   const held = hasDiscipline(shop, catId);
-  const terms = disciplineTerms(shop);
+  const r = shop.research && shop.research.cat ? shop.research : null;
+  const current = !!(r && r.cat === catId);
+  const cost = researchCost(shop);
+  const today = researchingToday(shop);
+  let why = null;
+  if (held) why = 'already learned';
+  else if (shop.closed) why = 'the forge has closed';
+  else if (today) why = current ? 'today is already given to this study' : 'today is already given to study';
+  else if (shop.phaseIndex !== 0) why = 'study is begun only in the morning';
+  else if (!current && shop.gold < cost) why = 'needs ' + cost + 'g';
   return {
-    id: catId, held: held, terms: terms,
-    repShort: !held && shop.reputation < terms.rep,
-    goldShort: !held && shop.gold < terms.cost,
-    ready: !held && shop.reputation >= terms.rep && shop.gold >= terms.cost
+    id: catId, held: held, current: current,
+    days: current ? r.days : 0, of: SHOP.research.days,
+    cost: current ? 0 : cost,
+    // another craft's study, which starting this one would throw away
+    other: r && !current ? { cat: r.cat, days: r.days, paid: r.paid || 0 } : null,
+    today: today && current,
+    ready: !why, why: why
   };
 }
-
-/* Buy into a craft the forge did not start with. Reputation and gold only -
-   never that craft's own experience, which it has no way of having. */
-function shopTakeUpDiscipline(shop, catId) {
-  const st = disciplineStatus(shop, catId);
+/* Begin, or carry on with, a craft's study, and give today to it. Turning
+   from one craft to another must be confirmed, because it cannot be undone. */
+function shopResearch(shop, catId, confirmSwitch) {
+  const st = researchStatus(shop, catId);
   if (!st) return { ok: false, why: 'no such craft' };
-  if (st.held) return { ok: false, why: 'craft already taken up' };
-  if (st.repShort) return { ok: false, why: 'requires ' + st.terms.rep + ' reputation' };
-  if (st.goldShort) return { ok: false, why: 'needs ' + st.terms.cost + 'g' };
-  shop.gold -= st.terms.cost;
-  takeUpDiscipline(shop, catId, 'bought');
-  return { ok: true, spent: st.terms.cost, root: disciplineRoot(catId) };
+  if (!st.ready) return { ok: false, why: st.why };
+  if (st.current) {
+    shop.research.today = shop.day;
+    return { ok: true, continued: true, cat: catId, day: shop.research.days + 1, of: st.of };
+  }
+  if (st.other && !confirmSwitch) {
+    return { ok: false, confirm: true, why: 'switching study loses ' + st.other.days +
+      (st.other.days === 1 ? ' day' : ' days') + ' of progress', lost: st.other };
+  }
+  const cost = researchCost(shop);
+  shop.gold -= cost;
+  shop.research = { cat: catId, days: 0, today: shop.day, paid: cost };
+  return { ok: true, started: true, cat: catId, day: 1, of: st.of, spent: cost, abandoned: st.other };
+}
+/* At the turn of the day: a day of study counts once the day is over, and
+   the third finishes it. Returns what happened, or null. */
+function settleResearch(shop) {
+  const r = shop.research;
+  if (!r || !r.cat || r.today !== shop.day) return null;
+  r.today = 0;
+  r.days += 1;
+  if (r.days < SHOP.research.days) return { cat: r.cat, days: r.days, of: SHOP.research.days };
+  const cat = r.cat;
+  shop.research = null;
+  takeUpDiscipline(shop, cat, 'research');
+  return { cat: cat, days: SHOP.research.days, of: SHOP.research.days, done: true,
+    root: disciplineRoot(cat) };
 }
 
 /* ---------- earning it -------------------------------------------------
@@ -7119,7 +7284,7 @@ function standWorth(stand) {
   if (!stand || !stand.key) return 0;
   const p = splitKey(stand.key);
   return Math.max(1, Math.round(
-    recommendedPrice(p.item, p.material, stand.quality, stand.level) * standBonus(stand)));
+    recommendedPrice(p.item, p.material, stand.quality, stand.level, stand.value) * standBonus(stand)));
 }
 /* Every stand with something on it that is actually out on the floor. A
    display waiting in the back is not something a customer can walk up to. */
@@ -7235,11 +7400,21 @@ function qualityBandName(quality) { return qualityBand(quality).name; }
    the piece was MADE on - it travels with the goods rather than being looked
    up now - so taking a blueprint further never silently reprices stock that
    is already on the shelf. Left out, it prices as a fresh blueprint. */
-function recommendedPrice(itemId, materialId, quality, level) {
+function recommendedPrice(itemId, materialId, quality, level, value) {
   const it = shopItem(itemId), mt = shopMaterial(materialId);
   if (!it || !mt) return 0;
   return Math.max(1, Math.round(
-    it.price * mt.value * qualityFactor(quality) * levelValue(level)));
+    it.price * mt.value * qualityFactor(quality) * levelValue(level) * valueFactor(value)));
+}
+/* A Smith's workmanship, in percent: a Value specialisation adds to it and
+   Shoddy Workmanship takes from it. It belongs to the pieces that hand made
+   and goes wherever they go, blended by the piece like quality is. */
+function valueFactor(value) {
+  return 1 + Math.max(-50, Math.min(100, Number(value) || 0)) / 100;
+}
+function blendValue(a, aQty, b, bQty) {
+  const total = aQty + bQty;
+  return total > 0 ? ((Number(a) || 0) * aQty + (Number(b) || 0) * bQty) / total : 0;
 }
 function ingotPrice(shop, materialId) {
   const mt = shopMaterial(materialId);
@@ -7286,6 +7461,7 @@ function createShop(opts) {
     vehicles: [],         // carts and wagons; equipment, never used up
     commissions: [],      // contracts taken on
     commissionOffers: [], // contracts put to you and not yet answered
+    research: null,       // { cat, days, today, paid }: a craft under study
     specials: {},         // special commission id -> where it stands
     specialOffers: [],    // special commissions put to you and not yet answered
     applicants: [],
@@ -7386,7 +7562,9 @@ function serializeShop(shop) {
     storage: JSON.parse(JSON.stringify(shop.storage)),
     stands: shop.stands.map(function (st) { return Object.assign({ level: 1, up: 0 }, st); }),
     staff: shop.staff.map(function (e) {
-      return Object.assign({}, e, { face: staffFace(e) });
+      return Object.assign({}, e, { face: staffFace(e),
+        specs: JSON.parse(JSON.stringify(specialtiesOf(e))),
+        found: Object.assign({}, e.found || {}), flaw: e.flaw || null });
     }),
     orders: shop.orders.map(function (o) { return Object.assign({}, o); }),
     assignments: JSON.parse(JSON.stringify(shop.assignments)),
@@ -7401,6 +7579,7 @@ function serializeShop(shop) {
     xp: Object.assign({}, shop.xp),
     xpTotal: Object.assign({}, shop.xpTotal),
     blueprints: Object.assign({}, shop.blueprints),
+    research: shop.research ? Object.assign({}, shop.research) : null,
     ledger: JSON.parse(JSON.stringify(shop.ledger)),
     learned: shop.learned.map(function (l) { return Object.assign({}, l); }),
     town: shop.town.map(function (one) {
@@ -7486,11 +7665,12 @@ function restoreShop(data, rnd) {
       // the blueprint the lot was made on, kept so a later upgrade cannot
       // reprice it; a save from before levels existed reads as a fresh one
       const made = num(lot && lot.level, 1, SHOP.craft.maxLevel, 1);
+      const value = num(lot && lot.value, -50, 100, 0);
       into[key] = withPrice
-        ? { qty: qty, quality: quality, level: made,
+        ? { qty: qty, quality: quality, level: made, value: value,
             price: whole(lot && lot.price, 1, 1e9,
-              recommendedPrice(parts.item, parts.material, quality, made)) }
-        : { qty: qty, quality: quality, level: made };
+              recommendedPrice(parts.item, parts.material, quality, made, value)) }
+        : { qty: qty, quality: quality, level: made, value: value };
     }
   };
   lots(data.storage, shop.storage, false);
@@ -7519,9 +7699,10 @@ function restoreShop(data, rnd) {
           stand.qty = qty;
           stand.quality = num(raw.quality, 0, 100, 100);
           stand.level = num(raw.level, 1, SHOP.craft.maxLevel, 1);
+          stand.value = num(raw.value, -50, 100, 0);
           stand.price = whole(raw.price, 1, 1e9,
             recommendedPrice(splitKey(key).item, splitKey(key).material,
-              stand.quality, stand.level));
+              stand.quality, stand.level, stand.value));
         }
       }
       shop.stands.push(stand);
@@ -7576,6 +7757,8 @@ function restoreShop(data, rnd) {
       role: role.id, rank: rank.id, power: rank.power,
       wage: whole(raw.wage, 1, 1e6, rank.wage),
       xp: whole(raw.xp, 0, 1e7, 0), face: null };
+    // specialisations and a flaw, as saved; a hand from before has neither
+    Object.assign(hand, readSpecialties(raw, role.id));
     // a hire from before there were faces is given one and keeps it from here
     hand.face = staffFace(hand);
     shop.staff.push(hand);
@@ -7584,11 +7767,17 @@ function restoreShop(data, rnd) {
   for (const raw of Array.isArray(data.orders) ? data.orders : []) {
     if (!raw || !knownLine(lineKey(raw.item, raw.material))) continue;
     const qty = whole(raw.qty, 1, 1e4, 1);
-    shop.orders.push({ id: whole(raw.id, 1, 1e9, shop.nextId++),
+    const order = { id: whole(raw.id, 1, 1e9, shop.nextId++),
       key: lineKey(raw.item, raw.material), item: raw.item, material: raw.material,
       qty: qty, quality: num(raw.quality, 0, 100, 80),
       maker: String(raw.maker || 'you'),
-      dueDay: whole(raw.dueDay, 1, 100000, shop.day) });
+      dueDay: whole(raw.dueDay, 1, 100000, shop.day),
+      // the blueprint it was made on and the hand's workmanship travel with it
+      level: num(raw.level, 1, SHOP.craft.maxLevel, 1),
+      value: num(raw.value, -50, 100, 0), extra: whole(raw.extra, 0, 1, 0) };
+    // work promised to a contract keeps its promise across a reload
+    if (raw.commission != null) order.commission = whole(raw.commission, 1, 1e9, 0);
+    shop.orders.push(order);
   }
 
   // an assignment only means anything for somebody still on the books
@@ -7714,6 +7903,17 @@ function restoreShop(data, rnd) {
       ? whole(data.xpTotal[c], 0, 1e9, 0) : held;
     shop.xpTotal[c] = ever;
     shop.xp[c] = Math.min(held, ever);
+  }
+  /* A craft half-studied. Only a craft not yet held can be under study, and
+     a day already counted is never counted twice: `today` is kept only for
+     the day the save was written on. */
+  shop.research = null;
+  const study = data.research && typeof data.research === 'object' ? data.research : null;
+  if (study && shopCategory(study.cat) && !hasDiscipline(shop, study.cat)) {
+    shop.research = { cat: study.cat,
+      days: whole(study.days, 0, SHOP.research.days - 1, 0),
+      today: whole(study.today, 0, 1e6, 0) === shop.day ? shop.day : 0,
+      paid: whole(study.paid, 0, 1e9, 0) };
   }
   // a blueprint whose craft was never taken up is not holdable
   for (const id in shop.blueprints) {
@@ -7867,7 +8067,9 @@ function restoreShop(data, rnd) {
       filled: Math.min(whole(raw.filled, 0, qty, 0), qty - delivered),
       advance: whole(raw.advance, 0, 1e9, 0),
       offeredDay: whole(raw.offeredDay, 1, 1e6, shop.day),
-      takenDay: whole(raw.takenDay, 1, 1e6, shop.day) };
+      takenDay: whole(raw.takenDay, 1, 1e6, shop.day),
+      // what the crate's pieces were made on, and the hands' workmanship
+      level: num(raw.level, 1, SHOP.craft.maxLevel, 1), value: num(raw.value, -50, 100, 0) };
   };
   for (const raw of Array.isArray(data.commissions) ? data.commissions : []) {
     const com = readCommission(raw);
@@ -7987,20 +8189,21 @@ function shopLog(shop, report) {
 /* ---------- inventory movement ------------------------------------------
    Finished goods land in storage and stay there until somebody carries them
    out to the shelves. Nothing ever skips that step. */
-function addStorage(shop, key, qty, quality, level) {
+function addStorage(shop, key, qty, quality, level, value) {
   const room = storageCapacity(shop) - countStorage(shop);
   const taken = Math.max(0, Math.min(qty, room));
   const made = Math.max(1, Math.min(SHOP.craft.maxLevel, Math.round(level) || 1));
   if (taken > 0) {
     const lot = shop.storage[key];
     if (lot) {
-      // storage holds a blended lot, so both the work and the blueprint it
-      // was made on average by the piece
+      // storage holds a blended lot, so the work, the blueprint it was made
+      // on and the hand's workmanship all average by the piece
       lot.level = ((lot.level || 1) * lot.qty + made * taken) / (lot.qty + taken);
       lot.quality = (lot.quality * lot.qty + quality * taken) / (lot.qty + taken);
+      lot.value = blendValue(lot.value, lot.qty, value, taken);
       lot.qty += taken;
     } else {
-      shop.storage[key] = { qty: taken, quality: quality, level: made };
+      shop.storage[key] = { qty: taken, quality: quality, level: made, value: Number(value) || 0 };
     }
   }
   return { stored: taken, lost: qty - taken };
@@ -8039,12 +8242,14 @@ function shopStockStand(shop, standId, key, qty) {
   if (stand.key === key && stand.qty > 0) {
     stand.level = ((stand.level || 1) * stand.qty + lotLevel * moved) / (stand.qty + moved);
     stand.quality = (stand.quality * stand.qty + lot.quality * moved) / (stand.qty + moved);
+    stand.value = blendValue(stand.value, stand.qty, lot.value, moved);
     stand.qty += moved;
   } else {
     stand.key = key;
     stand.qty = moved;
     stand.quality = lot.quality;
     stand.level = lotLevel;
+    stand.value = Number(lot.value) || 0;
     stand.price = standWorth(stand);
   }
   lot.qty -= moved;
@@ -8098,10 +8303,10 @@ function shopPullFromShelf(shop, key, qty) {
   const moved = Math.min(qty, stand.qty, room);
   const price = stand.price;
   if (moved <= 0) return { moved: 0, price: price, why: 'storage is full' };
-  const quality = stand.quality, level = stand.level || 1;
+  const quality = stand.quality, level = stand.level || 1, value = stand.value || 0;
   stand.qty -= moved;
-  if (stand.qty <= 0) { stand.key = null; stand.qty = 0; stand.price = 0; }
-  addStorage(shop, key, moved, quality, level);
+  if (stand.qty <= 0) { stand.key = null; stand.qty = 0; stand.price = 0; stand.value = 0; }
+  addStorage(shop, key, moved, quality, level, value);
   return { moved: moved, price: price, left: stand.qty,
     why: moved < qty ? 'the storeroom only had room for ' + moved : null };
 }
@@ -8119,7 +8324,7 @@ function newStand(shop, type) {
   // fixture itself is, which is what Growth sells.
   // `slot` is where on the floor it stands; null means waiting in the back
   return { id: shop.nextId++, type: type, key: null, qty: 0, quality: 100,
-    level: 1, up: 0, price: 0, slot: null };
+    level: 1, value: 0, up: 0, price: 0, slot: null };
 }
 
 function shopBuyStand(shop, type) {
@@ -8261,6 +8466,7 @@ function forgeBoardSpec(shop, itemId, materialId, qty) {
 /* Materials are spent only when the puzzle is actually won; a ruined board
    costs the phase, not the metal. The batch is delivered the following day. */
 function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
+  if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const check = forgeCheck(shop, itemId, materialId, qty);
   if (!check.ok) return { ok: false, why: check.why };
   shop.materials[materialId] -= qty;
@@ -9233,6 +9439,229 @@ function shopPromote(shop, id) {
   return promote(shop, crewById(shop, id));
 }
 
+/* ---------- specialisations -----------------------------------------------
+   Work turns a hand towards a line of it. Every attempt at the anvil, made
+   or failed, and every phase at the furnace counts towards the craft and the
+   metal it was in. Five of that and the line is DISCOVERED: offered to the
+   player, who may accept it or leave it for later - leaving it loses
+   nothing. Accepting is for good, takes one of three slots, and gives its
+   small passive at once. From then on its own XP buys three perk choices,
+   each waiting on a rank as well as on the work: XP towards a choice is not
+   earned at all until the rank is there, and never runs past the choice
+   still waiting to be made. Rank and specialisation are separate ladders.
+
+   The functions below are written for any trade; only a Smith has any
+   specialisations or flaws in the tables yet. */
+function specialtyKind(kindId) { return SHOP.specialties.kinds[kindId] || null; }
+
+/* Everything a trade can grow into, read off the tables it is about. */
+function specialtyDefs(roleId) {
+  const out = [];
+  for (const kindId in SHOP.specialties.kinds) {
+    const kind = SHOP.specialties.kinds[kindId];
+    if (kind.role !== roleId) continue;
+    if (kindId === 'item') {
+      for (const c of SHOP.categories) {
+        out.push({ id: 'item:' + c.id, kind: kindId, of: c.id, role: kind.role,
+          name: c.smith || c.name + ' Smith', target: c.name });
+      }
+    } else if (kindId === 'material') {
+      for (const m of SHOP.materials) {
+        out.push({ id: 'material:' + m.id, kind: kindId, of: m.id, role: kind.role,
+          name: m.name + ' Smith', target: m.name });
+      }
+    }
+  }
+  return out;
+}
+function specialtyDef(id) {
+  if (typeof id !== 'string' || id.indexOf(':') < 0) return null;
+  const kind = specialtyKind(id.slice(0, id.indexOf(':')));
+  if (!kind) return null;
+  return specialtyDefs(kind.role).find(function (d) { return d.id === id; }) || null;
+}
+function flawDef(id) {
+  return SHOP.specialties.flaws.find(function (f) { return f.id === id; }) || null;
+}
+function flawsFor(roleId) {
+  return SHOP.specialties.flaws.filter(function (f) { return f.role === roleId; });
+}
+function specialtiesOf(e) { return e && Array.isArray(e.specs) ? e.specs : []; }
+function handSpecialty(e, id) {
+  return specialtiesOf(e).find(function (rec) { return rec.id === id; }) || null;
+}
+function slotsUsed(e) { return specialtiesOf(e).length + (e && flawDef(e.flaw) ? 1 : 0); }
+function slotsFree(e) { return Math.max(0, SHOP.specialties.slots - slotsUsed(e)); }
+/* The next perk choice a specialisation is working towards, or null once
+   all three are made. */
+function specialtyMilestone(rec) {
+  return rec ? SHOP.specialties.milestones[rec.picks || 0] || null : null;
+}
+function specialtyRankOk(e, milestone) {
+  return !!(e && milestone) && rankIndex(e.rank) >= rankIndex(milestone.rank);
+}
+function specialtyPerkReady(e, rec) {
+  const ms = specialtyMilestone(rec);
+  return !!ms && specialtyRankOk(e, ms) && (rec.xp || 0) >= ms.xp;
+}
+function specialtyPathLevel(rec, pathId) {
+  return Math.max(0, Math.min(3, Math.round((rec && rec.paths && rec.paths[pathId]) || 0)));
+}
+/* What a path is worth now: its level's figure, or 0 before it is taken. */
+function specialtyPathValue(path, level) {
+  return level > 0 ? path.levels[Math.min(level, path.levels.length) - 1] : 0;
+}
+/* Found by the work and waiting on the player. Declined ones stay here. */
+function specialtiesFound(e) {
+  const found = (e && e.found) || {};
+  const need = SHOP.specialties.discover;
+  return specialtyDefs(e ? e.role : null).filter(function (d) {
+    return (found[d.id] || 0) >= need && !handSpecialty(e, d.id);
+  });
+}
+/* Anyone with an answer owed: a line found and room to take it, or a perk
+   waiting to be chosen. */
+function specialtyNews(e) {
+  if (!e) return false;
+  if (slotsFree(e) > 0 && specialtiesFound(e).length) return true;
+  return specialtiesOf(e).some(function (rec) { return specialtyPerkReady(e, rec); });
+}
+
+/* What one hand's specialisations and flaw come to for one stat on one piece
+   of work. `ctx` names its craft and metal: a specialisation about neither
+   adds nothing, while a flaw belongs to the hand and always applies. */
+function specialtyStat(e, stat, ctx) {
+  const c = ctx || {};
+  let total = 0;
+  for (const rec of specialtiesOf(e)) {
+    const def = specialtyDef(rec.id);
+    if (!def) continue;
+    if (def.kind === 'item' ? def.of !== c.cat : def.of !== c.material) continue;
+    const kind = specialtyKind(def.kind);
+    total += kind.passive[stat] || 0;
+    for (const path of kind.paths) {
+      if (path.stat === stat) total += specialtyPathValue(path, specialtyPathLevel(rec, path.id));
+    }
+  }
+  const flaw = flawDef(e && e.flaw);
+  if (flaw && flaw.stat === stat) total += flaw.amount;
+  return total;
+}
+
+/* One line of work's XP, from one action. An accepted specialisation earns
+   towards its next perk, and only while the rank for it is held; a line not
+   yet accepted earns towards being discovered, and only while there is a
+   slot it could go in. Neither ever runs past the step it is on. */
+function gainSpecialtyXp(e, specId, amount) {
+  const def = specialtyDef(specId);
+  const gain = Math.max(0, Math.round(Number(amount) || 0));
+  if (!e || !def || def.role !== e.role || !gain) return null;
+  const rec = handSpecialty(e, specId);
+  if (rec) {
+    const ms = specialtyMilestone(rec);
+    if (!ms || !specialtyRankOk(e, ms)) return null;
+    const was = rec.xp || 0;
+    rec.xp = Math.min(ms.xp, was + gain);
+    if (rec.xp === was) return null;
+    return { id: specId, name: def.name, gained: rec.xp - was, xp: rec.xp, need: ms.xp,
+      ready: rec.xp >= ms.xp };
+  }
+  if (!slotsFree(e)) return null;
+  if (!e.found || typeof e.found !== 'object') e.found = {};
+  const need = SHOP.specialties.discover;
+  const was = e.found[specId] || 0;
+  if (was >= need) return null;
+  e.found[specId] = Math.min(need, was + gain);
+  return { id: specId, name: def.name, gained: e.found[specId] - was, xp: e.found[specId],
+    need: need, found: e.found[specId] >= need };
+}
+/* A Smith's attempt counts towards both its craft and its metal. */
+function smithSpecialtyXp(e, ctx, amount) {
+  const out = [];
+  const c = ctx || {};
+  if (c.cat) { const r = gainSpecialtyXp(e, 'item:' + c.cat, amount); if (r) out.push(r); }
+  if (c.material) { const r = gainSpecialtyXp(e, 'material:' + c.material, amount); if (r) out.push(r); }
+  return out;
+}
+
+/* The player takes a discovered specialisation on. Permanent. */
+function acceptSpecialty(shop, employeeId, specId) {
+  const e = crewById(shop, employeeId);
+  const def = specialtyDef(specId);
+  if (!e) return { ok: false, why: 'nobody there' };
+  if (!def || def.role !== e.role) return { ok: false, why: 'not a specialization of their trade' };
+  if (handSpecialty(e, specId)) return { ok: false, why: 'already one of their specializations' };
+  if (((e.found || {})[specId] || 0) < SHOP.specialties.discover) {
+    return { ok: false, why: 'not discovered yet' };
+  }
+  if (!slotsFree(e)) return { ok: false, why: 'all three slots are filled' };
+  if (!Array.isArray(e.specs)) e.specs = [];
+  const rec = { id: specId, xp: 0, picks: 0, paths: {} };
+  e.specs.push(rec);
+  delete e.found[specId];
+  return { ok: true, who: e.name, name: def.name, spec: rec };
+}
+/* A perk choice: Level I of a path not yet taken, or the next level of one
+   that has been. Checked here, not just on the screen. */
+function chooseSpecialtyPerk(shop, employeeId, specId, pathId) {
+  const e = crewById(shop, employeeId);
+  const rec = handSpecialty(e, specId);
+  const def = specialtyDef(specId);
+  if (!e || !rec || !def) return { ok: false, why: 'no such specialization' };
+  const path = specialtyKind(def.kind).paths.find(function (p) { return p.id === pathId; });
+  if (!path) return { ok: false, why: 'no such path' };
+  const ms = specialtyMilestone(rec);
+  if (!ms) return { ok: false, why: 'all three perks have been chosen' };
+  if (!specialtyRankOk(e, ms)) return { ok: false, why: 'needs ' + ms.rank + '-rank' };
+  if ((rec.xp || 0) < ms.xp) return { ok: false, why: 'needs ' + (ms.xp - (rec.xp || 0)) + ' more XP' };
+  const level = specialtyPathLevel(rec, pathId);
+  if (level >= path.levels.length) return { ok: false, why: path.name + ' is already at level III' };
+  if (!rec.paths || typeof rec.paths !== 'object') rec.paths = {};
+  rec.paths[pathId] = level + 1;
+  rec.picks = (rec.picks || 0) + 1;
+  rec.xp = 0;                                  // the next choice starts from nothing
+  return { ok: true, who: e.name, name: def.name, path: path.name, level: level + 1,
+    picks: rec.picks };
+}
+
+/* A hand's specialisations as a save holds them, checked: only real lines
+   of their own trade, levels in range, choices that add up, XP no further
+   than the step it is on, and never more than the slots allow. A hand from
+   before there were any simply has none - nor a flaw. */
+function readSpecialties(raw, roleId) {
+  const out = { specs: [], flaw: null, found: {} };
+  const src = raw || {};
+  const flaw = flawDef(src.flaw);
+  if (flaw && flaw.role === roleId) out.flaw = flaw.id;
+  const room = SHOP.specialties.slots - (out.flaw ? 1 : 0);
+  for (const r of Array.isArray(src.specs) ? src.specs : []) {
+    if (out.specs.length >= room) break;
+    const def = specialtyDef(r && r.id);
+    if (!def || def.role !== roleId || out.specs.some(function (x) { return x.id === def.id; })) continue;
+    const kind = specialtyKind(def.kind);
+    const paths = {};
+    let picks = 0;
+    for (const p of kind.paths) {
+      const level = Math.max(0, Math.min(p.levels.length, Math.round(Number(r.paths && r.paths[p.id]) || 0)));
+      if (level > 0 && picks + level <= SHOP.specialties.milestones.length) {
+        paths[p.id] = level;
+        picks += level;
+      }
+    }
+    const ms = SHOP.specialties.milestones[picks];
+    out.specs.push({ id: def.id, picks: picks, paths: paths,
+      xp: ms ? Math.max(0, Math.min(ms.xp, Math.round(Number(r.xp) || 0))) : 0 });
+  }
+  const need = SHOP.specialties.discover;
+  for (const id in (src.found && typeof src.found === 'object') ? src.found : {}) {
+    const def = specialtyDef(id);
+    if (!def || def.role !== roleId || out.specs.some(function (x) { return x.id === id; })) continue;
+    const xp = Math.max(0, Math.min(need, Math.round(Number(src.found[id]) || 0)));
+    if (xp > 0) out.found[id] = xp;
+  }
+  return out;
+}
+
 function makeApplicant(shop, roleId) {
   const role = shopRole(roleId) || SHOP.roles[Math.floor(shop.rnd() * SHOP.roles.length)];
   const rank = SHOP.ranks[0];                          // everybody starts at E
@@ -9240,9 +9669,16 @@ function makeApplicant(shop, roleId) {
   const last = SHOP.lastNames[Math.floor(shop.rnd() * SHOP.lastNames.length)];
   // a little scatter so two new runners are not the same hire
   const wage = Math.max(1, Math.round(rank.wage * (0.88 + shop.rnd() * 0.24)));
-  return { id: shop.nextId++, name: first + ' ' + last, role: role.id,
+  const hand = { id: shop.nextId++, name: first + ' ' + last, role: role.id,
     rank: rank.id, power: rank.power, wage: wage, xp: 0,
-    face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id };
+    face: SHOP.customers[Math.floor(shop.rnd() * SHOP.customers.length)].id,
+    // nobody arrives specialised; some arrive with a flaw, plain to see
+    specs: [], found: {}, flaw: null };
+  const flaws = flawsFor(role.id);
+  if (flaws.length && shop.rnd() < SHOP.specialties.flawChance) {
+    hand.flaw = flaws[Math.floor(shop.rnd() * flaws.length)].id;
+  }
+  return hand;
 }
 
 /* ---------- a face that stays theirs ----------------------------------
@@ -9277,6 +9713,8 @@ function shopSearchStaff(shop, roleId, count) {
 }
 
 function shopHire(shop, applicantId) {
+  // taking somebody on is the player's own phase, which study has taken
+  if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const idx = shop.applicants.findIndex(function (a) { return a.id === applicantId; });
   if (idx < 0) return { ok: false, why: 'no such applicant' };
   if (shop.staff.length >= staffCapacity(shop)) {
@@ -9617,7 +10055,8 @@ function planOrder(shop, role, plan, phase, except) {
       return { ok: true, order: { kind: 'smelt', material: p.material } };
     }
     if (!p.item || !p.material) return { ok: false, why: 'no order set' };
-    const qty = Math.max(1, Math.min(batchCapacity(shop), Math.floor(p.qty || 1)));
+    // a Smith makes one piece a phase, whatever an older plan asked for
+    const qty = 1;
     // ingots another Smith is already down to forge with today are spoken for
     const promised = bookedToday(shop, 'smith', function (o) {
       return !o.kind && o.material === p.material ? o.qty : 0;
@@ -9796,46 +10235,88 @@ function runRunner(shop, employee, order) {
     diff: result.spent - expected, ingots: result.ingots };
 }
 
-/* A smith fills an order without the player touching the puzzle. They are
-   reliable in proportion to their rank and never quite match a good run at
-   the anvil, which is the trade: a phase saved for a result you did not choose. */
-function smithQuality(shop, power) {
-  const base = 34 + power * 9;                        // E lands near 43, S near 88
-  const roll = base + (shop.rnd() * 2 - 1) * (26 - power * 2.5);
-  return Math.max(0, Math.min(100, Math.round(roll)));
+/* A Smith works one piece a phase, never a batch: the batch is the player's,
+   because the batch is what the puzzle is about. Each attempt either comes
+   off or it does not. One that does is given its own quality - a roll in
+   the range the Smith's rank lands in, plus whatever their specialisations
+   add and less whatever their flaw takes - and Masterwork is simply a
+   piece that reaches 100. One that does not still costs its ingot; a
+   Conservation specialisation in that metal may give the ingot back, and a
+   Wasteful hand may spoil another. */
+function smithQualityRoll(shop, employee) {
+  const range = (shopRank(employee.rank) || SHOP.ranks[0]).quality;
+  return range[0] + Math.floor(shop.rnd() * (range[1] - range[0] + 1));
+}
+function smithChance(employee, ctx) {
+  const rank = shopRank(employee.rank) || SHOP.ranks[0];
+  return Math.max(0, Math.min(100, rank.craft + specialtyStat(employee, 'success', ctx)));
+}
+function smithBonusQuality(employee, ctx) {
+  return specialtyStat(employee, 'quality', ctx) + specialtyStat(employee, 'metal', ctx);
 }
 function runSmith(shop, employee, order) {
   /* Standing over the furnace instead of the anvil. A phase is one job: a
      smith who is smelting is not also making anything. */
   if (order && order.kind === 'smelt') {
     const rate = smeltRate(employee.power);
-    const res = shopSmelt(shop, order.material, rate);
+    const ctx = { material: order.material };
+    const res = shopSmelt(shop, order.material, rate, {
+      bonus: specialtyStat(employee, 'smelt', ctx), waste: specialtyStat(employee, 'oreWaste', ctx) });
     if (!res.ok) return { ok: false, why: res.why };
     return { ok: true, kind: 'smelt', who: employee.name, rank: employee.rank,
-      material: res.material, made: res.made, rate: rate, left: res.left };
+      material: res.material, made: res.made, smelted: res.smelted, bonus: res.bonus,
+      wasted: res.wasted, rate: rate, left: res.left,
+      spec: smithSpecialtyXp(employee, ctx, SHOP.specialties.xp.smelted) };
   }
-  const check = forgeCheck(shop, order.item, order.material, order.qty);
+  const check = forgeCheck(shop, order.item, order.material, 1);
   if (!check.ok) return { ok: false, why: check.why };
-  // a weak smith sometimes spoils part of the batch outright
-  const spoilOdds = Math.max(0, 0.30 - 0.05 * employee.power);
-  let made = order.qty;
-  if (shop.rnd() < spoilOdds) made = Math.max(1, made - 1 - Math.floor(shop.rnd() * 2));
-  const quality = smithQuality(shop, employee.power);
-  shop.materials[order.material] -= order.qty;        // the metal is spent either way
-  const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
-    item: order.item, material: order.material, qty: made, quality: quality,
-    maker: employee.name, dueDay: shop.day + 1,
-    level: Math.max(1, blueprintLevel(shop, order.item)) };
-  // work is work, whoever swung the hammer: the forge learns from it either way
-  const xp = recordCraft(shop, order.item, order.material, made, quality);
-  // Work promised to a contract is marked as such, so when it comes off the
-  // anvil tomorrow it goes into the crate rather than onto a stand.
-  if (order.commission) batch.commission = order.commission;
-  shop.orders.push(batch);
-  return { ok: true, kind: 'smith', who: employee.name, rank: employee.rank,
-    item: order.item, material: order.material, ordered: order.qty, made: made,
-    quality: quality, spoiled: order.qty - made, commission: order.commission || null,
-    xp: xp, level: batch.level };
+  const it = check.item;
+  const ctx = { cat: it.cat, material: order.material };
+  const chance = smithChance(employee, ctx);
+  const level = Math.max(1, blueprintLevel(shop, order.item));
+  shop.materials[order.material] -= 1;               // the ingot is spent either way
+  const report = { ok: true, kind: 'smith', who: employee.name, rank: employee.rank,
+    item: order.item, material: order.material, ordered: 1, attempted: true,
+    chance: chance, commission: order.commission || null, level: level };
+
+  if (shop.rnd() * 100 < chance) {
+    const roll = smithQualityRoll(shop, employee);
+    const bonus = smithBonusQuality(employee, ctx);
+    const quality = Math.max(0, Math.min(100, roll + bonus));
+    // Production: one roll for the piece that came off, never for the extra
+    const extraChance = specialtyStat(employee, 'extra', ctx);
+    const extra = extraChance > 0 && shop.rnd() * 100 < extraChance ? 1 : 0;
+    const made = 1 + extra;
+    const value = specialtyStat(employee, 'value', ctx);
+    const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
+      item: order.item, material: order.material, qty: made, quality: quality,
+      maker: employee.name, dueDay: shop.day + 1, level: level, value: value, extra: extra };
+    // Work promised to a contract is marked as such, so when it comes off the
+    // anvil tomorrow it goes into the crate rather than onto a stand.
+    if (order.commission) batch.commission = order.commission;
+    shop.orders.push(batch);
+    // work is work, whoever swung the hammer: the forge learns from it either way
+    const xp = recordCraft(shop, order.item, order.material, made, quality);
+    return Object.assign(report, { made: made, extra: extra, quality: quality, roll: roll,
+      bonus: bonus, value: value, xp: xp,
+      spec: smithSpecialtyXp(employee, ctx, SHOP.specialties.xp.made) });
+  }
+
+  // it did not come off: the ingot is gone, a careless hand may lose another,
+  // and a hand who knows the metal may save one from the scrap
+  let wasted = 0, saved = 0;
+  const waste = specialtyStat(employee, 'waste', ctx);
+  if (waste > 0 && (shop.materials[order.material] || 0) > 0 && shop.rnd() * 100 < waste) {
+    shop.materials[order.material] -= 1;
+    wasted = 1;
+  }
+  const conserve = specialtyStat(employee, 'conserve', ctx);
+  if (conserve > 0 && shop.rnd() * 100 < conserve) {
+    shop.materials[order.material] += 1;
+    saved = 1;
+  }
+  return Object.assign(report, { made: 0, failed: true, quality: null, wasted: wasted, saved: saved,
+    spec: smithSpecialtyXp(employee, ctx, SHOP.specialties.xp.failed) });
 }
 
 /* A store hand carries out whatever the player told them to prioritise, then
@@ -9905,8 +10386,9 @@ function xpFromReport(report) {
     return rate.runner.delivery + r.load * rate.runner.piece;
   }
   if (r.kind === 'smith') {
-    if (!(r.made > 0)) return 0;
-    return rate.smith.order + r.made * rate.smith.piece;
+    // an attempt that failed was still a phase at the anvil
+    if (!r.attempted) return 0;
+    return rate.smith.attempt + (r.made || 0) * rate.smith.piece;
   }
   if (r.kind === 'smelt') {
     if (!(r.made > 0)) return 0;
@@ -9970,6 +10452,8 @@ function shopEndDay(shop) {
   const delivered = [];
   // what everybody was down for, kept so the player can say "again" tomorrow
   shop.lastRoster = captureRoster(shop);
+  // a day given to study counts now that it is over
+  const studied = settleResearch(shop);
   shop.day += 1;
   shop.phaseIndex = 0;
 
@@ -9995,14 +10479,16 @@ function shopEndDay(shop) {
       const com = order.commission ? commissionById(shop, order.commission) : null;
       if (com && com.key === order.key && order.quality >= com.quality) {
         promised = Math.min(order.qty, commissionToMake(com));
+        com.value = blendValue(com.value, com.filled, order.value, promised);
         com.filled += promised;
         com.level = order.level || com.level || 1;
       }
       const rest = order.qty - promised;
-      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality, order.level)
+      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality, order.level, order.value)
         : { stored: 0, lost: 0 };
       delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
         quality: order.quality, level: order.level || 1, maker: order.maker,
+        value: order.value || 0, extra: order.extra || 0,
         promised: promised, commission: com ? com.id : null });
     } else still.push(order);
   }
@@ -10047,9 +10533,9 @@ function shopEndDay(shop) {
 
   const report = { kind: 'day', delivered: delivered, bill: bill, learned: learned,
     wages: wages, drifted: drifted.length, dug: dug, failed: failed,
-    roster: roster, newDay: true, day: shop.day };
+    roster: roster, research: studied, newDay: true, day: shop.day };
   if (delivered.length || bill || learned.length || failed.length ||
-      (dug && dug.length) || roster.length) shopLog(shop, report);
+      (dug && dug.length) || roster.length || studied) shopLog(shop, report);
   return report;
 }
 
@@ -10240,6 +10726,7 @@ function allocateCommission(shop, id, qty) {
   const want = Math.max(0, Math.floor(Number(qty) || 0));
   const moved = Math.min(want, lot.qty, commissionToMake(com));
   if (moved <= 0) return { ok: false, why: 'no qualifying items to assign' };
+  com.value = blendValue(com.value, com.filled, lot.value, moved);
   lot.qty -= moved;
   if (lot.qty <= 0) delete shop.storage[com.key];
   com.filled += moved;
@@ -10254,7 +10741,7 @@ function releaseCommission(shop, id, qty) {
   const want = Math.max(0, Math.floor(Number(qty) || 0));
   const moved = Math.min(want, com.filled);
   if (moved <= 0) return { ok: false, why: 'no items assigned' };
-  const res = addStorage(shop, com.key, moved, Math.max(com.quality, 60), com.level);
+  const res = addStorage(shop, com.key, moved, Math.max(com.quality, 60), com.level, com.value);
   com.filled -= res.stored;
   return { ok: true, moved: res.stored, lost: res.lost, filled: com.filled };
 }
@@ -10527,6 +11014,7 @@ function declineSpecial(shop, id) {
 /* One phase of the player's own work on the design or the mold, whichever
    comes next. The caller spends the phase; this only counts it. */
 function specialWork(shop, id) {
+  if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const def = specialDef(id);
   const stage = specialStage(shop, id);
   if (stage !== 'design' && stage !== 'mold') {
@@ -10546,6 +11034,7 @@ function specialAttemptCheck(shop, id) {
   const def = specialDef(id);
   const stage = specialStage(shop, id);
   if (!def) return { ok: false, why: 'no such commission' };
+  if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   if (stage === 'forging') return { ok: false, why: 'an attempt is already under way' };
   if (stage === 'done') return { ok: false, why: 'that commission is already completed' };
   if (stage !== 'ready') return { ok: false, why: 'finish the design and the mold first' };
@@ -10739,6 +11228,7 @@ function shopSearchMiners(shop, mineId, count) {
 }
 
 function shopHireMiner(shop, mineId, applicantId) {
+  if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const mine = mineById(shop, mineId);
   if (!mine) return { ok: false, why: 'no such mine' };
   const list = mine.applicants || [];
@@ -10931,17 +11421,32 @@ function collectOre(shop, mineId, vehicleId, want) {
 function smeltRate(power) {
   return SHOP.smelting.perPhase + SHOP.smelting.perPower * Math.max(0, (power || 1) - 1);
 }
-function shopSmelt(shop, materialId, qty) {
+/* `opts` is a Smith's hand at the furnace: `bonus` is the chance in a
+   hundred, rolled for each ingot, of one more from the same ore; `waste` the
+   chance, once a phase, of spoiling one more ore than was smelted. Bonus
+   ingots are not rolled for again. The player's own smelting passes nothing
+   and rolls nothing. */
+function shopSmelt(shop, materialId, qty, opts) {
   if (!shopMaterial(materialId)) return { ok: false, why: 'no such metal' };
+  const o = opts || {};
   const have = shop.ore[materialId] || 0;
   const made = Math.min(Math.max(0, Math.floor(Number(qty) || 0)), have);
   if (made <= 0) {
     return { ok: false, why: 'no ' + shopMaterial(materialId).name + ' ore to smelt' };
   }
   shop.ore[materialId] = have - made;
+  let bonus = 0, wasted = 0;
+  if (o.bonus > 0) {
+    for (let i = 0; i < made; i++) if (shop.rnd() * 100 < o.bonus) bonus++;
+  }
+  if (o.waste > 0 && shop.ore[materialId] > 0 && shop.rnd() * 100 < o.waste) {
+    shop.ore[materialId] -= 1;
+    wasted = 1;
+  }
   if (shop.ore[materialId] <= 0) delete shop.ore[materialId];
-  shop.materials[materialId] += made;              // one ore, one ingot
-  return { ok: true, material: materialId, made: made, left: shop.ore[materialId] || 0 };
+  shop.materials[materialId] += made + bonus;      // one ore, one ingot, and any luck
+  return { ok: true, material: materialId, made: made + bonus, smelted: made, bonus: bonus,
+    wasted: wasted, left: shop.ore[materialId] || 0 };
 }
 
 /* ---------- growth -------------------------------------------------------- */
@@ -11029,8 +11534,9 @@ const CHECKSMITH_CORE = {
   blueprintUpgradeCost: blueprintUpgradeCost, blueprintUnlockCost: blueprintUnlockCost,
   requiredParentLevel: requiredParentLevel,
   unlockBlueprint: unlockBlueprint, upgradeBlueprint: upgradeBlueprint,
-  takeUpDiscipline: takeUpDiscipline, shopTakeUpDiscipline: shopTakeUpDiscipline,
-  disciplineTerms: disciplineTerms, disciplineStatus: disciplineStatus,
+  takeUpDiscipline: takeUpDiscipline, paidCrafts: paidCrafts, researchCost: researchCost,
+  researchingToday: researchingToday, researchStatus: researchStatus, shopResearch: shopResearch,
+  settleResearch: settleResearch,
   disciplineSummary: disciplineSummary, disciplineTree: disciplineTree,
   forgeRecord: forgeRecord, forgedEver: forgedEver, learnRecipe: learnRecipe,
   recordForged: recordForged,
@@ -11126,7 +11632,17 @@ const CHECKSMITH_CORE = {
   staffCandidates: staffCandidates, staffFace: staffFace,
   phaseIndexOf: phaseIndexOf,
   assignedThisDay: assignedThisDay, runnerScale: runnerScale, runRunner: runRunner,
-  smithQuality: smithQuality, runSmith: runSmith, runStoreHand: runStoreHand,
+  smithQualityRoll: smithQualityRoll, smithChance: smithChance, smithBonusQuality: smithBonusQuality,
+  runSmith: runSmith, runStoreHand: runStoreHand,
+  specialtyKind: specialtyKind, specialtyDefs: specialtyDefs, specialtyDef: specialtyDef,
+  flawDef: flawDef, flawsFor: flawsFor, specialtiesOf: specialtiesOf, handSpecialty: handSpecialty,
+  slotsUsed: slotsUsed, slotsFree: slotsFree, specialtyMilestone: specialtyMilestone,
+  specialtyRankOk: specialtyRankOk, specialtyPerkReady: specialtyPerkReady,
+  specialtyPathLevel: specialtyPathLevel, specialtyPathValue: specialtyPathValue,
+  specialtiesFound: specialtiesFound, specialtyNews: specialtyNews, specialtyStat: specialtyStat,
+  gainSpecialtyXp: gainSpecialtyXp, smithSpecialtyXp: smithSpecialtyXp,
+  acceptSpecialty: acceptSpecialty, chooseSpecialtyPerk: chooseSpecialtyPerk,
+  readSpecialties: readSpecialties, valueFactor: valueFactor, blendValue: blendValue,
   runSalesperson: runSalesperson, runAssignments: runAssignments,
   shopAdvancePhase: shopAdvancePhase, shopEndDay: shopEndDay, payWeek: payWeek,
   shopUpgradeCost: shopUpgradeCost, shopBuyUpgrade: shopBuyUpgrade,
@@ -13640,6 +14156,8 @@ function shopRenderBar() {
 /* Why one of the player's own actions cannot be taken right now, or null. */
 function shopActionState(id) {
   const sh = shop();
+  // a day given to study is the player's whole day; the staff carry on
+  if (researchingToday(sh) && (id === 'forge' || id === 'buy' || id === 'tend')) return 'studying today';
   if (id === 'forge') {
     // a forge with nothing in its book has nothing to put on the anvil
     if (!knownRecipes(sh).length) return 'no blueprints';
@@ -14986,7 +15504,8 @@ function phaseShots(reports, crew, L, forged) {
   }
 
   for (const smith of done(['smith', 'smelt'])) {
-    if (!(smith.made > 0)) continue;
+    // a piece that did not come off was still a phase at the anvil
+    if (!(smith.made > 0) && !smith.attempted) continue;
     const smelt = smith.kind === 'smelt';
     add('smith', smith, { loc: 'work', x: smelt ? 60 : 160, y: smelt ? 236 : 316, max: 2600,
       what: smelt ? 'smelting ore at the furnace' : 'forging at the anvil',
@@ -14995,8 +15514,9 @@ function phaseShots(reports, crew, L, forged) {
         T.busy(station('forge'));
         if (!smelt) T.busy(station('anvil'));
         T.busy(this.fig, function () {
-          sceneFloat('work', x + 24, y - 8,
-            smelt ? '+' + smith.made + ' ingots' : '+' + smith.made + ' made');
+          if (smelt) sceneFloat('work', x + 24, y - 8, '+' + smith.made + ' ingots');
+          else if (smith.made > 0) sceneFloat('work', x + 24, y - 8, '+' + smith.made + ' made');
+          else sceneFloat('work', x + 24, y - 8, 'did not come off', 'quiet');
           T.at(700, end);
         });
       } });
@@ -15202,7 +15722,8 @@ function shopSkipPhase() {
    full account of each hand's work is still there, a tap away. */
 function phaseTotals(reports) {
   const t = { revenue: 0, bonus: 0, sold: 0, customers: 0, ingots: 0, spent: 0, ore: 0, made: 0,
-    smelted: 0, shelved: 0, trips: 0, carried: 0, paid: 0, offers: 0, xp: [], ready: [], failed: [] };
+    smelted: 0, shelved: 0, trips: 0, carried: 0, paid: 0, offers: 0, xp: [], ready: [], failed: [],
+    spoilt: 0, news: [] };
   for (const r of reports) {
     if (!r) continue;
     if (!r.ok) { t.failed.push((r.who || 'An employee') + ': ' + (r.why || 'could not do the job')); continue; }
@@ -15212,7 +15733,14 @@ function phaseTotals(reports) {
     }
     if (r.kind === 'runner') { t.ingots += r.ingots || 0; t.spent += r.actual || 0; }
     if (r.kind === 'haul') t.ore += r.load || 0;
-    if (r.kind === 'smith') t.made += r.made || 0;
+    if (r.kind === 'smith') {
+      t.made += r.made || 0;
+      if (r.failed) t.spoilt += 1;
+    }
+    for (const g of r.spec || []) {
+      if (g.found) t.news.push((r.who || 'An employee') + ' discovered ' + g.name);
+      if (g.ready) t.news.push((r.who || 'An employee') + ' can choose a ' + g.name + ' perk');
+    }
     if (r.kind === 'smelt') t.smelted += r.made || 0;
     if (r.kind === 'storehand') t.shelved += r.moved || 0;
     if (r.kind === 'delivery') { t.trips += 1; t.carried += r.load || 0; t.paid += r.paid || 0; }
@@ -15232,7 +15760,10 @@ function phaseSummaryHtml(replay) {
   if (t.sold) row('Items sold', t.sold);
   if (t.ingots) row('Metal bought', t.ingots + ' ingots for ' + coin(t.spent) + 'g');
   if (t.ore) row('Ore collected', t.ore);
-  if (t.made) row('Forged by staff', t.made + ' items');
+  if (t.made || t.spoilt) {
+    row('Forged by staff', t.made + (t.made === 1 ? ' item' : ' items') +
+      (t.spoilt ? ', ' + t.spoilt + ' attempt' + (t.spoilt === 1 ? '' : 's') + ' failed' : ''));
+  }
   if (t.smelted) row('Smelted', t.smelted + ' ingots');
   if (t.shelved) row('Restocked', t.shelved + ' items', true);
   if (t.trips) row('Delivered', t.carried + ' items' + (t.paid ? ', ' + coin(t.paid) + 'g paid' : ''), true);
@@ -15250,6 +15781,10 @@ function phaseSummaryHtml(replay) {
   if (t.ready.length) {
     html += '<div class="rank-call"><b>Ready for promotion</b><span>' + esc(t.ready.join(', ')) +
       '. Promote them from the Staff noticeboard.</span></div>';
+  }
+  if (t.news.length) {
+    html += '<div class="rank-call sp"><b>Specializations</b><span>' + esc(t.news.join('; ')) +
+      '. Open their card from the Staff noticeboard to decide.</span></div>';
   }
   for (const f of t.failed) html += '<p class="station-why">' + esc(f) + '</p>';
   // contracts a salesperson took down wait for YOUR answer, here and on the commission board
@@ -15385,7 +15920,7 @@ function placeArt(sh, id) {
 /* What is waiting on a page, said on its tab. */
 function placeTabNote(sh, tabId) {
   if (tabId === 'offers') return (sh.commissionOffers || []).length + (sh.specialOffers || []).length;
-  if (tabId === 'crew') return readyToRank(sh).length;
+  if (tabId === 'crew') return readyToRank(sh).length + sh.staff.filter(specialtyNews).length;
   if (tabId === 'deliver') {
     return (sh.commissions || []).filter(function (c) { return commissionToShip(c) > 0; }).length;
   }
@@ -15581,7 +16116,10 @@ function placeStorage(sh) {
         '<span class="gb-name">' + esc(lineName(key)) + '</span>' +
         '<span class="gb-qty">&times;' + lot.qty + '</span>' +
         '<span class="gb-q q-' + band.tone + '">' + esc(qualityBandName(lot.quality)) + ' · ' +
-        Math.round(lot.quality) + '</span></div>';
+        Math.round(lot.quality) + '</span>' +
+        // a Smith's workmanship, carried by the lot
+        (Math.round(lot.value || 0) ? '<span class="gb-v">' + (lot.value > 0 ? '+' : '') +
+          Math.round(lot.value) + '% value</span>' : '') + '</div>';
     }
     html += '</div>';
   }
@@ -16322,8 +16860,9 @@ function rankPerks(roleId, power) {
       'Price varies by up to about ' + swing + '%'];
   }
   if (roleId === 'smith') {
-    return ['Average quality about ' + (34 + p * 9),
-      Math.round(Math.max(0, 0.30 - 0.05 * p) * 100) + '% chance of ruining part of a batch',
+    const rank = SHOP.ranks.find(function (r) { return r.power === p; }) || SHOP.ranks[0];
+    return [rank.craft + '% chance an item comes off',
+      'Quality ' + rank.quality.join('–') + ' before specializations',
       'Smelts ' + smeltRate(p) + ' ore per phase'];
   }
   if (roleId === 'storehand') {
@@ -16339,16 +16878,32 @@ function rankPerks(roleId, power) {
 /* One hand, with the work behind them and the work still to do. Used on the
    Staff screen and on a mine's own sheet, so a miner reads the same as
    anybody else. */
+/* A hand's specialisations and flaw as small chips, for the cards that list
+   people. Empty for a trade with none in the tables. */
+function specChipsHtml(e) {
+  if (!specialtyDefs(e.role).length) return '';
+  let html = '';
+  for (const rec of specialtiesOf(e)) {
+    const def = specialtyDef(rec.id);
+    if (def) html += '<i class="sp-chip">' + esc(def.name) + (rec.picks ? ' ' + roman(rec.picks) : '') + '</i>';
+  }
+  const flaw = flawDef(e.flaw);
+  if (flaw) html += '<i class="sp-chip flaw">' + esc(flaw.name) + '</i>';
+  return html ? '<span class="sp-chips">' + html + '</span>' : '';
+}
+function roman(n) { return ['', 'I', 'II', 'III'][Math.max(0, Math.min(3, n))] || String(n); }
 function crewCard(e, roleName, state) {
   const need = rankUpAt(e);
   const xp = Math.max(0, e.xp || 0);
   const ready = rankReady(e);
+  const news = specialtyNews(e);
   const pct = need ? Math.max(0, Math.min(100, Math.round(xp / need * 100))) : 100;
-  return '<button class="applicant crew' + (ready ? ' ready' : '') +
+  return '<button class="applicant crew' + (ready || news ? ' ready' : '') +
     '" data-crew="' + e.id + '">' + staffPortrait(e) +
     '<span class="nm"><span class="rank" data-r="' + e.rank + '" aria-label="' + e.rank +
     ' rank">' + e.rank + '</span> ' + esc(e.name) +
-    (ready ? '<span class="up-flag">Ready</span>' : '') + '</span>' +
+    (ready ? '<span class="up-flag">Ready</span>' : '') +
+    (news ? '<span class="up-flag sp">Specialization</span>' : '') + '</span>' + specChipsHtml(e) +
     '<span class="xp-wrap">' +
       '<span class="xp-bar' + (ready ? ' full' : '') + '">' +
         '<i style="width:' + pct + '%"></i></span>' +
@@ -16367,6 +16922,7 @@ function shopOpenHand(id) {
   const sh = shop();
   const e = crewById(sh, id);
   if (!e) return;
+  SHOPUI.handOpen = e.id;
   const isMiner = !shopRole(e.role);
   const roleId = isMiner ? 'miner' : e.role;
   const roleName = isMiner ? 'Miner' : shopRole(e.role).name;
@@ -16399,6 +16955,7 @@ function shopOpenHand(id) {
     (ready ? '<span class="dg-next">Ready for ' + up.id + '-rank: free, uses no phase; XP above ' + need + ' carries over</span>'
       : need ? '<span class="dg-next">' + (need - xp) + ' more XP, earned only by finishing assigned work</span>' : '') +
     '</div>';
+  html += specSectionHtml(e);
   html += '<div class="dlg-cmp"><div class="perks"><b>Current (' + e.rank + '-rank)</b><ul>';
   for (const line of rankPerks(roleId, e.power)) html += '<li>' + esc(line) + '</li>';
   html += '</ul></div>';
@@ -16419,6 +16976,210 @@ function shopOpenHand(id) {
   if (!isMiner) acts.push({ label: 'Dismiss', onClick: function () { shopConfirmFire(e.id); } });
   acts.push({ label: 'Back', ghost: true, onClick: shopSheetClose });
   shopSheet(esc(e.name), html, acts, staffPortrait(e));
+}
+
+/* ---------- specialisations on the card -----------------------------------
+   Three slots, filled or empty, a flaw in red if there is one; then what the
+   work has turned up and is waiting on the player; then what it is still
+   working towards. Each specialisation opens its own tree. */
+function specArt(def, extra) {
+  if (!def) return '';
+  if (def.kind === 'material') return ingotSprite(def.of, extra);
+  return itemSprite(disciplineRoot(def.of) || 'shortsword', 'bronze', extra);
+}
+/* Where a specialisation is on its road to the next perk, in a few words. */
+function specProgressText(e, rec) {
+  const ms = specialtyMilestone(rec);
+  if (!ms) return 'All three perks chosen';
+  if (!specialtyRankOk(e, ms)) return 'Next perk needs ' + ms.rank + '-rank';
+  if (specialtyPerkReady(e, rec)) return 'Perk ' + (rec.picks + 1) + ' ready to choose';
+  return (rec.xp || 0) + ' / ' + ms.xp + ' XP to perk ' + (rec.picks + 1);
+}
+function specSectionHtml(e) {
+  if (!specialtyDefs(e.role).length) return '';
+  const S = SHOP.specialties;
+  let html = placeSec('Specializations', slotsUsed(e) + ' of ' + S.slots + ' slots used');
+  html += '<div class="dlg-tiles spec-slots">';
+  for (const rec of specialtiesOf(e)) {
+    const def = specialtyDef(rec.id);
+    if (!def) continue;
+    const ready = specialtyPerkReady(e, rec);
+    html += dlgTile('data-spec="' + esc(rec.id) + '"', { art: specArt(def), name: esc(def.name),
+      sub: esc(specProgressText(e, rec)), badge: rec.picks ? roman(rec.picks) : '',
+      cls: ready ? 'ready' : '', aria: def.name + ', ' + specProgressText(e, rec) }, false);
+  }
+  const flaw = flawDef(e.flaw);
+  if (flaw) {
+    html += '<div class="dlg-tile flaw" role="note"><span class="dt-art"><span class="flaw-mark" aria-hidden="true">!</span></span>' +
+      '<span class="dt-text"><span class="dt-name">' + esc(flaw.name) + '</span>' +
+      '<span class="dt-sub">Flaw · permanent</span></span></div>';
+  }
+  for (let i = slotsUsed(e); i < S.slots; i++) {
+    html += '<div class="dlg-tile empty" role="note"><span class="dt-text"><span class="dt-name">Empty slot</span>' +
+      '<span class="dt-sub">Fills from the work</span></span></div>';
+  }
+  html += '</div>';
+  if (flaw) html += dlgNote('<b>' + esc(flaw.name) + ':</b> ' + esc(flaw.blurb), 'warn');
+  const found = slotsFree(e) ? specialtiesFound(e) : [];
+  if (found.length) {
+    html += placeSec('Discovered', 'tap one to look before deciding');
+    html += '<div class="dlg-tiles">';
+    for (const def of found) {
+      html += dlgTile('data-spec="' + esc(def.id) + '"', { art: specArt(def), name: esc(def.name),
+        sub: 'Not accepted', cls: 'found' }, false);
+    }
+    html += '</div>';
+  }
+  // what the work is still turning up, short of a discovery
+  const near = slotsFree(e) ? specialtyDefs(e.role).filter(function (d) {
+    const xp = (e.found || {})[d.id] || 0;
+    return xp > 0 && xp < S.discover;
+  }) : [];
+  if (near.length) {
+    html += dlgNote('Working towards: ' + near.map(function (d) {
+      return esc(d.name) + ' ' + e.found[d.id] + '/' + S.discover;
+    }).join(', ') + '.');
+  } else if (!specialtiesOf(e).length && !found.length && !flaw) {
+    html += dlgNote('A Smith discovers a specialization by working: each attempt counts towards its craft ' +
+      'and its metal, and each phase at the furnace towards that ore.');
+  }
+  return html;
+}
+
+/* One specialisation, as a tree: three paths, three levels each. Acquired
+   levels are lit, the levels a waiting choice could take are offered, and
+   the rest are locked with what still stands in the way. A discovered one
+   is shown the same way before it is accepted, so the player sees what they
+   are signing up for. */
+function shopOpenSpecialty(employeeId, specId) {
+  const sh = shop();
+  const e = crewById(sh, employeeId);
+  const def = specialtyDef(specId);
+  if (!e || !def) return;
+  const kind = specialtyKind(def.kind);
+  const rec = handSpecialty(e, specId);
+  const S = SHOP.specialties;
+  const ready = !!rec && specialtyPerkReady(e, rec);
+  const ms = rec ? specialtyMilestone(rec) : null;
+  const passive = kind.paths.map(function (p) {
+    const v = kind.passive[p.stat] || 0;
+    return v ? '+' + v + p.unit : '';
+  }).filter(Boolean).join(', ');
+
+  let html = dlgHero(specArt(def, 'lg'), esc(def.name),
+    esc(kind.label) + ' specialization · ' + esc(e.name) + ' · ' +
+      (rec ? 'accepted, permanent' : 'discovered, not accepted'),
+    rec ? '<b>' + rec.picks + ' / 3</b>perks' : '<b>' + slotsFree(e) + '</b>slots free');
+  html += dlgNote((rec ? 'Always on: ' : 'On accepting: ') + esc(passive) + ' on ' +
+    (def.kind === 'item' ? esc(def.target.toLowerCase()) + ' they make.' : 'work in ' + esc(def.target.toLowerCase()) + '.'));
+
+  // the tree
+  html += '<div class="sp-tree" role="group" aria-label="' + esc(def.name) + ' perk tree">';
+  for (const path of kind.paths) {
+    const level = specialtyPathLevel(rec, path.id);
+    const base = kind.passive[path.stat] || 0;
+    html += '<div class="sp-path"><span class="sp-head">' + esc(path.name) + '</span>';
+    path.levels.forEach(function (v, i) {
+      const got = i < level;
+      const open = ready && i === level;
+      // the column head names the stat, so a level only needs its figure
+      const label = roman(i + 1) + ' · +' + v + (path.unit.charAt(0) === '%' ? '%' : '');
+      const total = 'total +' + (base + v) + path.unit;
+      const why = got ? 'acquired' : open ? 'choose' : !rec ? 'accept first'
+        : !ms ? 'no choices left' : i > level ? 'needs ' + roman(i) + ' first'
+          : !specialtyRankOk(e, ms) ? 'needs ' + ms.rank + '-rank' : (ms.xp - (rec.xp || 0)) + ' XP to go';
+      html += (i ? '<span class="sp-link' + (got ? ' got' : '') + '" aria-hidden="true"></span>' : '') +
+        (open
+          ? '<button type="button" class="sp-node open" data-perk="' + esc(path.id) + '" aria-label="' +
+            esc(path.name + ' ' + roman(i + 1) + ', ' + total + ', choose this perk') + '">'
+          : '<span class="sp-node ' + (got ? 'got' : 'shut') + '" role="img" aria-label="' +
+            esc(path.name + ' ' + roman(i + 1) + ', ' + total + ', ' + why) + '">') +
+        '<b>' + esc(label) + '</b><small>' + esc(got || open ? total : why) + '</small>' +
+        (open ? '</button>' : '</span>');
+    });
+    html += '<span class="sp-blurb">' + esc(path.blurb) + '</span></div>';
+  }
+  html += '</div>';
+
+  // the three perk choices: what each needs, and how far this one is
+  html += '<div class="sp-steps">';
+  S.milestones.forEach(function (m, i) {
+    const done = rec && rec.picks > i;
+    const now = rec && rec.picks === i;
+    const rankOk = rankIndex(e.rank) >= rankIndex(m.rank);
+    const xp = now ? (rec.xp || 0) : 0;
+    html += '<span class="sp-step' + (done ? ' done' : now ? ' now' : '') + '">' +
+      '<b>Perk ' + (i + 1) + '</b>' +
+      (done ? 'chosen' : now ? (rankOk ? xp + ' / ' + m.xp + ' XP' : m.rank + '-rank first')
+        : m.xp + ' XP' + (m.rank !== 'E' ? ' · ' + m.rank + '-rank' : '')) +
+      (now && rankOk ? '<i class="xp-bar' + (xp >= m.xp ? ' full' : '') + '"><i style="width:' +
+        Math.round(100 * xp / m.xp) + '%"></i></i>' : '') + '</span>';
+  });
+  html += '</div>';
+
+  const acts = [];
+  if (!rec) {
+    html += dlgNote('Accepting is permanent: it takes one of ' + e.name.split(' ')[0] + '’s three slots and can ' +
+      'never be removed or swapped. Leaving it for now loses nothing; it stays here to accept later.',
+      slotsFree(e) ? '' : 'warn');
+    acts.push({ label: 'Accept for Good', primary: true, disabled: !slotsFree(e),
+      onClick: function () { shopConfirmSpecialty(e.id, specId); } });
+    acts.push({ label: 'Not Now', onClick: function () { shopOpenHand(e.id); } });
+  } else if (ready) {
+    html += dlgNote('A perk is waiting: tap a lit level to choose it. Choices are permanent.');
+  } else if (ms && !specialtyRankOk(e, ms)) {
+    html += dlgNote('No XP towards perk ' + (rec.picks + 1) + ' is earned until ' + e.name.split(' ')[0] +
+      ' reaches ' + ms.rank + '-rank.');
+  }
+  acts.push({ label: 'Back', ghost: true, onClick: function () { shopOpenHand(e.id); } });
+  SHOPUI.specOpen = { employee: e.id, spec: specId };
+  shopSheet(def.name, html, acts, specArt(def));
+}
+
+function shopConfirmSpecialty(employeeId, specId) {
+  const e = crewById(shop(), employeeId);
+  const def = specialtyDef(specId);
+  if (!e || !def) return;
+  shopSheet('Accept ' + def.name + '?',
+    dlgHero(specArt(def, 'lg'), esc(def.name), esc(e.name), '<b>' + (slotsUsed(e) + 1) + ' / ' +
+      SHOP.specialties.slots + '</b>slots after') +
+    dlgNote('This is permanent. ' + esc(def.name) + ' will take one of ' + esc(e.name.split(' ')[0]) +
+      '’s three slots for good and can never be removed or replaced.', 'warn'),
+    [{ label: 'Accept ' + def.name, primary: true, onClick: function () {
+      const res = acceptSpecialty(shop(), employeeId, specId);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(true);
+      shopRender();
+      shopToast(res.who + ' is now a ' + res.name + '.');
+      shopOpenSpecialty(employeeId, specId);
+    } },
+    { label: 'Not Now', ghost: true, onClick: function () { shopOpenSpecialty(employeeId, specId); } }],
+    specArt(def));
+}
+
+function shopConfirmPerk(employeeId, specId, pathId) {
+  const e = crewById(shop(), employeeId);
+  const rec = handSpecialty(e, specId);
+  const def = specialtyDef(specId);
+  if (!e || !rec || !def) return;
+  const path = specialtyKind(def.kind).paths.find(function (p) { return p.id === pathId; });
+  const level = specialtyPathLevel(rec, pathId) + 1;
+  const total = (specialtyKind(def.kind).passive[path.stat] || 0) + path.levels[level - 1];
+  shopSheet(path.name + ' ' + roman(level) + '?',
+    dlgHero(specArt(def, 'lg'), esc(path.name) + ' ' + roman(level), esc(def.name) + ' · ' + esc(e.name),
+      '<b>+' + total + '</b>' + esc(path.unit.trim())) +
+    dlgNote(esc(path.blurb) + ' ' + (level > 1 ? 'Raises ' + esc(path.name) + ' from ' + roman(level - 1) +
+      ' to ' + roman(level) + '. ' : '') + 'Perk choices are permanent.', 'warn'),
+    [{ label: 'Choose ' + path.name + ' ' + roman(level), primary: true, onClick: function () {
+      const res = chooseSpecialtyPerk(shop(), employeeId, specId, pathId);
+      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SOUNDS.prosper(true);
+      shopRender();
+      shopToast(res.who + '’s ' + res.name + ': ' + res.path + ' ' + roman(res.level) + '.');
+      shopOpenSpecialty(employeeId, specId);
+    } },
+    { label: 'Back', ghost: true, onClick: function () { shopOpenSpecialty(employeeId, specId); } }],
+    specArt(def));
 }
 
 function shopRankUp(id) {
@@ -16680,8 +17441,8 @@ function standingPlanFields(sh, roleId, d) {
     html += dlgItemPick(sh, d, knownCrafts(sh));
     html += placeSec('Metal');
     html += dlgMetalPick(sh, d, false);
-    html += dlgQty('qty', 'Batch size', Math.min(d.qty || 1, batchCapacity(sh)), 1, batchCapacity(sh),
-      { ceiling: batchCapacity(sh) + growthRoom(sh, 'forge'), grow: 'Forge upgrades raise it', unit: 'items' });
+    d.qty = 1;
+    html += dlgNote('A Smith makes one piece a phase; it may not come off, and the ingot is used either way.');
     return html;
   }
 
@@ -16711,8 +17472,11 @@ function rankBenefit(roleId, e) {
   const power = shopRank(e.rank).power;
   if (roleId === 'apprentice') return '+' + Math.ceil(power / 2) + ' batch size';
   if (roleId === 'runner') return 'better prices at higher ranks';
-  // the midpoint of their roll, with the luck taken out of it
-  if (roleId === 'smith') return 'average quality about ' + (34 + power * 9);
+  // the odds of a piece coming off, and the range its quality is rolled in
+  if (roleId === 'smith') {
+    const rank = shopRank(e.rank) || SHOP.ranks[0];
+    return rank.craft + '% success, quality ' + rank.quality.join('–');
+  }
   if (roleId === 'salesperson') return 'haggling improves with rank';
   if (roleId === 'storehand') return 'moves ' + (4 + power * 2) + ' items per phase';
   return '';
@@ -17341,10 +18105,24 @@ function dlgStep(key, label, value, min, max) {
   return '<div class="dlg-qty slim"><span class="dq-label">' + label + '</span>' +
     stepper(key, value, min, max) + '</div>';
 }
+/* What one attempt by this Smith at this piece looks like, from the same
+   rules the anvil will use: the chance it comes off, the quality range it
+   would land in and what their specialisations and flaw add to it. */
+function smithOutlook(e, itemId, materialId) {
+  const it = shopItem(itemId);
+  const ctx = { cat: it ? it.cat : null, material: materialId };
+  const range = (shopRank(e.rank) || SHOP.ranks[0]).quality;
+  const bonus = smithBonusQuality(e, ctx);
+  return { chance: smithChance(e, ctx), lo: range[0], hi: range[1], bonus: bonus,
+    from: Math.max(0, Math.min(100, range[0] + bonus)), to: Math.max(0, Math.min(100, range[1] + bonus)),
+    extra: specialtyStat(e, 'extra', ctx), conserve: specialtyStat(e, 'conserve', ctx),
+    waste: specialtyStat(e, 'waste', ctx), value: specialtyStat(e, 'value', ctx) };
+}
 function shopForgeBody(smith) {
   const sh = shop();
   const d = SHOPUI.draft;
-  const cap = smith ? Math.min(batchCapacity(sh), 2 + smith.power) : batchCapacity(sh);
+  // the batch is the player's; a Smith works one piece a phase
+  const cap = smith ? 1 : batchCapacity(sh);
   // only what the forge has a blueprint for: the rest of the catalogue is
   // in the Almanac, where the way to it is spelled out
   const crafts = knownCrafts(sh);
@@ -17362,9 +18140,10 @@ function shopForgeBody(smith) {
       })), d.commission || 0, { cls: 'wide', label: 'Who the batch is for' });
     const com = d.commission ? commissionById(sh, d.commission) : null;
     if (com) {
-      html += dlgNote(esc(smith.name.split(' ')[0]) + '\u2019s work averages about quality ' +
-        (34 + smith.power * 9) + '; anything below ' + esc(commissionBand(com.quality).name) +
-        ' goes to storage instead.');
+      const look = smithOutlook(smith, com.item, com.material);
+      html += dlgNote(esc(smith.name.split(' ')[0]) + '’s work lands at quality ' + look.from +
+        '–' + look.to + '; anything below ' + esc(commissionBand(com.quality).name) +
+        ' (' + com.quality + ') goes to storage instead.', look.to < com.quality ? 'warn' : '');
     }
   }
   html += placeSec('Item', knownRecipes(sh).length + ' blueprints known');
@@ -17373,9 +18152,10 @@ function shopForgeBody(smith) {
   html += dlgMetalPick(sh, d, !smith);
 
   const qty = Math.max(1, Math.min(d.qty || 1, cap));
-  const ceiling = smith ? cap : cap + growthRoom(sh, 'forge');
-  html += dlgQty('qty', 'Batch size', qty, 1, cap, { ceiling: ceiling,
-    grow: smith ? '' : 'Forge upgrades raise it', unit: 'items' });
+  if (!smith) {
+    html += dlgQty('qty', 'Batch size', qty, 1, cap, { ceiling: cap + growthRoom(sh, 'forge'),
+      grow: 'Forge upgrades raise it', unit: 'items' });
+  }
 
   // What the board will actually be worked at: the batch, raised by the metal
   // if it is one of the hard ones. The dialog must say the same number the
@@ -17401,6 +18181,17 @@ function shopForgeBody(smith) {
       rows.push({ k: 'Harder from', v: 'a batch of ' + nextAt });
     }
   }
+  if (smith && itNow && mtNow) {
+    const look = smithOutlook(smith, d.item, d.material);
+    rows.push({ k: 'Comes off', v: look.chance + '% of the time' });
+    rows.push({ k: 'Quality', v: look.from + '–' + look.to + (look.bonus
+      ? ' <span class="up">' + (look.bonus > 0 ? '+' : '') + look.bonus + ' from ' +
+        (look.bonus > 0 ? 'specializations' : 'a flaw') + '</span>' : ''),
+      tone: look.to >= 100 ? 'gold' : '' });
+    if (look.extra > 0) rows.push({ k: 'Extra piece', v: look.extra + '% chance' });
+    if (look.value) rows.push({ k: 'Sale value', v: (look.value > 0 ? '+' : '') + look.value + '%',
+      tone: look.value > 0 ? 'good' : 'short' });
+  }
   if (itNow && mtNow) {
     rows.push({ k: 'Ingots', v: qty + ' ' + esc(mtNow.name) + ' of ' + (sh.materials[mtNow.id] || 0),
       tone: (sh.materials[mtNow.id] || 0) < qty ? 'short' : '' });
@@ -17408,9 +18199,17 @@ function shopForgeBody(smith) {
     rows.push({ k: 'Worth at quality 100', v: coin(rec * qty) + 'g', tone: 'gold' });
   }
   html += dlgSum(rows);
-  html += check.ok
-    ? dlgNote('The ingots are used only if the puzzle is finished. The batch is in storage tomorrow morning.')
-    : dlgNote(esc(check.why) + '.', 'warn');
+  if (smith && check.ok) {
+    const look = smithOutlook(smith, d.item, d.material);
+    html += dlgNote('One piece this phase. If it does not come off, the ingot is lost' +
+      (look.conserve > 0 ? ', though there is a ' + look.conserve + '% chance it is saved' : '') +
+      (look.waste > 0 ? ', and there is a ' + look.waste + '% chance another is spoiled' : '') +
+      '. A finished piece is in storage tomorrow morning.');
+  } else {
+    html += check.ok
+      ? dlgNote('The ingots are used only if the puzzle is finished. The batch is in storage tomorrow morning.')
+      : dlgNote(esc(check.why) + '.', 'warn');
+  }
   return html;
 }
 
@@ -17421,8 +18220,9 @@ function shopOpenForge(smith) {
   if (!d.material) d.material = 'bronze';
   if (!d.qty) d.qty = 1;
   if (d.commission && !commissionById(sh, d.commission)) d.commission = 0;
+  if (smith) d.qty = 1;
   const redraw = function () {
-    const check = forgeCheck(shop(), d.item, d.material, d.qty);
+    const check = forgeCheck(shop(), d.item, d.material, smith ? 1 : d.qty);
     shopSheet(smith ? 'Smith: ' + smith.name.split(' ')[0] : 'Forge a Batch', shopForgeBody(smith),
       [
         { label: smith ? 'Assign Order' : 'Start Puzzle', primary: true, disabled: !check.ok,
@@ -17436,7 +18236,8 @@ function shopOpenForge(smith) {
 
 function shopGiveSmithOrder(smith) {
   const d = SHOPUI.draft;
-  const order = { item: d.item, material: d.material, qty: d.qty };
+  // one piece a phase, whatever the draft was last set to
+  const order = { item: d.item, material: d.material, qty: 1 };
   if (d.commission && commissionById(shop(), d.commission)) order.commission = d.commission;
   const res = rosterBook(smith, { order: order });
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
@@ -17753,7 +18554,7 @@ function shopStockPicker(sh) {
     const band = qualityBand(lot.quality);
     html += dlgTile('data-take="' + esc(key) + '"', { art: lineSprite(key, 'lg'), name: esc(lineName(key)),
       sub: '<span class="q-' + band.tone + '">' + esc(qualityBandName(lot.quality)) + '</span> · ' +
-        coin(recommendedPrice(p.item, p.material, lot.quality, lot.level)) + 'g',
+        coin(recommendedPrice(p.item, p.material, lot.quality, lot.level, lot.value)) + 'g',
       badge: '\u00d7' + left,
       aria: lineName(key) + ', ' + left + ' in storage, ' + qualityBandName(lot.quality) }, false);
   }
@@ -17790,7 +18591,8 @@ function shopStockBody(hand) {
         price: stand.price ||
           recommendedPrice(splitKey(mine[0].key).item, splitKey(mine[0].key).material,
             sh.storage[mine[0].key] ? sh.storage[mine[0].key].quality : 100,
-            sh.storage[mine[0].key] ? sh.storage[mine[0].key].level : 1) };
+            sh.storage[mine[0].key] ? sh.storage[mine[0].key].level : 1,
+            sh.storage[mine[0].key] ? sh.storage[mine[0].key].value : 0) };
       html += standBoxHtml(shown, 'data-unpick="' + stand.id + '"', 'pick');
     } else if (stand.key && stand.qty > 0 && room <= 0) {
       html += standBoxHtml(stand, 'disabled', 'done');
@@ -18076,20 +18878,20 @@ function craftFacts(c) {
 }
 
 function almanacCraftsHtml(sh) {
-  const terms = disciplineTerms(sh);
   let html = '<p class="alm-lead">Each craft has its own XP, earned when you or your Smiths ' +
     'forge items in it. XP buys and upgrades blueprints in the same craft only.</p>' +
     '<div class="craft-grid">';
   for (const c of SHOP.categories) {
     const sum = disciplineSummary(sh, c.id);
-    const st = disciplineStatus(sh, c.id);
+    const st = researchStatus(sh, c.id);
     const root = shopItem(disciplineRoot(c.id));
     const examples = disciplineItems(c.id).filter(function (it) { return !it.special; })
       .slice(-3).map(function (it) { return it.name; });
     html += '<button class="craft-card' + (sum.held ? '' : ' shut') + '" type="button"' +
       ' data-craft="' + esc(c.id) + '" aria-label="' + esc(c.name + ', ' +
         (sum.held ? sum.unlocked + ' of ' + sum.count + ' blueprints unlocked, ' + sum.xp +
-          ' XP unspent' : 'not taken up')) + '">' +
+          ' XP unspent' : st.current ? 'researching, ' + st.days + ' of ' + st.of + ' days done'
+          : 'not learned, research for ' + coin(st.cost) + ' gold')) + '">' +
       '<span class="cc-art">' + blueprintSprite(sh, disciplineRoot(c.id), 'xl') + '</span>' +
       '<span class="cc-name">' + esc(c.name) + '</span>' +
       '<span class="cc-blurb">' + esc(craftFacts(c)) + '</span>' +
@@ -18098,13 +18900,73 @@ function almanacCraftsHtml(sh) {
           sum.unlocked + '/' + sum.count + ' unlocked' +
           (sum.mastered ? ' · ' + sum.mastered + ' mastered' : '') +
           (sum.earned ? ' · ' + sum.earned + ' named' : '') + '</span>'
-        : '<span class="cc-shut">' + (st.repShort
-          ? 'Requires ' + terms.rep + ' reputation (you have ' + Math.round(sh.reputation) + ')'
-          : 'Take up for ' + coin(terms.cost) + 'g') + '</span>') +
+        : '<span class="cc-shut">' + (st.current
+          ? 'Researching · day ' + st.days + ' of ' + st.of + ' done'
+          : 'Research · ' + coin(st.cost) + 'g · ' + st.of + ' days') + '</span>') +
       '<span class="cc-eg">' + esc((root ? root.name + ' … ' : '') + examples.join(', ')) +
       '</span></button>';
   }
   return html + '</div>';
+}
+
+/* ---------- research -----------------------------------------------------
+   One row on a craft's page: how far its study has got, what it costs, and
+   the button that gives today to it. The button asks before it commits. */
+function researchRowHtml(sh, catId) {
+  const cat = shopCategory(catId);
+  const st = researchStatus(sh, catId);
+  const root = (shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint';
+  const label = st.today ? 'Studying today'
+    : st.current ? 'Study Today'
+      : st.other ? 'Switch · ' + coin(st.cost) + 'g' : 'Begin · ' + coin(st.cost) + 'g';
+  const sub = st.today ? 'Day ' + (st.days + 1) + ' of ' + st.of + ' is today; it counts when the day ends'
+    : st.why && st.why !== 'today is already given to study' ? cap1(st.why)
+      : st.current ? st.days + ' of ' + st.of + ' days done; carry on for free, any morning'
+        : st.other ? 'Studying ' + shopCategory(st.other.cat).name + ' now: switching loses its progress'
+          : st.of + ' days of your own time, then ' + root + ' at level 1';
+  return '<div class="shop-row alm-takeup alm-research"><span class="nm">Research ' + esc(cat.name) +
+    ' ' + dlgPips(st.days, st.of) + '</span>' +
+    '<button type="button" data-research="' + esc(catId) + '"' + (st.ready ? '' : ' disabled') + '>' +
+    label + '</button><span class="sub">' + esc(sub) + '</span></div>';
+}
+function cap1(text) { return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''; }
+
+/* Give today to a craft's study, after saying plainly what that means. */
+function shopStudy(catId) {
+  const sh = shop();
+  const st = researchStatus(sh, catId);
+  const cat = shopCategory(catId);
+  if (!st || !cat) return;
+  if (!st.ready) { SOUNDS.invalid(); shopToast(cap1(st.why) + '.'); return; }
+  const root = (shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint';
+  const day = st.days + 1;
+  const back = function () { shopOpenAlmanac(); };
+  const body = dlgHero(blueprintSprite(sh, disciplineRoot(catId), 'lg'), 'Research ' + esc(cat.name),
+    'Day ' + day + ' of ' + st.of + ' · then ' + esc(root) + ' at level 1',
+    st.current ? '<b>free</b>already paid' : '<b>' + coin(st.cost) + 'g</b>now') +
+    (st.other
+      ? dlgNote('You are part-way through ' + esc(shopCategory(st.other.cat).name) + ': ' + st.other.days +
+        (st.other.days === 1 ? ' day' : ' days') + ' of study and ' + coin(st.other.paid) + 'g. Switching ' +
+        'throws both away for good, nothing is refunded, and coming back to it later costs its full ' +
+        'price again from day one.', 'warn')
+      : '') +
+    dlgNote('Today is given to study: you cannot forge, tend the counter, buy or smelt metal, deliver or hire ' +
+      'yourself. Your staff work as usual. The day counts once it is over; the days need not run ' +
+      'together, and a break costs nothing.');
+  const go = function () {
+    const res = shopResearch(shop(), catId, !!st.other);
+    if (!res.ok) { SOUNDS.invalid(); shopToast(cap1(res.why) + '.'); back(); return; }
+    SOUNDS.prosper(false);
+    shopRender();
+    shopToast('Studying ' + cat.name + ': day ' + res.day + ' of ' + res.of + '. Your staff carry on; end ' +
+      'each phase when they are done.');
+    back();
+  };
+  shopSheet(st.other ? 'Switch Research?' : st.current ? 'Study Today?' : 'Begin Research?', body,
+    [{ label: st.other ? 'Switch and Lose Progress' : st.current ? 'Study ' + cat.name + ' Today'
+        : 'Pay ' + coin(st.cost) + 'g and Begin', primary: true, onClick: go },
+      { label: st.other ? 'Keep Current Research' : 'Back', ghost: true, onClick: back }],
+    blueprintSprite(sh, disciplineRoot(catId)));
 }
 
 /* ---------- one craft's tree ----------
@@ -18238,18 +19100,7 @@ function almanacCraftHtml(sh, catId) {
     '<span>Total XP<b>' + sum.total + '</b></span>' +
     '<span>Unlocked<b>' + sum.unlocked + '/' + sum.count + '</b></span>' +
     '<span>Mastered<b>' + sum.mastered + '</b></span></div>';
-  if (!sum.held) {
-    const st = disciplineStatus(sh, catId);
-    html += '<div class="shop-row alm-takeup"><span class="nm">Take up ' + esc(cat.name) + '</span>' +
-      '<button data-takecraft="' + esc(catId) + '"' + (st.ready ? '' : ' disabled') + '>' +
-      coin(st.terms.cost) + 'g</button><span class="sub">' +
-      (st.repShort ? 'Requires ' + st.terms.rep + ' reputation (you have ' +
-        Math.round(sh.reputation) + ')'
-        : st.goldShort ? 'Not enough gold' : 'Unlocks ' +
-          esc((shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint') +
-          ' at level 1, so you can forge this craft and earn its XP') +
-      '</span></div>';
-  }
+  if (!sum.held) html += researchRowHtml(sh, catId);
   // the tree itself, drawn to the room left once the window is open
   html += '<div class="alm-tree-box" id="almTree" data-cat="' + esc(catId) + '"></div>';
   // the named masterworks of this craft, beside the tree rather than on it
@@ -18522,6 +19373,7 @@ function shopPhaseBlocker() {
   if (!sh || sh.closed) return 'The forge has closed, so no phases remain.';
   if (SHOPUI.playing) return 'The last phase is still playing out. Hire once it has ended.';
   if (SHOPUI.session) return 'This phase is being spent serving customers.';
+  if (researchingToday(sh)) return 'Today is given to research. Your staff carry on as usual.';
   return null;
 }
 
@@ -18619,7 +19471,7 @@ function shopOpenHire(tradeId) {
       (full || poor || blocked ? ' disabled' : '') + '>Hire · ' + coin(a.wage) + 'g/wk</button>' +
       '<span class="role">E-rank · ' + esc(trade.name) + (what ? ' · ' + esc(what) : '') +
       (upfront ? ' · ' + coin(upfront) + 'g up front' + (poor ? ' (not enough gold)' : '') : '') +
-      '</span>' +
+      '</span>' + applicantFlawHtml(a) +
       '</div>';
   }
   html += '</div>';
@@ -18629,6 +19481,17 @@ function shopOpenHire(tradeId) {
   acts.push({ label: 'Search Again', onClick: function () { shopHireSearch(trade.id); } });
   acts.push({ label: 'Close', ghost: true, onClick: shopSheetClose });
   shopSheet('Search for Employees', html, acts, list.length ? staffPortrait(list[0]) : '');
+}
+
+/* A flaw, before the hire: what it is and that it is for good. A trade with
+   no flaws in the tables says nothing at all. */
+function applicantFlawHtml(a) {
+  if (!flawsFor(a.role).length) return '';
+  const flaw = flawDef(a.flaw);
+  return flaw
+    ? '<span class="flaw-line" data-flaw="' + flaw.id + '"><b>Flaw: ' + esc(flaw.name) + '</b> · ' +
+      esc(flaw.blurb) + ' Permanent, and takes one of three specialization slots.</span>'
+    : '<span class="flaw-line clean">No flaw · all three specialization slots free</span>';
 }
 
 /* How many people the shop (or a mine) has room for, and how to make more.
@@ -19077,12 +19940,19 @@ function reportBody(r) {
   }
   if (r.kind === 'smith') {
     return '<div class="report"><dl>' +
-      '<dt>Ordered</dt><dd>' + r.ordered + ' × ' + esc(lineName(lineKey(r.item, r.material))) + '</dd>' +
-      '<dt>Made</dt><dd class="' + (r.spoiled ? '' : 'good') + '">' + r.made + '</dd>' +
-      (r.spoiled ? '<dt>Spoiled</dt><dd>' + r.spoiled + '</dd>' : '') +
-      '<dt>Quality</dt><dd>' + r.quality + '</dd>' +
-      '</dl><p style="margin:9px 0 0;font-size:12px;color:var(--muted)">The items go into ' +
-      'storage at the start of tomorrow.</p></div>';
+      '<dt>Attempted</dt><dd>1 × ' + esc(lineName(lineKey(r.item, r.material))) + '</dd>' +
+      '<dt>Chance</dt><dd>' + r.chance + '%</dd>' +
+      (r.made
+        ? '<dt>Made</dt><dd class="good">' + r.made + (r.extra ? ' (one extra, Production)' : '') + '</dd>' +
+          '<dt>Quality</dt><dd>' + r.quality + ' · ' + esc(qualityBandName(r.quality)) +
+            (r.bonus ? ' (' + r.roll + (r.bonus > 0 ? ' +' : ' ') + r.bonus + ')' : '') + '</dd>' +
+          (r.value ? '<dt>Sale value</dt><dd>' + (r.value > 0 ? '+' : '') + r.value + '%</dd>' : '')
+        : '<dt>Made</dt><dd>Nothing: it did not come off</dd>' +
+          '<dt>Ingots lost</dt><dd>' + (1 + (r.wasted || 0) - (r.saved || 0)) +
+            (r.saved ? ' (one saved, Conservation)' : '') + (r.wasted ? ' (one spoiled, Wasteful)' : '') + '</dd>') +
+      '</dl>' + specReportHtml(r) + '<p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
+      (r.made ? 'The items go into storage at the start of tomorrow.' : 'A failed attempt still counts as work.') +
+      '</p></div>';
   }
   if (r.kind === 'delivery') {
     return '<div class="report"><dl>' +
@@ -19111,9 +19981,11 @@ function reportBody(r) {
     return '<div class="report"><dl>' +
       '<dt>Smelted</dt><dd class="good">' + r.made + ' × ' +
       esc(shopMaterial(r.material).name) + ' ingots</dd>' +
+      (r.bonus ? '<dt>Bonus ingots</dt><dd class="good">+' + r.bonus + ' (Smelting)</dd>' : '') +
+      (r.wasted ? '<dt>Ore wasted</dt><dd>' + r.wasted + ' (Poor Smelter)</dd>' : '') +
       '<dt>Smelting rate</dt><dd>' + r.rate + ' per phase</dd>' +
       '<dt>Ore remaining</dt><dd>' + r.left + '</dd>' +
-      '</dl></div>';
+      '</dl>' + specReportHtml(r) + '</div>';
   }
   if (r.kind === 'storehand') {
     const keys = Object.keys(r.lines || {});
@@ -19140,6 +20012,16 @@ function reportTitle(r) {
   return 'Report';
 }
 
+/* Specialisation progress from one report: discoveries, XP and perks due. */
+function specReportHtml(r) {
+  const list = r.spec || [];
+  if (!list.length) return '';
+  return '<div class="learned"><b>Specialization XP</b>' + list.map(function (g) {
+    return '<span>' + esc(g.name) + ' +' + g.gained + ' (' + g.xp + '/' + g.need + ')' +
+      (g.found ? ' · discovered' : g.ready ? ' · perk ready' : '') + '</span>';
+  }).join('') + '</div>';
+}
+
 /* The outcome of a report in one line, before the figures behind it. */
 function reportHero(r) {
   const sold = Object.keys(r.lines || {});
@@ -19155,8 +20037,14 @@ function reportHero(r) {
       'expected ' + coin(r.expected) + 'g', '<b>' + coin(Math.abs(r.diff)) + 'g</b>' + (r.diff <= 0 ? 'saved' : 'extra'));
   }
   if (r.kind === 'smith') {
-    return dlgHero(itemSprite(r.item, r.material, 'lg'), r.made + ' × ' + esc(lineName(lineKey(r.item, r.material))),
-      (r.spoiled ? r.spoiled + ' spoiled · ' : '') + 'in storage tomorrow', '<b>' + r.quality + '</b>quality');
+    return r.made
+      ? dlgHero(itemSprite(r.item, r.material, 'lg'), r.made + ' × ' + esc(lineName(lineKey(r.item, r.material))),
+        (r.extra ? 'one extra from Production · ' : '') + 'in storage tomorrow',
+        '<b>' + r.quality + '</b>' + esc(qualityBandName(r.quality).toLowerCase()))
+      : dlgHero(itemSprite(r.item, r.material, 'lg'), 'It did not come off',
+        esc(lineName(lineKey(r.item, r.material))) + ' · ' + r.chance + '% chance',
+        '<b>' + (1 + (r.wasted || 0) - (r.saved || 0)) + '</b>ingot' +
+          ((1 + (r.wasted || 0) - (r.saved || 0)) === 1 ? '' : 's') + ' lost');
   }
   if (r.kind === 'delivery') {
     return dlgHero(lineSprite(r.key, 'lg'), r.load + ' delivered', 'to ' + esc(r.customer),
@@ -19533,6 +20421,7 @@ function shopOpenRelease(id) {
    road - which is the whole reason to keep a runner. */
 function shopHandOver(id) {
   const sh = shop();
+  if (researchingToday(sh)) { SOUNDS.invalid(); shopToast('Today is given to research; a Runner can deliver instead.'); return; }
   const com = commissionById(sh, id);
   if (!com) return;
   if (commissionToMake(com) > 0) {
@@ -19696,6 +20585,7 @@ function shopOpenMine(id) {
    the same rate a C-rank smith manages. */
 function shopOpenSmelt(materialId) {
   const sh = shop();
+  if (researchingToday(sh)) { SOUNDS.invalid(); shopToast('Today is given to research; a Smith can smelt instead.'); return; }
   const have = sh.ore[materialId] || 0;
   if (have <= 0) { shopToast('You have no ore of that type.'); return; }
   const rate = smeltRate(3);
@@ -19832,6 +20722,7 @@ function shopDayBreak(result) {
     html += tiles(result.delivered.map(function (d) {
       return { art: lineSprite(d.key), name: esc(lineName(d.key)), badge: '×' + d.qty,
         sub: 'quality ' + Math.round(d.quality) + ' · ' + esc(d.maker) +
+          (d.extra ? ' · one extra' : '') + (d.value ? ' · ' + (d.value > 0 ? '+' : '') + Math.round(d.value) + '% value' : '') +
           (d.lost ? ' · ' + d.lost + ' lost (storage full)' : '') };
     }));
   }
@@ -19871,6 +20762,17 @@ function shopDayBreak(result) {
           row.ore + '/' + row.cap + (row.lost ? ' · ' + row.lost + ' lost' : '') +
           (row.full ? ' · full, send a Runner' : '') };
     }));
+  }
+  // a day of study counted, and perhaps the craft it was for
+  if (result.research) {
+    const r = result.research;
+    const cat = shopCategory(r.cat);
+    html += placeSec(r.done ? 'Research complete' : 'Research', cat ? cat.name : '');
+    html += r.done
+      ? dlgNote('<b>' + esc(cat.name) + ' learned.</b> ' + esc((shopItem(r.root) || {}).name || 'Its first blueprint') +
+        ' is in the Almanac at level 1, and the craft earns its own XP from here.')
+      : dlgNote('Day ' + r.days + ' of ' + r.of + ' of ' + esc(cat.name) + ' studied. Carry on any morning; ' +
+        'progress keeps.');
   }
   /* What the standing roster managed this morning. Both halves matter: a box
      that filled itself is the point of the feature, and a box that could not
@@ -19940,6 +20842,8 @@ function shopDayBreak(result) {
 function shopStartForge() {
   const sh = shop();
   const d = SHOPUI.draft;
+  // never start a board the finish would refuse: today is given to study
+  if (researchingToday(sh)) { SOUNDS.invalid(); shopToast('Today is given to research.'); return; }
   const check = forgeCheck(sh, d.item, d.material, d.qty);
   if (!check.ok) { shopToast(check.why); return; }
   const spec = forgeBoardSpec(sh, d.item, d.material, d.qty);
@@ -20241,9 +21145,10 @@ function shopOpenSmithJob(smith) {
   const rate = smeltRate(smith.power);
   shopSheet('Smith Job: ' + smith.name.split(' ')[0],
     dlgNote('A Smith does one job a phase: the anvil or the furnace, never both.') + dlgOptions([
-      { id: 'forge', art: itemSprite((knownRecipes(sh)[0] || {}).id || 'shortsword', 'bronze'), name: 'Forge Items',
-        sub: 'A batch of up to ' + Math.min(batchCapacity(sh), 2 + smith.power) + ', at about quality ' +
-          (34 + smith.power * 9) + '.', go: function () { shopOpenForge(smith); } },
+      { id: 'forge', art: itemSprite((knownRecipes(sh)[0] || {}).id || 'shortsword', 'bronze'), name: 'Forge an Item',
+        sub: 'One piece a phase: ' + smithChance(smith, {}) + '% to come off, quality ' +
+          shopRank(smith.rank).quality.join('–') + ' before specializations.',
+        go: function () { shopOpenForge(smith); } },
       { id: 'smelt', art: oreSprite('bronze'), name: 'Smelt Ore',
         sub: ore + ' ore in the yard · ' + rate + ' ingots a phase at ' + smith.rank + '-rank',
         off: ore <= 0, go: function () { shopOpenSmeltJob(smith); } }
@@ -20410,7 +21315,7 @@ function shopPickBody() {
   const want = SHOP.craft.startingPicks;
   let html = '<p class="pick-lead">Choose <b>' + want + '</b> crafts. You start with the ' +
     'first blueprint of each. Other blueprints are unlocked with XP earned by forging, and ' +
-    'other crafts can be taken up later for gold.</p>' +
+    'other crafts can be researched later in the Almanac.</p>' +
     '<p class="pick-count">' + picked.length + ' of ' + want + ' chosen</p>';
   html += '<div class="craft-grid">';
   for (const c of SHOP.categories) {
@@ -20700,6 +21605,15 @@ function wireShop() {
       return;
     }
     // a miner on a mine sheet opens the same panel a forge hand does
+    const specBtn = e.target.closest ? e.target.closest('[data-spec]') : null;
+    if (specBtn && SHOPUI.handOpen != null) { shopOpenSpecialty(SHOPUI.handOpen, specBtn.dataset.spec); return; }
+    const perk = e.target.closest ? e.target.closest('[data-perk]') : null;
+    if (perk && SHOPUI.specOpen) {
+      shopConfirmPerk(SHOPUI.specOpen.employee, SHOPUI.specOpen.spec, perk.dataset.perk);
+      return;
+    }
+    const study = e.target.closest ? e.target.closest('[data-research]') : null;
+    if (study && !study.disabled) { shopStudy(study.dataset.research); return; }
     const go = e.target.closest ? e.target.closest('[data-go]') : null;
     if (go && !go.disabled) {
       const fn = (SHOPUI.go || [])[Number(go.dataset.go)];
@@ -20764,19 +21678,6 @@ function wireShop() {
     if (toTree) {
       SHOPUI.almanacSpecials = false;
       if (SHOPUI.redraw) SHOPUI.redraw();
-      return;
-    }
-    const takecraft = e.target.closest ? e.target.closest('[data-takecraft]') : null;
-    if (takecraft && !takecraft.disabled) {
-      const id = takecraft.dataset.takecraft;
-      const res = shopTakeUpDiscipline(shop(), id);
-      if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
-      SOUNDS.prosper(true);
-      shopRender();
-      if (SHOPUI.redraw) SHOPUI.redraw();
-      const cat = shopCategory(id);
-      announce('Took up ' + cat.name + '.');
-      shopToast((shopItem(res.root) || {}).name + ' blueprint unlocked at level 1.');
       return;
     }
     const recipe = e.target.closest ? e.target.closest('[data-recipe]') : null;
@@ -22453,8 +23354,11 @@ function helpHtml() {
     'to level ' + SHOP.craft.maxLevel + '. Higher levels raise the item’s price (×' +
     SHOP.craft.levelValue[0].toFixed(2) + ' at level 1, ×' + lastValue.toFixed(2) + ' at level ' +
     SHOP.craft.maxLevel + '). Advanced blueprints require the previous one at a set level. ' +
-    'More crafts can be taken up for gold with a minimum reputation; both rise with each ' +
-    'craft you hold.');
+    'More crafts are learned by <b>research</b> in the Almanac: ' + SHOP.research.first + 'g for the ' +
+    'first, ' + SHOP.research.step + 'g more for each one after, paid when the study begins, then ' +
+    SHOP.research.days + ' full days of your own time. Each day of study is begun in the morning and ' +
+    'takes your whole day (your staff carry on); the days need not run together. Turning to ' +
+    'another craft loses the progress and the gold.');
 
   html += H('Staff');
   html += UL(SHOP.roles.map(function (r) {
@@ -22472,6 +23376,20 @@ function helpHtml() {
     'earn XP from completed work and can be promoted ' +
     SHOP.ranks.map(function (r) { return r.id; }).join(' → ') + ' from the hiring board. ' +
     'Promotion is free and raises both ability and wage.');
+  const sp = SHOP.specialties;
+  html += P('A <b>Smith</b> makes one item a phase. It comes off ' + SHOP.ranks.map(function (r) {
+    return r.id + ' ' + r.craft + '%';
+  }).join(', ') + ' of the time; a failure still uses the ingot. A finished item’s quality is ' +
+    'rolled in its rank’s range (' + SHOP.ranks.map(function (r) {
+      return r.id + ' ' + r.quality.join('–');
+    }).join(', ') + '), plus specializations, less flaws. Exactly 100 is a Masterwork.');
+  html += P('<b>Specializations</b>: every attempt counts towards its craft and its metal, and each ' +
+    'phase at the furnace towards that ore. At ' + sp.discover + ' XP a specialization is discovered; ' +
+    'accepting it is your choice, permanent, and takes one of ' + sp.slots + ' slots (a flaw takes one ' +
+    'too). Its own XP then buys three perk choices: ' + sp.milestones.map(function (m, i) {
+      return (i ? '+' : '') + m.xp + ' XP' + (m.rank !== 'E' ? ' at ' + m.rank + '-rank' : '');
+    }).join(', ') + '. Each choice opens or raises one of three paths, up to level III. Some applicants ' +
+    'come with a permanent flaw, shown before hiring.');
 
   html += H('Commissions');
   html += P('From ' + com.minRep + ' reputation, some customers offer commissions: a quantity ' +

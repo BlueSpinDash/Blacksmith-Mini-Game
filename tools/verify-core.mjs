@@ -2587,9 +2587,10 @@ section('Open Your Forge: experience is earned at the anvil');
   ok('a staff smith earns the forge experience too', (() => {
     const s = apprenticed(C.createShop({ rnd: C.mulberry32(413) }));
     s.materials.bronze = 40;
+    s.rnd = () => 0.5;                       // the attempt comes off
     const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
-    const res = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 3 });
-    return res.ok && res.xp > 0 && C.craftXp(s, 'swords') === res.xp;
+    const res = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 1 });
+    return res.ok && res.made === 1 && res.xp > 0 && C.craftXp(s, 'swords') === res.xp;
   })());
 
   ok('experience is paid once at the anvil, not again on delivery', (() => {
@@ -2730,52 +2731,187 @@ section('Open Your Forge: spending it on the tree');
   })());
 }
 
-section('Open Your Forge: taking up a third craft');
+section('Open Your Forge: researching a craft');
 {
-  ok('a third craft is bought with a name and money, never its own experience', (() => {
-    const s = apprenticed(C.createShop({ rnd: C.mulberry32(430) }));
-    const terms = C.disciplineTerms(s);
-    s.reputation = terms.rep;
-    s.gold = terms.cost;
-    const res = C.shopTakeUpDiscipline(s, 'axes');
-    return res.ok && C.hasDiscipline(s, 'axes') && s.gold === 0 &&
-      C.blueprintLevel(s, 'hatchet') === 1 && C.craftXp(s, 'axes') === 0;
-  })());
+  // play the rest of today out, staff and all, and land on tomorrow morning
+  const endDay = function (s) {
+    let res = null;
+    for (let i = 0; i < 4; i++) { res = C.shopAdvancePhase(s); if (res.newDay) break; }
+    return res;
+  };
 
-  ok('a forge without the name for it is turned down and pays nothing', (() => {
-    const s = apprenticed(C.createShop({ rnd: C.mulberry32(431) }));
-    s.reputation = 0; s.gold = 1e6;
-    const res = C.shopTakeUpDiscipline(s, 'axes');
-    return !res.ok && !C.hasDiscipline(s, 'axes') && s.gold === 1e6;
-  })());
-
-  ok('a forge without the money is turned down too', (() => {
-    const s = apprenticed(C.createShop({ rnd: C.mulberry32(432) }));
-    s.reputation = 1000; s.gold = 0;
-    return !C.shopTakeUpDiscipline(s, 'axes').ok && !C.hasDiscipline(s, 'axes');
-  })());
-
-  ok('each craft after that asks for more', (() => {
-    const s = apprenticed(C.createShop({ rnd: C.mulberry32(433) }));
-    const third = C.disciplineTerms(s);
-    s.reputation = 1e6; s.gold = 1e9;
-    C.shopTakeUpDiscipline(s, 'axes');
-    const fourth = C.disciplineTerms(s);
-    return fourth.cost > third.cost && fourth.rep > third.rep;
-  })());
-
-  ok('the two you start with are free', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(434), gold: 0 });
+  ok('the two crafts a forge opens with are free and are not research', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(430), gold: 0 });
     apprenticed(s, 'swords', 'shields');
-    return s.gold === 0 && s.disciplines.length === 2;
+    return s.gold === 0 && s.disciplines.length === 2 && C.paidCrafts(s) === 0 && s.research === null;
   })());
 
-  ok('a craft already yours cannot be bought twice', (() => {
-    const s = apprenticed(C.createShop({ rnd: C.mulberry32(435) }));
-    s.reputation = 1e6; s.gold = 1e9;
+  ok('the first craft researched costs 50g, then 150g, 250g, 350g, 450g', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(431) }));
+    const seen = [];
+    for (const cat of ['axes', 'spears', 'maces', 'hammers', 'daggers']) {
+      seen.push(C.researchCost(s));
+      s.gold = 1e6;
+      for (let d = 0; d < 3; d++) {
+        if (!C.shopResearch(s, cat).ok) return false;
+        endDay(s);
+      }
+      if (!C.hasDiscipline(s, cat)) return false;
+    }
+    return seen.join(',') === '50,150,250,350,450';
+  })());
+
+  ok('research takes three full days and the craft arrives with its first blueprint', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(432) }));
+    s.gold = 1000;
+    const begun = C.shopResearch(s, 'axes');
+    const after = [];
+    for (let d = 0; d < 3; d++) {
+      if (d > 0 && !C.shopResearch(s, 'axes').ok) return false;
+      const day = endDay(s);
+      after.push(C.hasDiscipline(s, 'axes') ? 'held' : (s.research && s.research.days));
+      if (d === 2 && !(day.research && day.research.done && day.research.cat === 'axes')) return false;
+    }
+    return begun.ok && begun.spent === 50 && after.join(',') === '1,2,held' &&
+      C.blueprintLevel(s, 'hatchet') === 1 && C.craftXp(s, 'axes') === 0 && s.research === null;
+  })());
+
+  ok('the gold is paid once, when the study begins, and never again to carry on', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(433) }));
+    s.gold = 200;
+    C.shopResearch(s, 'axes');
+    const paid = 200 - s.gold;
+    endDay(s);
     const before = s.gold;
-    return !C.shopTakeUpDiscipline(s, 'swords').ok && s.gold === before &&
-      s.disciplines.length === 2;
+    C.shopResearch(s, 'axes');
+    return paid === 50 && s.gold === before;
+  })());
+
+  ok('research is begun or carried on only in the morning', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(434) }));
+    s.gold = 1000;
+    C.shopAdvancePhase(s);                    // the morning is over
+    const late = C.shopResearch(s, 'axes');
+    return !late.ok && /morning/.test(late.why) && s.gold === 1000 && s.research === null;
+  })());
+
+  ok('one day at a time: the same day cannot be committed twice', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(435) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes');
+    const again = C.shopResearch(s, 'axes');
+    endDay(s);
+    return !again.ok && s.research.days === 1;
+  })());
+
+  ok('a day not given to study adds nothing, and the study waits for free', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(436) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes');
+    endDay(s);                                 // day one studied
+    endDay(s); endDay(s);                      // two ordinary days
+    const paused = s.research.days;
+    const gold = s.gold;
+    C.shopResearch(s, 'axes'); endDay(s);
+    C.shopResearch(s, 'axes'); endDay(s);
+    return paused === 1 && s.gold === gold && C.hasDiscipline(s, 'axes');
+  })());
+
+  ok('turning to another craft must be confirmed, and says what is lost', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(437) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes'); endDay(s);
+    const asked = C.shopResearch(s, 'spears');
+    return !asked.ok && asked.confirm === true && asked.lost.cat === 'axes' && asked.lost.days === 1 &&
+      asked.lost.paid === 50 && s.research.cat === 'axes' && s.gold === 950;
+  })());
+
+  ok('confirmed, the old study is gone for good and its gold is not returned', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(438) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes'); endDay(s);
+    const res = C.shopResearch(s, 'spears', true);
+    return res.ok && res.abandoned.cat === 'axes' && s.research.cat === 'spears' &&
+      s.research.days === 0 && s.gold === 900 && !C.hasDiscipline(s, 'axes');
+  })());
+
+  ok('abandoned study never makes the next craft dearer', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(439) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes'); endDay(s);
+    C.shopResearch(s, 'spears', true); endDay(s);
+    return C.researchCost(s) === 50 && C.paidCrafts(s) === 0;
+  })());
+
+  ok('going back to an abandoned craft pays its price again, from day one', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(440) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes'); endDay(s);
+    C.shopResearch(s, 'spears', true); endDay(s);
+    const gold = s.gold;
+    const res = C.shopResearch(s, 'axes', true);
+    return res.ok && res.spent === 50 && s.gold === gold - 50 && s.research.days === 0;
+  })());
+
+  ok('no gold, no study, and nothing changes', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(441) }));
+    s.gold = 49;
+    const res = C.shopResearch(s, 'axes');
+    return !res.ok && s.gold === 49 && s.research === null;
+  })());
+
+  ok('reputation has no say in it any more', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(442) }));
+    s.gold = 50; s.reputation = 0;
+    return C.shopResearch(s, 'axes').ok;
+  })());
+
+  ok('a craft already held cannot be studied', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(443) }));
+    s.gold = 1000;
+    return !C.shopResearch(s, 'swords').ok && s.gold === 1000;
+  })());
+
+  ok('a day of study shuts the player’s own anvil, hiring and special work', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(444) }));
+    s.gold = 1000; s.materials.bronze = 10;
+    C.shopResearch(s, 'axes');
+    const forge = C.shopFinishForge(s, 'shortsword', 'bronze', 1, 90, 'you');
+    C.shopSearchStaff(s, 'runner', 1);
+    const hire = C.shopHire(s, s.applicants[0].id);
+    return C.researchingToday(s) && !forge.ok && !hire.ok && s.materials.bronze === 10 &&
+      s.staff.length === 0;
+  })());
+
+  ok('while the staff carry on working through it', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(445) }));
+    s.gold = 1000; s.materials.bronze = 10;
+    s.staff.push({ id: 901, name: 'Wynn Dunmore', role: 'smith', rank: 'S', power: 6, wage: 10, xp: 0,
+      specs: [], found: {}, flaw: null });
+    C.shopAssign(s, 901, { order: { item: 'shortsword', material: 'bronze', qty: 1 } }, 'morning');
+    C.shopResearch(s, 'axes');
+    const res = C.shopAdvancePhase(s);
+    return res.reports.length === 1 && res.reports[0].kind === 'smith' && res.reports[0].attempted;
+  })());
+
+  ok('a study survives a save, and only today’s commitment counts as today', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(446) }));
+    s.gold = 1000;
+    C.shopResearch(s, 'axes'); endDay(s);
+    C.shopResearch(s, 'axes');
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(1));
+    const stale = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    stale.research.today = stale.day - 1;      // a day long gone
+    const old = C.restoreShop(stale, C.mulberry32(1));
+    return back.research.cat === 'axes' && back.research.days === 1 && C.researchingToday(back) &&
+      old.research.days === 1 && !C.researchingToday(old);
+  })());
+
+  ok('a study of a craft already held is dropped on load', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(447) }));
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    data.research = { cat: 'swords', days: 2, today: 0, paid: 50 };
+    return C.restoreShop(data, C.mulberry32(1)).research === null;
   })());
 }
 
@@ -3493,7 +3629,13 @@ section('Open Your Forge: the board you worked is what it is worth');
   ok('the same number has a name a smith would use', (() =>
     C.qualityBandName(10) === 'Crude' && C.qualityBandName(40) === 'Plain' &&
     C.qualityBandName(60) === 'Sound' && C.qualityBandName(78) === 'Fine' &&
-    C.qualityBandName(92) === 'Masterwork'));
+    C.qualityBandName(92) === 'Superb' && C.qualityBandName(100) === 'Masterwork'));
+
+  ok('Masterwork means exactly 100 and nothing short of it', (() =>
+    C.qualityBand(100).id === 'masterwork' && C.qualityBand(99.6).id !== 'masterwork' &&
+    C.qualityBand(99).id === 'superb' && C.qualityBand(85).id === 'superb' &&
+    C.SHOP.qualityBands.filter((b) => b.id === 'masterwork').length === 1 &&
+    C.SHOP.qualityBands.find((b) => b.id === 'masterwork').from === 100));
 
   ok('every band starts where the one below it ends', (() => {
     const bands = C.SHOP.qualityBands;
@@ -4435,29 +4577,42 @@ section('Open Your Forge: employees do the work, not the maths');
     return avg(6) < avg(1);
   })());
 
-  ok('a smith fills an order without the player touching a board', (() => {
+  ok('a smith makes one piece without the player touching a board', (() => {
     const s = apprenticed(C.createShop({ rnd: C.mulberry32(35) }));
     s.materials.bronze = 20;
+    s.rnd = () => 0.5;
     const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
+    // an order from an older save asking for three still makes one
     const r = C.runSmith(s, e, { item: 'shortsword', material: 'bronze', qty: 3 });
-    return r.ok && s.orders.length === 1 && s.materials.bronze === 17 && r.quality > 0;
+    return r.ok && r.made === 1 && s.orders.length === 1 && s.orders[0].qty === 1 &&
+      s.materials.bronze === 19 && r.quality > 0;
   })());
 
   ok('a better smith turns out better work', (() => {
-    const avg = (power) => {
-      const s = C.createShop({ rnd: C.mulberry32(800) });
-      let total = 0;
-      for (let i = 0; i < 300; i++) total += C.smithQuality(s, power);
-      return total / 300;
+    const avg = (rank) => {
+      const s = apprenticed(C.createShop({ rnd: C.mulberry32(800) }));
+      s.materials.bronze = 1e6;
+      const e = { id: 1, name: 'Sm', role: 'smith', rank: rank, power: 1, wage: 60 };
+      let total = 0, n = 0;
+      for (let i = 0; i < 300; i++) {
+        const r = C.runSmith(s, e, { item: 'shortsword', material: 'bronze' });
+        if (r.made) { total += r.quality; n++; }
+      }
+      return total / n;
     };
-    return avg(6) > avg(3) && avg(3) > avg(1);
+    return avg('S') > avg('C') && avg('C') > avg('E');
   })());
 
-  ok('even the best smith leaves room for your own hands', (() => {
-    const s = C.createShop({ rnd: C.mulberry32(36) });
+  ok('an unspecialised smith never reaches Masterwork; the anvil is still yours', (() => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(36) }));
+    s.materials.bronze = 1e6;
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'S', power: 6, wage: 60 };
     let best = 0;
-    for (let i = 0; i < 400; i++) best = Math.max(best, C.smithQuality(s, 6));
-    return best < 100;                       // a masterwork stays yours to earn
+    for (let i = 0; i < 400; i++) {
+      const r = C.runSmith(s, e, { item: 'shortsword', material: 'bronze' });
+      if (r.made) best = Math.max(best, r.quality);
+    }
+    return best === 90;
   })());
 
   ok('a store hand carries stock out for you', (() => {
@@ -4774,14 +4929,30 @@ section('Commissions: a lot, a deadline and a price');
     const parts = C.splitKey(com.key);
     s.materials[parts.material] = 40;
     const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
-    const r = C.runSmith(s, e, { item: parts.item, material: parts.material, qty: 3,
+    s.rnd = () => 0.5;
+    const r = C.runSmith(s, e, { item: parts.item, material: parts.material, qty: 1,
       commission: com.id });
     if (!r.ok || s.orders[0].commission !== com.id) return false;
     const held = s.storage[com.key] ? s.storage[com.key].qty : 0;
     C.shopEndDay(s);
     const after = s.storage[com.key] ? s.storage[com.key].qty : 0;
-    // three pieces were made and three pieces exist: in the crate, not both places
-    return com.filled === 3 && after === held;
+    // one piece was made and one piece exists: in the crate, not both places
+    return com.filled === 1 && after === held;
+  })());
+
+  ok('a contract piece still promised after a reload goes to its crate', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(927), gold: 20000 });
+    const com = offerOn(s);
+    com.quality = 0;
+    C.acceptCommission(s, com.id);
+    const parts = C.splitKey(com.key);
+    s.materials[parts.material] = 40;
+    s.rnd = () => 0.5;
+    C.runSmith(s, { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 },
+      { item: parts.item, material: parts.material, commission: com.id });
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(3));
+    C.shopEndDay(back);
+    return back.orders.length === 0 && back.commissions[0].filled === 1;
   })());
 
   ok('work over what a contract owes still reaches the storeroom', (() => {
@@ -4792,10 +4963,584 @@ section('Commissions: a lot, a deadline and a price');
     C.acceptCommission(s, com.id);
     const parts = C.splitKey(com.key);
     s.materials[parts.material] = 40;
-    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60 };
-    C.runSmith(s, e, { item: parts.item, material: parts.material, qty: 3, commission: com.id });
+    com.qty = 1;
+    // a Production specialist whose extra piece is one more than the contract owes
+    const e = { id: 1, name: 'Sm', role: 'smith', rank: 'B', power: 4, wage: 60, flaw: null, found: {},
+      specs: [{ id: 'item:' + C.shopItem(parts.item).cat, xp: 0, picks: 3, paths: { production: 3 } }] };
+    s.rnd = () => 0;
+    const r = C.runSmith(s, e, { item: parts.item, material: parts.material, commission: com.id });
     C.shopEndDay(s);
-    return com.filled === 2 && s.storage[com.key] && s.storage[com.key].qty === 1;
+    return r.made === 2 && com.filled === 1 && s.storage[com.key] && s.storage[com.key].qty === 1;
+  })());
+}
+
+/* ---------- a Smith's one piece, and what they grow into ---------- */
+section('Open Your Forge: a Smith works one piece at a time');
+{
+  // a random source that hands out these numbers first, then 0.5 for ever
+  const seq = (...values) => { let i = 0; return () => (i < values.length ? values[i++] : 0.5); };
+  // the town is drawn first, so a scripted random source only starts at the anvil
+  const forge = (rnd) => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(1500) }));
+    if (rnd) s.rnd = rnd;
+    s.materials.bronze = 1000;
+    return s;
+  };
+  const hand = (rank, extra) => Object.assign({ id: 77, name: 'Tess Anvil', role: 'smith', rank: rank,
+    power: C.shopRank(rank).power, wage: 30, xp: 0, specs: [], found: {}, flaw: null }, extra || {});
+  const spec = (id, paths) => {
+    const p = paths || {};
+    let picks = 0;
+    for (const k in p) picks += p[k];
+    return { id: id, xp: 0, picks: picks, paths: p };
+  };
+  const sword = { item: 'shortsword', material: 'bronze' };
+
+  ok('each rank comes off at its stated rate, E 75% up to S 98%', (() => {
+    const want = { E: 75, D: 80, C: 85, B: 90, A: 95, S: 98 };
+    for (const rank in want) {
+      const s = forge(C.mulberry32(1501 + rank.charCodeAt(0)));
+      s.materials.bronze = 1e6;
+      const e = hand(rank);
+      let made = 0;
+      for (let i = 0; i < 4000; i++) if (C.runSmith(s, e, sword).made) made++;
+      if (Math.abs(made / 40 - want[rank]) > 2.5) return false;
+    }
+    return true;
+  })());
+
+  ok('a piece that comes off is rolled in its rank’s range, both ends included', (() => {
+    for (const r of C.SHOP.ranks) {
+      const s = forge(C.mulberry32(1510 + r.power));
+      s.materials.bronze = 1e6;
+      const e = hand(r.id);
+      let lo = 101, hi = -1;
+      for (let i = 0; i < 1500; i++) {
+        const res = C.runSmith(s, e, sword);
+        if (res.made) { lo = Math.min(lo, res.quality); hi = Math.max(hi, res.quality); }
+      }
+      if (lo !== r.quality[0] || hi !== r.quality[1]) return false;
+    }
+    return C.SHOP.ranks.map((r) => r.quality.join('-')).join(',') ===
+      '55-65,60-70,65-75,70-80,75-85,80-90';
+  })());
+
+  ok('one attempt, one ingot: what comes off is one piece and goes to tomorrow’s storeroom', (() => {
+    const s = forge(seq(0.1, 0.5));
+    const r = C.runSmith(s, hand('C'), { item: 'shortsword', material: 'bronze', qty: 5 });
+    return r.ok && r.attempted && r.made === 1 && s.materials.bronze === 999 &&
+      s.orders.length === 1 && s.orders[0].qty === 1 && s.orders[0].dueDay === s.day + 1;
+  })());
+
+  ok('a failed attempt makes nothing and still spends its ingot', (() => {
+    const s = forge(seq(0.99));
+    const r = C.runSmith(s, hand('E'), sword);
+    return r.ok && r.failed && r.made === 0 && s.materials.bronze === 999 && s.orders.length === 0;
+  })());
+
+  ok('two Smiths in one phase make two separate attempts', (() => {
+    const s = forge(C.mulberry32(1520));
+    s.staff.push(hand('C', { id: 901 }), hand('C', { id: 902, name: 'Hal Grieve' }));
+    C.shopAssign(s, 901, { order: { item: 'shortsword', material: 'bronze' } }, 'morning', 0);
+    s.gold = 1e6;
+    C.shopBuyGrowth(s, 'smiths');               // a second Smith's place each phase
+    C.shopAssign(s, 902, { order: { item: 'shortsword', material: 'bronze' } }, 'morning', 1);
+    const res = C.shopAdvancePhase(s);
+    const smiths = res.reports.filter((r) => r.kind === 'smith');
+    return smiths.length === 2 && smiths.every((r) => r.attempted && r.ordered === 1) &&
+      s.materials.bronze === 998;
+  })());
+
+  ok('an attempt is work: a failure earns rank XP, a finished piece more', (() => {
+    const fail = C.xpFromReport({ ok: true, kind: 'smith', attempted: true, made: 0 });
+    const made = C.xpFromReport({ ok: true, kind: 'smith', attempted: true, made: 1 });
+    const two = C.xpFromReport({ ok: true, kind: 'smith', attempted: true, made: 2 });
+    const none = C.xpFromReport({ ok: false, kind: 'smith' });
+    return fail > 0 && made > fail && two > made && none === 0;
+  })());
+
+  ok('the old batch spoilage is gone: a piece either comes off whole or not at all', (() => {
+    const s = forge(C.mulberry32(1521));
+    const e = hand('E');
+    for (let i = 0; i < 300; i++) {
+      const r = C.runSmith(s, e, sword);
+      if (r.spoiled !== undefined || !(r.made === 0 || r.made === 1)) return false;
+    }
+    return true;
+  })());
+
+  ok('an S-rank Sword Smith with Quality III makes a Masterwork from a 90 roll', (() => {
+    const s = forge(seq(0.1, 0.999));
+    const e = hand('S', { specs: [spec('item:swords', { quality: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    return r.roll === 90 && r.bonus === 10 && r.quality === 100 &&
+      C.qualityBandName(r.quality) === 'Masterwork';
+  })());
+
+  ok('craft Quality and metal Metallurgy stack, and nothing passes 100', (() => {
+    const s = forge(seq(0.1, 0.999));
+    const e = hand('S', { specs: [spec('item:swords', { quality: 3 }), spec('material:bronze', { metallurgy: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    return r.bonus === 20 && r.quality === 100;
+  })());
+
+  ok('a craft specialisation does nothing for another craft, a metal one for another metal', (() => {
+    const e = hand('S', { specs: [spec('item:swords', { quality: 3 }), spec('material:bronze', { metallurgy: 3 })] });
+    return C.smithBonusQuality(e, { cat: 'shields', material: 'silver' }) === 0 &&
+      C.smithBonusQuality(e, { cat: 'shields', material: 'bronze' }) === 10 &&
+      C.smithBonusQuality(e, { cat: 'swords', material: 'silver' }) === 10;
+  })());
+
+  ok('Heavy-Handed takes 5 off every finished piece', (() => {
+    const s = forge(seq(0.1, 0.0));
+    const r = C.runSmith(s, hand('S', { flaw: 'heavy' }), sword);
+    return r.roll === 80 && r.quality === 75;
+  })());
+
+  ok('Careless takes 5 points off the chance of success', (() =>
+    C.smithChance(hand('S', { flaw: 'careless' }), { cat: 'swords', material: 'bronze' }) === 93 &&
+    C.smithChance(hand('E', { flaw: 'careless' }), { cat: 'swords', material: 'bronze' }) === 70 &&
+    C.smithChance(hand('S'), { cat: 'swords', material: 'bronze' }) === 98));
+
+  ok('Production may add one more piece from the same ingot, sharing its quality and level', (() => {
+    const s = forge(seq(0.1, 0.5, 0.0));
+    s.blueprints.shortsword = 3;
+    const e = hand('C', { specs: [spec('item:swords', { production: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    const o = s.orders[0];
+    return r.made === 2 && r.extra === 1 && s.materials.bronze === 999 && o.qty === 2 &&
+      o.quality === r.quality && o.level === 3;
+  })());
+
+  ok('Production is rolled once: the extra piece never makes a third', (() => {
+    const s = forge(() => 0);
+    const e = hand('C', { specs: [spec('item:swords', { production: 3 })] });
+    for (let i = 0; i < 20; i++) if (C.runSmith(s, e, sword).made > 2) return false;
+    return true;
+  })());
+
+  ok('no Production without that craft’s specialisation, and none on a failure', (() => {
+    const plain = C.runSmith(forge(() => 0), hand('C'), sword);
+    const s = forge(seq(0.99, 0, 0, 0));
+    const failed = C.runSmith(s, hand('C', { specs: [spec('item:swords', { production: 3 })] }), sword);
+    return plain.made === 1 && failed.made === 0 && s.orders.length === 0;
+  })());
+
+  ok('Production totals: 1% on accepting, 7% at Production III', (() => {
+    const ctx = { cat: 'swords', material: 'bronze' };
+    return C.specialtyStat(hand('C', { specs: [spec('item:swords')] }), 'extra', ctx) === 1 &&
+      C.specialtyStat(hand('C', { specs: [spec('item:swords', { production: 1 })] }), 'extra', ctx) === 3 &&
+      C.specialtyStat(hand('C', { specs: [spec('item:swords', { production: 3 })] }), 'extra', ctx) === 7;
+  })());
+
+  ok('Conservation gives the ingot back on a failure, and only on a failure', (() => {
+    const e = hand('E', { specs: [spec('material:bronze', { conservation: 3 })] });
+    const failed = forge(seq(0.99, 0.0));
+    const f = C.runSmith(failed, e, sword);
+    const made = forge(seq(0.1, 0.5, 0.0));
+    C.runSmith(made, e, sword);
+    return f.saved === 1 && failed.materials.bronze === 1000 && made.materials.bronze === 999;
+  })());
+
+  ok('Conservation rolls once a failed piece, not once an ingot, and returns exactly one', (() => {
+    const s = forge();
+    let calls = 0;
+    s.rnd = () => { calls++; return calls === 1 ? 0.99 : 0.0; };
+    const e = hand('E', { specs: [spec('material:bronze', { conservation: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    // one roll for the attempt, one for Conservation: nothing per ingot
+    return calls === 2 && r.saved === 1 && s.materials.bronze === 1000;
+  })());
+
+  ok('Conservation totals: 5% on accepting, 80% at Conservation III', (() => {
+    const ctx = { cat: 'swords', material: 'bronze' };
+    return C.specialtyStat(hand('E', { specs: [spec('material:bronze')] }), 'conserve', ctx) === 5 &&
+      C.specialtyStat(hand('E', { specs: [spec('material:bronze', { conservation: 3 })] }), 'conserve', ctx) === 80 &&
+      C.specialtyStat(hand('E', { specs: [spec('material:silver', { conservation: 3 })] }), 'conserve', ctx) === 0;
+  })());
+
+  ok('Wasteful may spoil one more ingot on a failure, if there is one to spoil', (() => {
+    const e = hand('E', { flaw: 'wasteful' });
+    const s = forge(seq(0.99, 0.0));
+    const r = C.runSmith(s, e, sword);
+    const bare = forge(seq(0.99, 0.0));
+    bare.materials.bronze = 1;
+    const b = C.runSmith(bare, e, sword);
+    const good = forge(seq(0.1, 0.5, 0.0));
+    C.runSmith(good, e, sword);
+    return r.wasted === 1 && s.materials.bronze === 998 && b.wasted === 0 &&
+      bare.materials.bronze === 0 && good.materials.bronze === 999;
+  })());
+
+  ok('a failure is charged, then the flaw, then Conservation may hand one back', (() => {
+    const s = forge(seq(0.99, 0.0, 0.0));
+    const e = hand('E', { flaw: 'wasteful', specs: [spec('material:bronze', { conservation: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    return r.wasted === 1 && r.saved === 1 && s.materials.bronze === 999;
+  })());
+
+  ok('Value is written on the pieces that hand made, and follows them out to the floor', (() => {
+    const s = forge(seq(0.1, 0.5));
+    const e = hand('C', { specs: [spec('item:swords', { value: 3 })] });
+    const r = C.runSmith(s, e, sword);
+    C.shopEndDay(s);
+    const key = C.lineKey('shortsword', 'bronze');
+    const lot = s.storage[key];
+    const plain = C.recommendedPrice('shortsword', 'bronze', lot.quality, lot.level);
+    const worth = C.recommendedPrice('shortsword', 'bronze', lot.quality, lot.level, lot.value);
+    const stand = s.stands.find((st) => C.standTakes(st.type, 'shortsword'));
+    C.shopStockStand(s, stand.id, key, 1);
+    return r.value === 16 && lot.value === 16 && Math.abs(worth / plain - 1.16) < 0.02 &&
+      stand.value === 16 && C.standWorth(stand) > plain;
+  })());
+
+  ok('mixed with ordinary pieces, the bonus is shared out by the piece, never lost', (() => {
+    const s = forge();
+    const key = C.lineKey('shortsword', 'bronze');
+    C.addStorage(s, key, 1, 70, 1, 16);
+    C.addStorage(s, key, 3, 70, 1, 0);
+    const lot = s.storage[key];
+    const stand = s.stands.find((st) => C.standTakes(st.type, 'shortsword'));
+    C.shopStockStand(s, stand.id, key, 4);
+    C.shopPullFromShelf(s, key, 4);
+    return lot.value === 4 && s.storage[key].value === 4;
+  })());
+
+  ok('Value only counts in its own craft; Shoddy Workmanship counts in every one', (() => {
+    const e = hand('C', { specs: [spec('item:swords', { value: 1 })] });
+    const shoddy = hand('C', { flaw: 'shoddy' });
+    return C.specialtyStat(e, 'value', { cat: 'swords', material: 'bronze' }) === 6 &&
+      C.specialtyStat(e, 'value', { cat: 'shields', material: 'bronze' }) === 0 &&
+      C.specialtyStat(shoddy, 'value', { cat: 'shields', material: 'gold' }) === -5;
+  })());
+
+  ok('Value III with its passive is +16% in all, not the levels added up', (() =>
+    C.specialtyStat(hand('C', { specs: [spec('item:swords', { value: 3 })] }), 'value',
+      { cat: 'swords', material: 'bronze' }) === 16 &&
+    C.specialtyStat(hand('C', { specs: [spec('item:swords', { quality: 3 })] }), 'quality',
+      { cat: 'swords', material: 'bronze' }) === 10 &&
+    C.specialtyStat(hand('C', { specs: [spec('material:bronze', { metallurgy: 3 })] }), 'metal',
+      { cat: 'swords', material: 'bronze' }) === 10));
+
+  ok('a contract crate keeps the workmanship of what went into it', (() => {
+    const s = forge();
+    const key = C.lineKey('shortsword', 'bronze');
+    C.addStorage(s, key, 2, 90, 1, 16);
+    const com = { id: 5, key: key, item: 'shortsword', material: 'bronze', qty: 2, quality: 0,
+      filled: 0, delivered: 0, dueDay: 99, pay: 1, advance: 0, name: 'A', who: 0, type: 'farmer' };
+    s.commissions.push(com);
+    C.allocateCommission(s, 5, 2);
+    C.releaseCommission(s, 5, 2);
+    return com.value === 16 && s.storage[key].value === 16;
+  })());
+}
+
+section('Open Your Forge: smelting with a specialisation');
+{
+  const hand = (extra) => Object.assign({ id: 78, name: 'Rille Ash', role: 'smith', rank: 'C', power: 3,
+    wage: 30, xp: 0, specs: [], found: {}, flaw: null }, extra || {});
+  ok('the furnace still turns rank-many ore into as many ingots', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1530) });
+    C.addOre(s, 'bronze', 40);
+    const bars = s.materials.bronze;
+    const r = C.runSmith(s, hand(), { kind: 'smelt', material: 'bronze' });
+    return r.made === C.smeltRate(3) && r.bonus === 0 && s.materials.bronze === bars + C.smeltRate(3);
+  })());
+
+  ok('Smelting rolls for a bonus ingot on every ingot, and bonus ingots roll nothing', (() => {
+    const s = C.createShop({ rnd: () => 0 });
+    C.addOre(s, 'bronze', 40);
+    const bars = s.materials.bronze;
+    const e = hand({ specs: [{ id: 'material:bronze', xp: 0, picks: 3, paths: { smelting: 3 } }] });
+    const r = C.runSmith(s, e, { kind: 'smelt', material: 'bronze' });
+    const rate = C.smeltRate(3);
+    return r.smelted === rate && r.bonus === rate && r.made === rate * 2 &&
+      s.materials.bronze === bars + rate * 2 && s.ore.bronze === 40 - rate;
+  })());
+
+  ok('Smelting totals: 1% on accepting, 7% at Smelting III, only for its own ore', (() => {
+    const one = hand({ specs: [{ id: 'material:bronze', xp: 0, picks: 0, paths: {} }] });
+    const three = hand({ specs: [{ id: 'material:bronze', xp: 0, picks: 3, paths: { smelting: 3 } }] });
+    return C.specialtyStat(one, 'smelt', { material: 'bronze' }) === 1 &&
+      C.specialtyStat(three, 'smelt', { material: 'bronze' }) === 7 &&
+      C.specialtyStat(three, 'smelt', { material: 'gold' }) === 0;
+  })());
+
+  ok('a Poor Smelter may waste one more ore, once a phase, if there is any', (() => {
+    const s = C.createShop({ rnd: () => 0 });
+    C.addOre(s, 'bronze', 40);
+    const r = C.runSmith(s, hand({ flaw: 'poorsmelter' }), { kind: 'smelt', material: 'bronze' });
+    const bare = C.createShop({ rnd: () => 0 });
+    C.addOre(bare, 'bronze', C.smeltRate(3));
+    const b = C.runSmith(bare, hand({ flaw: 'poorsmelter' }), { kind: 'smelt', material: 'bronze' });
+    return r.wasted === 1 && s.ore.bronze === 40 - C.smeltRate(3) - 1 && b.wasted === 0;
+  })());
+
+  ok('the player’s own smelting rolls nothing and gains nothing', (() => {
+    let calls = 0;
+    const s = C.createShop({ rnd: C.mulberry32(1535) });
+    s.rnd = () => { calls++; return 0; };
+    C.addOre(s, 'bronze', 10);
+    const r = C.shopSmelt(s, 'bronze', 5);
+    return r.made === 5 && r.bonus === 0 && calls === 0;
+  })());
+}
+
+section('Open Your Forge: specialisations');
+{
+  const hand = (rank, extra) => Object.assign({ id: 79, name: 'Ivy Emberly', role: 'smith', rank: rank,
+    power: C.shopRank(rank).power, wage: 30, xp: 0, specs: [], found: {}, flaw: null }, extra || {});
+  const forge = (seed) => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(seed) }));
+    s.materials.bronze = 1e5; s.materials.silver = 1e5;
+    return s;
+  };
+  const sword = { item: 'shortsword', material: 'bronze' };
+  // work until this much has been earned, made or failed
+  const work = (s, e, order, times) => { for (let i = 0; i < times; i++) C.runSmith(s, e, order); };
+
+  ok('one craft specialisation per category and one metal specialisation per metal', (() => {
+    const defs = C.specialtyDefs('smith');
+    const items = defs.filter((d) => d.kind === 'item');
+    const metals = defs.filter((d) => d.kind === 'material');
+    return items.length === C.SHOP.categories.length && metals.length === C.SHOP.materials.length &&
+      items.every((d) => C.shopCategory(d.of)) && metals.every((d) => C.shopMaterial(d.of)) &&
+      defs.find((d) => d.id === 'item:swords').name === 'Sword Smith' &&
+      defs.find((d) => d.id === 'material:gold').name === 'Gold Smith' &&
+      C.specialtyDefs('runner').length === 0;
+  })());
+
+  ok('every craft specialisation shares one tree, every metal one another', (() => {
+    const item = C.specialtyKind('item'), metal = C.specialtyKind('material');
+    return item.paths.map((p) => p.name + p.levels.join('/')).join(',') ===
+        'Value5/10/15,Quality3/6/9,Production2/4/6' &&
+      metal.paths.map((p) => p.name + p.levels.join('/')).join(',') ===
+        'Conservation25/50/75,Smelting2/4/6,Metallurgy3/6/9';
+  })());
+
+  ok('a made piece earns 2 towards its craft and its metal, a failed one 1', (() => {
+    const made = hand('E');
+    const m = forge(1540); m.rnd = () => 0.1;  // it comes off
+    C.runSmith(m, made, sword);
+    const failed = hand('E');
+    const s = forge(1541); s.rnd = () => 0.99;
+    C.runSmith(s, failed, sword);
+    return made.found['item:swords'] === 2 && made.found['material:bronze'] === 2 &&
+      failed.found['item:swords'] === 1 && failed.found['material:bronze'] === 1;
+  })());
+
+  ok('a phase at the furnace earns 1 towards that metal only', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1542) });
+    C.addOre(s, 'silver', 40);
+    const e = hand('E');
+    C.runSmith(s, e, { kind: 'smelt', material: 'silver' });
+    return e.found['material:silver'] === 1 && Object.keys(e.found).length === 1;
+  })());
+
+  ok('nobody arrives specialised', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1543) });
+    return C.shopSearchStaff(s, 'smith', 30).every((a) => a.specs.length === 0 &&
+      Object.keys(a.found).length === 0);
+  })());
+
+  ok('a line of work is discovered at 5 XP, and not before', (() => {
+    const s = forge(1544); s.rnd = () => 0.99;     // failures, 1 XP each
+    const e = hand('E');
+    work(s, e, sword, 4);
+    const early = C.specialtiesFound(e).length;
+    work(s, e, sword, 1);
+    return early === 0 && C.specialtiesFound(e).map((d) => d.id).sort().join(',') ===
+      'item:swords,material:bronze';
+  })());
+
+  ok('an unanswered discovery waits at 5, and declining it loses nothing', (() => {
+    const s = forge(1545); s.rnd = () => 0.99;
+    const e = hand('E');
+    work(s, e, sword, 30);
+    return e.found['item:swords'] === 5 && C.specialtiesFound(e).length === 2;
+  })());
+
+  ok('accepting is the player’s choice, and only of what has been discovered', (() => {
+    const s = forge(1546);
+    const e = hand('E');
+    s.staff.push(e);
+    const early = C.acceptSpecialty(s, e.id, 'item:swords');
+    e.found['item:swords'] = 5;
+    const res = C.acceptSpecialty(s, e.id, 'item:swords');
+    const twice = C.acceptSpecialty(s, e.id, 'item:swords');
+    const other = C.acceptSpecialty(s, e.id, 'item:spears');
+    return !early.ok && res.ok && !twice.ok && !other.ok && e.specs.length === 1 &&
+      !('item:swords' in e.found);
+  })());
+
+  ok('accepting gives the passive at once, but no perk choice', (() => {
+    const s = forge(1547);
+    const e = hand('E', { found: { 'item:swords': 5 } });
+    s.staff.push(e);
+    const ctx = { cat: 'swords', material: 'bronze' };
+    const before = C.specialtyStat(e, 'quality', ctx);
+    C.acceptSpecialty(s, e.id, 'item:swords');
+    return before === 0 && C.specialtyStat(e, 'quality', ctx) === 1 &&
+      C.specialtyStat(e, 'value', ctx) === 1 && C.specialtyStat(e, 'extra', ctx) === 1 &&
+      e.specs[0].picks === 0 && !C.specialtyPerkReady(e, e.specs[0]);
+  })());
+
+  ok('three slots in all: specialisations and a flaw share them', (() => {
+    const s = forge(1548);
+    const e = hand('E', { flaw: 'careless',
+      found: { 'item:swords': 5, 'item:shields': 5, 'material:bronze': 5 } });
+    s.staff.push(e);
+    const a = C.acceptSpecialty(s, e.id, 'item:swords');
+    const b = C.acceptSpecialty(s, e.id, 'item:shields');
+    const c = C.acceptSpecialty(s, e.id, 'material:bronze');
+    return a.ok && b.ok && !c.ok && C.slotsUsed(e) === 3 && C.slotsFree(e) === 0;
+  })());
+
+  ok('a full hand discovers nothing more', (() => {
+    const s = forge(1549); s.rnd = () => 0.99;
+    const e = hand('E', { specs: [
+      { id: 'item:shields', xp: 0, picks: 0, paths: {} },
+      { id: 'item:axes', xp: 0, picks: 0, paths: {} },
+      { id: 'item:spears', xp: 0, picks: 0, paths: {} }] });
+    work(s, e, sword, 10);
+    return Object.keys(e.found).length === 0;
+  })());
+
+  ok('the first perk takes 10 more XP after accepting, at any rank', (() => {
+    const s = forge(1550); s.rnd = () => 0.99;
+    const e = hand('E', { specs: [{ id: 'item:swords', xp: 0, picks: 0, paths: {} }] });
+    s.staff.push(e);
+    work(s, e, sword, 9);
+    const short = C.specialtyPerkReady(e, e.specs[0]);
+    work(s, e, sword, 1);
+    return !short && C.specialtyPerkReady(e, e.specs[0]) && e.specs[0].xp === 10;
+  })());
+
+  ok('XP stops at the milestone until the perk is chosen, so none spills past it', (() => {
+    const s = forge(1551); s.rnd = () => 0.99;
+    const e = hand('S', { specs: [{ id: 'item:swords', xp: 0, picks: 0, paths: {} }] });
+    s.staff.push(e);
+    work(s, e, sword, 40);
+    const held = e.specs[0].xp;
+    const pick = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'value');
+    return held === 10 && pick.ok && e.specs[0].xp === 0 && e.specs[0].picks === 1;
+  })());
+
+  ok('a D-rank earns nothing towards the second perk; it starts on reaching C', (() => {
+    const s = forge(1552); s.rnd = () => 0.99;
+    const e = hand('D', { specs: [{ id: 'item:swords', xp: 0, picks: 1, paths: { value: 1 } }] });
+    s.staff.push(e);
+    work(s, e, sword, 25);
+    const atD = e.specs[0].xp;
+    e.rank = 'C'; e.power = 3;
+    work(s, e, sword, 5);
+    return atD === 0 && e.specs[0].xp === 5;
+  })());
+
+  ok('the second perk takes 20, the third 30 and an A-rank', (() => {
+    const s = forge(1553); s.rnd = () => 0.99;
+    const e = hand('B', { specs: [{ id: 'item:swords', xp: 0, picks: 1, paths: { value: 1 } }] });
+    s.staff.push(e);
+    work(s, e, sword, 20);
+    const second = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'value');
+    work(s, e, sword, 30);
+    const stuck = e.specs[0].xp;
+    e.rank = 'A'; e.power = 5;
+    work(s, e, sword, 30);
+    const third = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'value');
+    const fourth = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'quality');
+    return second.ok && stuck === 0 && third.ok && !fourth.ok &&
+      e.specs[0].paths.value === 3 && e.specs[0].picks === 3;
+  })());
+
+  ok('a perk unlocks Level I or raises a taken path one level, never past III', (() => {
+    const s = forge(1554);
+    const e = hand('S', { specs: [{ id: 'item:swords', xp: 10, picks: 0, paths: {} }] });
+    s.staff.push(e);
+    const a = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'quality');
+    e.specs[0].xp = 20;
+    const b = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'production');
+    e.specs[0].xp = 30;
+    const c = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'quality');
+    const p = e.specs[0].paths;
+    return a.ok && a.level === 1 && b.ok && b.level === 1 && c.ok && c.level === 2 &&
+      p.quality === 2 && p.production === 1 && !p.value;
+  })());
+
+  ok('an illegal choice is refused by the rules, not just hidden', (() => {
+    const s = forge(1555);
+    const e = hand('S', { specs: [{ id: 'item:swords', xp: 30, picks: 2, paths: { value: 2 } }] });
+    const d = hand('D', { id: 80, specs: [{ id: 'item:swords', xp: 20, picks: 1, paths: { value: 1 } }] });
+    s.staff.push(e, d);
+    const noPath = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'charm');
+    const noSpec = C.chooseSpecialtyPerk(s, e.id, 'item:spears', 'value');
+    const rank = C.chooseSpecialtyPerk(s, d.id, 'item:swords', 'value');
+    e.specs[0].xp = 29;
+    const xp = C.chooseSpecialtyPerk(s, e.id, 'item:swords', 'value');
+    return !noPath.ok && !noSpec.ok && !rank.ok && /C-rank/.test(rank.why) && !xp.ok &&
+      e.specs[0].paths.value === 2 && d.specs[0].paths.value === 1;
+  })());
+
+  ok('specialisation XP is its own ladder: rank XP and craft XP are untouched by it', (() => {
+    const s = forge(1556); s.rnd = () => 0.99;
+    const e = hand('E');
+    s.staff.push(e);
+    C.runSmith(s, e, sword);
+    return e.xp === 0 && C.craftXp(s, 'swords') === 0 && e.found['item:swords'] === 1;
+  })());
+
+  ok('an applicant’s flaw is drawn at the stated rate, and only for a trade that has them', (() => {
+    const was = C.SHOP.specialties.flawChance;
+    const s = C.createShop({ rnd: C.mulberry32(1557) });
+    C.SHOP.specialties.flawChance = 0;
+    const none = C.shopSearchStaff(s, 'smith', 50).filter((a) => a.flaw).length;
+    C.SHOP.specialties.flawChance = 1;
+    const all = C.shopSearchStaff(s, 'smith', 50).filter((a) => a.flaw).length;
+    const runners = C.shopSearchStaff(s, 'runner', 50).filter((a) => a.flaw).length;
+    C.SHOP.specialties.flawChance = was;
+    const mixed = C.shopSearchStaff(s, 'smith', 400).filter((a) => a.flaw).length;
+    return none === 0 && all === 50 && runners === 0 && mixed > 80 && mixed < 160 &&
+      C.flawsFor('smith').length === 5;
+  })());
+
+  ok('a hand with no flaw is the common case', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(1558) });
+    return C.shopSearchStaff(s, 'smith', 300).filter((a) => !a.flaw).length > 180;
+  })());
+
+  ok('a save keeps every specialisation, choice, discovery and flaw', (() => {
+    const s = forge(1559);
+    s.staff.push(hand('C', { id: 81, flaw: 'shoddy', found: { 'material:silver': 3 },
+      specs: [{ id: 'item:swords', xp: 4, picks: 2, paths: { value: 1, quality: 1 } }] }));
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(1));
+    const e = back.staff[0];
+    return e.flaw === 'shoddy' && e.found['material:silver'] === 3 && e.specs.length === 1 &&
+      e.specs[0].paths.value === 1 && e.specs[0].paths.quality === 1 && e.specs[0].picks === 2 &&
+      e.specs[0].xp === 4;
+  })());
+
+  ok('a hand from an older save gets no flaw and no specialisation', (() => {
+    const s = forge(1560);
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    data.staff = [{ id: 82, name: 'Old Hand', role: 'smith', rank: 'C', wage: 30, xp: 5 }];
+    const e = C.restoreShop(data, C.mulberry32(1)).staff[0];
+    return e.flaw === null && e.specs.length === 0 && Object.keys(e.found).length === 0;
+  })());
+
+  ok('an edited save cannot hold more than the rules allow', (() => {
+    const s = forge(1561);
+    const data = JSON.parse(JSON.stringify(C.serializeShop(s)));
+    data.staff = [{ id: 83, name: 'Edited', role: 'smith', rank: 'C', wage: 30, xp: 0, flaw: 'careless',
+      specs: [{ id: 'item:swords', xp: 999, paths: { value: 9, quality: 3 } },
+        { id: 'item:swords', xp: 0, paths: {} }, { id: 'item:axes', xp: 0, paths: {} },
+        { id: 'material:gold', xp: 0, paths: {} }, { id: 'item:nonsense', xp: 0, paths: {} }] },
+      { id: 84, name: 'Runner', role: 'runner', rank: 'C', wage: 30, xp: 0, flaw: 'careless',
+        specs: [{ id: 'item:swords', xp: 0, paths: {} }] }];
+    const back = C.restoreShop(data, C.mulberry32(1));
+    const e = back.staff[0], r = back.staff[1];
+    const sum = Object.values(e.specs[0].paths).reduce((a, b) => a + b, 0);
+    return e.specs.length === 2 && C.slotsUsed(e) === 3 && sum === e.specs[0].picks &&
+      sum <= 3 && e.specs[0].paths.value <= 3 && r.flaw === null && r.specs.length === 0;
   })());
 }
 
@@ -6061,24 +6806,24 @@ section('Open Your Forge: what a kept box is told to do');
       Object.keys(s.assignments).length === 0;
   })());
 
-  ok('a smith keeps forging the same batch while the metal lasts', (() => {
+  ok('a smith keeps forging the same piece while the metal lasts', (() => {
     const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1237) })), 'smith');
-    s.materials.bronze = 4;
+    s.materials.bronze = 1;
     C.setStanding(s, 'smith', PH[0], 900, { kind: 'forge', item: 'shortsword',
-      material: 'bronze', qty: 3 });
+      material: 'bronze' });
     const first = C.shopEndDay(s);
     C.runSmith(s, s.staff[0], C.assignedThisDay(s, 900).job.order);
     const second = C.planOrder(s, 'smith', C.standingAt(s, 'smith', PH[0]).plan, PH[0]);
     return first.roster[0].ok && !second.ok && /ingot/i.test(second.why);
   })());
 
-  ok('a batch is never bigger than the anvil will take', (() => {
+  ok('a Smith\u2019s standing order is one piece, whatever an old plan asked for', (() => {
     const s = staffed(apprenticed(C.createShop({ rnd: C.mulberry32(1238) })), 'smith');
     s.materials.bronze = 200;
     C.setStanding(s, 'smith', PH[0], 900, { kind: 'forge', item: 'shortsword',
       material: 'bronze', qty: 99 });
     C.shopEndDay(s);
-    return C.assignedThisDay(s, 900).job.order.qty === C.batchCapacity(s);
+    return C.assignedThisDay(s, 900).job.order.qty === 1;
   })());
 
   ok('a smith at the furnace needs ore in the yard', (() => {
@@ -7442,9 +8187,11 @@ section('Open Your Forge: Staffing upgrades add places per phase');
     }
     const res = C.shopAdvancePhase(s);
     const smiths = res.reports.filter((r) => r.kind === 'smith');
-    return smiths.length === 3 && smiths.every((r) => r.ok) &&
+    // one attempt each, one ingot each, whatever the old orders asked for
+    return smiths.length === 3 && smiths.every((r) => r.ok && r.attempted) &&
       new Set(smiths.map((r) => r.staffId)).size === 3 &&
-      s.materials.bronze === 21 && s.orders.length === 3 && s.phaseIndex === 1 &&
+      s.materials.bronze === 27 && s.orders.length === smiths.filter((r) => r.made).length &&
+      s.phaseIndex === 1 &&
       s.staff.every((e) => e.xp > 0) && Object.values(s.assignments).every((a) => a.done);
   })());
 
@@ -7452,22 +8199,22 @@ section('Open Your Forge: Staffing upgrades add places per phase');
     const s = C.createShop({ rnd: C.mulberry32(3006) });
     s.upgrades[G.smiths.key] = 1;
     s.blueprints.shortsword = 1;
-    s.materials.bronze = 4;
+    s.materials.bronze = 1;
     hand(s, 1, 'smith'); hand(s, 2, 'smith');
-    C.shopAssign(s, 1, { order: { item: 'shortsword', material: 'bronze', qty: 3 } }, PH[0]);
-    C.shopAssign(s, 2, { order: { item: 'shortsword', material: 'bronze', qty: 3 } }, PH[0]);
+    C.shopAssign(s, 1, { order: { item: 'shortsword', material: 'bronze', qty: 1 } }, PH[0]);
+    C.shopAssign(s, 2, { order: { item: 'shortsword', material: 'bronze', qty: 1 } }, PH[0]);
     const res = C.shopAdvancePhase(s);
     const one = res.reports.find((r) => r.staffId === 1);
     const two = res.reports.find((r) => r.staffId === 2);
-    return one.ok && !two.ok && /ingots/.test(two.why) && s.materials.bronze === 1 &&
-      s.orders.length === 1 && s.staff[0].xp > 0 && s.staff[1].xp === 0;
+    return one.ok && one.attempted && !two.ok && /ingots/.test(two.why) && s.materials.bronze === 0 &&
+      s.orders.length <= 1 && s.staff[0].xp > 0 && s.staff[1].xp === 0;
   })());
 
   ok('a recurring Smith is not planned onto ingots another Smith already has', (() => {
     const s = C.createShop({ rnd: C.mulberry32(3007) });
     s.upgrades[G.smiths.key] = 1;
     s.blueprints.shortsword = 1;
-    s.materials.bronze = 4;
+    s.materials.bronze = 1;
     hand(s, 1, 'smith'); hand(s, 2, 'smith');
     const plan = { item: 'shortsword', material: 'bronze', qty: 3 };
     C.setStanding(s, 'smith', PH[0], 1, plan, 0);

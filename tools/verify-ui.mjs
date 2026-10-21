@@ -3327,7 +3327,9 @@ async function run() {
     };
   });
   ok('a stand names the work standing on it, not just the price',
-    bands.tags.indexOf('Masterwork') >= 0 && bands.tags.indexOf('Crude') >= 0,
+    // 96 is Superb: Masterwork is a perfect 100 and nothing less
+    bands.tags.indexOf('Superb') >= 0 && bands.tags.indexOf('Crude') >= 0 &&
+      bands.tags.indexOf('Masterwork') < 0,
     bands.tags.join(','));
   ok('and a masterwork is worth several times what crude work is',
     bands.master > bands.crude * 2.5, bands.crude + ' -> ' + bands.master);
@@ -3599,30 +3601,84 @@ async function run() {
   const outside = await page.evaluate(() => {
     const body = document.getElementById('shopSheetBody');
     return { body: body.innerText.replace(/\s+/g, ' '),
-      buy: !!body.querySelector('[data-takecraft]'),
+      buy: !!body.querySelector('[data-research]'),
       locked: body.querySelectorAll('.alm-node.locked').length,
       nodes: body.querySelectorAll('.alm-node').length };
   });
   ok('a craft you never took up shows its tree entirely shut',
     outside.locked === outside.nodes && outside.nodes > 0, JSON.stringify(outside));
-  ok('and offers to be taken up for money rather than experience',
-    outside.buy && /Take up/i.test(outside.body) && /\d+g/.test(outside.body),
-    outside.body.slice(0, 220));
+  ok('and offers to be researched for gold and days, not bought outright',
+    outside.buy && /Research Axes/.test(outside.body) && /50g/.test(outside.body) &&
+    !/reputation/i.test(outside.body), outside.body.slice(0, 220));
 
-  const bought = await page.evaluate(async () => {
+  // research: asked first, paid up front, and the day is given to it
+  const study = await page.evaluate(async () => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
-    sh.reputation = 200;
     sh.gold = 100000;
+    sh.phaseIndex = 0;
     if (F.shopUi.redraw) F.shopUi.redraw();
     await new Promise((r) => setTimeout(r, 120));
     const before = sh.gold;
-    document.querySelector('[data-takecraft]').click();
+    document.querySelector('#shopSheetBody [data-research]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const ask = { title: document.getElementById('shopSheetTitle').textContent,
+      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+      paidYet: before - sh.gold };
+    document.querySelector('#shopSheetActions .btn.primary').click();
     await new Promise((r) => setTimeout(r, 250));
-    return { held: C.hasDiscipline(sh, 'axes'), root: C.blueprintLevel(sh, 'hatchet'),
-      xp: C.craftXp(sh, 'axes'), paid: before - sh.gold };
+    return { ask: ask, paid: before - sh.gold, cat: sh.research && sh.research.cat,
+      today: C.researchingToday(sh), held: C.hasDiscipline(sh, 'axes'),
+      forge: window.shopActionState('forge'), tend: window.shopActionState('tend'), buy: window.shopActionState('buy'),
+      row: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
   });
-  ok('taking up a craft costs gold and hands over its root at level one',
-    bought.held && bought.root === 1 && bought.paid > 0, JSON.stringify(bought));
+  ok('beginning research asks first, saying what the day costs the player',
+    /Begin Research/.test(study.ask.title) && study.ask.paidYet === 0 &&
+    /cannot forge/.test(study.ask.body) && /staff work as usual/.test(study.ask.body),
+    JSON.stringify(study.ask).slice(0, 260));
+  ok('and once agreed, the price is paid and today is given to it',
+    study.paid === 50 && study.cat === 'axes' && study.today && !study.held, JSON.stringify(study).slice(0, 260));
+  ok('a day of study shuts the forge, the counter and buying for yourself',
+    study.forge && study.tend && study.buy, JSON.stringify(study).slice(0, 260));
+  ok('the craft page says the day is under way', /Studying today/.test(study.row), study.row.slice(0, 240));
+
+  // turning to another craft is warned about, and refused without consent
+  const switching = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    // a day later, part-way through: one day done
+    sh.research.today = 0; sh.research.days = 1;
+    F.shopUi.almanacCat = 'spears';
+    F.shopOpenAlmanac();
+    await new Promise((r) => setTimeout(r, 150));
+    document.querySelector('#shopSheetBody [data-research]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const out = { title: document.getElementById('shopSheetTitle').textContent,
+      body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+      labels: Array.from(document.querySelectorAll('#shopSheetActions .btn, #shopSheetBack button'))
+        .map((b) => b.textContent.trim()) };
+    // keep going with axes instead: nothing changes
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions .btn'))
+      .find((b) => /Keep Current Research/.test(b.textContent)).click();
+    await new Promise((r) => setTimeout(r, 150));
+    out.kept = sh.research.cat === 'axes' && sh.research.days === 1;
+    return out;
+  });
+  ok('switching research warns that the progress and the gold are lost for good',
+    /Switch Research/.test(switching.title) && /1 day of study and 50g/.test(switching.body) &&
+    /nothing is refunded/.test(switching.body) && switching.labels.some((l) => /Switch and Lose Progress/.test(l)),
+    JSON.stringify(switching).slice(0, 300));
+  ok('and keeping the current study changes nothing', switching.kept, JSON.stringify(switching).slice(0, 200));
+
+  // the third day completes it: the craft and its root blueprint arrive
+  const bought = await page.evaluate(async () => {
+    const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+    sh.research.days = 2; sh.research.today = sh.day;
+    const done = C.settleResearch(sh);
+    F.shopRender();
+    return { held: C.hasDiscipline(sh, 'axes'), root: C.blueprintLevel(sh, 'hatchet'),
+      xp: C.craftXp(sh, 'axes'), done: !!(done && done.done), research: sh.research };
+  });
+  ok('the third day of study unlocks the craft and its first blueprint at level one',
+    bought.held && bought.root === 1 && bought.done && bought.research === null, JSON.stringify(bought));
   ok('and starts it with no experience of its own', bought.xp === 0, JSON.stringify(bought));
 
   // only what the forge holds may go on the anvil
@@ -4155,8 +4211,9 @@ async function run() {
   });
   ok('the editor asks who holds it, with auto-fill offered first',
     editor.who >= 2 && /Any available/i.test(editor.auto), JSON.stringify(editor).slice(0, 220));
-  ok('and asks a smith what to make, in what, and how many',
-    editor.item && editor.material && editor.batch, JSON.stringify(editor).slice(0, 220));
+  ok('and asks a smith what to make and in what: one piece a phase, no batch',
+    editor.item && editor.material && !editor.batch && /one piece a phase/i.test(editor.text),
+    JSON.stringify(editor).slice(0, 220));
   ok('it says what it would do as things stand',
     /If it ran now/i.test(editor.text), editor.text.slice(-200));
 
@@ -4597,6 +4654,203 @@ async function run() {
     sh.assignments = kept.assignments;
     F.shopRender();
   });
+
+  section('Open Your Forge: a Smith’s specializations');
+  {
+    // a Smith of our own making, put back afterwards so nothing later notices
+    const setup = await page.evaluate(() => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      window.__keptStaff = sh.staff;
+      window.__keptResearch = sh.research;
+      sh.research = null;
+      sh.staff = [
+        { id: 7001, name: 'Tess Anvil', role: 'smith', rank: 'C', power: 3, wage: 34, xp: 0, face: 'cleric',
+          flaw: 'careless', found: { 'material:silver': 5, 'item:shields': 2 },
+          specs: [{ id: 'item:swords', xp: 20, picks: 1, paths: { quality: 1 } }] },
+        { id: 7002, name: 'Hob Fenn', role: 'smith', rank: 'D', power: 2, wage: 18, xp: 0, face: 'guard',
+          flaw: null, found: {}, specs: [{ id: 'material:bronze', xp: 0, picks: 1, paths: { smelting: 1 } }] }
+      ];
+      F.shopRender();
+      return sh.staff.length;
+    });
+    ok('two smiths on the books for the checks', setup === 2);
+
+    const card = await page.evaluate(async () => {
+      window.shopOpenHand(7001);
+      await new Promise((r) => setTimeout(r, 150));
+      const body = document.getElementById('shopSheetBody');
+      return { text: body.innerText.replace(/\s+/g, ' '),
+        slots: body.querySelectorAll('.spec-slots .dlg-tile').length,
+        flaw: !!body.querySelector('.spec-slots .dlg-tile.flaw'),
+        ready: !!body.querySelector('.spec-slots .dlg-tile.ready[data-spec="item:swords"]'),
+        found: Array.from(body.querySelectorAll('[data-spec].found')).map((b) => b.dataset.spec) };
+    });
+    ok('a Smith’s card shows three slots: their specialization, their flaw and what is left',
+      card.slots === 3 && card.flaw && /Specializations/i.test(card.text) && /2 of 3 slots used/.test(card.text),
+      JSON.stringify(card).slice(0, 260));
+    ok('a perk waiting is lit, and a discovery is offered to look at',
+      card.ready && card.found.join(',') === 'material:silver' && /Shield Smith 2\/5/.test(card.text),
+      JSON.stringify(card).slice(0, 260));
+
+    // inspect a discovery, leave it, and it is still there
+    const look = await page.evaluate(async () => {
+      document.querySelector('#shopSheetBody [data-spec="material:silver"]').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const out = { title: document.getElementById('shopSheetTitle').textContent,
+        text: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
+        nodes: document.querySelectorAll('#shopSheetBody .sp-node').length,
+        open: document.querySelectorAll('#shopSheetBody .sp-node.open').length,
+        labels: Array.from(document.querySelectorAll('#shopSheetActions .btn')).map((b) => b.textContent) };
+      Array.from(document.querySelectorAll('#shopSheetActions .btn')).find((b) => b.textContent === 'Not Now').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const e = window.CHECKSMITH.app.shop.staff[0];
+      out.still = e.found['material:silver'] === 5 && e.specs.length === 1;
+      out.back = document.getElementById('shopSheetTitle').textContent;
+      return out;
+    });
+    ok('a discovered specialization can be looked over, tree and all, before deciding',
+      /Silver Smith/.test(look.title) && look.nodes === 9 && look.open === 0 &&
+      /Conservation/.test(look.text) && /Smelting/.test(look.text) && /Metallurgy/.test(look.text),
+      JSON.stringify(look).slice(0, 260));
+    ok('it says plainly that accepting is permanent',
+      /permanent/i.test(look.text) && look.labels.indexOf('Accept for Good') >= 0, JSON.stringify(look.labels));
+    ok('and leaving it for now keeps the discovery', look.still && look.back === 'Tess Anvil', JSON.stringify(look));
+
+    // accepting asks once more, then fills the last slot for good
+    const took = await page.evaluate(async () => {
+      document.querySelector('#shopSheetBody [data-spec="material:silver"]').click();
+      await new Promise((r) => setTimeout(r, 120));
+      Array.from(document.querySelectorAll('#shopSheetActions .btn')).find((b) => b.textContent === 'Accept for Good').click();
+      await new Promise((r) => setTimeout(r, 120));
+      const ask = { title: document.getElementById('shopSheetTitle').textContent,
+        text: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ') };
+      document.querySelector('#shopSheetActions .btn.primary').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const e = window.CHECKSMITH.app.shop.staff[0];
+      return { ask: ask, specs: e.specs.map((r) => r.id), free: window.CHECKSMITH.core.slotsFree(e),
+        title: document.getElementById('shopSheetTitle').textContent };
+    });
+    ok('accepting is confirmed with a warning, then the specialization is theirs',
+      /Accept Silver Smith/.test(took.ask.title) && /never be removed/.test(took.ask.text) &&
+      took.specs.join(',') === 'item:swords,material:silver' && took.free === 0,
+      JSON.stringify(took).slice(0, 260));
+
+    // a perk: the tree offers the lit levels, and the choice is confirmed
+    const perk = await page.evaluate(async () => {
+      window.shopOpenSpecialty(7001, 'item:swords');
+      await new Promise((r) => setTimeout(r, 150));
+      const body = document.getElementById('shopSheetBody');
+      const open = Array.from(body.querySelectorAll('.sp-node.open')).map((b) => b.dataset.perk);
+      const got = body.querySelectorAll('.sp-node.got').length;
+      body.querySelector('.sp-node.open[data-perk="quality"]').click();
+      await new Promise((r) => setTimeout(r, 120));
+      const title = document.getElementById('shopSheetTitle').textContent;
+      document.querySelector('#shopSheetActions .btn.primary').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const rec = window.CHECKSMITH.app.shop.staff[0].specs[0];
+      return { open: open, got: got, title: title, level: rec.paths.quality, picks: rec.picks, xp: rec.xp,
+        after: document.querySelectorAll('#shopSheetBody .sp-node.got').length,
+        stillOpen: document.querySelectorAll('#shopSheetBody .sp-node.open').length };
+    });
+    ok('a waiting perk lights the next level of every path, and only those',
+      perk.open.slice().sort().join(',') === 'production,quality,value' && perk.got === 1,
+      JSON.stringify(perk));
+    ok('choosing one is confirmed, raises that path a level and starts the next perk from nothing',
+      /Quality II/.test(perk.title) && perk.level === 2 && perk.picks === 2 && perk.xp === 0 &&
+      perk.after === 2 && perk.stillOpen === 0, JSON.stringify(perk));
+
+    // a D-rank's next perk says it is waiting on the rank
+    const gated = await page.evaluate(async () => {
+      window.shopOpenSpecialty(7002, 'material:bronze');
+      await new Promise((r) => setTimeout(r, 150));
+      return document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+    });
+    ok('a perk still behind a rank says which rank, and that no XP is earned until then',
+      /needs C-rank/.test(gated) && /No XP towards perk 2 is earned until Hob reaches C-rank/.test(gated),
+      gated.slice(0, 300));
+
+    // the anvil: one piece, its odds and its range
+    const forge = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      sh.materials.bronze = Math.max(5, sh.materials.bronze);
+      F.shopUi.draft = { item: 'shortsword', material: 'bronze', qty: 4 };
+      window.shopOpenForge(sh.staff[0]);
+      await new Promise((r) => setTimeout(r, 150));
+      const body = document.getElementById('shopSheetBody');
+      return { text: body.innerText.replace(/\s+/g, ' '), batch: !!body.querySelector('[data-num="qty"]') };
+    });
+    ok('a Smith’s order is one piece, with its chance and quality range spelled out',
+      !forge.batch && /Comes off 80% of the time/.test(forge.text) && /Quality 72–82/.test(forge.text) &&
+      /One piece this phase/.test(forge.text), forge.text.slice(0, 300));
+
+    const booked = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      F.shopUi.planPhase = F.core.shopPhase(sh);
+      window.shopGiveSmithOrder(sh.staff[0]);
+      await new Promise((r) => setTimeout(r, 120));
+      const a = F.core.assignedThisDay(sh, 7001);
+      return a && a.job && a.job.order ? a.job.order.qty : null;
+    });
+    ok('and the order it books is for one piece, whatever the draft said', booked === 1, String(booked));
+
+    // hiring: a flaw is in plain sight before anyone is taken on
+    const hire = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      F.shopUi.hireTrade = null;
+      window.shopHireSearch('smith');
+      await new Promise((r) => setTimeout(r, 150));
+      const lines = Array.from(document.querySelectorAll('#shopSheetBody .applicant .flaw-line'))
+        .map((l) => l.innerText.trim());
+      const match = sh.applicants.every((a, i) => a.flaw ? lines[i].indexOf(F.core.flawDef(a.flaw).name) >= 0
+        : /No flaw/.test(lines[i]));
+      window.shopHireSearch('runner');
+      await new Promise((r) => setTimeout(r, 150));
+      const runners = document.querySelectorAll('#shopSheetBody .applicant .flaw-line').length;
+      return { count: lines.length, apps: sh.applicants.length, match: match, runners: runners };
+    });
+    ok('every Smith applicant shows their flaw, or that they have none', hire.count === 3 && hire.match,
+      JSON.stringify(hire));
+    ok('and a trade without flaws says nothing about them', hire.runners === 0, JSON.stringify(hire));
+
+    // a day of study shuts the hiring as well
+    const studying = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      sh.research = { cat: 'maces', days: 0, today: sh.day, paid: 50 };
+      window.shopHireSearch('smith');
+      await new Promise((r) => setTimeout(r, 150));
+      const out = { blocked: !!document.querySelector('#shopSheetBody [data-hire-blocked]'),
+        disabled: Array.from(document.querySelectorAll('#shopSheetBody [data-hire]')).every((b) => b.disabled) };
+      sh.research = null;
+      return out;
+    });
+    ok('on a day of study nobody can be hired, though applicants can be browsed',
+      studying.blocked && studying.disabled, JSON.stringify(studying));
+
+    // the morning report says how the study went
+    const morning = await page.evaluate(async () => {
+      window.shopDayBreak({ research: { cat: 'maces', days: 2, of: 3 } });
+      await new Promise((r) => setTimeout(r, 150));
+      const a = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+      window.CHECKSMITH.shopSheetClose();
+      window.shopDayBreak({ research: { cat: 'maces', days: 3, of: 3, done: true, root: 'mace' } });
+      await new Promise((r) => setTimeout(r, 150));
+      const b = document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' ');
+      window.CHECKSMITH.shopSheetClose();
+      return { a: a, b: b };
+    });
+    ok('the morning report counts a day of study, and names the craft when it is learned',
+      /Day 2 of 3 of Maces studied/.test(morning.a) && /Maces learned/.test(morning.b) &&
+      /Simple Mace|Mace/.test(morning.b), JSON.stringify(morning).slice(0, 300));
+
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      sh.staff = window.__keptStaff;
+      sh.research = window.__keptResearch || null;
+      F.shopUi.draft = {};
+      F.shopSheetClose();
+      F.shopRender();
+    });
+  }
 
   section('Open Your Forge: Growth buys room, the Shop buys fixtures');
   await page.evaluate(() => {
@@ -5553,13 +5807,15 @@ async function run() {
     return { lefts: lefts, figs: figs.every(Boolean), before: before,
       tick: sh.day * 3 + sh.phaseIndex, bronze: sh.materials.bronze, orders: sh.orders.length,
       made: made.length, ids: new Set(made.map((r) => r.staffId)).size,
+      cameOff: made.filter((r) => r.made > 0).length,
       shown: shown.length, visible: shown.every((x) => x.visible) };
   });
   ok('three Smiths stand at three different places in the room',
     three.figs && new Set(three.lefts).size === 3, JSON.stringify(three.lefts));
   ok('all three forge in the same phase, and that phase is spent once',
+    // one attempt and one ingot each; only what came off is in production
     three.made === 3 && three.ids === 3 && three.tick === three.before.tick + 1 &&
-    three.before.bronze - three.bronze === 6 && three.orders === three.before.orders + 3,
+    three.before.bronze - three.bronze === 3 && three.orders === three.before.orders + three.cameOff,
     JSON.stringify(three));
   ok('and the camera shows each of them at work', three.shown === 3 && three.visible,
     JSON.stringify(three));
@@ -8354,7 +8610,7 @@ async function run() {
         for (let i = 0; sh.staff.length < C.staffCapacity(sh) && i < 200; i++) {
           C.shopHire(sh, C.shopSearchStaff(sh, roles[i % roles.length], 1)[0].id);
         }
-        for (const c of C.SHOP.categories) C.shopTakeUpDiscipline(sh, c.id);
+        for (const c of C.SHOP.categories) C.takeUpDiscipline(sh, c.id, 'research');
         for (const it of C.SHOP.items.slice(0, 40)) C.addStorage(sh, it.id + ':bronze', 3, 80);
         for (const m of C.SHOP.materials) { sh.materials[m.id] = 999; C.addOre(sh, m.id, 30); }
         for (let i = 0; i < 40; i++) sh.town.push(C.makeTownsfolk(sh, C.SHOP.customers[i % C.SHOP.customers.length].id));

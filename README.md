@@ -833,13 +833,15 @@ longsword now available for 94 xp
 unlock longsword: { ok: true, spent: 94, level: 1 }
 book now: shortsword, buckler, longsword
 shields untouched: 0 xp, buckler level 1
-take up axes: { ok: true, spent: 900, root: 'hatchet' }
+research axes: 50g, then three mornings given to study
+research done: { cat: 'axes', days: 3, done: true, root: 'hatchet' }
 hatchet level 1 · axe xp 0
 ```
 
 The shields pocket is untouched because no buckler was ever made — the two
 trees are entirely independent, which is the whole point. The axes came later,
-bought with the business rather than earned, because there was no other way in.
+by three days of the smith's own study rather than earned at the anvil,
+because there was no other way in.
 
 ### The floor is fixtures, not slots
 
@@ -869,14 +871,15 @@ Quality is the forge puzzle's own score, 0–100, and `qualityFactor` turns it
 into what the goods are actually worth. The spread is deliberately wide —
 `SHOP.quality` runs from **0.30** of the list price at quality 0 to **1.15** at
 100 — so the same sword can be worth four times another one. `qualityBand`
-names the five bands (Crude, Plain, Sound, Fine, Masterwork) and they are shown
+names the six bands (Crude, Plain, Sound, Fine, Superb, and Masterwork, which is
+exactly 100 and nothing less) and they are shown
 wherever a piece is: on the stand, in storage, on the anvil, in the picker and
 at the counter.
 
 Quality is also a gate, not only a multiplier. Every archetype carries a
 `standards` floor and every person strays from it a little, and `chooseGoods`
 drops anything under it before price is even considered. A labourer buys
-whatever works; a collector will not look at anything below a Masterwork. A
+whatever works; a collector will not look at anything below Superb work. A
 botched board does not merely fetch less — it costs you the people who would
 have paid most.
 
@@ -992,8 +995,9 @@ apart from that four entirely.
 
 There is no market in ready-made talent. `makeApplicant` and `makeMiner` both
 take `SHOP.ranks[0]`, so **every** hire — forge hand or miner — arrives at E
-with an empty pool, and the only thing that varies between two applicants is
-the wage scatter and the face. `shopSearchStaff(shop, roleId, count)` refuses a
+with an empty pool and no specialization, and the only things that vary between
+two applicants are the wage scatter, the face and, for a Smith, whether they
+come with a flaw. `shopSearchStaff(shop, roleId, count)` refuses a
 role it does not recognise and returns only that role, which is what lets the
 hiring screen ask which trade first.
 
@@ -1142,7 +1146,7 @@ reason it cannot run:
 | Runner | `{kind:'market', material, upTo, cap}` | tops the metal back up, trimming the order until it fits both the ceiling and the gold |
 | Runner | `{kind:'ore', mine, qty, below}` | an ore run, held back while the yard still holds `below` |
 | Runner | `{kind:'deliver'}` | the contract due soonest, in the largest cart free that phase, loaded to capacity |
-| Smith | `{kind:'forge', item, material, qty}` | a batch, clamped to `batchCapacity` and checked against the metal |
+| Smith | `{kind:'forge', item, material}` | one piece a phase (an older plan's `qty` is ignored), checked against the metal and other Smiths' ingots |
 | Smith | `{kind:'smelt', material}` | the furnace, if there is ore for it |
 | Store hand | `{}` | carries out whatever storage holds |
 | Salesperson / Apprentice | `{}` | needs no orders |
@@ -2111,6 +2115,131 @@ Shop Settings as two clear switches.
 **Nothing about the game changed.** The core is byte-for-byte that of 1.44:
 all 1036 core checks pass unchanged and the board fingerprint is the same.
 Saves load as they were.
+
+## Smiths, specializations and research (1.46)
+
+Three changes to Open Your Forge. The puzzle, the player's own batches and
+Special Commissions are untouched: the one-piece rule below is for employed
+Smiths only.
+
+### A Smith makes one piece a phase
+
+A Smith no longer forges a batch. Each Smith on a phase makes **one
+attempt** at one item, and several Smiths in the same phase make separate
+attempts. An attempt uses one ingot and either comes off or does not:
+
+| Rank | Comes off | Quality rolled (inclusive) |
+|------|-----------|----------------------------|
+| E | 75% | 55–65 |
+| D | 80% | 60–70 |
+| C | 85% | 65–75 |
+| B | 90% | 70–80 |
+| A | 95% | 75–85 |
+| S | 98% | 80–90 |
+
+The two rolls are independent. Final quality is the roll, plus specialization
+bonuses, less flaw penalties, clamped to 0–100. **Masterwork is exactly 100**,
+whoever made it: a Smith who reaches 100 through their specializations makes
+the same Masterwork as a perfect puzzle (an S-rank's 90, +1 passive and +9
+from Quality III is 100). The old 85–99 "Masterwork" band is now **Superb**;
+every other band and the price curve are unchanged.
+
+A failed attempt makes nothing and still spends its ingot. The old batch
+spoilage is gone. A finished piece goes into the same order queue as before:
+in storage, or a commission's crate, the next morning. Smiths now earn rank XP
+for every attempt (6) and more for each piece made (10 each).
+
+### Specializations
+
+A Smith grows into lines of work by doing them. Every attempt counts towards
+its **craft** and its **metal** (+2 made, +1 failed), and each phase at the
+furnace counts towards that ore (+1). The list is built from the game's own
+tables: one craft specialization per category (Sword Smith, Shield Smith,
+Arrowsmith, …) and one metal specialization per metal (Bronze Smith to
+Adamantine Smith).
+
+- **Discovered** at 5 XP. It is then offered on the Smith's card. The player
+  can look it over, tree and all, and **accept** it or leave it. Leaving it
+  loses nothing.
+- **Accepting is permanent** and takes one of **three slots**. A flaw takes a
+  slot too, and only one may be a flaw. A full Smith discovers nothing more.
+- On acceptance it gives a small **passive** at once, but no perk.
+- Its own XP then buys **three perk choices**: +10 XP at any rank, +20 more at
+  **C-rank**, +30 more at **A-rank**. No XP towards a choice is earned until the
+  rank is reached, none is paid backwards for earlier work, and XP stops at
+  the choice still waiting, so nothing spills past it.
+- Each choice opens Level I of a path or raises a taken path one level, up to
+  III. The same three paths can take all three choices or share them. The
+  rules refuse an illegal choice, not just the screen.
+
+| Kind | Passive | Path I / II / III (current bonus, plus the passive) |
+|------|---------|------------------------------------------------------|
+| Craft | +1% sale value, +1 quality, +1% extra-item chance | **Value** +5/10/15% · **Quality** +3/6/9 · **Production** +2/4/6% |
+| Metal | +5% Conservation, +1% bonus ingot, +1 quality | **Conservation** +25/50/75% · **Smelting** +2/4/6% · **Metallurgy** +3/6/9 |
+
+So a focused tree tops out at +16% value, +10 quality, 7% extra item, 80%
+Conservation, 7% bonus ingot or +10 Metallurgy. Craft Quality and metal
+Metallurgy stack, and nothing passes 100.
+
+- **Production** rolls once per piece made in that craft. A success adds one
+  more piece from the same ingot, with the same quality and blueprint level.
+  The extra piece never rolls again.
+- **Conservation** rolls once per *failed* piece in that metal, after the ingot
+  is spent and after any flaw, and gives exactly one ingot back.
+- **Smelting** rolls for a bonus ingot on each ingot smelted. Throughput is
+  still the rank's.
+- **Value** is written on the pieces that Smith made and travels with them
+  through storage, stands, commission crates and back. It blends by the piece
+  exactly as quality and blueprint level already do, so a lot of one
+  specialist sword and three ordinary ones carries a quarter of the bonus on
+  each, and the total is never lost or spread to other goods.
+
+### Flaws
+
+About 30% of Smith applicants (`SHOP.specialties.flawChance`) come with one
+permanent flaw, shown on the hiring board before they are taken on:
+**Careless** −5 points crafting success, **Heavy-Handed** −5 quality,
+**Wasteful** 20% chance a failure spoils one more ingot, **Poor Smelter** 10%
+chance to waste one more ore a smelting phase, **Shoddy Workmanship** −5% sale
+value on everything they make. Each applies at most once per action. Hands
+from older saves keep no flaw. The data is written per role, so other trades
+can be given specializations and flaws later; only Smiths have any now.
+
+### The Smith's card
+
+A Smith's card shows rank and rank XP, the three slots (specializations, a
+flaw in red, empty slots), discoveries waiting, and what the work is still
+working towards. Each specialization opens its **tree**: three paths of three
+levels, with acquired levels lit, the levels a waiting choice could take
+glowing, and locked levels saying what stands in the way (XP or rank). A
+discovered specialization shows the same tree before it is accepted.
+Accepting and choosing a perk are each confirmed, saying that they are
+permanent. Cards with a decision waiting are flagged on the Staff board.
+
+### Researching a craft
+
+A craft beyond the two a forge opens with is now **researched**, not bought,
+from its page in the Almanac. The reputation requirement and 900g price are
+gone.
+
+- **Cost**: 50g for the first researched craft, then 150g, 250g, 350g, 450g
+  and so on: 50g plus 100g for every craft already learned this way. It is
+  paid when the study begins. Abandoned study is never counted.
+- **Three full days**. Each is begun in the morning and committed one at a
+  time. A day of study is the player's whole day: no forging, counter,
+  buying, smelting, delivering or hiring yourself. Staff work as normal and
+  the phases are ended as usual. The day counts when it is over.
+- The days need not run together, and a break costs nothing.
+- Only one craft is studied at a time. Turning to another is confirmed with a
+  warning, and throws away the days and the gold. Coming back later costs the
+  full price again.
+- The third day unlocks the craft and its first blueprint at level 1.
+  Blueprints, levels and craft XP work exactly as before.
+
+**Saves** from 1.45 load unchanged. Staff gain no flaws and no
+specializations, every order and lot carries no value bonus, and no study is
+under way. Production orders now also keep their blueprint level and
+commission across a reload, which they previously lost.
 
 ## Fair boards
 
