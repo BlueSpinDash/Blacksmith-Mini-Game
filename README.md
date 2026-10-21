@@ -2184,7 +2184,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 1036 rule/generation checks
-node tools/verify-ui.mjs                                    # 1010 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 1036 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
@@ -2201,6 +2201,15 @@ Forge has that square board dealt onto the Forge screen through a test-only hook
 designs have their own sections: the gallery, every design laid out, lit and
 forged to the end through the interface, switching between them, and every
 design again at seven screen sizes.
+
+The shop's checks (1.44) take the player's path: an object is tapped and the
+action pressed at the foot of its window, the menu is opened from whichever bar
+is showing, and the places are moved between by swipe (mouse and touch), by the
+names in the top bar and by the arrow keys. They prove a tap never swipes and a
+swipe never taps, that a window holds the camera still and closing it leaves the
+camera where it was, that the phase playback visits each place and comes home,
+and that every window and page of a fully grown forge fits at five screen sizes
+without scrolling or spending a phase.
 
 ## Not in this prototype
 

@@ -2329,7 +2329,7 @@ body{min-height:0;overscroll-behavior:none;}
 #shopView.editing .sh-views{opacity:.4;pointer-events:none;}
 #shopView .edit-tray{
   position:relative;inset:auto;z-index:3;margin:0;display:flex;flex-direction:column;gap:6px;
-  max-height:40%;min-height:0;border-radius:0;border:0;border-top:1px solid var(--ember);
+  flex:0 0 auto;height:clamp(150px,36%,300px);min-height:0;border-radius:0;border:0;border-top:1px solid var(--ember);
   padding:8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
           calc(10px + env(safe-area-inset-left));
   background:linear-gradient(180deg,#1d1814,#121013);
@@ -2381,7 +2381,7 @@ body{min-height:0;overscroll-behavior:none;}
   #shopView .sh-top{grid-column:1;grid-row:1;padding-right:8px;}
   #shopView .scene-wrap{grid-column:2;grid-row:1 / -1;}
   #shopView .sh-bottom{grid-column:1;grid-row:3;padding-right:8px;}
-  #shopView .edit-tray{grid-column:1;grid-row:2 / -1;max-height:none;}
+  #shopView .edit-tray{grid-column:1;grid-row:2 / -1;max-height:none;height:auto;}
   #shopView .sh-views{grid-template-columns:1fr;}
   /* the rating is at the counter; the column keeps the day and the purse */
   #shopView .sh-stars{display:none;}
@@ -2481,14 +2481,14 @@ body{min-height:0;overscroll-behavior:none;}
 .ds-best{margin:4px 0 0;font-size:12.5px;color:var(--muted);}
 .ds-best.done{color:var(--gold);}
 .design-strip{flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
-.design-strip .design-card{position:relative;display:flex;flex-direction:row;align-items:center;gap:6px;min-width:0;
-  min-height:48px;padding:4px 8px 4px 5px;border-radius:10px;cursor:pointer;background:var(--panel);border:1px solid var(--edge);}
+.design-strip .design-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0;
+  min-height:48px;padding:5px 4px 4px;border-radius:10px;cursor:pointer;background:var(--panel);border:1px solid var(--edge);}
 .design-strip .design-card[aria-selected="true"]{border-color:var(--ember);background:linear-gradient(180deg,#3a2415,#241a12);
   box-shadow:0 0 0 1px rgba(255,138,61,.35);}
-.design-strip .dc-pic{flex:none;width:30px;height:40px;margin:0;display:flex;align-items:center;justify-content:center;}
+.design-strip .dc-pic{flex:none;width:100%;height:42px;margin:0;display:flex;align-items:center;justify-content:center;}
 .design-strip .design-pic{height:100%;width:100%;}
-.design-strip .dc-name{min-width:0;font-size:12.5px;line-height:1.15;color:var(--text);font-weight:500;letter-spacing:0;
-  text-align:left;overflow-wrap:normal;}
+.design-strip .dc-name{min-width:0;max-width:100%;font-size:12px;line-height:1.15;color:var(--text);font-weight:500;
+  letter-spacing:0;text-align:center;overflow-wrap:normal;}
 .dc-done{position:absolute;top:2px;right:4px;font-size:10px;color:var(--gold);}
 .design-go{flex:none;min-height:50px;font-size:16px;font-weight:700;letter-spacing:.04em;}
 @media (orientation:landscape) and (max-height:540px){
@@ -2514,6 +2514,10 @@ body{min-height:0;overscroll-behavior:none;}
 /* results: the outcome in large letters, the quality under it */
 #results .result-label{margin:2px 0 4px;font-size:30px;letter-spacing:.05em;}
 #results .quality{margin:0 0 10px;}
+
+#shWorld[data-view="work"]:not(.moving) .loc-stage:not([data-loc="work"]),
+#shWorld[data-view="floor"]:not(.moving) .loc-stage:not([data-loc="floor"]),
+#shWorld[data-view="front"]:not(.moving) .loc-stage:not([data-loc="front"]){visibility:hidden;}
 </style>
 </head>
 <body>
@@ -14259,6 +14263,9 @@ function sceneFitNow() {
   SHOPUI.sceneScale = s;
   return fit;
 }
+/* The places either side of the one in view are only shown while the
+   camera is moving between them; at rest they are out of sight, so neither
+   a finger nor the keyboard can reach an object that cannot be seen. */
 function scenePlace(dx, glide) {
   const fit = SHOPUI.sceneFit;
   const vw = fit ? fit.vw : $('shScene').clientWidth;
@@ -14267,6 +14274,13 @@ function scenePlace(dx, glide) {
   world.classList.toggle('glide', !!glide);
   world.style.transform = 'translate3d(' + Math.round(-i * vw + (dx || 0)) + 'px,0,0)';
   world.dataset.view = SCENE_LOCS[i].id;
+  clearTimeout(scenePlace.rest);
+  if (dx || glide) {
+    world.classList.add('moving');
+    if (glide) scenePlace.rest = setTimeout(function () { world.classList.remove('moving'); }, 380);
+  } else {
+    world.classList.remove('moving');
+  }
 }
 function sceneReduced() {
   return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -14434,9 +14448,9 @@ function shopOpenSpot(slot) {
   if (!slotUsable(sh, slot)) {
     shopSheet('Locked floor space',
       '<p class="station-note">This space is not part of your shop yet. Each <b>Store ' +
-      'Expansion</b> in Growth unlocks one space. Buy the stand for it from the Shelves tab or ' +
-      'by tapping the empty space.</p>',
-      [{ label: 'Growth', primary: true, onClick: function () { shopShowTab('grow'); } },
+      'Expansion</b> at the Upgrades board unlocks one space; then buy a stand for it by ' +
+      'tapping the empty space.</p>',
+      [{ label: 'Upgrades', primary: true, onClick: function () { shopShowTab('upShop'); } },
         { label: 'Back', ghost: true, onClick: shopSheetClose }]);
     return;
   }
@@ -14582,7 +14596,8 @@ function wireScene() {
   const onRoom = function (e) {
     const t = e.target.closest ? e.target : null;
     if (!t) return;
-    if (SHOPUI.playing) { if (t.closest('#shScene')) shopSkipPhase(); return; }
+    // a tap anywhere on the shop, or on Skip, ends the playback
+    if (SHOPUI.playing) { shopSkipPhase(); return; }
     const trayAct = t.closest('[data-tray-act]');
     if (trayAct && !trayAct.disabled) {
       const what = trayAct.dataset.trayAct;
@@ -14760,10 +14775,10 @@ function phaseShots(reports, crew, L, forged) {
         const seller = this.fig;
         const n = Math.max(1, Math.min(3, sale.customers || 1));
         const walk = 1200;
-        // customers come in from the street side and step up to the counter
+        // customers come in from the street side and step up to the front of the counter
         for (let k = 0; k < n; k++) {
           T.at(k * 320, function () {
-            sceneWalker('floor', T.face(k), { x: 372, y: 214 }, { x: 290 - k * 46, y: 214 }, walk);
+            sceneWalker('floor', T.face(k), { x: 372, y: 248 }, { x: 290 - k * 46, y: 248 }, walk);
           });
         }
         T.at(500, function () { T.busy(seller); });
@@ -15050,7 +15065,7 @@ function phaseSummaryHtml(replay) {
       '. Promote them from the Staff noticeboard.</span></div>';
   }
   for (const f of t.failed) html += '<p class="station-why">' + esc(f) + '</p>';
-  // contracts a salesperson took down wait for YOUR answer, here and in the Ledger
+  // contracts a salesperson took down wait for YOUR answer, here and on the commission board
   const offers = sh.commissionOffers || [];
   if (offers.length) {
     html += '<div class="summary-offers"><b>' + offers.length +
@@ -15063,7 +15078,7 @@ function phaseSummaryHtml(replay) {
     }
     html += '</div>';
   }
-  // and the special commissions, answered here or later in the Ledger
+  // and the special commissions, answered here or later on the commission board
   const named = (sh.specialOffers || []).filter(function (o) { return !!specialDef(o.special); });
   if (named.length) {
     html += '<div class="summary-offers"><b>' + named.length +
@@ -15335,7 +15350,8 @@ function placeForge(sh) {
 
 /* ---------- the storeroom ---------- */
 function placeMetal(sh) {
-  let html = '<div class="metal-grid">';
+  const ingots = SHOP.materials.reduce(function (t, m) { return t + (sh.materials[m.id] || 0); }, 0);
+  let html = placeSec('Ingots', ingots + ' in hand · 1 makes 1 item') + '<div class="metal-grid">';
   for (const m of SHOP.materials) {
     const n = sh.materials[m.id] || 0;
     html += '<div class="metal-box' + (n ? '' : ' none') + '">' + ingotSprite(m.id) +
@@ -16053,7 +16069,7 @@ function shopRosterHtml(sh) {
   const kept = (sh.standing || []).filter(function (slot) { return slot.on; }).length;
   html += '<p class="roster-note">Assigning work is free and does not use your phase. Each ' +
     'job runs automatically when its phase ends. Each employee can take one job per day. ' +
-    'Each row is one place per phase; Staffing upgrades in Growth add rows.</p>';
+    'Each row is one place per phase; Staffing upgrades at the Upgrades board add rows.</p>';
   html += '<div class="roster-tools">' +
     '<span class="rt-note">' + (kept
       ? '<b>' + kept + '</b> recurring ' + (kept === 1 ? 'assignment' : 'assignments') +
@@ -17206,7 +17222,7 @@ function shopOpenStand(standId) {
     out ? 'Placed on the floor' : 'In the back (customers cannot buy from it)',
     stand.qty + ' / ' + standHold());
   body += rowHtml('Upgrade level ' + up + ' / ' + SHOP.growth.display.max,
-    up ? '+' + bonus + '% sale price on items sold from it' : 'No sale price bonus (upgrade in Growth)',
+    up ? '+' + bonus + '% sale price on items sold from it' : 'No sale price bonus (upgrade it at the Upgrades board)',
     up ? '+' + bonus + '%' : '');
   if (filled) {
     body += rowHtml(lineSprite(stand.key) + ' ' + esc(lineName(stand.key)) + ' ×' + stand.qty,
@@ -17322,7 +17338,7 @@ function shopOpenBuyStand() {
     ' · ' + (room > 0 ? room + ' empty ' + (room === 1 ? 'space' : 'spaces') : 'no empty space') + '</p>';
   if (room <= 0) {
     body += '<p class="hire-warn">Every floor space has a stand. Buy a <b>Store Expansion</b> ' +
-      'in <b>Growth</b> to add space.</p>';
+      'at the <b>Upgrades</b> board to add space.</p>';
     shopSheet('Buy Stand', body,
       [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
     return;
@@ -17418,7 +17434,7 @@ function shopStockBody(hand) {
     return '<p class="shop-empty">Storage is empty. Forge items first.</p>';
   }
   if (!sh.stands.length) {
-    return '<p class="shop-empty">You have no stands. Buy one from the Shelves tab first.</p>';
+    return '<p class="shop-empty">You have no stands. Buy one from Displays at the counter first.</p>';
   }
 
   let html = '<p class="shop-cap">Selected ' + picks.length + ' / ' + carry +
@@ -17678,11 +17694,11 @@ function specialBlocker(sh, id) {
   const rec = specialRecord(sh, id);
   if (stage === 'offered') {
     return 'Offered by ' + specialOfferById(sh, id).name + ' the ' + trade +
-      '. Answer it in the Ledger';
+      '. Answer it at the commission board';
   }
   if (stage === 'design' || stage === 'mold' || stage === 'ready' || stage === 'forging') {
     return 'Special commission accepted for ' + (rec.customer || 'a customer') + '. Stage: ' +
-      SPECIAL_STAGE_NAMES[stage] + '. See the Ledger';
+      SPECIAL_STAGE_NAMES[stage] + '. See the commission board';
   }
   const need = [];
   if (!hasDiscipline(sh, it.cat)) need.push('take up the ' + (cat ? cat.name : it.cat) + ' craft');
@@ -18205,7 +18221,7 @@ function shopOpenHire(tradeId) {
   if (trade.mine) {
     if (!sh.mines.length) {
       html += '<p class="hire-warn">You need a mine to hire Miners. Buy a mine deed ' +
-        'in the Properties tab.</p>';
+        'on the ledger\u2019s Properties page.</p>';
       shopSheet('Search for Employees', html,
         [{ label: 'Close', ghost: true, onClick: shopSheetClose }]);
       return;
@@ -18231,7 +18247,7 @@ function shopOpenHire(tradeId) {
     html += '<p class="hire-warn">' + (trade.mine
       ? esc(mine.name) + ' has no free shaft. Buy another shaft for this mine first.'
       : 'All ' + staffCapacity(sh) + ' staff places are filled. Buy an Employment ' +
-        'upgrade in Growth to hire more.') + '</p>';
+        'upgrade at the Upgrades board to hire more.') + '</p>';
   }
 
   const list = trade.mine ? (mine.applicants || []) : (sh.applicants || []);
@@ -18596,9 +18612,9 @@ function shopCounterOutcome(event) {
     (sold ? ' bought the ' + lineName(event.key) + ' (' + esc(event.how) + ').' +
       (event.got ? ' This was the item they wanted.' : '')
       : special ? ': the ' + esc(shopItem(event.special).name) + ' is added to Special ' +
-        'Commissions in the Ledger. No deadline.'
+        'Commissions on the commission board. No deadline.'
         : booked ? ': ' + event.commission.qty + ' ' + lineName(event.commission.key) +
-          ' due in ' + event.commission.days + ' days. Added to the Ledger.'
+          ' due in ' + event.commission.days + ' days. Added to the commission board.'
           : ' left: ' + esc(event.why) + '.') +
     '</span></div>' + counterLogHtml();
   shopSheet(sold ? 'Sold' : special ? 'Special Commission Accepted'
@@ -18777,6 +18793,8 @@ function shopAnswerOffer(id, take) {
   const res = acceptCommission(sh, id);
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   SOUNDS.coins(1.2, false);
+  // the board turns to the work just taken on
+  if (SHOPUI.tab === 'offers') SHOPUI.tab = 'active';
   shopRender();
   announce('Accepted commission: ' + offer.qty + ' ' + lineName(offer.key) + ' for ' +
     offer.name + '.');
@@ -18784,7 +18802,7 @@ function shopAnswerOffer(id, take) {
 }
 
 /* ---------- special commissions ------------------------------------------
-   Put at the counter, kept in the Ledger, and worked by the player alone:
+   Put at the counter, kept on the commission board, and worked by the player alone:
    design, mold, then one perfect forge on the piece's own silhouette. */
 const SPECIAL_STAGE_NAMES = { open: 'Not offered', offered: 'Offered', design: 'Design',
   mold: 'Mold', ready: 'Ready to Forge', forging: 'Forging', done: 'Completed' };
@@ -18824,7 +18842,7 @@ function specialForgeNote(sh, def) {
     'perfect forge (quality 100) completes it. No deadline.';
 }
 
-/* An offer, at the counter or waiting in the Ledger. */
+/* An offer, at the counter or waiting on the commission board. */
 function specialOfferHtml(sh, def, offer, buttons) {
   const it = shopItem(def.id);
   const cat = shopCategory(it.cat);
@@ -18899,9 +18917,10 @@ function shopAnswerSpecial(id, take) {
   const res = acceptSpecialOffer(sh, id);
   if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
   SOUNDS.prosper(false);
+  if (SHOPUI.tab === 'offers') SHOPUI.tab = 'active';
   shopRender();
   announce('Accepted special commission: ' + it.name + ' for ' + offer.name + '.');
-  shopToast(it.name + ' added to Special Commissions in the Ledger.');
+  shopToast(it.name + ' added to the Special Commissions on the commission board.');
 }
 
 /* The one button on a card: design, mold, forge or carry on forging. */
@@ -19108,7 +19127,7 @@ function shopHandOver(id) {
     SOUNDS.invalid();
     shopToast(sh.vehicles.length
       ? 'All vehicles are in use this phase.'
-      : 'Deliveries need a vehicle. Buy one in the Properties tab.');
+      : 'Deliveries need a vehicle. Buy one at the entrance.');
     return;
   }
   const d = SHOPUI.draft = { vehicle: bestFreeVehicle(sh).id };
@@ -19675,7 +19694,7 @@ function shopOpenDeliver(runner) {
     shopSheet('Deliver a Commission',
       '<p class="shop-empty">' + (sh.vehicles.length
         ? 'All vehicles are in use this phase. Each trip needs its own vehicle.'
-        : 'Deliveries need a vehicle. Buy one in the Properties tab.') + '</p>',
+        : 'Deliveries need a vehicle. Buy one at the entrance.') + '</p>',
       [{ label: 'Back', ghost: true, onClick: shopSheetClose }]);
     return;
   }
@@ -20165,11 +20184,11 @@ function wireShop() {
           ? 'Staff places: ' + staffCapacity(shop()) + '. Use Hire Staff to fill them.'
           : role
             ? phaseSeats(shop(), def.role) + ' ' + role.name + 's can now work in each phase. ' +
-              'The new places are on the Staff tab.'
+              'The new places are on the hiring board\u2019s Schedule.'
             : id === 'sales'
               ? 'Salesperson sales now earn +' + Math.round(salesBonusRate(shop()) * 1000) / 10 +
                 '% gold.'
-              : 'Floor spaces: ' + standCap(shop()) + '. Buy stands from the Shelves tab.');
+              : 'Floor spaces: ' + standCap(shop()) + '. Buy stands from Displays at the counter.');
       return;
     }
     const gstand = t.closest('[data-grow-stand]');
@@ -22001,7 +22020,7 @@ function helpHtml() {
     'take one action that uses the phase: Forge, Tend Store, Buy Metal, Stock Stands, Hire ' +
     'Staff, deliver a commission yourself, smelt ore yourself, or End Phase. Browsing, the ' +
     'Almanac, assigning and promoting staff, setting prices, buying stands, upgrades, deeds ' +
-    'and vehicles, and managing the Ledger are free.');
+    'and vehicles, and answering and managing commissions are free.');
   html += P('Rent and wages (staff and Miners) are paid every ' + SHOP.weekLength +
     ' days. If you cannot ' +
     'pay, the forge closes. A new forge starts with ' + coin(SHOP.startGold) + 'g and ' +
@@ -22027,9 +22046,10 @@ function helpHtml() {
   }).join(', ') + '. Some customers will not buy below a set band.');
 
   html += H('Selling');
-  html += P('Buy stands from the Shelves tab or by tapping an empty floor space. Each stand ' +
-    'type accepts certain item categories and holds ' + standHold() + ' items of one kind. ' +
-    'New stands go in the back; use <b>Edit Shop</b> to place, move or swap them for free. ' +
+  html += P('Buy stands from Displays at the counter, or by tapping an empty floor space. Each ' +
+    'stand type accepts certain item categories and holds ' + standHold() + ' items of one kind. ' +
+    'New stands go in the back; use <b>Arrange</b> on the shop floor to place, move or swap ' +
+    'them for free. ' +
     'Selling a stand refunds ' + pct(SHOP.standRefund) + ' of its price.');
   html += P('Stock stands yourself (uses the phase) or assign a Store Hand. Items start at ' +
     'their recommended price; tap a stand to change it. Higher prices sell more slowly.');
@@ -22037,8 +22057,8 @@ function helpHtml() {
     'price for an item they want. You can Accept, Haggle once (counteroffer between their ' +
     'offer and your price), Offer Alternative once (another item on your stands), or Refuse.');
   html += P('Each customer has a wealth level, a minimum quality, likes and dislikes. These ' +
-    'stay hidden until learned by serving the customer at the counter, and are shown in the ' +
-    'Customers tab. Customers receive income every week. Reputation (shown as stars) rises ' +
+    'stay hidden until learned by serving the customer at the counter, and are shown on the ' +
+    'counter\u2019s Customers page. Customers receive income every week. Reputation (shown as stars) rises ' +
     'with sales, paid weekly costs and completed commissions, falls when customers leave ' +
     'without buying, and decides which customer types visit.');
 
@@ -22056,16 +22076,17 @@ function helpHtml() {
   html += UL(SHOP.roles.map(function (r) {
     return '<b>' + r.name + '</b>: ' + r.blurb;
   }).concat(['<b>Miner</b>: works a mine you own. Does not use a staff place.']));
-  html += P('<b>Hire Staff</b> shows applicants for one role. Searching is free; hiring uses ' +
+  html += P('The <b>hiring board</b> at the front shows applicants for one role. Searching is free; hiring uses ' +
     'the phase. Everyone starts at E-rank and wages are paid weekly. Staff places (how many ' +
     'you can hire) start at ' + tier1.staff + ' and rise with Employment upgrades.');
-  html += P('Assign work on the Staff tab: tap a phase box and choose an employee. Assigning ' +
+  html += P('Assign work on the hiring board\u2019s Schedule, or at the station itself (the counter, ' +
+    'the forge, the supplies or the door): tap a place and choose an employee. Assigning ' +
     'is free. Each employee does one job per day. One of each role can work per phase; ' +
     'Smith, Store Hand and Runner Staffing each add one more place for that role in every ' +
     'phase, and all of them work in the same phase. <b>Repeat Daily</b> refills an assignment ' +
     'every morning; <b>Repeat Yesterday</b> copies the previous day’s assignments. Employees ' +
     'earn XP from completed work and can be promoted ' +
-    SHOP.ranks.map(function (r) { return r.id; }).join(' → ') + ' on the Staff tab. ' +
+    SHOP.ranks.map(function (r) { return r.id; }).join(' → ') + ' from the hiring board. ' +
     'Promotion is free and raises both ability and wage.');
 
   html += H('Commissions');
@@ -22074,7 +22095,8 @@ function helpHtml() {
     pct(com.advance) + ' of the pay on accepting and the rest when every item is delivered. ' +
     'You can hold ' + com.maxActive + ' commissions and offers at once. Declining has no ' +
     'penalty.');
-  html += P('In the Ledger, assign items from storage to a commission. Deliveries need a ' +
+  html += P('Offers wait on the <b>commission board</b> at the front. Under Active, assign ' +
+    'items from storage to a commission. Deliveries need a ' +
     'vehicle and use a phase: deliver yourself or assign a Runner. Completing a commission ' +
     'gives +' + com.repDone + ' reputation. Missing the deadline keeps the advance, loses ' +
     'the balance and costs ' + Math.abs(com.repFailed) + ' reputation; assigned items ' +
@@ -22088,7 +22110,7 @@ function helpHtml() {
     }).join(', ') + '. Accepting or declining is free; a declined one may be offered again. ' +
     'There is no deadline.');
   html += P('You do all the work yourself; employees cannot help. Spend phases on its design, ' +
-    'then on its mold, from the Ledger. Then attempt the forge: each attempt uses one phase ' +
+    'then on its mold, from the commission board or the forge. Then attempt the forge: each attempt uses one phase ' +
     'and the stated ingots, spent when it starts. The piece is forged on its own shape, and ' +
     'every square needs exactly its metal\u2019s number of strikes. Only quality 100 ' +
     'completes it; an imperfect or failed attempt keeps the design and mold. A perfect ' +
@@ -22096,7 +22118,7 @@ function helpHtml() {
     'make on the ordinary board like any other.');
 
   html += H('Mines and Vehicles');
-  html += P('Buy mine deeds in the Properties tab; each extra mine of the same mineral costs ' +
+  html += P('Buy mine deeds on the ledger\u2019s Properties page; each extra mine of the same mineral costs ' +
     'more. Hire Miners for a mine (' + SHOP.mining.hireWeeks + ' weeks of wages up front). ' +
     'Each week a staffed mine produces ore based on its yield and its Miners’ ranks; ore ' +
     'beyond the mine’s storage is lost. Mine upgrades add miner places, ore storage and ' +
@@ -22108,7 +22130,7 @@ function helpHtml() {
     }).join(', ') + '.' + (wagon ? ' A Merchant Wagon can be upgraded to a ' + wagon.name +
       ' for ' + coin(wagon.upgrade) + 'g.' : '') + ' Each vehicle makes one trip per phase.');
 
-  html += H('Growth');
+  html += H('Upgrades');
   html += UL([
     '<b>Displays</b>: +' + pct(gr.display.step) + ' sale price per level on one stand, up to ' +
       'level ' + gr.display.max + '.',
@@ -22127,16 +22149,20 @@ function helpHtml() {
   html += P('Each level costs more than the last.');
 
   html += H('The Shop Screen');
-  html += P('Tap the counter, forge, storeroom, blueprint table, noticeboard, door or sign to ' +
-    'see their actions. <b>Workshop</b>, <b>Floor</b> and <b>Front</b> under the room change ' +
-    'the view, and a sideways swipe moves to the next view; a large shop\'s floor has several ' +
-    'sections, and pressing Floor again moves along it. The Inventory, Business and Staff ' +
-    'buttons open drawers, each a window with its own tabs. A window that holds more than fits ' +
-    'turns in pages with Prev and Next. Tap the sign for Shop Settings, including the phase ' +
-    'animation.');
+  html += P('The shop is three places: the <b>Workshop</b> (forge and anvils, storeroom, ' +
+    'supplies, the Almanac\u2019s blueprint table), the <b>Shop Floor</b> (the displays, the ' +
+    'counter, the ledger, the plans for upgrades) and the <b>Front</b> (the hiring board, the ' +
+    'commission board, the door and the sign). Swipe sideways, or tap a place\u2019s name in ' +
+    'the top bar, to move between them.');
+  html += P('Everything in the shop is used by tapping it: each object opens its own window, ' +
+    'with a tab for each of its pages and its actions at the foot. A small mark on an object ' +
+    'says something is waiting there. A window that holds more than fits turns in pages with ' +
+    'Prev and Next. The bottom bar ends the phase; on the shop floor it also has ' +
+    '<b>Arrange</b> for the displays. The menu (\u2630) has sound, Shop Settings, How to ' +
+    'Play and Save and Leave; tapping the sign opens Shop Settings too.');
   html += P('When a phase ends, the camera moves to each employee who did their job, one at a ' +
     'time, and returns to where you left it. <b>Skip Animations</b> ends this at once; ' +
-    'swiping the room takes the camera back for the rest of the phase; and <b>Automatically ' +
+    'swiping, or choosing a place, takes the camera back for the rest of the phase; and <b>Automatically ' +
     'Show Worker Actions</b> in Shop Settings turns the camera movement off. None of these ' +
     'change any result: every job is settled before the animation starts.');
   html += P('Forges save automatically. You can keep up to ' + CHECKSMITH_CORE.SHOP_SAVE_SLOTS +
