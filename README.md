@@ -539,7 +539,8 @@ Both boards stay side by side so the whole match is readable at a glance. When
 that makes the tiles smaller than a comfortable 44 CSS-px target, **the first tap
 on a board enlarges it rather than striking a tiny cell**; strike from there, and
 "Back to both boards" returns to the overview. The zoom buttons in each panel
-header do the same deliberately.
+header do the same deliberately (on a screen under 700 pixels tall they are the
+only way back, to leave the boards the room).
 
 ### Squares darken as they are worked
 
@@ -1441,8 +1442,8 @@ and a bell on every redraw would be the most annoying sound in the game.
 
 ### The storefront
 
-The shop's home screen is the shop: one continuous room, drawn at a fixed
-scale and swiped sideways, rather than a menu of actions. It is a
+The shop's home screen is the shop: one continuous room, seen from fixed
+viewpoints (see *One screen, no scrolling*), rather than a menu of actions. It is a
 **presentation layer only**. Every object in it hands straight to a function
 the menus already called — the counter to `shopAct('tend')` or the roster
 picker, the forge to `shopAct('forge')`, the table to `shopOpenAlmanac`, and so
@@ -1803,6 +1804,128 @@ punched in the work. 100 = Masterwork · 90–99 Excellent · 75–89 Good · 50
 quality per difficulty and your audio settings are remembered locally when
 storage is available.
 
+## One screen, no scrolling (1.43)
+
+Nothing in the game scrolls: not the page, not a window, not the storefront,
+by finger, wheel or keyboard. Every screen is exactly the height of the phone,
+and anything with more in it than fits is turned in pages instead. Nothing was
+hidden to get there; every line and every control is still reachable, and the
+browser checks prove it at 320×568, 360×640 and 412×915.
+
+**Each screen has one row that gives.** `.app` is one screen tall
+(`100dvh`, safe areas padded) and every row in it keeps its natural height
+except one, which `fitScreen()` sizes to the room that is left:
+
+- **The board** (Forge, Endless, the shop's anvil). A square board is as wide as
+  the screen or as tall as the space left, whichever is smaller. A weapon design
+  is fitted by its height as well as its width, closing its gaps from 6 to 4
+  pixels before its squares get any smaller, so the whole piece, point to tang,
+  is always on screen. On the shortest phones (568 tall) the Longsword, the
+  tallest piece at fifteen rows, gets 16-pixel squares; at 640 it gets 18, and
+  at 740 or more, 21 or larger.
+- **The two Versus boards** share whatever height the turn bar, prompt and
+  powers leave, side by side or one enlarged.
+- **The storefront** keeps its drawing scale wherever it fits and is drawn
+  smaller as a whole (down to 62%) on a short screen, never cropped.
+- **The design gallery** fills the screen and turns in pages.
+
+Rows that only report something got slimmer on short screens rather than
+pushing the board off: below 700 pixels the stats read across one line, the
+best-result line waits for the results screen and the gallery card (both still
+show it), and Versus's own zoom button is the way back to both boards. A
+`ResizeObserver` on the rows refits the screen when one of them grows: a
+longer prompt, a second line of rent.
+
+**Every window is laid out the same way** (`.sheet.win`): a head with the title
+and its **Close** or **Back**, an optional row of tabs, the body, a page bar and
+a foot of actions. Every overlay in the game uses it: the shop's dialog, the
+drawers, How to Play, the symbols, Endless Upgrades, the results, the name field
+and the confirmations. In the shop's dialog the way out is taken from the
+actions it is given (`Back` or `Close`) and put in the head, where it is in
+every window; two actions sit side by side, and three or more two to a row, so
+the actions never crowd out what they act on. The background stays visible,
+only slightly darkened, and the room's lighting stays under every window (the
+1.34 isolation still holds; a check still compares the pixels).
+
+**Pages, not scrolling** (`pgFit`). A window body that holds more than fits is
+measured where it stands and grouped into runs that fit. Everything outside the
+current run is set aside with `display:none`, and nothing is moved, copied or
+re-rendered to turn a page, so the listeners on a body, the focus in it and any
+form state survive, and a dialog redrawn by a stepper tap stays on its page.
+The rules for where a page breaks:
+
+- a plain section or list is split between its own rows; a drawn box (a card
+  with a border or a fill) is kept whole unless it is taller than a page;
+- items side by side in a grid turn over together, so a grid keeps its columns;
+- a heading never ends a page; it goes over with what it heads;
+- every page is checked as shown, margins and all, and the runs are cut shorter
+  until each one fits.
+
+A window keeps one size through its pages, says "Page 2 of 5", and remembers its
+page: a drawer reopens on the tab and the page it was left at, and a dialog
+reopened from scratch starts on its first page while one returned to with Back
+is as it was left. Prev and Next only ever turn pages; they never act on the
+game.
+
+**One window at a time.** A window opened from another (a stand from the
+Shelves drawer, a person from Customers, a blueprint from the Almanac) puts the
+one underneath out of sight until it closes, so there is only ever one to read,
+and its Back leads to the one before. Confirmations and the name field are
+small questions about the window under them and leave it in view. A window
+opened from the room is docked at the foot of the screen with the room above
+it, unless it would not fit there, in which case it has the whole screen for as
+long as it stays open (a run of customers at the counter does not hop about). A
+note announced while a window covers the shop's prompt line is shown over
+everything for a moment as well.
+
+**The storefront is seen from fixed viewpoints.** The room is wider than a
+phone and is never scrolled. It is seen from **Workshop**, **Floor** and
+**Front**. Once the shop has grown past one screen of floor, the floor is taken
+in sections ("Floor 2/3"; pressing Floor again moves along it), each
+overlapping the last by a column, so every stand is seen whole from some view.
+A sideways swipe, or the arrow keys, moves one view along; a wheel does
+nothing. The positions are in the room's own units and scaled with the room.
+The phase playback's camera still pans as before and still comes home to the
+view the player was on.
+
+The paperwork moved off the shop floor into windows. **Inventory**,
+**Business** and **Staff** under the room open drawers, each a window whose tabs
+are the old tab row; the old list under the room is gone, so the room and its
+actions always fit. The line under the actions says how many are working and
+opens the Staff drawer: the names are on the figures in the room and in the
+drawer, not in a line that grew with the staff. Edit Shop's tray lies over the
+rows under the room rather than pushing them away, and pages its stands in the
+back. Main Menu is the menu button in the top bar, as in every other mode.
+
+**The Almanac** is a book with the whole window. The crafts are a grid of
+cards, two to a row and paged. A craft's tree is drawn to fit the window: its
+columns share the width, and its tiers (one per step along the craft) are shown
+as many at a time as the height holds. A tree with more tiers turns with
+**Earlier** and **Later**, and each page after the first opens on the last tier
+of the page before, so every line of the progression is seen whole on some page
+and a line leading off the page is drawn as a dashed stub. The named
+masterworks are a page of their own, from a button under the tree. Costs, XP,
+requirements and what a tap on a blueprint does are unchanged.
+
+**How to Play** has a tab for each mode (Basics, Forge, Endless, Versus, Your
+Forge) and opens on the one being played. The movement rules under the board
+became a **Symbols** button that opens them in a window.
+
+**Back follows the same path everywhere.** `window.checksmithBack()` closes the
+window on top, or steps Back to the one it came from, then leaves editing or
+skips a playback, then asks to return to the main menu, and on the main menu
+reports `false` so the app closes. The Android shell's back gesture calls it
+(with the old behaviour kept only as a fallback), and Escape does the same short
+of leaving. A confirmation is dismissed as No, and a question that must be
+answered (a customer at the counter) is not dismissed at all.
+
+**Nothing about the game changed.** No rule, score, generator, price or save
+field was touched: the core block is byte-for-byte the core of 1.42, all 1036
+core checks pass unchanged, and the board fingerprint is the same. Opening, closing and paging windows, switching drawers and views, and
+looking about the Almanac never spend a phase or change the forge; a browser
+check tours every drawer, page, station, view and window of a fully grown forge
+and compares the forge before and after.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded
@@ -1946,7 +2069,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 1036 rule/generation checks
-node tools/verify-ui.mjs                                    # 974 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 1010 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```

@@ -1637,6 +1637,7 @@ input[type=range]{
 
 .craft-head{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
 .craft-head b{font-size:16px;color:var(--gold);letter-spacing:.03em;}
+.craft-back{white-space:nowrap;flex:none;}
 .craft-back{
   min-height:34px;padding:0 11px;font-size:12.5px;border-radius:8px;
   background:#1b1d23;border:1px solid var(--edge-soft);color:var(--text);
@@ -1653,18 +1654,28 @@ input[type=range]{
 .craft-bar b{font-size:15px;color:var(--gold);letter-spacing:0;text-transform:none;
   font-variant-numeric:tabular-nums;}
 
-/* The tree scrolls inside its own frame, so a wide craft is reachable on a
-   phone without dragging the sheet itself out from under the finger. */
-.alm-scroll{
-  overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
-  max-height:min(56vh,440px);padding:8px 6px 10px;
-  background:radial-gradient(120% 80% at 50% 0%, #1d1a14 0%, #121318 70%);
-  border:1px solid var(--edge-soft);border-radius:11px;
-}
-.alm-canvas{position:relative;margin:0 auto;}
+.alm-canvas{position:relative;margin:0 auto;width:100%;}
 .alm-lines{position:absolute;inset:0;pointer-events:none;overflow:visible;}
 .alm-line{fill:none;stroke:#3a3f48;stroke-width:2.4;stroke-linecap:round;}
 .alm-line.open{stroke:var(--brass);stroke-width:2.8;opacity:.92;}
+.alm-line.more{stroke-dasharray:3 4;}
+#shopSheet .sheet.tall{height:100%;}
+.alm-page{display:flex;flex-direction:column;height:100%;min-height:0;gap:8px;}
+.alm-page > *{flex:none;margin:0;}
+.alm-tree-box{
+  flex:1 1 0;min-height:130px;position:relative;overflow:hidden;padding:0;
+  background:radial-gradient(120% 80% at 50% 0%, #1d1a14 0%, #121318 70%);
+  border:1px solid var(--edge-soft);border-radius:11px;
+}
+.alm-tree-box .alm-nav{position:absolute;left:6px;right:6px;bottom:4px;margin:0;}
+.alm-tree-box.tight .alm-nav .pg-btn{min-height:32px;}
+.alm-special-link{width:100%;min-height:40px;font-size:12.5px;}
+/* a small node keeps its picture and its level; its name is in its label and
+   in the blueprint's own window */
+.alm-node.small .an-name{display:none;}
+.alm-named-pill{display:none;margin-left:auto;min-height:34px;padding:2px 10px;border-radius:999px;cursor:pointer;
+  font-size:12px;background:var(--panel-2);border:1px solid var(--brass);color:var(--gold);white-space:nowrap;}
+.alm-node.small .sprite.lg{width:26px;height:26px;}
 
 .alm-node{
   position:absolute;width:74px;height:74px;
@@ -2006,6 +2017,259 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   .tile[data-legal="1"]::after{opacity:.9;}
 }
 .reduced .tile.impact,.reduced .tile.shake{animation:none;}
+
+/* =======================================================================
+   ONE SCREEN, NO SCROLLING (1.43)
+   The page is exactly the height of the screen and nothing in it scrolls,
+   by finger, wheel or keyboard. Each screen has one row that takes the room
+   the others leave - the board, the Versus boards, the storefront, the
+   design gallery - and that row is sized to it by fitScreen(). Anything
+   longer than its window is turned in pages (see the windows and pages
+   script), so every line of it is still reachable without scrolling.
+   ======================================================================= */
+html,body{height:100%;overflow:hidden;}
+body{min-height:0;overscroll-behavior:none;}
+.app{
+  height:100vh;height:100dvh;overflow:hidden;gap:8px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom));
+}
+.app > *{flex:none;}
+.app > .sr-only{position:absolute;}
+/* the board takes whatever room the rows around it leave, centred in it */
+.board-wrap{align-self:center;margin-top:auto;margin-bottom:auto;width:100%;}
+.board-wrap[data-shape]{width:100%;}
+.board[data-shape]{width:var(--piece-w);max-width:100%;}
+/* the design gallery: its grid fills the screen and turns in pages */
+.design-view:not([hidden]){flex:1 1 0;min-height:0;}
+.design-view > *{flex:none;}
+.design-view .design-grid{flex:1 1 0;min-height:0;overflow:hidden;align-content:start;padding:3px;margin:-3px;}
+/* one row of actions under the board, however many there are */
+#forgeActions{grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none;}
+#forgeActions .btn{padding:6px 4px;font-size:13px;line-height:1.2;}
+.legend-src[hidden]{display:none;}
+
+/* ---------- Versus: both boards fit between the turn bar and the powers ---------- */
+#versusView:not([hidden]){flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:7px;}
+#versusView > *{flex:none;margin-top:0;margin-bottom:0;}
+#versusView .vs-boards{flex:1 1 0;min-height:0;overflow:hidden;align-items:center;align-content:center;}
+.vs-board{width:min(100%,var(--vs-w,100%));margin:0 auto;}
+@media (max-height:700px){
+  #versusView .vs-shop{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .vs-buy{min-height:40px;padding:4px 6px;}
+  .vs-turnbar{padding:5px 9px;}
+}
+
+/* ---------- Open Your Forge: the room, its rows, and the drawers ---------- */
+#shopView:not([hidden]){flex:1 1 0;min-height:0;position:relative;gap:7px;}
+#shopView > *{flex:none;}
+.scene-wrap{margin:0;}
+.scene{
+  height:calc(236px * var(--scene-s,1));overflow:hidden;
+  overscroll-behavior:none;scrollbar-width:none;touch-action:pan-y;
+}
+.scene::-webkit-scrollbar{display:none;}
+.scene-sizer{position:relative;width:calc(var(--world-w,886px) * var(--scene-s,1));
+  height:calc(236px * var(--scene-s,1));}
+.scene-world{transform:scale(var(--scene-s,1));transform-origin:0 0;}
+.scene-tools{margin-top:6px;}
+.scene-jump button,.scene-edit{min-height:34px;padding:4px 11px;}
+.scene-jump button[aria-pressed="true"]{background:linear-gradient(180deg,#3a2415,#241a12);
+  border-color:var(--ember);color:var(--gold);}
+.shop-crew{display:block;width:100%;text-align:left;padding:3px 2px;background:none;border:0;
+  cursor:pointer;font-size:11.5px;color:var(--muted);min-height:22px;}
+.shop-crew:empty{display:none;}
+.shop-crew .more{color:var(--brass);}
+.btn.advance{margin:0;}
+.shop-groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:auto;}
+.shop-groups .tab-group{position:relative;min-height:44px;padding:4px 3px;font-size:12.5px;
+  line-height:1.15;text-align:center;}
+.shop-groups .tab-group.help{font-weight:500;background:transparent;}
+.shop-groups .tg-note{position:absolute;top:-6px;right:-4px;}
+/* Edit Shop covers the rows under the room rather than pushing them away */
+#shopView .edit-tray{position:absolute;left:0;right:0;bottom:0;margin:0;z-index:5;
+  display:flex;flex-direction:column;min-height:0;}
+#shopView .edit-tray[hidden]{display:none;}
+.edit-tray .tray-body{flex:1 1 0;min-height:0;overflow:hidden;}
+.edit-tray .tray-acts{flex:none;}
+.edit-tray .win-pager{margin-top:6px;}
+/* the tray says its piece in two short lines and keeps its actions on one */
+#shopView .edit-tray{padding:7px 9px;gap:5px;}
+.edit-tray .tray-note{margin:0;font-size:11px;line-height:1.35;flex:none;}
+.edit-tray .tray-acts{flex-wrap:nowrap;margin-top:0;}
+.edit-tray .tray-acts button{flex:1 1 0;min-width:0;min-height:34px;padding:5px 4px;}
+.edit-tray .win-pager{margin-top:0;}
+.edit-tray .pg-btn{min-height:34px;}
+#shopView.editing #shActions,#shopView.editing #shCrew,#shopView.editing #shAdvanceBtn,
+#shopView.editing #shGroups{visibility:hidden;}
+
+/* ---------- windows ---------- */
+.overlay{background:rgba(8,9,12,.55);-webkit-backdrop-filter:none;backdrop-filter:none;}
+.overlay.title-screen{-webkit-backdrop-filter:none;backdrop-filter:none;
+  padding-top:calc(54px + env(safe-area-inset-top));padding-bottom:calc(10px + env(safe-area-inset-bottom));}
+/* a window that has opened another steps out of sight until it closes */
+.overlay.win-under{visibility:hidden;}
+#results,#shop{z-index:60;}
+#shDrawer{z-index:61;}
+#shopSheet{z-index:62;}
+#help{z-index:63;}
+#infoWin{z-index:64;}
+#nameForge{z-index:66;}
+#confirm{z-index:67;}
+.sheet{display:flex;flex-direction:column;overflow:hidden;max-height:100%;}
+.sheet.wide{max-width:460px;}
+.overlay.dock .sheet{max-height:min(100%,calc(66dvh - env(safe-area-inset-bottom)));}
+.win-head{flex:none;display:flex;align-items:center;gap:8px;margin:0 0 8px;min-height:40px;}
+.win-head h2{flex:1 1 auto;min-width:0;margin:0;overflow-wrap:anywhere;}
+.title-sheet .win-head{justify-content:center;}
+.win-x{
+  flex:none;min-height:40px;min-width:68px;padding:0 12px;border-radius:999px;cursor:pointer;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);font-size:13px;font-weight:600;
+}
+.win-back{display:contents;}
+.win-x.back::before{content:'\2039';margin-right:5px;}
+.win-tabs{flex:none;display:flex;flex-wrap:wrap;gap:5px;margin:0 0 8px;}
+.win-tab{
+  flex:1 1 0;min-width:0;min-height:38px;padding:4px 4px;border-radius:9px;cursor:pointer;line-height:1.15;
+  font-size:11.5px;letter-spacing:.01em;background:var(--panel);border:1px solid var(--edge);color:var(--muted);
+}
+.win-tab[aria-selected="true"]{background:linear-gradient(180deg,#3a2415,#241a12);border-color:var(--ember);color:var(--gold);}
+/* the padding is room for focus rings, which the clipped body would cut */
+.win-body{flex:1 1 auto;min-height:0;overflow:hidden;padding:3px;margin:-3px;}
+.win-foot{flex:none;margin-top:10px;}
+.win-foot.grid2{grid-template-columns:1fr 1fr;}
+.win-foot.grid2 > .span2{grid-column:1 / -1;}
+.win-foot:empty{display:none;}
+.win-pager{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-top:8px;}
+.win-pager[hidden]{display:none;}
+.pg-btn{
+  min-height:40px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;
+  background:var(--panel-2);border:1px solid var(--edge);color:var(--text);
+}
+.pg-btn:disabled{opacity:.35;cursor:default;}
+.pg-now{font-size:12px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.pg-off{display:none!important;}
+/* the drawers' tabs sit in the window's tab row */
+#shDrawer .shop-tabs{margin:0 0 8px;}
+#shDrawer .shop-panel{min-height:0;padding:3px;border:0;background:none;border-radius:0;}
+#shDrawer .tab-sub{width:100%;}
+/* the counter's log turns in pages with the rest of its window */
+.cust-log{max-height:none;overflow:visible;}
+/* How to Play */
+.help-body h2:first-child{margin-top:0!important;}
+.help-body ul{margin:6px 0;padding-left:20px;}
+.help-body li{font-size:13px;line-height:1.5;color:#ded8cd;margin:3px 0;}
+/* the title: modes in a grid, the chosen one described once underneath */
+.title-sheet{padding:12px 14px;}
+.title-body{display:flex;flex-direction:column;}
+.title-body > *{flex:none;}
+.title-mark{font-size:30px;}
+.title-name{margin:2px 0 0;}
+.title-tag{margin:0 0 6px;}
+.title-sheet .title-label{margin:10px 0 6px;font-size:11px;}
+@media (max-height:760px){ .title-mark{display:none;} .title-tag{font-size:12px;} }
+/* a short screen keeps the menu on one page where it can: the mode cards
+   say what they are without the label, and the name alone heads it */
+@media (max-height:720px){
+  .title-tag{display:none;}
+  #modeLabel{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);margin:0;}
+  .title-sheet .title-name{margin:0 0 8px;font-size:clamp(24px,7vw,30px);}
+  .title-sheet .title-label{margin:8px 0 5px;}
+  .title-sheet .sheet-actions{margin-top:8px;}
+}
+/* the crafts: two to a row, so a page holds several */
+.craft-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.craft-card{padding:8px 7px 7px;gap:2px;}
+.cc-art .sprite.xl{width:44px;height:44px;}
+.mode-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.mode-card{padding:7px 10px;min-height:46px;gap:2px;justify-content:center;}
+.title-sheet .title-name{font-size:clamp(26px,8vw,34px);}
+.title-sheet .title-note{font-size:11.5px;line-height:1.45;}
+.mode-card .mc-desc{display:none;}
+.mode-card .mc-best:empty,.mode-card .mc-best.none{display:none;}
+.mode-about{margin:7px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted);text-align:left;}
+.title-note{margin:8px 0 0;}
+.title-sheet .sheet-actions{margin-top:10px;}
+@media (max-height:540px){
+  .craft-bar{margin-bottom:0;}
+  .craft-bar span{flex-direction:row;justify-content:center;align-items:baseline;gap:4px;padding:3px;}
+  .craft-bar b{font-size:13px;}
+  .craft-head{margin-bottom:0;}
+  .alm-page{gap:5px;}
+  .alm-special-link{display:none;}
+  .alm-named-pill{display:block;}
+  .alm-takeup{padding:5px 8px;}
+  .design-card .dc-pic{height:64px;}
+  .design-sub{display:none;}
+  #results .sheet{max-width:620px;}
+  .sheet .quality{font-size:38px;margin:0;}
+  .sheet .result-label{margin:4px 0 8px;font-size:20px;}
+  .result-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:6px;}
+  #results .win-foot{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .stamp{margin-top:6px;padding:8px 10px;}
+  .stamp .sprite,.stamp .portrait{width:36px;height:36px;margin-bottom:3px;}
+  .stamp .word{font-size:22px;}
+  .stamp .sum{font-size:18px;margin-top:3px;}
+  .stamp .note{margin-top:4px;}
+  #results .win-foot .row{display:contents;}
+  .title-sheet{max-width:680px;}
+  .mode-cards{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .title-sheet .sheet-actions:not(.row){grid-template-columns:1fr 2fr;align-items:stretch;}
+}
+/* ---------- a phone on its side ----------
+   Too short for one column, so the screen is two: the board, the two Versus
+   boards or the room on one side, everything that steers them on the other. */
+@media (orientation:landscape) and (max-height:540px){
+  .app{
+    max-width:1040px;display:grid;column-gap:16px;row-gap:6px;align-content:stretch;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-rows:auto repeat(10,min-content) minmax(0,1fr);
+  }
+  .app > *{grid-column:1;margin:0;}
+  .app > .topbar{grid-column:1 / -1;grid-row:1;}
+  .app > .board-wrap{grid-column:2;grid-row:2 / -1;align-self:center;justify-self:center;}
+  .app > #designView,.app > #versusView,.app > #shopView{grid-column:1 / -1;grid-row:2 / -1;min-height:0;}
+  #versusView:not([hidden]){display:grid;column-gap:14px;row-gap:6px;
+    grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:repeat(5,min-content) minmax(0,1fr);}
+  #versusView .vs-boards{grid-column:1;grid-row:1 / -1;}
+  #versusView > :not(.vs-boards){grid-column:2;}
+  #shopView:not([hidden]){display:grid;column-gap:14px;row-gap:5px;
+    grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);grid-template-rows:repeat(6,min-content) minmax(0,1fr);}
+  #shopView .scene-wrap{grid-column:1;grid-row:1 / -1;align-self:start;}
+  #shopView > :not(.scene-wrap):not(.edit-tray){grid-column:2;}
+  #shopView .shop-groups{align-self:end;}
+  .design-view .design-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+}
+/* a short note over everything */
+.toast{
+  position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top));transform:translateX(-50%);z-index:90;
+  width:max-content;max-width:min(92vw,420px);margin:0;padding:9px 14px;border-radius:10px;
+  background:#2a2c34;border:1px solid var(--ember);color:var(--text);font-size:13px;line-height:1.4;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none;
+}
+.toast.go{animation:toastIn .22s ease-out;}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,-6px);}to{opacity:1;transform:translate(-50%,0);}}
+/* short screens: the stats read across one slim row, the best result waits
+   for the results screen and the gallery card, and Versus's own zoom button
+   is the way back to both boards */
+@media (max-height:700px){
+  #bestLine{display:none;}
+  .stats{gap:4px;}
+  .stat{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:0 5px;padding:5px 3px;}
+  .stat .k{font-size:9.5px;}
+  .stat .v{font-size:14px;margin-top:0;}
+  #vsOverviewBtn{display:none;}
+}
+/* short screens: tighter rows, the same text sizes */
+@media (max-height:680px){
+  .app{gap:6px;padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:calc(6px + env(safe-area-inset-bottom));}
+  #shopView:not([hidden]){gap:5px;}
+  .prompt{min-height:44px;padding:6px 10px;}
+  .shop-bar{padding:6px 10px;}
+  .overlay{padding:calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+          calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));}
+  .sheet{padding:12px;}
+  .stat{padding:4px 3px;}
+}
 </style>
 </head>
 <body>
@@ -2197,7 +2461,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
   <section class="design-view" id="designView" hidden aria-labelledby="designTitle">
     <h2 class="design-title" id="designTitle">Choose a design</h2>
     <p class="design-sub">Each board is shaped like the weapon part. Only the squares inside the shape can be struck.</p>
-    <div class="design-grid" id="designGrid" role="list"></div>
+    <div class="design-grid" id="designGrid" role="list" data-pg-host></div>
     <div class="actions">
       <button class="btn" type="button" id="designMenuBtn">Main Menu</button>
       <button class="btn ghost" type="button" id="designHelpBtn">How to Play</button>
@@ -2257,11 +2521,12 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <span class="shop-stars" id="shStars" aria-label="Shop rating"></span>
     </div>
     <p class="prompt" id="shPrompt"><span id="shPromptText">A new day at the anvil.</span></p>
-    <!-- The shop itself: one continuous room, swiped sideways. Everything in
-         it is a real object that opens the system it stands for. -->
+    <!-- The shop itself: one continuous room, seen from fixed viewpoints.
+         Everything in it is a real object that opens the system it stands for. -->
     <div class="scene-wrap" id="shSceneWrap">
       <div class="scene" id="shScene" role="region" tabindex="0"
-           aria-label="Your shop. Swipe or scroll sideways to look around; tap anything to use it.">
+           aria-label="Your shop. Use the Workshop, Floor and Front buttons, or swipe, to change the view; tap anything to use it.">
+        <div class="scene-sizer" id="shSizer">
         <div class="scene-world" id="shWorld" data-phase="morning" data-stage="1">
           <div class="scene-back" id="shBack"></div>
           <div class="scene-things" id="shThings"></div>
@@ -2269,27 +2534,31 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
           <div class="scene-glow" id="shGlow" aria-hidden="true"></div>
           <div class="scene-fx" id="shFx" aria-hidden="true"></div>
         </div>
+        </div>
       </div>
       <button class="scene-skip" type="button" id="shSkip" hidden>Skip Animations</button>
       <div class="scene-tools" id="shSceneTools">
-        <span class="scene-jump">
-          <button type="button" data-jump="work" aria-label="Look at the workshop">Workshop</button>
-          <button type="button" data-jump="floor" aria-label="Look at the shop floor">Floor</button>
-          <button type="button" data-jump="front" aria-label="Look at the counter and the door">Front</button>
+        <span class="scene-jump" id="shViews" role="group" aria-label="Viewpoint">
+          <button type="button" data-jump="work" aria-pressed="false" aria-label="Look at the workshop">Workshop</button>
+          <button type="button" data-jump="floor" aria-pressed="false" aria-label="Look at the shop floor">Floor</button>
+          <button type="button" data-jump="front" aria-pressed="true" aria-label="Look at the counter and the door">Front</button>
         </span>
         <button type="button" class="scene-edit" id="shEditBtn">Edit Shop</button>
       </div>
-      <div class="edit-tray" id="shEditTray" hidden></div>
     </div>
     <div class="shop-actions compact" id="shActions"></div>
-    <p class="shop-crew" id="shCrew"></p>
+    <button class="shop-crew" type="button" id="shCrew"></button>
     <button class="btn primary advance" type="button" id="shAdvanceBtn">End Morning</button>
-    <div class="shop-tabs" id="shTabs" role="tablist"></div>
-    <div class="shop-panel" id="shPanel" role="tabpanel"></div>
-    <div class="actions">
-      <button class="btn ghost" type="button" id="shHelpBtn">How to Play</button>
-      <button class="btn" type="button" id="shMenuBtn">Main Menu</button>
+    <!-- the rest of the business is in drawers, each opened as a window -->
+    <div class="shop-groups" id="shGroups">
+      <button type="button" class="tab-group" data-group="stock">Inventory</button>
+      <button type="button" class="tab-group" data-group="business">Business</button>
+      <button type="button" class="tab-group" data-group="people">Staff</button>
+      <button type="button" class="tab-group help" id="shHelpBtn">How to Play</button>
     </div>
+    <!-- Edit Shop takes the place of the rows under the room, never their
+         size, so the room does not move when editing starts or ends -->
+    <div class="edit-tray" id="shEditTray" hidden></div>
   </div>
 
   <div class="material-bar" id="materialBar" hidden data-tier="0">
@@ -2323,27 +2592,26 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     <button class="btn" type="button" id="restartBtn">Restart Board</button>
     <button class="btn" type="button" id="newBtn">New Puzzle</button>
     <button class="btn" type="button" id="menuActionBtn" hidden>Main Menu</button>
+    <button class="btn ghost" type="button" id="legendBtn">Symbols</button>
     <button class="btn ghost" type="button" id="helpBtn">How to Play</button>
   </div>
-
-  <details class="panel" id="legendPanel">
-    <summary>Movement rules</summary>
-    <div class="body" id="legendBody"></div>
-  </details>
+  <!-- what the symbols on this board do; shown in a window by Symbols -->
+  <div class="legend-src" id="legendBody" hidden></div>
 
   <p class="best-line" id="bestLine">Best quality on Novice: &mdash;</p>
 </div>
 
 <!-- title screen -->
 <div class="overlay title-screen" id="titleScreen" role="dialog" aria-modal="true" aria-labelledby="titleName">
-  <div class="sheet title-sheet">
+  <div class="sheet title-sheet win">
+    <div class="win-body title-body" id="titleBody">
     <div class="title-mark" aria-hidden="true">&#9874;</div>
     <h1 class="title-name" id="titleName">Checksmith</h1>
     <p class="title-tag">The symbol on your square decides where you strike next.</p>
     <p class="title-purse" id="titlePurse" hidden><span aria-hidden="true">&#9679;</span> <b id="titleGold">0</b> gold</p>
 
     <h2 class="title-label" id="modeLabel">Mode</h2>
-    <div class="mode-cards" role="radiogroup" aria-labelledby="modeLabel">
+    <div class="mode-cards" role="radiogroup" aria-labelledby="modeLabel" data-pg-whole>
       <button class="mode-card" type="button" data-mode="forge" role="radio" aria-checked="true">
         <span class="mc-name">Forge</span>
         <span class="mc-desc">Choose a weapon design. Strike every square twice; a third strike ruins a square.</span>
@@ -2365,6 +2633,7 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
         <span class="mc-best" id="shopBest">&nbsp;</span>
       </button>
     </div>
+    <p class="mode-about" id="modeAbout"></p>
 
     <div id="titleDiffBlock">
     <h2 class="title-label" id="diffLabel">Difficulty</h2>
@@ -2404,8 +2673,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
     </div>
     <p class="title-note" id="forgeNote" hidden></p>
     <p class="title-note" id="endlessNote" hidden></p>
+    </div>
 
-    <div class="sheet-actions">
+    <div class="sheet-actions win-foot">
       <button class="btn primary" type="button" id="beginBtn">Begin</button>
       <div class="sheet-actions row">
         <button class="btn" type="button" id="shopBtn">Endless Upgrades</button>
@@ -2417,8 +2687,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 
 <!-- results -->
 <div class="overlay" id="results" hidden role="dialog" aria-modal="true" aria-labelledby="resultTitle">
-  <div class="sheet">
-    <h2 id="resultTitle">Puzzle complete</h2>
+  <div class="sheet win">
+    <div class="win-head"><h2 id="resultTitle">Puzzle complete</h2></div>
+    <div class="win-body">
     <p class="quality" id="rQuality">100<small id="rQualityCaption">QUALITY</small></p>
     <p class="result-label" id="rLabel">Masterwork</p>
     <div class="result-grid">
@@ -2427,8 +2698,9 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
       <div><span id="rSpentLabel">Spent squares</span><b id="rSpent">0</b></div>
       <div><span id="rPerfectLabel">Perfect squares</span><b id="rPerfect">9 / 9</b></div>
     </div>
-    <p id="rBest" class="best-line" style="margin-bottom:12px"></p>
-    <div class="sheet-actions">
+    <p id="rBest" class="best-line" style="margin-bottom:4px"></p>
+    </div>
+    <div class="sheet-actions win-foot">
       <button class="btn primary" type="button" id="rRetry">Retry This Board</button>
       <div class="sheet-actions row">
         <button class="btn" type="button" id="rNew">Another Puzzle</button>
@@ -2440,33 +2712,58 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 
 <!-- forge shop -->
 <div class="overlay" id="shop" hidden role="dialog" aria-modal="true" aria-labelledby="shopTitle">
-  <div class="sheet">
-    <h2 id="shopTitle">Endless Upgrades</h2>
+  <div class="sheet win">
+    <div class="win-head"><h2 id="shopTitle">Endless Upgrades</h2>
+      <button class="win-x" type="button" id="shopClose" data-win-back>Close</button></div>
+    <div class="win-body">
     <p class="shop-purse"><span aria-hidden="true">&#9679;</span> <b id="shopGold">0</b> gold</p>
     <div class="shop-list" id="shopList"></div>
     <p class="best-line" id="shopNote"></p>
-    <div class="sheet-actions"><button class="btn primary" type="button" id="shopClose">Close</button></div>
+    </div>
   </div>
 </div>
 
 <!-- how to play -->
 <div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
-  <div class="sheet">
-    <h2 id="helpTitle">How to Play</h2>
-    <div id="helpBody"></div>
-    <div class="sheet-actions"><button class="btn primary" type="button" id="helpClose">Close</button></div>
+  <div class="sheet win wide">
+    <div class="win-head"><h2 id="helpTitle">How to Play</h2>
+      <button class="win-x" type="button" id="helpClose" data-win-back>Close</button></div>
+    <div class="win-tabs" id="helpTabs" role="tablist" aria-label="Topics"></div>
+    <div class="win-body help-body" id="helpBody"></div>
   </div>
 </div>
 
 
 <!-- Open Your Forge dialogs -->
 <div class="overlay" id="shopSheet" hidden role="dialog" aria-modal="true" aria-labelledby="shopSheetTitle">
-  <div class="sheet">
-    <h2 id="shopSheetTitle">&nbsp;</h2>
-    <div id="shopSheetBody"></div>
-    <div class="sheet-actions" id="shopSheetActions"></div>
+  <div class="sheet win">
+    <div class="win-head"><h2 id="shopSheetTitle">&nbsp;</h2><span class="win-back" id="shopSheetBack"></span></div>
+    <div class="win-body" id="shopSheetBody"></div>
+    <div class="sheet-actions win-foot" id="shopSheetActions"></div>
   </div>
 </div>
+
+<!-- Open Your Forge drawers: Inventory, Business and Staff, as one window
+     with a tab for each of their pages -->
+<div class="overlay" id="shDrawer" hidden role="dialog" aria-modal="true" aria-labelledby="shDrawerTitle">
+  <div class="sheet win wide">
+    <div class="win-head"><h2 id="shDrawerTitle">Inventory</h2>
+      <button class="win-x" type="button" id="shDrawerClose" data-win-back>Close</button></div>
+    <div class="shop-tabs win-tabs" id="shTabs" role="tablist"></div>
+    <div class="shop-panel win-body" id="shPanel" role="tabpanel"></div>
+  </div>
+</div>
+
+<!-- reference text: the symbols on this board -->
+<div class="overlay" id="infoWin" hidden role="dialog" aria-modal="true" aria-labelledby="infoWinTitle">
+  <div class="sheet win">
+    <div class="win-head"><h2 id="infoWinTitle">Symbols</h2>
+      <button class="win-x" type="button" id="infoWinClose" data-win-back>Close</button></div>
+    <div class="win-body" id="infoWinBody"></div>
+  </div>
+</div>
+
+<p class="toast" id="toast" hidden role="status"></p>
 
 <!-- confirm -->
 <div class="power-banner" id="vsBanner" hidden aria-hidden="true">
@@ -2474,13 +2771,15 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 </div>
 
 <div class="overlay" id="nameForge" hidden role="dialog" aria-modal="true" aria-labelledby="nameForgeTitle">
-  <div class="sheet" style="max-width:340px">
-    <h2 id="nameForgeTitle">Name your forge</h2>
+  <div class="sheet win" style="max-width:340px">
+    <div class="win-head"><h2 id="nameForgeTitle">Name your forge</h2></div>
+    <div class="win-body">
     <p id="nameForgeText">Shown on your shop sign. You can rename it later from the sign.</p>
     <input class="name-field" id="nameForgeInput" type="text" maxlength="24" autocomplete="off"
            spellcheck="false" aria-labelledby="nameForgeTitle" placeholder="Your Forge">
     <p class="name-note" id="nameForgeNote">Up to 24 characters.</p>
-    <div class="sheet-actions row">
+    </div>
+    <div class="sheet-actions row win-foot">
       <button class="btn primary" type="button" id="nameForgeGo">Start Forge</button>
       <button class="btn" type="button" id="nameForgeCancel">Cancel</button>
     </div>
@@ -2488,10 +2787,10 @@ details.panel .body{padding:0 12px 12px;font-size:13px;line-height:1.5;color:#de
 </div>
 
 <div class="overlay" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
-  <div class="sheet" style="max-width:340px">
-    <h2 id="confirmTitle">Discard progress?</h2>
-    <p id="confirmText">Your strikes on this board will be lost.</p>
-    <div class="sheet-actions row">
+  <div class="sheet win" style="max-width:340px">
+    <div class="win-head"><h2 id="confirmTitle">Discard progress?</h2></div>
+    <div class="win-body"><p id="confirmText">Your strikes on this board will be lost.</p></div>
+    <div class="sheet-actions row win-foot">
       <button class="btn primary" type="button" id="confirmYes">Discard</button>
       <button class="btn" type="button" id="confirmNo">Cancel</button>
     </div>
@@ -11111,6 +11410,7 @@ function buildTiles(size, shaped) {
     App.tiles.push(b);
   }
   board.appendChild(frag);
+  fitScreen();
   App.focusIndex = Math.max(0, first);
   if (App.tiles[App.focusIndex]) App.tiles[App.focusIndex].tabIndex = 0;
 }
@@ -12137,6 +12437,7 @@ function vsRenderMatch() {
   vsRenderBoard('foe');
   vsRenderBoard('you');
   vsRenderShop();
+  fitSoon();
 
   const bar = $('vsTurnBar');
   if (matchOver(m)) {
@@ -12506,6 +12807,8 @@ function vsScheduleAi() {
 
 /* ---------- match lifecycle ---------- */
 function vsStartMatch() {
+  // a match owns the screen: whatever mode was up hands its chrome over
+  if (App.mode !== 'versus') { App.mode = 'versus'; syncModeChrome(); }
   cancelPending(false);
   VS.targeting = null;
   VS.focus = 'none';
@@ -12959,16 +13262,21 @@ function shopRenderCrew() {
   const busy = [];
   for (const e of sh.staff) {
     const a = assignmentFor(sh, e.id);
-    if (a) busy.push(esc(e.name) + ' (' + esc(shopRole(e.role).name) + ')');
+    if (a) busy.push(e.name + ' (' + shopRole(e.role).name + ')');
   }
   const free = sh.staff.filter(function (e) {
     return shopRole(e.role).phase && !assignedThisDay(sh, e.id);
   }).length;
-  let text = busy.length
-    ? 'Working this phase: <b>' + busy.join('</b>, <b>') + '</b>'
-    : (sh.staff.length ? 'Nobody is assigned this phase.' : '');
-  if (free > 0) text += (text ? ' · ' : '') + free + ' available for work today';
-  $('shCrew').innerHTML = text;
+  // One line however many are on the books: the count here, the names on
+  // the figures in the room and in the Staff drawer this opens.
+  let text = busy.length ? '<b>' + busy.length + '</b> working this phase'
+    : (sh.staff.length ? 'Nobody is assigned this phase' : '');
+  if (free > 0) text += (text ? ' · ' : '') + free + ' available today';
+  const crew = $('shCrew');
+  crew.innerHTML = text ? text + ' <span class="more">Staff &rsaquo;</span>' : '';
+  crew.setAttribute('aria-label', (busy.length ? 'Working this phase: ' + busy.join(', ') + '. '
+    : text ? 'Nobody is assigned this phase. ' : '') + (free ? free + ' available for work today. ' : '') +
+    'Opens the Staff drawer.');
 }
 
 /* =======================================================================
@@ -13449,9 +13757,11 @@ function sceneRender() {
   const L = sceneLayout(sh);
   const world = $('shWorld');
   world.style.width = L.W + 'px';
+  $('shScene').style.setProperty('--world-w', L.W + 'px');
   world.dataset.phase = shopPhase(sh);
   world.dataset.stage = L.stage.id;
   world.classList.toggle('editing', !!SHOPUI.editing);
+  $('shopView').classList.toggle('editing', !!SHOPUI.editing);
   world.classList.toggle('open', !!SHOPUI.sceneOpen);
   const key = L.stage.id + '|' + L.W;
   if (SHOPUI.backKey !== key || !$('shBack').firstChild) {
@@ -13468,23 +13778,116 @@ function sceneRender() {
   // end: the sign with its name on it, the counter and the door
   if (SHOPUI.sceneFor !== App.shopSlot) {
     SHOPUI.sceneFor = App.shopSlot;
-    $('shScene').scrollLeft = sceneFrontX(L);
+    SHOPUI.view = 'front';
   }
+  sceneSettle(L);
 }
-/* The street end: the room finishes at the door, so scrolling to its very
-   end keeps the sign and the door whole on any phone, and a wider screen
-   simply takes in more of the counter and the floor as well. */
-function sceneFrontX(L) {
-  return Math.max(0, L.W - ($('shScene').clientWidth || 0));
+
+/* ---------- viewpoints ------------------------------------------------------
+   The room is wider than a phone, and it is never scrolled. It is seen from
+   fixed places instead: the workshop, the floor and the front, with the
+   floor taken in sections once the shop has grown past one screen of it.
+   The buttons under the room, a swipe across it, or the arrow keys move
+   between them. Positions are in the room's own units: on a short screen
+   the room is drawn smaller as a whole, and they are scaled to match. */
+function sceneViews(L) {
+  const s = SHOPUI.sceneScale || 1;
+  const vw = Math.max(200, ($('shScene').clientWidth || 340) / s);
+  const last = Math.max(0, L.W - vw);
+  const views = [{ id: 'work', name: 'Workshop', x: 0 }];
+  const floor = [];
+  // each section overlaps the last by a column, so every stand is seen whole
+  const step = Math.max(160, vw - SCENE.col);
+  for (let x = Math.max(0, L.floorX - 20); ; x += step) {
+    const at = Math.min(x, last);
+    if (floor.length && at >= last) break;
+    floor.push(at);
+    if (at >= last || at + vw >= L.R + 4) break;
+  }
+  floor.forEach(function (x, i) {
+    views.push({ id: 'floor' + (i + 1), name: floor.length > 1 ? 'Floor ' + (i + 1) : 'Floor',
+      x: x, floor: i + 1, floors: floor.length });
+  });
+  views.push({ id: 'front', name: 'Front', x: last });
+  return views;
+}
+function sceneViewAt(L, id) {
+  const views = sceneViews(L);
+  return views.find(function (v) { return v.id === id; }) ||
+    (/^floor/.test(id || '') ? views.filter(function (v) { return v.floor; }).pop() : null) ||
+    views[views.length - 1];
+}
+/* Put the room where the chosen view is, at once: after a redraw, a resize,
+   or a change of scale. The phase playback owns the camera while it runs. */
+function sceneSettle(L) {
+  if (SHOPUI.playing) return;
+  const el = $('shScene');
+  const v = sceneViewAt(L, SHOPUI.view);
+  SHOPUI.view = v.id;
+  const x = Math.round(v.x * (SHOPUI.sceneScale || 1));
+  if (!SHOPUI.viewMoving && Math.abs(el.scrollLeft - x) > 1) el.scrollLeft = x;
+  sceneSyncViews(L);
+}
+function sceneView(id, smooth) {
+  const sh = App.shop;
+  if (!sh) return;
+  const L = sceneLayout(sh);
+  const v = sceneViewAt(L, id);
+  SHOPUI.view = v.id;
+  const el = $('shScene');
+  const x = Math.round(v.x * (SHOPUI.sceneScale || 1));
+  const motion = smooth && !(window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (motion && Math.abs(el.scrollLeft - x) > 1) {
+    SHOPUI.viewMoving = true;
+    clearTimeout(SHOPUI.viewTimer);
+    SHOPUI.viewTimer = setTimeout(function () { SHOPUI.viewMoving = false; }, 700);
+  }
+  try { el.scrollTo({ left: x, behavior: motion ? 'smooth' : 'auto' }); } catch (err) { el.scrollLeft = x; }
+  sceneSyncViews(L);
+  announce('Viewing ' + (v.id === 'work' ? 'the workshop' : v.id === 'front'
+    ? 'the counter and the door' : v.floors > 1 ? 'the shop floor, section ' + v.floor + ' of ' +
+      v.floors : 'the shop floor') + '.');
 }
 function sceneJump(where) {
   const sh = App.shop;
   if (!sh) return;
-  const L = sceneLayout(sh);
-  const x = where === 'work' ? 0 : where === 'floor' ? L.floorX - 20 : sceneFrontX(L);
-  const el = $('shScene');
-  const smooth = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  try { el.scrollTo({ left: x, behavior: smooth ? 'smooth' : 'auto' }); } catch (err) { el.scrollLeft = x; }
+  if (where === 'floor') {
+    // Floor walks on along the floor when the shop has more than one section
+    const L = sceneLayout(sh);
+    const floors = sceneViews(L).filter(function (v) { return v.floor; });
+    const at = floors.findIndex(function (v) { return v.id === SHOPUI.view; });
+    where = floors[at < 0 ? 0 : (at + 1) % floors.length].id;
+  }
+  sceneView(where, true);
+}
+function sceneStep(by) {
+  const sh = App.shop;
+  if (!sh) return false;
+  const views = sceneViews(sceneLayout(sh));
+  const at = views.findIndex(function (v) { return v.id === SHOPUI.view; });
+  const to = Math.max(0, Math.min(views.length - 1, (at < 0 ? views.length - 1 : at) + by));
+  if (to === at) return false;
+  sceneView(views[to].id, true);
+  return true;
+}
+/* The buttons say which view is showing; Floor says which section. */
+function sceneSyncViews(L) {
+  const views = sceneViews(L);
+  const cur = sceneViewAt(L, SHOPUI.view);
+  const floors = views.filter(function (v) { return v.floor; }).length;
+  for (const b of $('shViews').querySelectorAll('[data-jump]')) {
+    const j = b.dataset.jump;
+    b.setAttribute('aria-pressed', (j === 'floor' ? !!cur.floor : cur.id === j) ? 'true' : 'false');
+    if (j !== 'floor') continue;
+    b.textContent = floors > 1 ? 'Floor ' + (cur.floor || 1) + '/' + floors : 'Floor';
+    b.setAttribute('aria-label', floors > 1 ? 'Look at the shop floor, section ' + (cur.floor || 1) +
+      ' of ' + floors + '. Press again for the next section.' : 'Look at the shop floor');
+  }
+}
+/* The scale changed: the same view, at the new scale. */
+function sceneSize() {
+  if (App.shop) sceneSettle(sceneLayout(App.shop));
 }
 
 /* ---------- Edit Shop ------------------------------------------------------
@@ -13494,7 +13897,8 @@ function sceneJump(where) {
 function shopEditMode(on, select) {
   SHOPUI.editing = !!on;
   SHOPUI.editSel = on && select != null ? select : null;
-  if (on) sceneJump('floor');
+  $('shopView').classList.toggle('editing', !!on);
+  if (on && App.shop && !sceneViewAt(sceneLayout(App.shop), SHOPUI.view).floor) sceneView('floor1', true);
   shopRender();
 }
 function sceneRenderTray(sh) {
@@ -13507,7 +13911,7 @@ function sceneRenderTray(sh) {
     ? '<b>' + esc(standTitle(sh, sel)) + '</b> selected. Tap a green space to move it there, ' +
       'or another stand to swap places' + (standPlaced(sel) ? '. You can also put it in the back.' : '.')
     : 'Tap a stand to select it. Stands in the back cannot sell until placed. Editing is free.') + '</p>';
-  html += '<div class="tray-row"><span class="tray-head">In the back</span>';
+  html += '<div class="tray-body" data-pg-host><div class="tray-row"><span class="tray-head">In the back</span>';
   if (!back.length) html += '<span class="tray-empty">none (every stand is placed)</span>';
   for (const st of back) {
     html += '<button type="button" class="tray-item' + (sel && sel.id === st.id ? ' sel' : '') +
@@ -13515,12 +13919,19 @@ function sceneRenderTray(sh) {
       standSprite(st.type) + '<span>' + esc(standTitle(sh, st)) +
       (st.key && st.qty > 0 ? ' · ' + st.qty : '') + '</span></button>';
   }
-  html += '</div><div class="tray-acts">' +
+  html += '</div></div><div class="tray-acts">' +
     '<button type="button" data-tray-act="store"' + (sel && standPlaced(sel) ? '' : ' disabled') +
     '>Put in the Back</button>' +
     '<button type="button" data-tray-act="buy">Buy Stand</button>' +
     '<button type="button" class="primary" data-tray-act="done">Done</button></div>';
+  // the page the tray was on survives its redraw, so a stand picked on the
+  // second page stays in view once it is selected
+  const old = tray.querySelector('.tray-body');
+  const page = old && old._pg ? old._pg.page : 0;
   tray.innerHTML = html;
+  const body = pgRegister(tray.querySelector('.tray-body'));
+  body._pg.mem[body._pg.key] = page;
+  pgFit(body);
 }
 function sceneEditTap(target) {
   const sh = shop();
@@ -13601,8 +14012,6 @@ function shopShowTab(id) {
   shopSheetClose();
   SHOPUI.tab = id;
   shopRender();
-  const tabs = $('shTabs');
-  try { tabs.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { /* old engines */ }
 }
 
 function shopOpenStation(id) {
@@ -13833,36 +14242,64 @@ function shopOpenSettings() {
    whatever it happened to start on. A mouse gets the same drag to scroll. */
 function wireScene() {
   const scene = $('shScene');
-  const drag = { on: false, x: 0, y: 0, left: 0, moved: 0 };
+  const drag = { on: false, x: 0, y: 0, moved: 0 };
   scene.addEventListener('pointerdown', function (e) {
     drag.on = true; drag.moved = 0; drag.armed = true;
-    drag.x = e.clientX; drag.y = e.clientY; drag.left = scene.scrollLeft;
-    drag.mouse = e.pointerType === 'mouse';
+    drag.x = e.clientX; drag.y = e.clientY;
   });
   scene.addEventListener('pointermove', function (e) {
     if (!drag.on) return;
-    const dx = e.clientX - drag.x;
-    drag.moved = Math.max(drag.moved, Math.abs(dx), Math.abs(e.clientY - drag.y));
-    if (drag.mouse && drag.moved > 6) scene.scrollLeft = drag.left - dx;
+    drag.moved = Math.max(drag.moved, Math.abs(e.clientX - drag.x), Math.abs(e.clientY - drag.y));
+  });
+  /* A sideways swipe moves to the next viewpoint along. It never scrolls
+     the room: the room only ever stands at one of its views. */
+  scene.addEventListener('pointerup', function (e) {
+    if (!drag.on) return;
+    drag.on = false;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.4) sceneStep(dx < 0 ? 1 : -1);
   });
   const end = function () { drag.on = false; };
-  scene.addEventListener('pointerup', end);
   scene.addEventListener('pointercancel', end);
-  scene.addEventListener('pointerleave', end);
-  /* A drag that moved the view, or moved the finger, is not a tap. Only a
-     click that actually began with a press on the room is judged: one from
-     the keyboard, or from assistive technology, has no press behind it and
-     must always go through, however far the room was scrolled since. */
+  scene.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      sceneStep(e.key === 'ArrowRight' ? 1 : -1);
+    }
+  });
+  // anything that moves the room by itself - focus reaching a station out of
+  // view - leaves the buttons naming the view it is nearest
+  let settle = 0;
+  scene.addEventListener('scroll', function () {
+    if (SHOPUI.playing || SHOPUI.viewMoving) return;
+    clearTimeout(settle);
+    settle = setTimeout(function () {
+      if (!App.shop || SHOPUI.playing) return;
+      const L = sceneLayout(App.shop);
+      const k = SHOPUI.sceneScale || 1;
+      let best = null;
+      for (const v of sceneViews(L)) {
+        if (!best || Math.abs(v.x * k - scene.scrollLeft) < Math.abs(best.x * k - scene.scrollLeft)) best = v;
+      }
+      if (best) { SHOPUI.view = best.id; sceneSyncViews(L); }
+    }, 150);
+  }, { passive: true });
+  /* A swipe, or a finger that wandered, is not a tap. Only a click that
+     actually began with a press on the room is judged: one from the
+     keyboard, or from assistive technology, has no press behind it and must
+     always go through. */
   scene.addEventListener('click', function (e) {
     const judged = drag.armed && e.detail !== 0;
     drag.armed = false;
-    if (judged && (drag.moved > 10 || Math.abs(scene.scrollLeft - drag.left) > 10)) {
+    if (judged && drag.moved > 10) {
       e.stopPropagation(); e.preventDefault();
     }
     drag.moved = 0;
   }, true);
 
-  $('shSceneWrap').addEventListener('click', function (e) {
+  // the room and Edit Shop's tray (which lies over the rows under it) share
+  // one handler
+  const onRoom = function (e) {
     const t = e.target.closest ? e.target : null;
     if (!t) return;
     if (SHOPUI.playing) { shopSkipPhase(); return; }
@@ -13909,7 +14346,9 @@ function wireScene() {
     if (spot) { shopOpenSpot(Number(spot.dataset.spot)); return; }
     const crew = t.closest('[data-crew]');
     if (crew) { shopOpenHand(Number(crew.dataset.crew)); return; }
-  });
+  };
+  $('shSceneWrap').addEventListener('click', onRoom);
+  $('shEditTray').addEventListener('click', onRoom);
 }
 
 /* ---------- the phase, played back ------------------------------------------
@@ -13995,7 +14434,7 @@ function workerCamOn() {
 /* A menu or a question the player still has to answer. The playback waits
    for it rather than moving the room, or opening the summary, under it. */
 function scenePromptOpen() {
-  return ['shopSheet', 'confirm', 'help', 'nameForge'].some(function (id) {
+  return ['shopSheet', 'shDrawer', 'confirm', 'help', 'infoWin', 'nameForge'].some(function (id) {
     const el = $(id);
     return !!(el && !el.hidden);
   });
@@ -14176,6 +14615,7 @@ function shopPlayPhase(reports, note, closing, crew, done, opts) {
     done();
   };
   SHOPUI.playing = { finish: finish };
+  if (!$('shDrawer').hidden) hide($('shDrawer'));
   view.classList.add('playing');
   $('shSkip').hidden = false;
 
@@ -14203,18 +14643,19 @@ function shopPlayPhase(reports, note, closing, crew, done, opts) {
      shows it. The skip button sits over the room's top-right corner, so an
      action tall enough to reach it keeps clear of it. */
   const targetFor = function (shot) {
-    const vw = scene.clientWidth, m = 14, sl = scene.scrollLeft;
+    const vw = scene.clientWidth, m = 14, sl = scene.scrollLeft, k = SHOPUI.sceneScale || 1;
+    const x0 = shot.x0 * k, x1 = shot.x1 * k;
     let inset = 0;
     const skip = $('shSkip');
     if (skip && !skip.hidden) {
       const s = skip.getBoundingClientRect(), r = scene.getBoundingClientRect();
-      if (shot.y0 < s.bottom - r.top) inset = Math.max(0, r.right - s.left) + 6;
+      if (shot.y0 * k < s.bottom - r.top) inset = Math.max(0, r.right - s.left) + 6;
     }
-    if (shot.x0 >= sl + m && shot.x1 <= sl + vw - m - inset) return null;
+    if (x0 >= sl + m && x1 <= sl + vw - m - inset) return null;
     const usable = vw - 2 * m - inset;
-    const w = shot.x1 - shot.x0;
-    if (w <= usable) return shot.x0 - m - (usable - w) / 2;
-    return shot.anchor === 'right' ? shot.x1 + m + inset - vw : shot.x0 - m;
+    const w = x1 - x0;
+    if (w <= usable) return x0 - m - (usable - w) / 2;
+    return shot.anchor === 'right' ? x1 + m + inset - vw : x0 - m;
   };
   /* A smooth pan that says when it has arrived. It is its own frame loop
      rather than a smooth scrollTo, which has no reliable "arrived" signal,
@@ -14327,7 +14768,7 @@ function shopPlayPhase(reports, note, closing, crew, done, opts) {
   const shots = phaseShots(reports, crew, L, !!(opts && opts.forged));
   // start from the end of the room the camera is nearest, and sweep it once
   const mid = home + scene.clientWidth / 2;
-  const centre = function (s) { return (s.x0 + s.x1) / 2; };
+  const centre = function (s) { return (s.x0 + s.x1) / 2 * (SHOPUI.sceneScale || 1); };
   shots.sort(function (a, b) { return centre(a) - centre(b); });
   if (Math.abs(mid - centre(shots[shots.length - 1] || { x0: 0, x1: 0 })) <
       Math.abs(mid - centre(shots[0] || { x0: 0, x1: 0 }))) shots.reverse();
@@ -14534,24 +14975,21 @@ function tabGroupNote(sh, group) {
 }
 function shopRenderTabs() {
   const sh = shop();
+  const open = tabGroupOf(SHOPUI.tab);
+  // the drawer buttons under the room, each saying what is waiting in it
+  for (const b of $('shGroups').querySelectorAll('[data-group]')) {
+    const g = SHOP_TAB_GROUPS.find(function (x) { return x.id === b.dataset.group; });
+    const note = tabGroupNote(sh, g);
+    b.classList.toggle('on', open === g);
+    b.setAttribute('aria-expanded', open === g ? 'true' : 'false');
+    b.innerHTML = esc(g.name) + (note ? '<span class="tg-note" aria-label="' + note +
+      ' waiting">' + note + '</span>' : '');
+  }
+  // the open drawer's own pages, as the tabs of its window
   const host = $('shTabs');
   host.textContent = '';
-  const open = tabGroupOf(SHOPUI.tab);
-  const row = document.createElement('div');
-  row.className = 'tab-groups';
-  for (const g of SHOP_TAB_GROUPS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'tab-group' + (open === g ? ' on' : '');
-    b.dataset.group = g.id;
-    b.setAttribute('aria-expanded', open === g ? 'true' : 'false');
-    const note = tabGroupNote(sh, g);
-    b.innerHTML = esc(g.name) + (note ? '<span class="tg-note" aria-label="' + note +
-      ' waiting">' + note + '</span>' : '') + '<span class="tg-caret" aria-hidden="true">' +
-      (open === g ? '&#9652;' : '&#9662;') + '</span>';
-    row.appendChild(b);
-  }
-  host.appendChild(row);
+  $('shDrawerTitle').textContent = open ? open.name : '';
+  host.hidden = !(open && open.tabs.length > 1);
   if (open && open.tabs.length > 1) {
     const sub = document.createElement('div');
     sub.className = 'tab-sub';
@@ -15516,9 +15954,16 @@ function shopPropertyHtml(sh) {
 function shopRenderPanel() {
   const sh = shop();
   const host = $('shPanel');
+  const drawer = $('shDrawer');
   let html = '';
-  host.hidden = !SHOPUI.tab;
-  if (!SHOPUI.tab) { host.innerHTML = ''; return; }
+  // A drawer is a window over the room. It steps aside while the phase plays
+  // out and while the anvil has the screen, and comes back as it was.
+  if (!SHOPUI.tab || $('shopView').hidden || SHOPUI.playing) {
+    if (!drawer.hidden) hide(drawer);
+    if (!SHOPUI.tab) host.innerHTML = '';
+    return;
+  }
+  pgKey(host, SHOPUI.tab);
 
   if (SHOPUI.tab === 'shelf') {
     // The floor is fixtures. What the premises hold is stands, and a stand is
@@ -15609,6 +16054,7 @@ function shopRenderPanel() {
     html += shopGrowthHtml(sh);
   }
   host.innerHTML = html;
+  if (drawer.hidden) show(drawer);
 }
 
 /* ---------- Growth: infrastructure, never equipment ----------------------
@@ -15759,6 +16205,7 @@ function shopRender() {
   shopRenderPanel();
   sceneRender();
   $('shAdvanceBtn').textContent = 'End ' + shopPhaseName(shop());
+  fitSoon();
   if (shop().closed) clearShopSave(); else saveShop();
 }
 
@@ -15779,29 +16226,67 @@ function shopSheet(title, bodyHtml, buttons) {
         : active.dataset.sel ? '[data-sel="' + active.dataset.sel + '"]' : null)
     : null;
 
-  // on the shop floor a panel docks at the bottom and leaves the room in view
-  sheet.classList.toggle('dock', !$('shopView').hidden);
+  // on the shop floor a panel docks at the bottom and leaves the room in view;
+  // one that is not about anything in the room may have the whole screen
+  sheet.classList.toggle('dock', !$('shopView').hidden && !SHOPUI.sheetFull);
+  sheet.querySelector('.sheet').classList.remove('tall');
   $('shopSheetTitle').textContent = title;
-  $('shopSheetBody').innerHTML = bodyHtml;
+  // a dialog opened afresh starts on its first page; one redrawn in place,
+  // or come back to with Back, keeps the page it was on
+  const body = $('shopSheetBody');
+  if (reopening && body._pg) { body._pg.mem = {}; body._pg.key = null; }
+  pgKey(body, title);
+  body.innerHTML = bodyHtml;
   const host = $('shopSheetActions');
+  const head = $('shopSheetBack');
   host.textContent = '';
-  for (const b of buttons || []) {
+  head.textContent = '';
+  (buttons || []).forEach(function (b, i) {
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'btn' + (b.primary ? ' primary' : b.ghost ? ' ghost' : '');
-    el.textContent = b.label;
     el.disabled = !!b.disabled;
     el.addEventListener('click', b.onClick);
+    // the order the actions were given in, wherever each one is placed
+    el.dataset.at = String(i);
+    if (i === buttons.length - 1) el.dataset.atLast = '';
+    if (b.ghost) el.dataset.ghost = '';
+    // the way out goes in the window's head, the same place in every window
+    if ((b.label === 'Back' || b.label === 'Close') && !head.firstChild) {
+      el.className = 'win-x' + (b.label === 'Back' ? ' back' : '');
+      el.dataset.winBack = '';
+      el.textContent = b.label;
+      head.appendChild(el);
+      return;
+    }
+    el.className = 'btn' + (b.primary ? ' primary' : b.ghost ? ' ghost' : '');
+    el.textContent = b.label;
     host.appendChild(el);
-  }
+  });
+  // two actions side by side; three or more two to a row, the first across
+  // the whole row when they do not pair up, so the actions never crowd out
+  // what they act on
+  const n = host.children.length;
+  host.classList.toggle('row', n === 2);
+  host.classList.toggle('grid2', n > 2);
+  if (n > 2 && n % 2) host.firstChild.classList.add('span2');
 
-  if (reopening) { show(sheet); return; }
+  if (reopening) show(sheet);
+  // Docked at the foot of the room is for the short panels. One that would
+  // not fit there has the whole window instead, for as long as it stays open,
+  // so a run of beats at the counter does not hop about the screen.
+  body.style.height = '';
+  if (sheet.classList.contains('dock') && body.scrollHeight > body.clientHeight + 1) {
+    SHOPUI.sheetFull = true;
+    sheet.classList.remove('dock');
+  }
+  if (reopening) return;
   if (keep) {
     const back = $('shopSheetBody').querySelector(keep);
     if (back) back.focus();
   }
 }
 function shopSheetClose() {
+  SHOPUI.sheetFull = false;
   // a swap that was never completed is not a swap: the original booking stays
   SHOPUI.replacing = null;
   SHOPUI.reorder = false;
@@ -16687,50 +17172,96 @@ function almanacCraftsHtml(sh) {
   return html + '</div>';
 }
 
-/* ---------- one craft's tree ---------- */
-const ALM_NODE = 74, ALM_GAP = 16, ALM_ROW = 104;
+/* ---------- one craft's tree ----------
+   A tree is drawn to fit the window it is in, never scrolled. Its columns
+   share the window's width, and its tiers - one per step along the craft -
+   are shown as many at a time as the window's height holds. A tree with
+   more tiers than that turns in pages, and each page after the first opens
+   on the last tier of the page before, so every line of the progression is
+   seen whole on some page: what a blueprint leads to is never further than
+   the next page, with the blueprint itself still on it. */
+const ALM_NODE = 74, ALM_ROW_GAP = 20, ALM_NAV = 48;
 
-function almanacTreeHtml(sh, catId) {
+function almanacTreeLayout(tree, W, H) {
+  const cols = Math.max(1, tree.cols);
+  const step = W / cols;
+  // a short window (a phone on its side) draws the tree a little tighter
+  const tight = H < 230;
+  const nav = tight ? 38 : ALM_NAV, gap = tight ? 14 : ALM_ROW_GAP;
+  // at least two tiers to a page, so a line always has both its ends on one
+  const node = Math.max(36, Math.min(ALM_NODE, step - 6,
+    tree.rows > 1 ? (H - nav) / 2 - gap : ALM_NODE));
+  const minRow = node + gap;
+  let per = Math.floor(H / minRow);
+  let pages = 1;
+  if (per < tree.rows) {
+    per = Math.max(2, Math.floor((H - nav) / minRow));
+    pages = Math.max(1, Math.ceil((tree.rows - 1) / (per - 1)));
+  } else per = tree.rows;
+  return { cols: cols, step: step, node: node, per: per, pages: pages, nav: nav, tight: tight };
+}
+
+function almanacDrawTree() {
+  const box = $('almTree');
+  if (!box || !box.getClientRects().length) return;
+  const sh = shop();
+  const catId = box.dataset.cat;
   const tree = disciplineTree(catId);
-  const stepX = ALM_NODE + ALM_GAP;
-  const width = Math.max(tree.cols, 1) * stepX;
-  const height = tree.rows * ALM_ROW;
+  const W = box.clientWidth, H = box.clientHeight;
+  const lay = almanacTreeLayout(tree, W, H);
+  SHOPUI.almTier = SHOPUI.almTier || {};
+  const page = Math.max(0, Math.min(lay.pages - 1, SHOPUI.almTier[catId] || 0));
+  SHOPUI.almTier[catId] = page;
+  const t0 = lay.pages > 1 ? page * (lay.per - 1) : 0;
+  const t1 = Math.min(tree.rows - 1, t0 + lay.per - 1);
+  const shown = t1 - t0 + 1;
+  const treeH = H - (lay.pages > 1 ? lay.nav : 0);
+  box.classList.toggle('tight', lay.tight);
+  const rowH = Math.min(lay.node + 44, treeH / shown);
+  const top = Math.max(0, (treeH - rowH * shown) / 2);
   const at = {};
   for (const n of tree.nodes) {
-    at[n.id] = { x: n.col * stepX + ALM_NODE / 2, y: n.depth * ALM_ROW + ALM_NODE / 2 };
+    if (n.depth < t0 || n.depth > t1) continue;
+    at[n.id] = { x: (n.col + 0.5) * lay.step, y: top + (n.depth - t0) * rowH + rowH / 2 };
   }
-
-  // the lines of the progression, drawn behind the sprites. A line lights up
-  // once the blueprint it leads out of is far enough along to be followed.
-  let svg = '<svg class="alm-lines" width="' + width + '" height="' + height +
-    '" viewBox="0 0 ' + width + ' ' + height + '" aria-hidden="true">';
+  const half = lay.node / 2;
+  // the lines between the tiers on this page, and a short stub for a line
+  // that carries on to the page before or after
+  let svg = '<svg class="alm-lines" width="' + W + '" height="' + treeH + '" viewBox="0 0 ' + W + ' ' +
+    treeH + '" aria-hidden="true">';
   for (const link of tree.links) {
     const a = at[link.from], b = at[link.to];
-    if (!a || !b) continue;
-    const need = requiredParentLevel(link.to);
-    const open = blueprintLevel(sh, link.from) >= need;
-    const mid = (a.y + b.y) / 2;
-    svg += '<path class="alm-line' + (open ? ' open' : '') + '" d="M' + a.x + ' ' + a.y +
-      ' C' + a.x + ' ' + mid + ' ' + b.x + ' ' + mid + ' ' + b.x + ' ' + b.y + '"/>';
+    const open = blueprintLevel(sh, link.from) >= requiredParentLevel(link.to);
+    const cls = 'alm-line' + (open ? ' open' : '');
+    if (a && b) {
+      const mid = (a.y + b.y) / 2;
+      svg += '<path class="' + cls + '" d="M' + a.x + ' ' + a.y + ' C' + a.x + ' ' + mid + ' ' + b.x +
+        ' ' + mid + ' ' + b.x + ' ' + b.y + '"/>';
+    } else if (a && !b) {
+      svg += '<path class="' + cls + ' more" d="M' + a.x + ' ' + (a.y + half) + ' L' + a.x + ' ' +
+        Math.min(treeH - 2, a.y + half + 16) + '"/>';
+    } else if (b && !a) {
+      svg += '<path class="' + cls + ' more" d="M' + b.x + ' ' + Math.max(2, b.y - half - 16) + ' L' +
+        b.x + ' ' + (b.y - half) + '"/>';
+    }
   }
   svg += '</svg>';
 
   let nodes = '';
   for (const n of tree.nodes) {
+    const pos = at[n.id];
+    if (!pos) continue;
     const item = shopItem(n.id);
     const state = almanacState(sh, n.id);
     const level = blueprintLevel(sh, n.id);
-    const pos = at[n.id];
     const pips = [];
-    for (let i = 1; i <= SHOP.craft.maxLevel; i++) {
-      pips.push('<i' + (i <= level ? ' class="on"' : '') + '></i>');
-    }
-    nodes += '<button class="alm-node ' + state + '" type="button" data-recipe="' +
-      esc(n.id) + '" style="left:' + (pos.x - ALM_NODE / 2) + 'px;top:' +
-      (pos.y - ALM_NODE / 2) + 'px" aria-label="' + esc(item.name + ', ' +
+    for (let i = 1; i <= SHOP.craft.maxLevel; i++) pips.push('<i' + (i <= level ? ' class="on"' : '') + '></i>');
+    nodes += '<button class="alm-node ' + state + (lay.node < 54 ? ' small' : '') +
+      '" type="button" data-recipe="' + esc(n.id) +
+      '" style="left:' + (pos.x - half).toFixed(1) + 'px;top:' + (pos.y - half).toFixed(1) + 'px;width:' +
+      lay.node + 'px;height:' + lay.node + 'px" aria-label="' + esc(item.name + ', ' +
         (state === 'locked' ? 'locked' : state === 'available' ? 'ready to unlock'
-          : 'level ' + level + ' of ' + SHOP.craft.maxLevel +
-            (state === 'mastered' ? ', mastered' : ''))) + '">' +
+          : 'level ' + level + ' of ' + SHOP.craft.maxLevel + (state === 'mastered' ? ', mastered' : ''))) + '">' +
       blueprintSprite(sh, n.id, 'lg') +
       '<span class="an-name">' + esc(item.name) + '</span>' +
       (state === 'locked' ? '<span class="an-pips locked">✕</span>'
@@ -16739,18 +17270,34 @@ function almanacTreeHtml(sh, catId) {
           : '<span class="an-pips">' + pips.join('') + '</span>') +
       '</button>';
   }
-
-  return '<div class="alm-canvas" style="width:' + width + 'px;height:' + height + 'px">' +
-    svg + nodes + '</div>';
+  let nav = '';
+  if (lay.pages > 1) {
+    nav = '<div class="win-pager alm-nav">' +
+      '<button type="button" class="pg-btn" data-alm-tier="-1"' + (page <= 0 ? ' disabled' : '') +
+      ' aria-label="Earlier tiers">&lsaquo; Earlier</button>' +
+      '<span class="pg-now">Tiers ' + (t0 + 1) + '–' + (t1 + 1) + ' of ' + tree.rows + '</span>' +
+      '<button type="button" class="pg-btn" data-alm-tier="1"' + (page >= lay.pages - 1 ? ' disabled' : '') +
+      ' aria-label="Later tiers">Later &rsaquo;</button></div>';
+  }
+  box.innerHTML = '<div class="alm-canvas" style="height:' + treeH + 'px">' + svg + nodes + '</div>' + nav;
+  box.dataset.tiers = (t0 + 1) + '-' + (t1 + 1) + '/' + tree.rows;
 }
 
 function almanacCraftHtml(sh, catId) {
   const cat = shopCategory(catId);
   const sum = disciplineSummary(sh, catId);
-  let html = '<div class="craft-head">' +
+  const named = disciplineItems(catId).filter(function (it) { return it.special; });
+  const earned = named.filter(function (it) { return blueprintLevel(sh, it.id) > 0; }).length;
+  const namedLabel = 'Special Commission Blueprints, ' + earned + ' of ' + named.length + ' earned';
+  let html = '<div class="alm-page">';
+  html += '<div class="craft-head">' +
     '<button class="craft-back" type="button" data-craft-back="1" ' +
     'aria-label="Back to all crafts">‹ Crafts</button>' +
-    '<b>' + esc(cat.name) + '</b></div>' +
+    '<b>' + esc(cat.name) + '</b>' +
+    // on a short window the way to the named pieces sits up here instead
+    (named.length ? '<button type="button" class="alm-named-pill" data-alm-specials="' + esc(catId) +
+      '" aria-label="' + esc(namedLabel) + '">Named ' + earned + '/' + named.length + ' &rsaquo;</button>' : '') +
+    '</div>' +
     '<div class="craft-bar">' +
     '<span>XP<b>' + sum.xp + '</b></span>' +
     '<span>Total XP<b>' + sum.total + '</b></span>' +
@@ -16758,51 +17305,69 @@ function almanacCraftHtml(sh, catId) {
     '<span>Mastered<b>' + sum.mastered + '</b></span></div>';
   if (!sum.held) {
     const st = disciplineStatus(sh, catId);
-    html += '<p class="alm-lead">You have not taken up this craft. Taking it up unlocks its ' +
-      'first blueprint at level 1, so you can forge its items and earn its XP. The gold cost ' +
-      'and reputation requirement rise with each craft you hold.</p>';
-    html += '<div class="shop-row"><span class="nm">Take up ' + esc(cat.name) + '</span>' +
+    html += '<div class="shop-row alm-takeup"><span class="nm">Take up ' + esc(cat.name) + '</span>' +
       '<button data-takecraft="' + esc(catId) + '"' + (st.ready ? '' : ' disabled') + '>' +
       coin(st.terms.cost) + 'g</button><span class="sub">' +
       (st.repShort ? 'Requires ' + st.terms.rep + ' reputation (you have ' +
         Math.round(sh.reputation) + ')'
         : st.goldShort ? 'Not enough gold' : 'Unlocks ' +
-          esc((shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint')) +
+          esc((shopItem(disciplineRoot(catId)) || {}).name || 'its first blueprint') +
+          ' at level 1, so you can forge this craft and earn its XP') +
       '</span></div>';
   }
-  html += '<div class="alm-scroll">' + almanacTreeHtml(sh, catId) + '</div>';
-  html += '<p class="alm-lead" style="margin-top:8px">Tap a blueprint to unlock or upgrade ' +
-    'it, or to see its requirements.</p>';
+  // the tree itself, drawn to the room left once the window is open
+  html += '<div class="alm-tree-box" id="almTree" data-cat="' + esc(catId) + '"></div>';
   // the named masterworks of this craft, beside the tree rather than on it
-  const named = disciplineItems(catId).filter(function (it) { return it.special; });
   if (named.length) {
-    html += '<p class="shop-cap" style="margin-top:12px">Special Commission Blueprints</p>' +
-      '<div class="alm-specials">';
-    for (const it of named) {
-      const level = blueprintLevel(sh, it.id);
-      const why = level > 0 ? 'Earned \u00b7 level ' + level + ' of ' + SHOP.craft.maxLevel
-        : specialBlocker(sh, it.id) + '.';
-      html += '<button class="alm-special' + (level > 0 ? ' earned' : '') + '" type="button" ' +
-        'data-recipe="' + esc(it.id) + '" aria-label="' + esc(it.name + ', ' + why) + '">' +
-        blueprintSprite(sh, it.id, 'lg') +
-        '<span><span class="nm">' + esc(it.name) + '</span><span class="sub">' + esc(why) +
-        '</span></span></button>';
-    }
-    html += '</div>';
+    html += '<button type="button" class="btn alm-special-link" data-alm-specials="' + esc(catId) +
+      '" aria-label="' + esc(namedLabel) + '">' +
+      'Special Commission Blueprints \u00b7 ' + earned + '/' + named.length + '</button>';
   }
-  return html;
+  return html + '</div>';
+}
+
+/* The named masterworks of a craft: how each is earned, or how far along. */
+function almanacSpecialsHtml(sh, catId) {
+  const cat = shopCategory(catId);
+  const named = disciplineItems(catId).filter(function (it) { return it.special; });
+  let html = '<div class="craft-head">' +
+    '<button class="craft-back" type="button" data-alm-tree="1" aria-label="Back to the ' +
+    esc(cat.name) + ' tree">‹ ' + esc(cat.name) + '</button>' +
+    '<b>Special Commission Blueprints</b></div>' +
+    '<p class="alm-lead">These blueprints are not on the tree. Each is earned only by completing ' +
+    'its Special Commission.</p><div class="alm-specials">';
+  for (const it of named) {
+    const level = blueprintLevel(sh, it.id);
+    const why = level > 0 ? 'Earned · level ' + level + ' of ' + SHOP.craft.maxLevel
+      : specialBlocker(sh, it.id) + '.';
+    html += '<button class="alm-special' + (level > 0 ? ' earned' : '') + '" type="button" ' +
+      'data-recipe="' + esc(it.id) + '" aria-label="' + esc(it.name + ', ' + why) + '">' +
+      blueprintSprite(sh, it.id, 'lg') +
+      '<span><span class="nm">' + esc(it.name) + '</span><span class="sub">' + esc(why) +
+      '</span></span></button>';
+  }
+  return html + '</div>';
 }
 
 function shopAlmanacBody() {
   const sh = shop();
   if (SHOPUI.almanacCat && !shopCategory(SHOPUI.almanacCat)) SHOPUI.almanacCat = null;
-  return SHOPUI.almanacCat ? almanacCraftHtml(sh, SHOPUI.almanacCat) : almanacCraftsHtml(sh);
+  if (!SHOPUI.almanacCat) SHOPUI.almanacSpecials = false;
+  return !SHOPUI.almanacCat ? almanacCraftsHtml(sh)
+    : SHOPUI.almanacSpecials ? almanacSpecialsHtml(sh, SHOPUI.almanacCat)
+      : almanacCraftHtml(sh, SHOPUI.almanacCat);
 }
 
+/* The Almanac is a book: it has the whole window, and a craft's tree page
+   is laid out to fill it exactly. */
 function shopOpenAlmanac() {
   const redraw = function () {
+    SHOPUI.sheetFull = true;
     shopSheet('Checksmith Almanac', shopAlmanacBody(),
       [{ label: 'Close', ghost: true, onClick: shopSheetClose }]);
+    const tree = !!SHOPUI.almanacCat && !SHOPUI.almanacSpecials;
+    $('shopSheet').querySelector('.sheet').classList.toggle('tall', tree);
+    if (tree) almanacDrawTree();
   };
   SHOPUI.redraw = redraw;
   redraw();
@@ -18171,6 +18736,8 @@ function shopOpenSmelt(materialId) {
 function shopToast(text) {
   $('shPromptText').textContent = text;
   announce(text);
+  // the line under the bar is behind any window that is open
+  if (anyWindowOpen()) winToast(text);
 }
 
 /* Taking an action ends the phase: employees finish their jobs, their
@@ -18851,6 +19418,7 @@ function shopTogglePick(catId) {
 
 function shopOpenPicker(done) {
   SHOPUI.picking = [];
+  SHOPUI.sheetFull = true;
   const redraw = function () {
     const ready = SHOPUI.picking.length === SHOP.craft.startingPicks;
     shopSheet('Choose Starting Crafts', shopPickBody(),
@@ -18892,20 +19460,28 @@ function wireShop() {
     const b = e.target.closest ? e.target.closest('[data-act]') : null;
     if (b && !b.disabled) shopAct(b.dataset.act);
   });
-  $('shTabs').addEventListener('click', function (e) {
+  // a drawer opens on the page it was last left at
+  $('shGroups').addEventListener('click', function (e) {
     const g = e.target.closest ? e.target.closest('[data-group]') : null;
-    if (g) {
-      const group = SHOP_TAB_GROUPS.find(function (x) { return x.id === g.dataset.group; });
-      const open = tabGroupOf(SHOPUI.tab);
-      SHOPUI.lastTab = SHOPUI.lastTab || {};
-      if (open === group) { SHOPUI.tab = null; }
-      else { SHOPUI.tab = SHOPUI.lastTab[group.id] || group.tabs[0]; }
-      shopRender();
-      return;
-    }
+    if (!g || SHOPUI.playing) return;
+    const group = SHOP_TAB_GROUPS.find(function (x) { return x.id === g.dataset.group; });
+    SHOPUI.lastTab = SHOPUI.lastTab || {};
+    SHOPUI.tab = SHOPUI.lastTab[group.id] || group.tabs[0];
+    shopRender();
+  });
+  $('shTabs').addEventListener('click', function (e) {
     const b = e.target.closest ? e.target.closest('[data-tab]') : null;
     if (!b) return;
     SHOPUI.tab = b.dataset.tab;
+    shopRender();
+  });
+  $('shDrawerClose').addEventListener('click', function () {
+    SHOPUI.tab = null;
+    shopRender();
+  });
+  $('shCrew').addEventListener('click', function () {
+    if (SHOPUI.playing || !shop().staff.length) return;
+    SHOPUI.tab = 'staff';
     shopRender();
   });
   $('shPanel').addEventListener('click', function (e) {
@@ -19024,20 +19600,7 @@ function wireShop() {
   $('shAdvanceBtn').addEventListener('click', function () {
     shopSpendPhase(shopPhaseName(shop()) + ' ended.');
   });
-  $('shHelpBtn').addEventListener('click', function () { show($('help')); });
-  // Leaving is not losing it any more - the forge keeps its slot, and the
-  // menu lists it waiting. Only an open counter costs anything, because a
-  // selling phase is never saved half way through.
-  $('shMenuBtn').addEventListener('click', function () {
-    if (SHOPUI.session) {
-      askConfirm('You are still serving customers. Leaving now restores the forge to how it ' +
-        'was before this selling phase started.',
-        function () { saveShop(); showTitle(); }, 'Leave', 'Keep Selling', 'Leave the counter?');
-      return;
-    }
-    saveShop();
-    showTitle();
-  });
+  $('shHelpBtn').addEventListener('click', function () { openHelp('shop'); });
 
   // dialog controls: steppers, selects, hire and delegate buttons
   $('shopSheetBody').addEventListener('click', function (e) {
@@ -19140,6 +19703,29 @@ function wireShop() {
     const craftBack = e.target.closest ? e.target.closest('[data-craft-back]') : null;
     if (craftBack) {
       SHOPUI.almanacCat = null;
+      SHOPUI.almanacSpecials = false;
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const tier = e.target.closest ? e.target.closest('[data-alm-tier]') : null;
+    if (tier && !tier.disabled) {
+      SHOPUI.almTier = SHOPUI.almTier || {};
+      SHOPUI.almTier[SHOPUI.almanacCat] = (SHOPUI.almTier[SHOPUI.almanacCat] || 0) + Number(tier.dataset.almTier);
+      almanacDrawTree();
+      if (SOUNDS.tick) SOUNDS.tick();
+      const box = $('almTree');
+      if (box) announce('Showing tiers ' + box.dataset.tiers.replace('/', ' of ').replace('-', ' to ') + '.');
+      return;
+    }
+    const specials = e.target.closest ? e.target.closest('[data-alm-specials]') : null;
+    if (specials) {
+      SHOPUI.almanacSpecials = true;
+      if (SHOPUI.redraw) SHOPUI.redraw();
+      return;
+    }
+    const toTree = e.target.closest ? e.target.closest('[data-alm-tree]') : null;
+    if (toTree) {
+      SHOPUI.almanacSpecials = false;
       if (SHOPUI.redraw) SHOPUI.redraw();
       return;
     }
@@ -19278,6 +19864,20 @@ function wireShop() {
   });
 }
 
+/* Leaving is not losing it any more - the forge keeps its slot, and the
+   menu lists it waiting. Only an open counter costs anything, because a
+   selling phase is never saved half way through. */
+function shopLeave() {
+  if (SHOPUI.session) {
+    askConfirm('You are still serving customers. Leaving now restores the forge to how it ' +
+      'was before this selling phase started.',
+      function () { saveShop(); showTitle(); }, 'Leave', 'Keep Selling', 'Leave the counter?');
+    return;
+  }
+  saveShop();
+  showTitle();
+}
+
 function shopConfirmFire(id) {
   const e = staffById(shop(), id);
   if (!e) return;
@@ -19381,6 +19981,7 @@ function syncTitleUi() {
   const versus = App.mode === 'versus';
   for (const b of document.querySelectorAll('.mode-card')) {
     b.setAttribute('aria-checked', b.dataset.mode === App.mode ? 'true' : 'false');
+    if (b.dataset.mode === App.mode) $('modeAbout').textContent = b.querySelector('.mc-desc').textContent;
   }
   // Endless is not a difficulty you pick: it always starts small and climbs.
   // Versus picks board size and rival skill separately instead, and Open Your
@@ -19419,6 +20020,7 @@ function syncTitleUi() {
 
 function showTitle() {
   musicFor('title');
+  if (!$('shDrawer').hidden) hide($('shDrawer'));
   cancelPending(false);
   App.game = null;
   App.match = null;
@@ -19437,6 +20039,11 @@ function showTitle() {
 
 /* Chrome that differs between the two modes. */
 function syncModeChrome() {
+  fitSoon();
+  // a drawer belongs to the shop floor: it steps aside whenever the floor is
+  // not on screen (the anvil, another mode) and comes back as it was left
+  const drawer = $('shDrawer');
+  if (!drawer.hidden && (App.mode !== 'shop' || SHOPUI.order || SHOPUI.special)) hide(drawer);
   const endless = App.mode === 'endless';
   const versus = App.mode === 'versus';
   // Open Your Forge owns the screen except while an order is on the anvil,
@@ -19450,7 +20057,7 @@ function syncModeChrome() {
     document.querySelector('.board-wrap').hidden = !atAnvil;
     $('forgeActions').hidden = !atAnvil;
     $('prompt').hidden = !atAnvil;
-    $('legendPanel').hidden = !atAnvil;
+    $('legendBtn').hidden = !atAnvil;
     $('bestLine').hidden = true;
     $('statsForge').hidden = !atAnvil;
     $('statsEndless').hidden = true;
@@ -19476,7 +20083,7 @@ function syncModeChrome() {
   // forge one, so reach for the forge row by id.
   $('forgeActions').hidden = versus;
   $('prompt').hidden = versus;
-  $('legendPanel').hidden = versus;
+  $('legendBtn').hidden = versus;
   $('bestLine').hidden = versus;
   // render() owns the stat rows, but it never runs in versus (there is no
   // App.game), so settle them here too.
@@ -19493,7 +20100,7 @@ function syncModeChrome() {
     document.querySelector('.board-wrap').hidden = true;
     $('forgeActions').hidden = true;
     $('prompt').hidden = true;
-    $('legendPanel').hidden = true;
+    $('legendBtn').hidden = true;
     $('bestLine').hidden = true;
     $('statsForge').hidden = true;
   }
@@ -19545,6 +20152,542 @@ function beginRun() {
       : App.game.board.name + ' on the anvil: the point at the top, the tang at the bottom. ' +
         'Choose any square to begin.');
   });
+}
+
+/* ---------- windows and pages ----------------------------------------
+   Nothing on any screen scrolls. Every window is laid out the same way -
+   a head with its title and its Close or Back, an optional row of tabs, a
+   body, a page bar and a foot of actions - and a body that holds more than
+   fits is cut into pages rather than scrolled.
+
+   Paging measures the body's content where it stands, groups it into runs
+   that fit, and sets everything outside the current run aside with
+   display:none. Nothing is moved, copied or re-rendered to turn a page, so
+   the listeners on a body, the focus in it and any form state all survive,
+   and a body that is re-rendered (a stepper tap redraws its whole dialog)
+   stays on the page it was on. A list taller than a page is split between
+   its items; a heading is kept with what follows it; anything else is kept
+   whole.
+
+   A host is any element of fixed height marked .pg-host: every window
+   body, and the few lists on the main screens. A watcher refits a host
+   whenever its content changes or the screen it is on is shown, and every
+   host is refitted when the window is resized. */
+const PAGER = { hosts: [], busy: false };
+
+function pgRegister(host) {
+  if (host._pg) return host;
+  // hosts drawn afresh (the edit tray) replace the ones they were drawn over
+  PAGER.hosts = PAGER.hosts.filter(function (h) { return h.isConnected; });
+  host._pg = { page: 0, count: 1, key: null, mem: {}, atoms: [], groups: [], pages: [] };
+  host.classList.add('pg-host');
+  // the page bar sits right after the body it turns
+  const bar = document.createElement('div');
+  bar.className = 'win-pager';
+  bar.hidden = true;
+  bar.innerHTML = '<button type="button" class="pg-btn" data-pg="-1" aria-label="Previous page">' +
+    '&lsaquo; Prev</button><span class="pg-now" aria-live="polite"></span>' +
+    '<button type="button" class="pg-btn" data-pg="1" aria-label="Next page">Next &rsaquo;</button>';
+  host.insertAdjacentElement('afterend', bar);
+  bar.addEventListener('click', function (e) {
+    const b = e.target.closest ? e.target.closest('[data-pg]') : null;
+    if (b && !b.disabled) pgTurn(host, Number(b.dataset.pg));
+  });
+  host._pgBar = bar;
+  // a body never scrolls, not even to bring a focused control into view:
+  // the page turns to it instead
+  host.addEventListener('scroll', function () {
+    if (host.scrollTop || host.scrollLeft) { host.scrollTop = 0; host.scrollLeft = 0; }
+  });
+  host.addEventListener('focusin', function (e) { pgReveal(e.target); });
+  PAGER.hosts.push(host);
+  return host;
+}
+
+/* What the host's pages are remembered under. A window that shows several
+   things in turn (one dialog after another in the same sheet) names what it
+   is showing, so each opens on its first page and comes back to the page it
+   was left on. */
+function pgKey(host, key) {
+  const st = pgRegister(host)._pg;
+  if (st.key === key) return;
+  st.key = key;
+  st.page = st.mem[key] || 0;
+}
+
+/* A container may be split between its children when it is a plain box of
+   elements - a list, a grid, a column of cards - and not a control or a
+   run of text. */
+function pgSplittable(el) {
+  if (!(el instanceof HTMLElement) || el.dataset.pgWhole != null) return false;
+  if (/^(BUTTON|INPUT|SELECT|TEXTAREA|P|SPAN|B|I|EM|STRONG|LABEL|A|H[1-6]|DETAILS|SUMMARY|LI)$/.test(el.tagName)) return false;
+  let n = 0;
+  for (const node of el.childNodes) {
+    if (node.nodeType === 3 && node.textContent.trim()) return false;
+    if (node.nodeType === 1) n++;
+  }
+  return n > 1;
+}
+function pgKeepNext(el) {
+  return /^H[1-6]$/.test(el.tagName) || el.classList.contains('shop-cap') ||
+    el.classList.contains('pg-keep') || el.classList.contains('title-label');
+}
+/* A box drawn as one thing - a card with a border or a fill - is kept whole
+   when it can be; a plain section or list may be split between its rows. */
+function pgBoxed(cs) {
+  return (parseFloat(cs.borderTopWidth) > 0 && cs.borderTopStyle !== 'none') ||
+    !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.backgroundImage !== 'none';
+}
+function pgItems(el, depth) {
+  const items = [];
+  for (const c of el.children) {
+    if (!c.getClientRects().length) continue;      // hidden by the screen itself
+    const cs = getComputedStyle(c);
+    if (cs.position === 'absolute' || cs.position === 'fixed') continue;
+    const r = c.getBoundingClientRect();
+    const it = { el: c, parent: el, rtop: r.top, keep: pgKeepNext(c), kids: null, soft: false,
+      top: r.top - (parseFloat(cs.marginTop) || 0), bottom: r.bottom + (parseFloat(cs.marginBottom) || 0) };
+    if (depth < 8 && pgSplittable(c)) {
+      const kids = pgItems(c, depth + 1);
+      if (kids.length > 1) { it.kids = kids; it.soft = !pgBoxed(cs); }
+    }
+    items.push(it);
+  }
+  return items;
+}
+/* Items side by side in a grid share a row and turn over together. */
+function pgRows(items) {
+  const rows = [];
+  for (const a of items) {
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(last.rtop - a.rtop) < 2) {
+      last.items.push(a);
+      last.top = Math.min(last.top, a.top);
+      last.bottom = Math.max(last.bottom, a.bottom);
+    } else {
+      rows.push({ rtop: a.rtop, top: a.top, bottom: a.bottom, items: [a], keep: a.keep });
+    }
+  }
+  return rows;
+}
+function pgBreak(ctx, row) {
+  const fresh = [];
+  // a heading at the foot of a page goes over with what it heads
+  while (ctx.cur.length > 1 && ctx.cur[ctx.cur.length - 1].keep) fresh.unshift(ctx.cur.pop());
+  ctx.cur = fresh;
+  ctx.pages.push(fresh);
+  ctx.start = (fresh[0] || row).top;
+}
+/* Lay rows into pages of height H. A row that does not fit what is left of
+   the page goes over to the next - unless it is a plain section or list,
+   which is split between its own rows instead, or a box too tall for any
+   page, which has to be. */
+function pgLay(items, H, ctx) {
+  for (const row of pgRows(items)) {
+    if (ctx.start == null) ctx.start = row.top;
+    if (row.bottom - ctx.start <= H) { ctx.cur.push(row); continue; }
+    const one = row.items.length === 1 ? row.items[0] : null;
+    if (one && one.kids && (one.soft || row.bottom - row.top > H)) {
+      ctx.groups.push(one.el);
+      pgLay(one.kids, H, ctx);
+      continue;
+    }
+    if (ctx.cur.length) pgBreak(ctx, row);
+    ctx.cur.push(row);
+  }
+}
+function pgShow(host) {
+  const st = host._pg;
+  const page = st.pages[st.page] || [];
+  const on = new Set();
+  for (const r of page) for (const a of r.items) on.add(a.el);
+  for (const a of st.atoms) a.el.classList.toggle('pg-off', !on.has(a.el));
+  for (const g of st.groups) {
+    let any = false;
+    for (const el of on) if (g.contains(el)) { any = true; break; }
+    g.classList.toggle('pg-off', !any);
+  }
+}
+function pgSync(host) {
+  const st = host._pg, bar = host._pgBar;
+  bar.hidden = st.count < 2;
+  bar.querySelector('.pg-now').textContent = 'Page ' + (st.page + 1) + ' of ' + st.count;
+  bar.querySelector('[data-pg="-1"]').disabled = st.page <= 0;
+  bar.querySelector('[data-pg="1"]').disabled = st.page >= st.count - 1;
+  host.dataset.page = String(st.page + 1);
+  host.dataset.pages = String(st.count);
+}
+function pgOverflow(host) { return host.scrollHeight - host.clientHeight; }
+
+function pgFit(host) {
+  const st = pgRegister(host)._pg;
+  for (const el of host.querySelectorAll('.pg-off')) el.classList.remove('pg-off');
+  host.style.height = '';
+  st.atoms = []; st.groups = []; st.pages = [];
+  if (!host.getClientRects().length || !host.clientHeight) { st.count = 1; pgSync(host); return; }
+  host._pgBar.hidden = true;
+  if (pgOverflow(host) <= 1) { st.count = 1; st.page = 0; pgSync(host); return; }
+  // with the bar showing, so its height is already taken from the body
+  host._pgBar.hidden = false;
+  const active = document.activeElement && host.contains(document.activeElement)
+    ? document.activeElement : null;
+  const hs = getComputedStyle(host);
+  const full = host.clientHeight;
+  // pinned while the pages are measured, so a short page cannot shrink it
+  host.style.height = full + 'px';
+  // two pixels in hand for rounding, and for a line that settles a moment late
+  let H = full - (parseFloat(hs.paddingTop) || 0) - (parseFloat(hs.paddingBottom) || 0) - 2;
+  for (let pass = 0; pass < 5; pass++) {
+    for (const el of host.querySelectorAll('.pg-off')) el.classList.remove('pg-off');
+    const ctx = { cur: [], pages: [], start: null, groups: [] };
+    ctx.pages.push(ctx.cur);
+    pgLay(pgItems(host, 0), H, ctx);
+    st.pages = ctx.pages.filter(function (p) { return p.length; });
+    st.groups = ctx.groups;
+    st.atoms = [];
+    for (const p of st.pages) for (const r of p) for (const a of r.items) st.atoms.push(a);
+    st.count = Math.max(1, st.pages.length);
+    // every page must fit as shown, margins and all; if one does not, the
+    // runs are cut shorter by what it overran and laid out again
+    let worst = 0;
+    for (let p = 0; p < st.pages.length; p++) {
+      st.page = p;
+      pgShow(host);
+      const over = pgOverflow(host);
+      if (over > worst && st.pages[p].length > 1) worst = over;
+    }
+    if (worst <= 1) break;
+    H -= worst;
+  }
+  st.page = Math.max(0, Math.min(st.count - 1, st.mem[st.key] != null ? st.mem[st.key] : st.page));
+  // a redraw keeps the control the player was using in view
+  if (active && active.isConnected) {
+    const at = st.pages.findIndex(function (p) {
+      return p.some(function (r) { return r.items.some(function (a) { return a.el.contains(active); }); });
+    });
+    if (at >= 0 && at !== st.page) st.page = at;
+  }
+  st.mem[st.key] = st.page;
+  // a window keeps one size through its pages, short last page or not
+  if (st.count < 2) host.style.height = '';
+  pgShow(host);
+  pgSync(host);
+}
+
+function pgTurn(host, by) {
+  const st = host._pg;
+  const to = Math.max(0, Math.min(st.count - 1, st.page + by));
+  if (to === st.page) return;
+  st.page = to;
+  st.mem[st.key] = to;
+  pgShow(host);
+  pgSync(host);
+  if (SOUNDS.tick) SOUNDS.tick();
+}
+/* Turn to the page holding an element (for links into a long window). */
+function pgReveal(el) {
+  const host = el && el.closest ? el.closest('.pg-host') : null;
+  if (!host || !host._pg) return false;
+  const st = host._pg;
+  const at = st.pages.findIndex(function (p) {
+    return p.some(function (r) { return r.items.some(function (a) { return a.el.contains(el) || a.el === el; }); });
+  });
+  if (at < 0 || at === st.page) return at >= 0;
+  st.page = at;
+  st.mem[st.key] = at;
+  pgShow(host);
+  pgSync(host);
+  return true;
+}
+function pgRefit(host) { if (host && host._pg) pgFit(host); }
+function pgRefitAll() {
+  for (const h of PAGER.hosts) pgFit(h);
+}
+
+/* ---------- one window at a time ----------
+   Windows open over the screen they belong to, which stays visible behind
+   them. When one window opens another (a stand opened from the Shelves
+   drawer, a hand from the Staff drawer), the one underneath steps out of
+   sight until the new one closes, so there is only ever one to read and its
+   Back leads to the one before. Confirmations and the name field are small
+   questions about the window under them, and leave it in view. */
+const WIN_STACK = ['results', 'shop', 'shDrawer', 'shopSheet', 'help', 'infoWin'];
+function winStack() {
+  let top = null;
+  for (let i = WIN_STACK.length - 1; i >= 0; i--) {
+    const el = $(WIN_STACK[i]);
+    if (!el) continue;
+    if (!el.hidden && !top) { top = el; el.classList.remove('win-under'); continue; }
+    el.classList.toggle('win-under', !el.hidden && !!top);
+  }
+}
+
+/* The way out of whatever is on top: Back for a window that came from
+   another, Close for one that did not. A window with neither must be
+   answered; Back does nothing there rather than lose the question. */
+function winBack() {
+  const order = ['confirm', 'nameForge', 'infoWin', 'help', 'shopSheet', 'shDrawer', 'shop', 'results'];
+  for (const id of order) {
+    const el = $(id);
+    if (!el || el.hidden) continue;
+    if (id === 'confirm') { $('confirmNo').click(); return true; }
+    if (id === 'nameForge') { closeForgeName(); return true; }
+    if (id === 'results') { $('rChange').click(); return true; }
+    const back = el.querySelector('.win-head [data-win-back]');
+    if (back && !back.disabled && !back.hidden) back.click();
+    return true;
+  }
+  return false;
+}
+
+/* Android's back gesture (and Escape) follow the same path as the buttons:
+   the top window first, then the targeting or editing mode, then the main
+   menu. On the main menu itself it reports false, and the app closes. */
+function navBack(fromKey) {
+  if (!$('intro').hidden) { introSkip(); return true; }
+  if (winBack()) return true;
+  if (VS.targeting) { vsCancelTargeting(); return true; }
+  if (App.mode === 'shop' && App.shop && !$('shopView').hidden) {
+    if (SHOPUI.playing) { shopSkipPhase(); return true; }
+    if (SHOPUI.editing) { shopEditMode(false); return true; }
+  }
+  if (!$('titleScreen').hidden) return false;
+  if (fromKey) return false;
+  $('menuBtn').click();
+  return true;
+}
+
+/* A short note over everything, for a result announced while a window
+   covers the line it would normally be written on. */
+function winToast(text) {
+  const t = $('toast');
+  if (!t) return;
+  t.textContent = text;
+  t.hidden = false;
+  t.classList.remove('go');
+  void t.offsetWidth;
+  t.classList.add('go');
+  clearTimeout(winToast.timer);
+  winToast.timer = setTimeout(function () { t.hidden = true; }, 2600);
+}
+function anyWindowOpen() {
+  return WIN_STACK.concat(['confirm', 'nameForge']).some(function (id) {
+    const el = $(id);
+    return el && !el.hidden;
+  });
+}
+
+/* A plain window for reference text: the symbols on this board, and the
+   like. It has a Close and pages like any other. */
+function infoWindow(title, html, key) {
+  $('infoWinTitle').textContent = title;
+  pgKey($('infoWinBody'), key || title);
+  $('infoWinBody').innerHTML = html;
+  show($('infoWin'));
+}
+
+function winInit() {
+  for (const body of document.querySelectorAll('.win-body')) pgRegister(body);
+  for (const el of document.querySelectorAll('[data-pg-host]')) pgRegister(el);
+  // refit whatever changed: a body re-rendered, a window or screen shown
+  const watch = new MutationObserver(function (records) {
+    if (PAGER.busy) return;
+    const todo = new Set();
+    let stack = false;
+    for (const r of records) {
+      const t = r.target.nodeType === 1 ? r.target : r.target.parentElement;
+      if (!t || (t.closest && t.closest('.win-pager'))) continue;
+      if (r.type === 'attributes') {
+        if (t.classList.contains('overlay')) stack = true;
+        for (const h of PAGER.hosts) {
+          const scope = h.closest('.sheet') || h.parentElement;
+          if (t.contains(h) || (scope && scope.contains(t))) todo.add(h);
+        }
+      } else {
+        const h = t.closest('.pg-host');
+        if (h) todo.add(h);
+      }
+    }
+    PAGER.busy = true;
+    try {
+      if (stack) winStack();
+      for (const h of todo) pgFit(h);
+    } finally {
+      PAGER.busy = false;
+      watch.takeRecords();
+    }
+  });
+  watch.observe(document.body, { subtree: true, childList: true, characterData: true,
+    attributes: true, attributeFilter: ['hidden'] });
+  let resizeTimer = 0;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      PAGER.busy = true;
+      try { fitScreen(); pgRefitAll(); if ($('almTree')) almanacDrawTree(); } finally { PAGER.busy = false; }
+    }, 60);
+  });
+  // a row that grows or shrinks (a longer prompt, a second line of rent)
+  // changes the room the board or the storefront is given
+  if (window.ResizeObserver) {
+    const rows = new ResizeObserver(function () { fitSoon(); });
+    const sel = '.app > *:not(.board-wrap):not(#shopView):not(#versusView):not(#designView), ' +
+      '#shopView > *:not(.scene-wrap):not(.edit-tray), #versusView > *:not(.vs-boards), ' +
+      '.vs-panel > *:not(.vs-board), #shSceneTools';
+    for (const el of document.querySelectorAll(sel)) rows.observe(el);
+    rows.observe(document.querySelector('.app'));
+  }
+  window.checksmithBack = function () { return navBack(false); };
+}
+
+/* ---------- fitting each screen to the phone --------------------------
+   The app is exactly one screen tall and never scrolls. Every row but one
+   keeps its natural height, and the one that is left - the board, the two
+   Versus boards, or the storefront - is sized to whatever room remains,
+   so the whole board is always in view at once. */
+function fitRows(host, skip) {
+  // the height every visible row but `skip` takes, gaps and padding included
+  const cs = getComputedStyle(host);
+  const gap = parseFloat(cs.rowGap) || 0;
+  let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  let rows = 0;
+  for (const el of host.children) {
+    if (!el.getClientRects().length) continue;
+    const p = getComputedStyle(el).position;
+    if (p === 'absolute' || p === 'fixed') continue;
+    rows++;
+    if (skip.indexOf(el) >= 0) continue;
+    const st = getComputedStyle(el);
+    used += el.getBoundingClientRect().height + (parseFloat(st.marginTop) || 0) +
+      (parseFloat(st.marginBottom) || 0);
+  }
+  return used + gap * Math.max(0, rows - 1);
+}
+
+function fitBoard(app) {
+  const wrap = document.querySelector('.board-wrap');
+  if (!wrap || wrap.hidden || !wrap.getClientRects().length) return;
+  const board = $('board');
+  const cs = getComputedStyle(app);
+  let innerW = app.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  let availH = Math.max(140, app.clientHeight - fitRows(app, [wrap]));
+  // on its side the board has a column of its own, under the top bar
+  if (cs.display === 'grid') {
+    innerW = (innerW - (parseFloat(cs.columnGap) || 0)) / 2;
+    availH = app.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0) -
+      document.querySelector('.topbar').getBoundingClientRect().height - (parseFloat(cs.rowGap) || 0);
+  }
+  const n = Number(board.style.getPropertyValue('--n')) || 4;
+  if (board.dataset.shape) {
+    // a shaped piece: as large as both the width and the height allow, with
+    // room above the top row for the point and below for the glow
+    const rows = Number(board.style.getPropertyValue('--rows')) || n;
+    const side = Number(board.style.getPropertyValue('--side')) || 0;
+    const padY = 18, padX = 16;
+    // a tall piece on a short screen closes up its gaps before its squares shrink
+    let gap = 6, sq = 0;
+    for (const g of [6, 4]) {
+      gap = g;
+      const byW = ((innerW - padX) * n / (n + 2 * side) - (n - 1) * gap) / n;
+      const byH = (availH - padY - (rows - 1) * gap - 0.62 * gap) / (rows + 0.62);
+      sq = Math.max(16, Math.min(byW, byH, (484 - (n - 1) * gap) / n));
+      if (sq >= 26) break;
+    }
+    board.style.setProperty('--gap', gap + 'px');
+    board.style.setProperty('--piece-w', (sq * n + (n - 1) * gap).toFixed(1) + 'px');
+    wrap.style.width = '';
+    wrap.style.height = '';
+  } else {
+    board.style.removeProperty('--piece-w');
+    board.style.removeProperty('--gap');
+    const frame = 16;   // the panel's padding and border
+    const side = Math.max(120, Math.min(innerW, availH));
+    wrap.style.width = Math.floor(side) + 'px';
+    wrap.style.height = '';
+    void frame;
+  }
+}
+
+function fitVersus() {
+  const view = $('versusView');
+  if (!view || view.hidden || !view.getClientRects().length) return;
+  const boards = $('vsBoards');
+  const panels = Array.prototype.filter.call(boards.querySelectorAll('.vs-panel'), function (p) {
+    return p.getClientRects().length;
+  });
+  if (!panels.length) return;
+  const H = boards.clientHeight;
+  let width = Infinity, height = Infinity;
+  for (const p of panels) {
+    const b = p.querySelector('.vs-board');
+    const pc = getComputedStyle(p);
+    const padX = (parseFloat(pc.paddingLeft) || 0) + (parseFloat(pc.paddingRight) || 0) + 2;
+    const padY = (parseFloat(pc.paddingTop) || 0) + (parseFloat(pc.paddingBottom) || 0) + 2;
+    let chrome = padY;
+    for (const c of p.children) if (c !== b && c.getClientRects().length) {
+      const s = getComputedStyle(c);
+      chrome += c.getBoundingClientRect().height + (parseFloat(s.marginTop) || 0) +
+        (parseFloat(s.marginBottom) || 0);
+    }
+    width = Math.min(width, p.clientWidth - padX + 2);
+    height = Math.min(height, H - chrome);
+  }
+  boards.style.setProperty('--vs-w', Math.floor(Math.max(90, Math.min(width, height))) + 'px');
+}
+
+/* The storefront keeps its drawing scale on most phones, is drawn a little
+   larger on a tall one, and on a short one is drawn smaller as a whole -
+   never cropped - so every station and stand is still in it. */
+function fitShop() {
+  const view = $('shopView');
+  if (!view || view.hidden || !view.getClientRects().length) return;
+  const wrap = $('shSceneWrap');
+  const tools = $('shSceneTools');
+  const side = getComputedStyle(view).display === 'grid';
+  // on its side the room has a column of its own; upright it shares one
+  const avail = (side ? view.clientHeight : view.clientHeight - fitRows(view, [wrap])) -
+    (tools.getClientRects().length ? tools.getBoundingClientRect().height + 6 : 0) - 2;
+  // The scale moves in steps of 5%, shrinking at once when the room would not
+  // fit but growing only when there is clearly room, so a line of text that
+  // comes and goes does not make the room - and its views - creep about.
+  const want = Math.max(0.62, Math.min(1.2, avail / SCENE.H));
+  const cur = view.style.getPropertyValue('--scene-s') ? SHOPUI.sceneScale || 0 : 0;
+  let s = cur;
+  if (!cur || want < cur - 0.001 || want >= cur + 0.05) s = Math.max(0.62, Math.floor(want * 20 + 1e-6) / 20);
+  if (s !== cur) {
+    SHOPUI.sceneScale = s;
+    view.style.setProperty('--scene-s', s.toFixed(4));
+    sceneSize();
+  }
+  // Edit Shop's tray lies over the rows under the room, from just below it
+  // to the foot of the screen
+  const tray = $('shEditTray');
+  const top = side ? 0 : wrap.offsetTop + wrap.offsetHeight + 7;
+  tray.style.left = side ? (wrap.offsetWidth + 14) + 'px' : '0';
+  if (tray.style.top !== top + 'px') {
+    tray.style.top = top + 'px';
+    const body = tray.querySelector('.tray-body');
+    if (body && !tray.hidden) pgFit(body);
+  }
+}
+
+let fitQueued = 0;
+function fitScreen() {
+  fitQueued = 0;
+  const app = document.querySelector('.app');
+  if (!app) return;
+  PAGER.busy = true;
+  try {
+    fitShop();
+    fitVersus();
+    fitBoard(app);
+  } finally {
+    PAGER.busy = false;
+  }
+}
+function fitSoon() {
+  if (fitQueued) return;
+  fitQueued = requestAnimationFrame(fitScreen);
 }
 
 /* ---------- overlays ------------------------------------------------ */
@@ -20301,8 +21444,12 @@ function helpHtml() {
 
   html += H('The Shop Screen');
   html += P('Tap the counter, forge, storeroom, blueprint table, noticeboard, door or sign to ' +
-    'see their actions. The Inventory, Business and Staff drawers hold the other tabs. Tap ' +
-    'the sign for Shop Settings, including the phase animation.');
+    'see their actions. <b>Workshop</b>, <b>Floor</b> and <b>Front</b> under the room change ' +
+    'the view, and a sideways swipe moves to the next view; a large shop\'s floor has several ' +
+    'sections, and pressing Floor again moves along it. The Inventory, Business and Staff ' +
+    'buttons open drawers, each a window with its own tabs. A window that holds more than fits ' +
+    'turns in pages with Prev and Next. Tap the sign for Shop Settings, including the phase ' +
+    'animation.');
   html += P('When a phase ends, the camera moves to each employee who did their job, one at a ' +
     'time, and returns to where you left it. <b>Skip Animations</b> ends this at once; ' +
     'swiping the room takes the camera back for the rest of the phase; and <b>Automatically ' +
@@ -20318,6 +21465,49 @@ function helpHtml() {
     'spent square that becomes a hole when you leave it. Holes cannot be struck. Tap, Enter, ' +
     'Space or Escape skips the opening.');
   return html;
+}
+
+/* ---------- How to Play, by topic ---------- */
+const HELP_TABS = [
+  { id: 'basics', name: 'Basics', heads: ['Movement', 'Board Markers'] },
+  { id: 'forge', name: 'Forge', heads: ['Forge'] },
+  { id: 'endless', name: 'Endless', heads: ['Endless'] },
+  { id: 'versus', name: 'Versus', heads: ['Versus'] },
+  { id: 'shop', name: 'Your Forge', heads: null }
+];
+/* The text is written as one document; it is filed under its tabs by its
+   headings, everything about the shop under the shop's tab. */
+function helpBuild() {
+  const by = {};
+  for (const part of helpHtml().split(/(?=<h2 )/)) {
+    const m = /<h2[^>]*>([^<]*)<\/h2>/.exec(part);
+    const head = m ? m[1] : 'Movement';
+    const tab = HELP_TABS.find(function (t) { return t.heads && t.heads.indexOf(head) >= 0; }) ||
+      HELP_TABS[HELP_TABS.length - 1];
+    (by[tab.id] = by[tab.id] || []).push(part);
+  }
+  $('helpBody').innerHTML = HELP_TABS.map(function (t) {
+    return '<section class="help-sec" data-help="' + t.id + '" hidden>' + (by[t.id] || []).join('') +
+      '</section>';
+  }).join('');
+  $('helpTabs').innerHTML = HELP_TABS.map(function (t) {
+    return '<button type="button" class="win-tab" role="tab" data-help-tab="' + t.id +
+      '" aria-selected="false">' + t.name + '</button>';
+  }).join('');
+}
+function helpTab(id) {
+  for (const s of $('helpBody').querySelectorAll('.help-sec')) s.hidden = s.dataset.help !== id;
+  for (const b of $('helpTabs').querySelectorAll('[data-help-tab]')) {
+    b.setAttribute('aria-selected', b.dataset.helpTab === id ? 'true' : 'false');
+  }
+  pgKey($('helpBody'), id);
+  pgFit($('helpBody'));
+}
+function openHelp(topic) {
+  const id = topic || (App.mode === 'shop' && App.shop ? 'shop' : $('titleScreen').hidden &&
+    ['forge', 'endless', 'versus'].indexOf(App.mode) >= 0 ? App.mode : 'basics');
+  show($('help'));
+  helpTab(id);
 }
 
 function boot() {
@@ -20437,7 +21627,7 @@ function boot() {
   }
   $('vsOverviewBtn').addEventListener('click', () => { VS.focus = 'none'; vsRenderMatch(); });
   $('vsCancelBtn').addEventListener('click', vsCancelTargeting);
-  $('vsHelpBtn').addEventListener('click', () => show($('help')));
+  $('vsHelpBtn').addEventListener('click', () => openHelp('versus'));
   $('vsConcedeBtn').addEventListener('click', () => {
     if (!App.match || matchOver(App.match)) return;
     askDiscard('Conceding ends the match as a loss.', () => {
@@ -20450,8 +21640,10 @@ function boot() {
   $('beginBtn').addEventListener('click', beginRun);
   $('shopBtn').addEventListener('click', () => { renderShop(); show($('shop')); });
   $('shopClose').addEventListener('click', () => hide($('shop')));
-  $('titleHelpBtn').addEventListener('click', () => show($('help')));
+  $('titleHelpBtn').addEventListener('click', () => openHelp());
   $('menuBtn').addEventListener('click', () => {
+    // from the shop floor, the menu is the way out of the forge
+    if (App.mode === 'shop' && App.shop && !SHOPUI.order && !SHOPUI.special) { shopLeave(); return; }
     if (App.mode === 'shop') {
       askDiscard('The forge is saved with this board as it is. You can finish it when you return.',
         () => { saveShop(); showTitle(); }, 'Return to main menu?', 'Leave');
@@ -20495,7 +21687,7 @@ function boot() {
     if (card) pickDesign(card.dataset.design);
   });
   $('designMenuBtn').addEventListener('click', showTitle);
-  $('designHelpBtn').addEventListener('click', () => show($('help')));
+  $('designHelpBtn').addEventListener('click', () => openHelp('forge'));
   for (const b of document.querySelectorAll('.difficulty:not(#titleDiff) .diff-btn')) {
     b.addEventListener('click', () => setDifficulty(b.dataset.diff, false));
   }
@@ -20509,9 +21701,18 @@ function boot() {
       loadBoard(App.difficulty, () => { buildLegend(); announce('New board. Choose any square to begin.'); });
     }, 'New board?', 'Load');
   });
-  $('helpBody').innerHTML = helpHtml();
-  $('helpBtn').addEventListener('click', () => show($('help')));
+  helpBuild();
+  $('helpTabs').addEventListener('click', (e) => {
+    const b = e.target.closest ? e.target.closest('[data-help-tab]') : null;
+    if (b) helpTab(b.dataset.helpTab);
+  });
+  $('helpBtn').addEventListener('click', () => openHelp());
   $('helpClose').addEventListener('click', () => hide($('help')));
+  $('legendBtn').addEventListener('click', () => {
+    infoWindow('Symbols on This Board', $('legendBody').innerHTML, 'legend');
+  });
+  $('infoWinClose').addEventListener('click', () => hide($('infoWin')));
+  winInit();
 
   $('muteBtn').addEventListener('click', () => {
     Sound.setMuted(!Sound.muted);
@@ -20555,12 +21756,8 @@ function boot() {
   $('confirmNo').addEventListener('click', () => { App.confirmAction = null; hide($('confirm')); });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (!$('confirm').hidden) { App.confirmAction = null; hide($('confirm')); }
-    else if (!$('nameForge').hidden) { closeForgeName(); }
-    else if (!$('shop').hidden) { hide($('shop')); }
-    else if (VS.targeting) { vsCancelTargeting(); }
-    else if (!$('help').hidden) { hide($('help')); }
+    if (e.key !== 'Escape' || !$('intro').hidden) return;
+    navBack(true);
   });
 
   // Leaving the page must not strand a half-applied strike, and must not
@@ -20607,6 +21804,21 @@ window.CHECKSMITH = { core: CHECKSMITH_CORE, app: App, sound: Sound, sounds: SOU
   setPhaseAnim: function (on) { Store.patch({ phaseAnim: !!on }); },
   setWorkerCam: function (on) { Store.patch({ workerCam: !!on }); },
   showDesigns: showDesigns, pickDesign: pickDesign,
+  /* Windows turn in pages now. `reveal` turns whichever window holds the
+     first match of a selector to the page it is on, exactly as pressing
+     Next would; `pages` reports where every visible pager stands. */
+  reveal: function (sel) {
+    let el = null;
+    try { el = document.querySelector(sel); } catch (err) { return false; }
+    return el ? pgReveal(el) : false;
+  },
+  pages: function () {
+    return PAGER.hosts.filter(function (h) { return h.isConnected && h.getClientRects().length; })
+      .map(function (h) { return { id: h.id || h.className, page: h._pg.page + 1, of: h._pg.count }; });
+  },
+  pgTurn: function (sel, by) { pgTurn(document.querySelector(sel), by); },
+  checksmithBack: function () { return navBack(false); },
+  fitScreen: fitScreen, syncModeChrome: syncModeChrome, sceneView: sceneView, sceneStep: sceneStep,
   /* The Forge mode works its handcrafted piece now, but the square boards it
      used to deal are still the boards Endless and Open Your Forge's anvil
      play on. This puts one back on the Forge screen, for the tests that check

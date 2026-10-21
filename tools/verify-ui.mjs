@@ -132,6 +132,46 @@ async function pickDifficulty(page, key, size) {
     size, { timeout: 10000 });
 }
 
+/* Windows turn in pages instead of scrolling (1.43). A click on something
+   in a long window first turns that window to the page the target is on -
+   exactly what pressing Next until it shows would do - so the walkthroughs
+   below read as a player would play them. */
+function paged(page) {
+  /* And reading a window's text reads all of its pages, as a player turning
+     through them would. Only the test page sees this; the game is as is. */
+  page.addInitScript(() => {
+    const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'innerText');
+    Object.defineProperty(HTMLElement.prototype, 'innerText', {
+      configurable: true,
+      get() {
+        const off = Array.from(this.querySelectorAll('.pg-off'));
+        if (this.classList.contains('pg-off')) off.push(this);
+        for (const el of off) el.classList.remove('pg-off');
+        try { return d.get.call(this); } finally { for (const el of off) el.classList.add('pg-off'); }
+      },
+      set(v) { d.set.call(this, v); }
+    });
+  });
+  for (const name of ['click', 'dblclick', 'tap', 'hover', 'focus', 'fill', 'check', 'uncheck',
+    'selectOption', 'press', 'type']) {
+    const raw = page[name].bind(page);
+    page[name] = async (sel, ...rest) => {
+      await page.evaluate((s) => {
+        if (!window.CHECKSMITH || !window.CHECKSMITH.reveal) return;
+        // a drawer is a window over the room: reaching past it means closing it
+        const el = document.querySelector(s);
+        const drawer = document.getElementById('shDrawer');
+        if (el && el.closest('#shopView') && drawer && !drawer.hidden) {
+          document.getElementById('shDrawerClose').click();
+        }
+        window.CHECKSMITH.reveal(s);
+      }, sel).catch(() => {});
+      return raw(sel, ...rest);
+    };
+  }
+  return page;
+}
+
 async function run() {
   if (fs.existsSync(SHOTS)) fs.rmSync(SHOTS, { recursive: true, force: true });
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -139,7 +179,7 @@ async function run() {
 
   /* ============ narrow phone, default difficulty ============ */
   let ctx = await browser.newContext({ viewport: { width: 320, height: 700 }, deviceScaleFactor: 2 });
-  let page = await ctx.newPage();
+  let page = paged(await ctx.newPage());
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
@@ -620,15 +660,17 @@ async function run() {
   /* The Android shell hands the hardware back gesture to the page with
      exactly this snippet, so test the snippet against the real page. */
   section('Android back-button handler (as used by the APK shell)');
-  const BACK = `(function(){
-      var open=document.querySelector('.overlay:not([hidden])');
-      if(!open) return false;
-      var close=open.querySelector('#helpClose,#confirmNo,#rChange');
-      if(close){close.click();} else {open.hidden=true;}
-      return true;
-    })()`;
-  ok('returns false when no dialog is open, so the app would exit',
-    (await page.evaluate(BACK)) === false);
+  // the snippet MainActivity runs, read from the shell itself
+  const javaSrc = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '..',
+    'android/app/src/main/java/com/bluespindash/checksmith/MainActivity.java'), 'utf8');
+  const BACK = javaSrc.slice(javaSrc.indexOf('web.evaluateJavascript(\n                "(function(){"'))
+    .split('value ->')[0].match(/"([^"]*)"/g).map((q) => q.slice(1, -1)).join('');
+  ok('the shell hands Back to the page', /window\.checksmithBack/.test(BACK), BACK.slice(0, 80));
+  ok('on a board with nothing open, Back asks before leaving for the menu',
+    (await page.evaluate(BACK)) === true && await page.isVisible('#confirm') &&
+    /main menu/i.test(await page.textContent('#confirmTitle')));
+  ok('and Back again answers No: the board stays', (await page.evaluate(BACK)) === true &&
+    await page.isHidden('#confirm') && await page.isHidden('#titleScreen'));
   await page.click('#helpBtn');
   ok('how to play is open', await page.isVisible('#help'));
   ok('back reports it handled the press', (await page.evaluate(BACK)) === true);
@@ -650,6 +692,8 @@ async function run() {
   if (await page.isVisible('#confirm')) await page.click('#confirmYes');
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   ok('the menu button returns to the title screen', await page.isVisible('#titleScreen'));
+  ok('on the main menu, Back reports false so the app closes',
+    (await page.evaluate(BACK)) === false && await page.isVisible('#titleScreen'));
   ok('the run is put down when leaving', await page.evaluate(() => window.CHECKSMITH.app.game === null));
   ok('all four modes are offered', (await page.locator('.mode-card').count()) === 4);
   await page.click('.mode-card[data-mode="forge"]');
@@ -1103,7 +1147,7 @@ async function run() {
       statsEndless: shown('#statsEndless'),
       materialBar: shown('#materialBar'),
       forgeActions: shown('#forgeActions'),
-      legend: shown('#legendPanel'),
+      legend: shown('#legendBtn'),
       bestLine: shown('#bestLine'),
       versusView: shown('#versusView')
     };
@@ -1816,7 +1860,7 @@ async function run() {
     stars: document.getElementById('shStars').getAttribute('aria-label'),
     actions: Array.from(document.querySelectorAll('#shActions .act-btn'))
       .map((b) => b.querySelector('b').textContent),
-    tabs: Array.from(document.querySelectorAll('#shTabs .tab-group'))
+    tabs: Array.from(document.querySelectorAll('#shGroups [data-group]'))
       .map((b) => b.textContent.replace(/[^A-Za-z ]/g, '').trim()),
     names: Array.from(document.querySelectorAll('#shActions .act-btn'))
       .map((b) => b.getAttribute('aria-label').split(' — ')[0]),
@@ -2384,7 +2428,7 @@ async function run() {
   ok('the metal was spent only on success',
     batch.silverLeft === 6 - batch.made, JSON.stringify(batch));
   ok('the batch is not available yet', /start of tomorrow/i.test(batch.body), batch.body);
-  await page.click('#shopSheetActions button');
+  await page.click('#shopSheet [data-at="0"]');
   await page.waitForTimeout(250);
   ok('working the anvil spent the phase', await page.evaluate(
     () => document.getElementById('shPhase').textContent === 'Afternoon'));
@@ -2397,7 +2441,7 @@ async function run() {
   await page.waitForTimeout(200);
   await page.click('#shAdvanceBtn');
   await page.waitForTimeout(350);
-  if (await page.isVisible('#shopSheet')) await page.click('#shopSheetActions button');
+  if (await page.isVisible('#shopSheet')) await page.click('#shopSheet [data-at="0"]');
   await page.waitForTimeout(200);
   const nextDay = await page.evaluate(() => ({
     day: document.getElementById('shDay').textContent,
@@ -2438,13 +2482,16 @@ async function run() {
     title: document.getElementById('shopSheetTitle').textContent,
     body: document.getElementById('shopSheetBody').innerText,
     actions: Array.from(document.querySelectorAll('#shopSheetActions .btn'))
-      .map((b) => b.textContent)
+      .map((b) => b.textContent),
+    // the way back sits in the window's head, as in every window
+    back: document.querySelector('#shopSheetBack [data-win-back]') ?
+      document.querySelector('#shopSheetBack [data-win-back]').textContent : null
   }));
   ok('a stand says what it is, what it holds and what it will take',
     /Display|Stand|Rack|Goods/.test(panel.title) && /Accepts/.test(panel.body) &&
     /Empty/.test(panel.body), JSON.stringify(panel).slice(0, 320));
   ok('and offers stocking, re-purposing and selling it back',
-    panel.actions.join(',') === 'Stock Stand,Change Stand Type,Move Stand,Sell Stand,Back',
+    panel.actions.join(',') === 'Stock Stand,Change Stand Type,Move Stand,Sell Stand' && panel.back === 'Back',
     panel.actions.join(','));
 
   await page.click('#shopSheetActions .btn.primary');
@@ -2454,7 +2501,7 @@ async function run() {
     boxes: document.querySelectorAll('#shopSheetBody .shelf-box').length,
     stands: window.CHECKSMITH.app.shop.stands.length,
     lines: document.querySelectorAll('#shopSheetBody [data-take]').length,
-    confirmOff: document.querySelector('#shopSheetActions button').disabled
+    confirmOff: document.querySelector('#shopSheet [data-at="0"]').disabled
   }));
   ok('stocking a stand opens straight on what that stand would take',
     /Choose Items for This Stand/.test(grid.title) && grid.lines > 0, JSON.stringify(grid));
@@ -2463,13 +2510,13 @@ async function run() {
   await page.waitForTimeout(120);
   ok('the picker stays open so a stand can be filled in one visit',
     /\d+ \/ \d+ items/.test(await page.textContent('#shopSheetBody')));
-  await page.click('#shopSheetActions .btn.ghost');       // back to the floor
+  await page.click('#shopSheet [data-ghost]');       // back to the floor
   await page.waitForTimeout(120);
   const oneIn = await page.evaluate(() => ({
     picked: document.querySelectorAll('#shopSheetBody .shelf-box.pick').length,
     boxes: document.querySelectorAll('#shopSheetBody .shelf-box').length,
     stands: window.CHECKSMITH.app.shop.stands.length,
-    confirmOff: document.querySelector('#shopSheetActions button').disabled,
+    confirmOff: document.querySelector('#shopSheet [data-at="0"]').disabled,
     shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
   }));
   ok('a piece picked shows on its stand, and nothing has moved yet',
@@ -2496,7 +2543,7 @@ async function run() {
       await page.click('#shopSheetBody [data-take]');
       await page.waitForTimeout(80);
     }
-    await page.click('#shopSheetActions .btn.ghost');
+    await page.click('#shopSheet [data-ghost]');
     await page.waitForTimeout(80);
   }
   const filled = await page.evaluate(() =>
@@ -2546,7 +2593,7 @@ async function run() {
   }));
   ok('a stand with something on it offers restocking, the price and taking it off',
     held.actions.join(',') ===
-      'Restock,Set Price,Return Items to Storage,Move Stand,Sell Stand,Back',
+      'Restock,Set Price,Return Items to Storage,Move Stand,Sell Stand',
     held.actions.join(','));
 
   // the price is the player's to set
@@ -2560,7 +2607,7 @@ async function run() {
   ok('the sheet shows both the recommended and the asking price', priced.shown, priced.body);
   await page.click('#shopSheetBody [data-step="price"][data-by="1"]');
   await page.waitForTimeout(60);
-  await page.click('#shopSheetActions button');
+  await page.click('#shopSheet [data-at="0"]');
   await page.waitForTimeout(200);
   ok('the player can ask more than the recommendation', await page.evaluate(() => {
     const sh = window.CHECKSMITH.app.shop, C = window.CHECKSMITH.core;
@@ -2611,7 +2658,7 @@ async function run() {
       stampArt: !!document.querySelector('.stamp .sprite, .stamp .portrait'),
       odds: document.querySelector('.odds') ? document.querySelector('.odds').dataset.read : null,
       special: !!document.querySelector('#shopSheetBody [data-special-offer]'),
-      labels: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+      labels: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button')).map((b) => b.textContent)
     }));
     if (/Sales Report/.test(view.title)) break;
     seen.beats++;
@@ -2620,7 +2667,7 @@ async function run() {
     if (view.special) {
       seen.specials++;
       if (!view.head) seen.artMissing = true;
-      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.click('#shopSheet [data-at="0"]');
       await page.waitForTimeout(110);
       continue;
     }
@@ -2631,9 +2678,9 @@ async function run() {
       if (/WILL PAY/i.test(view.bid)) seen.full++;
       const canHaggle = view.labels.some((l) => /^Haggle$/.test(l));
       if (canHaggle && seen.haggleScreens < 2) {
-        await page.click('#shopSheetActions button:nth-child(2)');
+        await page.click('#shopSheet [data-at="1"]');
       } else {
-        await page.click('#shopSheetActions button:nth-child(1)');
+        await page.click('#shopSheet [data-at="0"]');
       }
     } else if (view.band) {
       seen.haggleScreens++;
@@ -2642,7 +2689,7 @@ async function run() {
         ['good', 'fair', 'poor', 'grim'].includes(view.odds), JSON.stringify(view));
       await page.click('#shopSheetBody [data-ask]:nth-child(2)');   // split the difference
       await page.waitForTimeout(70);
-      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.click('#shopSheet [data-at="0"]');
     } else if (view.stamp) {
       // a contract taken on is its own outcome: neither a sale nor a walkout
       if (view.booked) seen.booked++;
@@ -2653,7 +2700,7 @@ async function run() {
         seen.shotSold = true;
         await page.screenshot({ path: path.join(SHOTS, '16-shop-sold.png'), fullPage: true });
       }
-      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.click('#shopSheet [data-at="0"]');
     } else break;
     await page.waitForTimeout(110);
   }
@@ -2687,7 +2734,7 @@ async function run() {
     /Customers/.test(report.body) && /Items sold/.test(report.body) &&
     /Revenue/.test(report.body) && /Haggles attempted/.test(report.body), report.body);
   await page.screenshot({ path: path.join(SHOTS, '15-shop-report.png'), fullPage: true });
-  await page.click('#shopSheetActions button');
+  await page.click('#shopSheet [data-at="0"]');
   await page.waitForTimeout(250);
 
   // Whether a full-price buyer turns up in a random queue is chance, so force
@@ -2706,7 +2753,7 @@ async function run() {
     const bid = document.querySelector('.cust-bid');
     const out = { full: !!document.querySelector('.cust-bid.fair'),
       text: bid ? bid.innerText.replace(/\n/g, ' ') : null,
-      buttons: Array.from(document.querySelectorAll('#shopSheetActions button'))
+      buttons: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
         .map((b) => b.textContent) };
     return out;
   });
@@ -2718,7 +2765,7 @@ async function run() {
   // Drain whatever that forced phase raises - the queue, its report, and any
   // day-break sheet behind it - so the shop floor is reachable again.
   for (let i = 0; i < 80 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.click('#shopSheet [data-at="0"]');
     await page.waitForTimeout(90);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
@@ -2869,15 +2916,15 @@ async function run() {
   const bookDetails = await page.evaluate(() => ({
     title: document.getElementById('shopSheetTitle').textContent,
     body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
-    buttons: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent)
+    buttons: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button')).map((b) => b.textContent)
   }));
   ok('a filled box opens the assignment, with its task summarised',
     /Evening/.test(bookDetails.title) && /Bronze/.test(bookDetails.body), JSON.stringify(bookDetails));
   ok('and offers to change the orders, the employee, or drop it',
-    bookDetails.buttons.join(',') === 'Change Details,Change Employee,Remove,Back',
+    bookDetails.buttons.join(',') === 'Back,Change Details,Change Employee,Remove',
     JSON.stringify(bookDetails.buttons));
 
-  await page.click('#shopSheetActions button:nth-child(3)');
+  await page.click('#shopSheet [data-at="2"]');
   await page.waitForTimeout(250);
   ok('dropping upcoming work frees them for every picker again', await page.evaluate(() => {
     const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
@@ -2894,9 +2941,9 @@ async function run() {
   await page.waitForTimeout(150);
   await page.click('#shPanel .roster-box[data-hand="801"]');
   await page.waitForTimeout(180);
-  await page.click('#shopSheetActions button:nth-child(2)');   // change employee
+  await page.click('#shopSheet [data-at="1"]');   // change employee
   await page.waitForTimeout(180);
-  await page.click('#shopSheetActions button');                // Back, without picking
+  await page.click('#shopSheet [data-at="0"]');                // Back, without picking
   await page.waitForTimeout(200);
   ok('backing out of a swap leaves the original booking alone', await page.evaluate(() => {
     const C = window.CHECKSMITH.core, sh = window.CHECKSMITH.app.shop;
@@ -2954,7 +3001,9 @@ async function run() {
   ok('the roster fits a phone without scrolling sideways', await page.evaluate(() => {
     const panel = document.getElementById('shPanel');
     if (panel.scrollWidth > panel.clientWidth + 1) return false;
-    const boxes = Array.from(document.querySelectorAll('#shPanel .roster-box'));
+    // the boxes on the page in view; the rest are a page turn away
+    const boxes = Array.from(document.querySelectorAll('#shPanel .roster-box'))
+      .filter((b) => b.getClientRects().length);
     return boxes.length > 0 && boxes.every((b) => {
       const r = b.getBoundingClientRect();
       return r.width >= 44 && r.height >= 44 && r.right <= window.innerWidth + 1;
@@ -3107,7 +3156,7 @@ async function run() {
     knowing.seen.slice(0, 260));
   ok('and the sheet is headed with their name',
     person.title.length > 2 && /\w/.test(person.title), person.title);
-  await page.click('#shopSheetActions .btn.ghost');
+  await page.click('#shopSheet [data-ghost]');
   await page.waitForTimeout(120);
 
   ok('a purse is spent down and filled again at the turn of the week',
@@ -3256,7 +3305,7 @@ async function run() {
       }
     }
     const canvas = body.querySelector('.alm-canvas');
-    const scroll = body.querySelector('.alm-scroll');
+    const box = body.querySelector('#almTree');
     // the tree is the ordinary blueprints; a named masterwork is listed beside it
     return { nodes: nodes.length, want: C.disciplineItems('swords').filter((it) => !it.special).length,
       named: body.querySelectorAll('.alm-special').length,
@@ -3268,13 +3317,30 @@ async function run() {
       locked: body.querySelectorAll('.alm-node.locked').length,
       overlap: overlap,
       offscreen: boxes.some((b) => b.width < 30 || b.height < 30),
-      reachable: canvas && scroll ? canvas.scrollWidth <= scroll.clientWidth + 400 : false,
+      // drawn to fit its window: nothing in it scrolls, nothing is cut off
+      reachable: !!(canvas && box) && canvas.scrollWidth <= box.clientWidth + 1 &&
+        boxes.every((b) => b.left >= box.getBoundingClientRect().left - 1 &&
+          b.right <= box.getBoundingClientRect().right + 1),
       sheetWide: body.scrollWidth > body.clientWidth + 1 };
   });
   ok('a craft opens as a tree with a node for every blueprint',
     tree.nodes === tree.want && tree.nodes > 1, JSON.stringify(tree));
-  ok('and its named masterwork is listed beside the tree, not on it', tree.named === 1,
-    JSON.stringify(tree));
+  // the named masterworks are a page of their own, a button away from the tree
+  const named = await page.evaluate(async () => {
+    const link = document.querySelector('#shopSheetBody [data-alm-specials]');
+    if (!link) return { link: false };
+    link.click();
+    await new Promise((r) => setTimeout(r, 80));
+    const out = { link: true, listed: document.querySelectorAll('#shopSheetBody .alm-special').length,
+      onTree: document.querySelectorAll('#shopSheetBody .alm-node').length };
+    document.querySelector('#shopSheetBody [data-alm-tree]').click();
+    await new Promise((r) => setTimeout(r, 80));
+    out.backOnTree = document.querySelectorAll('#shopSheetBody .alm-node').length;
+    return out;
+  });
+  ok('and its named masterwork is listed beside the tree, not on it',
+    tree.named === 0 && named.link && named.listed === 1 && named.onTree === 0 &&
+    named.backOnTree === tree.nodes, JSON.stringify([tree, named]));
   ok('every node wears its own sprite', tree.sprites === tree.nodes, JSON.stringify(tree));
   ok('the steps of the progression are drawn as lines', tree.lines >= tree.nodes - 1,
     JSON.stringify(tree));
@@ -3311,7 +3377,7 @@ async function run() {
     !shut.actions.some((a) => /Forge This Item|Unlock Blueprint|Upgrade Blueprint/i.test(a)), shut.actions.join(','));
 
   // the root of the tree: held, and takeable further with experience
-  await page.click('#shopSheetActions .btn.ghost');
+  await page.click('#shopSheet [data-ghost]');
   await page.waitForTimeout(120);
   await page.evaluate(() => {
     const F = window.CHECKSMITH, sh = F.app.shop;
@@ -3432,7 +3498,7 @@ async function run() {
   ok('and starts it with no experience of its own', bought.xp === 0, JSON.stringify(bought));
 
   // only what the forge holds may go on the anvil
-  await page.click('#shopSheetActions .btn.ghost');
+  await page.click('#shopSheet [data-ghost]');
   await page.waitForTimeout(150);
   await page.evaluate(() => {
     const F = window.CHECKSMITH;
@@ -3450,7 +3516,7 @@ async function run() {
   });
   ok('the anvil offers exactly the blueprints the forge holds, and no others',
     anvil.opts === anvil.known && anvil.unknown.length === 0, JSON.stringify(anvil));
-  await page.click('#shopSheetActions .btn.ghost');
+  await page.click('#shopSheet [data-ghost]');
   await page.waitForTimeout(120);
 
   section('Open Your Forge: offering something else at the counter');
@@ -3599,7 +3665,7 @@ async function run() {
   });
   ok('a miner goes down the shaft, not onto the forge roster',
     staffed.miners === 1 && staffed.staff <= staffed.cap, JSON.stringify(staffed));
-  await page.click('#shopSheetActions .btn.ghost');
+  await page.click('#shopSheet [data-ghost]');
   await page.waitForTimeout(120);
 
   const dug = await page.evaluate(() => {
@@ -3651,7 +3717,7 @@ async function run() {
   ok('smelting takes the ore away and leaves bar stock behind',
     smelted.ore < 10, JSON.stringify(smelted));
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.click('#shopSheet [data-at="0"]');
     await page.waitForTimeout(80);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
@@ -3767,7 +3833,7 @@ async function run() {
 
   // drain whatever that phase raised, then cart the rest of it
   for (let i = 0; i < 60 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.click('#shopSheet [data-at="0"]');
     await page.waitForTimeout(80);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
@@ -4051,7 +4117,7 @@ async function run() {
     /Daily assignments/i.test(summary.body) && summary.rows >= 2 && summary.misses >= 1,
     summary.body.slice(0, 280));
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.click('#shopSheet [data-at="0"]');
     await page.waitForTimeout(80);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
@@ -4122,7 +4188,7 @@ async function run() {
   const panelText = await page.evaluate(() => ({
     body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
     perks: document.querySelectorAll('#shopSheetBody .perks').length,
-    acts: Array.from(document.querySelectorAll('#shopSheetActions button'))
+    acts: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .map((b) => b.innerText.trim())
   }));
   ok('their panel says what they can do now and what the next rank buys',
@@ -4135,7 +4201,7 @@ async function run() {
     const F = window.CHECKSMITH, sh = F.app.shop;
     const before = { rank: sh.staff[0].rank, power: sh.staff[0].power,
       wage: sh.staff[0].wage, phase: sh.phaseIndex, day: sh.day };
-    const btn = Array.from(document.querySelectorAll('#shopSheetActions button'))
+    const btn = Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => /Promote to/i.test(b.innerText));
     btn.click();
     await new Promise((r) => setTimeout(r, 260));
@@ -4155,7 +4221,7 @@ async function run() {
     ranked.body.slice(0, 220));
 
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:last-child');
+    await page.click('#shopSheet [data-at-last]');
     await page.waitForTimeout(80);
   }
   await page.waitForSelector('#shopView:not([hidden])', { timeout: 8000 });
@@ -4215,7 +4281,7 @@ async function run() {
   const walked = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
     const was = { phase: sh.phaseIndex, day: sh.day };
-    Array.from(document.querySelectorAll('#shopSheetActions button'))
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => /^Close$/i.test(b.innerText.trim())).click();
     await new Promise((r) => setTimeout(r, 220));
     return { was: was, phase: sh.phaseIndex, day: sh.day,
@@ -4275,19 +4341,19 @@ async function run() {
     await page.evaluate(async () => {
       window.CHECKSMITH.shopOpenStation('board');
       await new Promise((r) => setTimeout(r, 120));
-      Array.from(document.querySelectorAll('#shopSheetActions button'))
+      Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
         .find((b) => b.textContent === 'Search for Employees').click();
       await new Promise((r) => setTimeout(r, 180));
     });
     const title = await page.textContent('#shopSheetTitle');
     for (const t of ['Salesperson', 'Smith', 'Apprentice', 'Miner', 'Runner']) await tradeTap(t);
     await page.evaluate(async () => {
-      Array.from(document.querySelectorAll('#shopSheetActions button'))
+      Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
         .find((b) => b.textContent === 'Search Again').click();
       await new Promise((r) => setTimeout(r, 180));
     });
     const mid = await clockOf();
-    await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+    await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => b.textContent === 'Close').click());
     await page.waitForTimeout(150);
     return { title: title, was: was, mid: mid, now: await clockOf() };
@@ -4388,7 +4454,7 @@ async function run() {
     btn.click();
     await new Promise((r) => setTimeout(r, 300));
     for (let i = 0; i < 10 && !document.getElementById('shopSheet').hidden; i++) {
-      const close = document.querySelector('#shopSheetActions button');
+      const close = document.querySelector('#shopSheet [data-at="0"]');
       if (close) close.click();
       await new Promise((r) => setTimeout(r, 80));
     }
@@ -4512,7 +4578,7 @@ async function run() {
     crammed.offers === 0 && /Growth/.test(crammed.body) && crammed.stands === crammed.was,
     crammed.body.slice(0, 200));
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:last-child');
+    await page.click('#shopSheet [data-at-last]');
     await page.waitForTimeout(80);
   }
 
@@ -4592,7 +4658,7 @@ async function run() {
     const out = { was: was, phase: sh.phaseIndex, day: sh.day, gold: sh.gold,
       open: !sheet.hidden, docked: sheet.classList.contains('dock'),
       title: document.getElementById('shopSheetTitle').textContent,
-      acts: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent) };
+      acts: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button')).map((b) => b.textContent) };
     F.shopSheetClose();
     return out;
   }, id);
@@ -4722,7 +4788,7 @@ async function run() {
   await page.evaluate(() => document.querySelector('#shThings [data-station="sign"]').click());
   await page.waitForSelector('#shRename');
   await page.fill('#shRename', 'The Iron Owl');
-  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
     .find((b) => b.textContent === 'Save').click());
   await page.waitForTimeout(200);
   const renamed = await page.evaluate(() => ({
@@ -4802,7 +4868,7 @@ async function run() {
     title: document.getElementById('shopSheetTitle').textContent }));
   ok('a summary left unseen is shown again on reopening',
     stResumed.open && /summary/.test(stResumed.title), JSON.stringify(stResumed));
-  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetActions button'))
+  await page.evaluate(() => Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
     .find((b) => b.textContent === 'Close').click());
   await page.waitForTimeout(200);
   const stCleared = await page.evaluate(() => {
@@ -4814,7 +4880,7 @@ async function run() {
   ok('and once seen it is not owed again', stCleared.replay === null, JSON.stringify(stCleared));
   ok('the new name survived closing the game', stCleared.name === 'The Iron Owl', JSON.stringify(stCleared));
   for (let i = 0; i < 20 && (await page.isVisible('#shopSheet')); i++) {
-    await page.click('#shopSheetActions button:last-child');
+    await page.click('#shopSheet [data-at-last]');
     await page.waitForTimeout(80);
   }
 
@@ -4829,6 +4895,8 @@ async function run() {
       const sc = document.getElementById('shScene');
       const L = F.sceneLayout(sh);
       sc.scrollLeft = v === 'work' ? 0 : v === 'floor' ? L.floorX - 20 : sc.scrollWidth;
+      // a window with the whole screen, so it lies over the room itself
+      F.shopUi.sheetFull = true;
       F.shopOpenStation('forge');
       for (const el of document.querySelectorAll('.glow,.spark,.sc-coals,.sc-candle,.fig')) el.style.animation = 'none';
       window.scrollTo(0, 0);
@@ -4917,7 +4985,8 @@ async function run() {
     F.testTourRun = async function (opt) {
       const o = opt || {};
       const scene = document.getElementById('shScene');
-      if (o.home != null) scene.scrollLeft = o.home;
+      // the room stands at one of its views; the camera starts from one
+      if (o.home != null) F.sceneView(o.home, false);
       await new Promise((r) => setTimeout(r, 60));
       const home = scene.scrollLeft;
       const sh = F.app.shop;
@@ -4940,7 +5009,8 @@ async function run() {
           out.restoredAt = scene.scrollLeft;
         }
         if (o.grabAt != null && tourShown >= o.grabAt && out.grabbed == null) {
-          scene.scrollLeft = o.grabTo;
+          // the player picks another view mid-playback
+          F.sceneView(o.grabTo, false);
           out.grabbed = scene.scrollLeft;
         }
         if (o.menuAt != null && tourShown >= o.menuAt && menuAt == null) {
@@ -4964,7 +5034,7 @@ async function run() {
       out.summary = !document.getElementById('shopSheet').hidden &&
         /summary/.test(document.getElementById('shopSheetTitle').textContent);
       for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
-        const b = document.querySelector('#shopSheetActions button');
+        const b = document.querySelector('#shopSheet [data-at="0"]');
         if (b) b.click();
         await new Promise((r) => setTimeout(r, 60));
       }
@@ -4983,17 +5053,18 @@ async function run() {
     F.testTourShop(['salesperson', 'smith', 'runner', 'storehand']);
     const snap = C.serializeShop(F.app.shop);
     const scene = document.getElementById('shScene');
-    const front = scene.scrollWidth - scene.clientWidth;
+    F.sceneView('front', false);
+    const front = scene.scrollLeft;
     const fresh = () => {
       F.app.shop = C.restoreShop(JSON.parse(JSON.stringify(snap)), C.mulberry32(4242));
       F.shopRender();
     };
     const out = {};
-    fresh(); out.full = await F.testTourRun({ home: front });
-    fresh(); out.skip = await F.testTourRun({ home: front, skipAt: 1 });
-    fresh(); out.grab = await F.testTourRun({ home: front, grabAt: 1, grabTo: 40 });
+    fresh(); out.full = await F.testTourRun({ home: 'front' });
+    fresh(); out.skip = await F.testTourRun({ home: 'front', skipAt: 1 });
+    fresh(); out.grab = await F.testTourRun({ home: 'front', grabAt: 1, grabTo: 'work' });
     F.setWorkerCam(false);
-    fresh(); out.off = await F.testTourRun({ home: front });
+    fresh(); out.off = await F.testTourRun({ home: 'front' });
     F.setWorkerCam(true);
     out.front = front;
     return out;
@@ -5014,7 +5085,7 @@ async function run() {
   ok('each one waits for the last to finish',
     tourShown(tourFull).every((x, i, a) => i === 0 || x.t - a[i - 1].t >= 900), JSON.stringify(tourShown(tourFull).map((x) => x.t)));
   ok('afterwards the camera is back where the player left it',
-    Math.abs(tourFull.end - tourFull.home) <= 1 && tourFull.home === tours.front, tourFull.home + ' -> ' + tourFull.end);
+    Math.abs(tourFull.end - tourFull.home) <= 1 && tourFull.home > 0, tourFull.home + ' -> ' + tourFull.end);
   ok('and the phase summary follows', tourFull.summary, JSON.stringify(tourFull).slice(0, 200));
   ok('watching it changed nothing the phase had already settled', tourFull.same);
   ok('the phase advanced exactly once', tourFull.after.tick === tourFull.before.tick + 1,
@@ -5030,12 +5101,13 @@ async function run() {
 
   const grab = tours.grab;
   const afterGrab = grab.log.slice(grab.log.findIndex((x) => x.manual) + 1).filter((x) => x.role);
-  ok('moving the camera by hand is noticed', grab.log.some((x) => x.manual) && grab.grabbed === 40,
-    JSON.stringify(grab.log).slice(0, 300));
+  ok('choosing another view mid-playback takes the camera, and is noticed',
+    grab.log.some((x) => x.manual) && grab.grabbed === 0, JSON.stringify(grab.log).slice(0, 300));
   ok('after that the playback still shows everyone, but never moves the camera',
     tourShown(grab).length === 4 && afterGrab.length >= 1 &&
-    afterGrab.every((x) => x.sl === 40 && !x.moved), JSON.stringify(afterGrab));
-  ok('and does not pull it back at the end', grab.end === 40, String(grab.end));
+    afterGrab.every((x) => x.sl === grab.grabbed && !x.moved), JSON.stringify(afterGrab));
+  ok('and does not pull it back at the end: the room stays at the view chosen', grab.end === grab.grabbed,
+    String(grab.end));
 
   const off = tours.off;
   ok('with automatic viewing off the camera never moves',
@@ -5051,7 +5123,7 @@ async function run() {
   const steady = await page.evaluate(async () => {
     const F = window.CHECKSMITH;
     F.testTourShop(['smith']);
-    return F.testTourRun({ home: 0 });
+    return F.testTourRun({ home: 'work' });
   });
   ok('a worker already on screen is shown without moving the camera',
     tourShown(steady).length === 1 && tourShown(steady)[0].role === 'smith' && !tourShown(steady)[0].moved &&
@@ -5061,7 +5133,7 @@ async function run() {
   const empty = await page.evaluate(async () => {
     const F = window.CHECKSMITH;
     F.testTourShop([]);
-    return F.testTourRun({ home: 200 });
+    return F.testTourRun({ home: 'floor1' });
   });
   ok('with nobody working there is nothing to show and nothing waits',
     tourShown(empty).length === 0 && empty.ms < 2500 && empty.lefts.every((x) => x === empty.home) &&
@@ -5074,7 +5146,7 @@ async function run() {
     for (const k in sh.storage) delete sh.storage[k];        // nothing to carry out
     sh.materials.bronze = 0;                                 // nothing to forge with
     F.shopRender();
-    return F.testTourRun({ home: 0 });
+    return F.testTourRun({ home: 'work' });
   });
   ok('employees who could not do their job get no work animation',
     tourShown(idle).length === 0, roleList(idle));
@@ -5083,10 +5155,10 @@ async function run() {
   const bench = await page.evaluate(async () => {
     const F = window.CHECKSMITH;
     F.testTourShop(['apprentice']);
-    const idleRun = await F.testTourRun({ home: 0 });
+    const idleRun = await F.testTourRun({ home: 'work' });
     F.testTourShop(['apprentice']);
     F.shopUi.forgedNow = true;                               // as Return to Shop after a batch
-    const forgedRun = await F.testTourRun({ home: 0 });
+    const forgedRun = await F.testTourRun({ home: 'work' });
     return { idle: idleRun.log, forged: forgedRun.log, left: F.shopUi.forgedNow };
   });
   ok('an apprentice is shown helping only in a phase where you forged a batch',
@@ -5107,7 +5179,7 @@ async function run() {
     if (C.countStorage(sh) < 10) C.addStorage(sh, key, 10, 80, 1);
     const booked = Object.keys(sh.assignments).length;
     F.shopRender();
-    const run = await F.testTourRun({ home: 0 });
+    const run = await F.testTourRun({ home: 'work' });
     run.booked = booked;
     return run;
   });
@@ -5120,7 +5192,7 @@ async function run() {
     const F = window.CHECKSMITH;
     F.testTourShop(['salesperson', 'smith', 'storehand']);
     const scene = document.getElementById('shScene');
-    return F.testTourRun({ home: scene.scrollWidth - scene.clientWidth, menuAt: 1 });
+    return F.testTourRun({ home: 'front', menuAt: 1 });
   });
   ok('an open menu holds the playback: no new worker, no camera move, no summary on top',
     tourHeld.menuHeld && tourHeld.menuHeld.shownAfter === tourHeld.menuHeld.shownBefore &&
@@ -5140,7 +5212,7 @@ async function run() {
     const row = box && box.closest('label').textContent.trim();
     const was = box && box.checked;
     box.checked = false;
-    Array.from(document.querySelectorAll('#shopSheetActions button'))
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => b.textContent === 'Save').click();
     await new Promise((r) => setTimeout(r, 120));
     const saved = JSON.parse(localStorage.getItem('checksmith:v1') || '{}').workerCam;
@@ -5268,11 +5340,11 @@ async function run() {
     document.querySelector('#shopSheetBody [data-take="' + key + '"]').click();
     await wait(120);
     if (F.shopUi.slot !== null) {
-      Array.from(document.querySelectorAll('#shopSheetActions button'))
+      Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
         .find((b) => b.textContent === 'Back').click();
       await wait(120);
     }
-    Array.from(document.querySelectorAll('#shopSheetActions button'))
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => b.textContent === 'Assign Job').click();
     await wait(120);
     const held = C.assignmentsAt(sh, 'storehand', 'morning');
@@ -5290,11 +5362,11 @@ async function run() {
     F.shopRender();
     document.querySelector('#shPanel [data-slot-role="runner"][data-slot-phase="afternoon"][data-slot-seat="1"]').click();
     await wait(120);
-    Array.from(document.querySelectorAll('#shopSheetActions button'))
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => b.textContent === 'Repeat Daily').click();
     await wait(120);
     const title = document.getElementById('shopSheetTitle').textContent;
-    Array.from(document.querySelectorAll('#shopSheetActions button'))
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
       .find((b) => b.textContent === 'Repeat Daily').click();
     await wait(150);
     const slot = C.standingAt(sh, 'runner', 'afternoon', 1);
@@ -5327,7 +5399,7 @@ async function run() {
     while (F.shopUi.playing && Date.now() - t0 < 40000) await new Promise((r) => setTimeout(r, 80));
     const shown = (F.shopUi.tourLog || []).filter((x) => x.role === 'smith');
     for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
-      document.querySelector('#shopSheetActions button').click();
+      document.querySelector('#shopSheet [data-at="0"]').click();
       await new Promise((r) => setTimeout(r, 60));
     }
     F.setPhaseAnim(false);
@@ -5365,7 +5437,7 @@ async function run() {
     const rep = sh.log.find((r) => r.kind === 'sales' && r.staffId === sal.id);
     const body = document.getElementById('shopSheetBody').innerText;
     for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
-      document.querySelector('#shopSheetActions button').click();
+      document.querySelector('#shopSheet [data-at="0"]').click();
       await new Promise((r) => setTimeout(r, 60));
     }
     return { booked: res.ok, sold: rep && rep.sold, revenue: rep && rep.revenue, bonus: rep && rep.bonus,
@@ -5418,24 +5490,25 @@ async function run() {
   const drawers = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
     F.shopUi.tab = null; F.shopRender();
-    const shut = document.getElementById('shPanel').hidden;
-    const groups = Array.from(document.querySelectorAll('#shTabs .tab-group')).map((b) => b.textContent.replace(/[^A-Za-z ]/g, '').trim());
-    document.querySelector('[data-group="business"]').click();
+    const shut = document.getElementById('shDrawer').hidden;
+    const groups = Array.from(document.querySelectorAll('#shGroups [data-group]')).map((b) => b.textContent.replace(/[^A-Za-z ]/g, '').trim());
+    document.querySelector('#shGroups [data-group="business"]').click();
     await new Promise((r) => setTimeout(r, 60));
     const inBiz = { tab: F.shopUi.tab, subs: Array.from(document.querySelectorAll('#shTabs .shop-tab')).map((b) => b.textContent),
-      panel: !document.getElementById('shPanel').hidden };
+      panel: !document.getElementById('shDrawer').hidden && !document.getElementById('shPanel').hidden };
     document.querySelector('#shTabs [data-tab="ledger"]').click();
     await new Promise((r) => setTimeout(r, 60));
     const ledger = F.shopUi.tab;
-    document.querySelector('[data-group="business"]').click();
+    // a drawer is a window: its own Close shuts it
+    document.getElementById('shDrawerClose').click();
     await new Promise((r) => setTimeout(r, 60));
-    const closed = F.shopUi.tab === null && document.getElementById('shPanel').hidden;
-    document.querySelector('[data-group="business"]').click();
+    const closed = F.shopUi.tab === null && document.getElementById('shDrawer').hidden;
+    document.querySelector('#shGroups [data-group="business"]').click();
     await new Promise((r) => setTimeout(r, 60));
     const remembered = F.shopUi.tab;
     // a station still reaches straight into a drawer
     F.shopOpenStation('door');
-    Array.from(document.querySelectorAll('#shopSheetActions button')).find((b) => b.textContent === 'Ledger').click();
+    Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button')).find((b) => b.textContent === 'Ledger').click();
     await new Promise((r) => setTimeout(r, 60));
     const fromDoor = F.shopUi.tab;
     F.shopUi.tab = null; F.shopRender();
@@ -5517,7 +5590,7 @@ async function run() {
       F.shopSkipPhase();
       await new Promise((r) => setTimeout(r, 120));
       for (let k = 0; k < 5 && !document.getElementById('shopSheet').hidden; k++) {
-        const b = Array.from(document.querySelectorAll('#shopSheetActions button'))[0];
+        const b = Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))[0];
         if (b) b.click();
         await new Promise((r) => setTimeout(r, 80));
       }
@@ -6220,7 +6293,7 @@ async function run() {
 
   section('Storage unavailable');
   ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const errs2 = [];
   page.on('pageerror', (e) => errs2.push(String(e)));
   await page.addInitScript(() => {
@@ -6242,7 +6315,7 @@ async function run() {
   /* ============ best scores survive the rename ============ */
   section('Pre-rename save data');
   ctx = await browser.newContext({ viewport: { width: 360, height: 740 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   await page.addInitScript(() => {
     try {
       localStorage.setItem('forge-pattern:v1',
@@ -6265,7 +6338,7 @@ async function run() {
   /* ============ reduced motion ============ */
   section('Reduced motion');
   ctx = await browser.newContext({ viewport: { width: 390, height: 780 }, reducedMotion: 'reduce' });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const errs3 = [];
   page.on('pageerror', (e) => errs3.push(String(e)));
   await page.goto(FILE);
@@ -6285,7 +6358,7 @@ async function run() {
   /* ============ wide screen ============ */
   section('Larger screens');
   ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   await page.goto(FILE);
   await page.evaluate(() => window.CHECKSMITH.setPhaseAnim(false));
   await startFromTitle(page, 'forge', 'novice');
@@ -6298,12 +6371,14 @@ async function run() {
 
   /* ============ the designs on every screen ============ */
   section('The Forge: the gallery and every design on every screen');
-  // [width, height, whether every design should stand on screen without scrolling]
-  for (const [w, h, fits] of [[320, 568, false], [360, 640, false], [360, 740, true], [390, 844, true],
-    [430, 932, true], [900, 900, true], [740, 360, false]]) {
+  // [width, height, the smallest square a design may be given there]. Since
+  // 1.43 every design stands on the screen whole, at every size: a short
+  // screen gives smaller squares, never a scroll.
+  for (const [w, h, least] of [[320, 568, 15], [360, 640, 17], [360, 740, 20], [390, 844, 24],
+    [430, 932, 27], [900, 900, 27], [740, 360, 15]]) {
     ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2,
       reducedMotion: w === 390 ? 'reduce' : 'no-preference' });
-    page = await ctx.newPage();
+    page = paged(await ctx.newPage());
     const pageErrs = [];
     page.on('pageerror', (e) => pageErrs.push(String(e)));
     await page.goto(FILE);
@@ -6313,6 +6388,11 @@ async function run() {
     await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
     const label = w + 'x' + h;
     const gal = await page.evaluate(() => {
+      // measured with every page of the gallery laid out at once
+      const grid = document.getElementById('designGrid');
+      const pages = Number(grid.dataset.pages || 1);
+      const off = Array.from(grid.querySelectorAll('.pg-off'));
+      for (const el of off) el.classList.remove('pg-off');
       const cards = Array.from(document.querySelectorAll('#designGrid .design-card'));
       const rects = cards.map((c) => c.getBoundingClientRect());
       const overlap = rects.some((a, i) => rects.some((b, j) => j > i &&
@@ -6328,7 +6408,8 @@ async function run() {
         }),
         texts: cards.every((c) => Array.from(c.querySelectorAll('.dc-name, .dc-meta, .dc-best'))
           .every((t) => t.scrollWidth <= t.clientWidth + 1 && t.textContent.trim().length > 0)),
-        hscroll: document.documentElement.scrollWidth > window.innerWidth + 1
+        hscroll: document.documentElement.scrollWidth > window.innerWidth + 1,
+        pages: pages, restored: (off.forEach((el) => el.classList.add('pg-off')), true)
       };
     });
     ok(label + ': the gallery shows all six designs, pictures inside their cards, nothing clipped or overlapping',
@@ -6351,6 +6432,8 @@ async function run() {
           size: Math.min(...shown.map((r) => r.width)),
           left: Math.min(...shown.map((r) => r.left)), right: Math.max(...shown.map((r) => r.right)),
           bottom: Math.max(...shown.map((r) => r.bottom)) + window.scrollY,
+          top: Math.min(...shown.map((r) => r.top)),
+          vscroll: document.documentElement.scrollHeight > window.innerHeight + 1,
           outline: { top: m.f + bb.y * m.d - wrap.top, bottom: wrap.bottom - (m.f + (bb.y + bb.height) * m.d),
             left: m.e + bb.x * m.a, right: m.e + (bb.x + bb.width) * m.a },
           vw: window.innerWidth, vh: window.innerHeight,
@@ -6363,9 +6446,8 @@ async function run() {
         fit.count === fit.metal && fit.left >= 0 && fit.right <= fit.vw && !fit.hscroll &&
         fit.outline.left >= 0 && fit.outline.right <= fit.vw && fit.outline.top >= 0 && fit.outline.bottom >= 0 &&
         fit.barFits, JSON.stringify(fit));
-      ok(label + ' ' + id + (fits ? ': stands on screen without scrolling' : ': keeps its squares tappable, scrolling if it must') +
-        ' (' + fit.size.toFixed(0) + 'px)',
-        fits ? fit.bottom <= fit.vh && fit.size >= 27 : fit.size >= (h < 400 ? 20 : 26), JSON.stringify(fit));
+      ok(label + ' ' + id + ': stands on the screen whole, no scrolling (' + fit.size.toFixed(0) + 'px squares)',
+        fit.bottom <= fit.vh && fit.top >= 0 && fit.size >= least && !fit.vscroll, JSON.stringify(fit));
       // a real tap on its first square lands a blow
       const first = await page.evaluate(() => {
         const b = window.CHECKSMITH.app.game.board;
@@ -6390,7 +6472,7 @@ async function run() {
   /* ============ the forge is carried between sittings ============ */
   section('Open Your Forge: the shop is saved');
   ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const saveErrs = [];
   page.on('pageerror', (e) => saveErrs.push(String(e)));
   await page.goto(FILE);
@@ -6499,6 +6581,7 @@ async function run() {
     F.shopUi.order = null;
     F.app.game = null;
     document.getElementById('shopView').hidden = false;
+    F.syncModeChrome();
     F.core.addStorage(F.app.shop, F.core.lineKey('longsword', 'bronze'), 0, 100);
     F.testStock(F.app.shop, F.core.lineKey('longsword', 'bronze'), 20, 95, 60);
     F.app.shop.reputation = 70;
@@ -6515,7 +6598,7 @@ async function run() {
     await page.waitForTimeout(350);
     for (let i = 0; i < 3 && (await page.isVisible('#shopSheet')); i++) {
       if (/Sales Report/.test(await page.textContent('#shopSheetTitle'))) break;
-      await page.click('#shopSheetActions button:nth-child(1)');
+      await page.click('#shopSheet [data-at="0"]');
       await page.waitForTimeout(150);
     }
     midSale = await page.evaluate(() => ({ gold: window.CHECKSMITH.app.shop.gold,
@@ -6523,7 +6606,7 @@ async function run() {
     if (midSale.gold === beforeSelling.gold) {
       // nobody bought: drop this session on the floor and open up again
       await page.evaluate(() => { window.CHECKSMITH.shopUi.session = null; });
-      await page.click('#shopSheetActions button:last-child');
+      await page.click('#shopSheet [data-at-last]');
       await page.waitForTimeout(200);
       if (await page.isVisible('#shopSheet')) await page.evaluate(() =>
         document.getElementById('shopSheet').hidden = true);
@@ -6544,7 +6627,7 @@ async function run() {
   await page.waitForTimeout(350);
   for (let i = 0; i < 40 && (await page.isVisible('#shopSheet')); i++) {
     const done = /Sales Report/.test(await page.textContent('#shopSheetTitle'));
-    await page.click('#shopSheetActions button:nth-child(1)');
+    await page.click('#shopSheet [data-at="0"]');
     await page.waitForTimeout(140);
     if (done) break;
   }
@@ -6568,7 +6651,7 @@ async function run() {
   section('Open Your Forge: the anvil never reshapes, whatever came before');
   {
     ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
-    page = await ctx.newPage();
+    page = paged(await ctx.newPage());
     const calmErrs = [];
     page.on('pageerror', (e) => calmErrs.push(String(e)));
     await page.goto(FILE);
@@ -6739,7 +6822,7 @@ async function run() {
       });
       let after = null;
       if (/Batch Forged/.test(run.sheet)) {
-        await page.click('#shopSheetActions button');
+        await page.click('#shopSheet [data-at="0"]');
         await page.waitForTimeout(250);
         after = await page.evaluate((o) => {
           const sh = window.CHECKSMITH.app.shop;
@@ -6915,7 +6998,7 @@ async function run() {
   section('Open Your Forge: special commissions');
   {
     ctx = await browser.newContext({ viewport: { width: 360, height: 900 } });
-    page = await ctx.newPage();
+    page = paged(await ctx.newPage());
     const spErrs = [];
     page.on('pageerror', (e) => spErrs.push(String(e)));
     await page.goto(FILE);
@@ -6942,12 +7025,14 @@ async function run() {
       open: !document.getElementById('shopSheet').hidden,
       title: document.getElementById('shopSheetTitle').textContent,
       body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
-      buttons: Array.from(document.querySelectorAll('#shopSheetActions button'))
+      // in the order the dialog gave them, wherever each was placed
+      buttons: Array.from(document.querySelectorAll('#shopSheet [data-at]'))
+        .sort((a, b) => Number(a.dataset.at) - Number(b.dataset.at))
         .map((b) => b.textContent + (b.disabled ? ' (off)' : ''))
     }));
     const press = async (label) => {
       await page.evaluate((l) => {
-        const b = Array.from(document.querySelectorAll('#shopSheetActions button'))
+        const b = Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button'))
           .find((x) => x.textContent === l || x.textContent.indexOf(l) === 0);
         b.click();
       }, label);
@@ -6955,7 +7040,7 @@ async function run() {
     };
     const closeSheets = async () => {
       for (let k = 0; k < 60 && (await page.isVisible('#shopSheet')); k++) {
-        await page.click('#shopSheetActions button:first-child');
+        await page.click('#shopSheet [data-at="0"]');
         await page.waitForTimeout(110);
       }
     };
@@ -7014,11 +7099,11 @@ async function run() {
       /Embercleaver/.test(queued.text), JSON.stringify(queued).slice(0, 300));
     const ledgerOffer = await page.evaluate(() => {
       const F = window.CHECKSMITH;
-      document.querySelector('#shopSheetActions button').click();
+      document.querySelector('#shopSheet [data-at="0"]').click();
       F.shopUi.tab = 'ledger'; F.shopRender();
       const card = document.querySelector('#shPanel [data-special-offer="embercleaver"]');
       return { text: card ? card.innerText.replace(/\s+/g, ' ') : '', sprite: !!(card && card.querySelector('.sprite.named')),
-        badge: document.querySelector('#shTabs .tg-note') ? document.querySelector('#shTabs .tg-note').textContent : '' };
+        badge: document.querySelector('#shGroups .tg-note') ? document.querySelector('#shGroups .tg-note').textContent : '' };
     });
     ok('the Ledger shows the offer in full: who, what, the stages, the metal and the reputation',
       /Embercleaver/.test(ledgerOffer.text) && /Cook/.test(ledgerOffer.text) &&
@@ -7106,7 +7191,7 @@ async function run() {
       full.body.slice(0, 300));
     // a double tap starts one attempt and charges once
     await page.evaluate(() => {
-      const b = document.querySelector('#shopSheetActions button');
+      const b = document.querySelector('#shopSheet [data-at="0"]');
       b.click(); b.click();
     });
     await page.waitForTimeout(300);
@@ -7278,13 +7363,21 @@ async function run() {
       await new Promise((r) => setTimeout(r, 100));
       document.querySelector('#shopSheetBody [data-craft="household"]').click();
       await new Promise((r) => setTimeout(r, 120));
+      // the tree first, then the craft's named pieces, a page of their own
+      const treeHas = !!document.querySelector('#shopSheetBody .alm-node[data-recipe="embercleaver"]');
+      document.querySelector('#shopSheetBody [data-alm-specials]').click();
+      await new Promise((r) => setTimeout(r, 100));
       const earned = document.querySelector('#shopSheetBody .alm-special');
       const mine = { text: earned ? earned.innerText.replace(/\s+/g, ' ') : '', earned: !!(earned && earned.classList.contains('earned')),
-        treeHas: !!document.querySelector('#shopSheetBody .alm-node[data-recipe="embercleaver"]') };
+        treeHas: treeHas };
+      document.querySelector('#shopSheetBody [data-alm-tree]').click();
+      await new Promise((r) => setTimeout(r, 100));
       document.querySelector('#shopSheetBody [data-craft-back]').click();
       await new Promise((r) => setTimeout(r, 100));
       document.querySelector('#shopSheetBody [data-craft="swords"]').click();
       await new Promise((r) => setTimeout(r, 120));
+      document.querySelector('#shopSheetBody [data-alm-specials]').click();
+      await new Promise((r) => setTimeout(r, 100));
       const locked = document.querySelector('#shopSheetBody .alm-special');
       const other = { text: locked ? locked.innerText.replace(/\s+/g, ' ') : '',
         earned: !!(locked && locked.classList.contains('earned')) };
@@ -7292,7 +7385,7 @@ async function run() {
       await new Promise((r) => setTimeout(r, 120));
       const page2 = { title: document.getElementById('shopSheetTitle').textContent,
         body: document.getElementById('shopSheetBody').innerText.replace(/\s+/g, ' '),
-        buttons: Array.from(document.querySelectorAll('#shopSheetActions button')).map((b) => b.textContent) };
+        buttons: Array.from(document.querySelectorAll('#shopSheetBack button, #shopSheetActions button')).map((b) => b.textContent) };
       F.shopSheetClose();
       return { mine, other, page2, known: C.knownRecipes(sh).some((it) => it.id === 'embercleaver'),
         forge: C.forgeCheck(sh, 'embercleaver', 'bronze', 1).ok };
@@ -7324,7 +7417,7 @@ async function run() {
   /* ============ several forges at once ============ */
   section('Open Your Forge: a forge for every slot');
   ctx = await browser.newContext({ viewport: { width: 390, height: 950 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const slotErrs = [];
   page.on('pageerror', (e) => slotErrs.push(String(e)));
   await page.goto(FILE);
@@ -7348,7 +7441,7 @@ async function run() {
     await chooseCrafts(page);
   };
   const leave = async () => {
-    await page.click('#shMenuBtn');
+    await page.click('#menuBtn');
     if (await page.isVisible('#confirm')) await page.click('#confirmYes');
     await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
   };
@@ -7484,7 +7577,7 @@ async function run() {
   // player's usually does; the refused case is checked separately below
   const loud = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const introErrs = [];
   page.on('pageerror', (e) => introErrs.push(String(e)));
   await page.goto(RAW_FILE);
@@ -7535,7 +7628,7 @@ async function run() {
 
   // skipping, and the muted-by-refusal path
   ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   page.on('pageerror', (e) => introErrs.push(String(e)));
   await page.goto(RAW_FILE);
   await page.waitForTimeout(2600);
@@ -7547,7 +7640,7 @@ async function run() {
 
   // a browser that refuses audio holds on black and waits to be told to start
   ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   page.on('pageerror', (e) => introErrs.push(String(e)));
   await page.goto(RAW_FILE);
   await page.waitForTimeout(1500);
@@ -7572,7 +7665,7 @@ async function run() {
   /* the score follows the player from screen to screen */
   section('The score');
   ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   page.on('pageerror', (e) => introErrs.push(String(e)));
   await page.goto(RAW_FILE + '#skipintro');
   await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
@@ -7655,7 +7748,7 @@ async function run() {
   /* music has to stop when the player leaves the app */
   section('The score goes quiet in the background');
   ctx = await loud.newContext({ viewport: { width: 390, height: 844 } });
-  page = await ctx.newPage();
+  page = paged(await ctx.newPage());
   const bgErrs = [];
   page.on('pageerror', (e) => bgErrs.push(String(e)));
   await page.goto(RAW_FILE + '#skipintro');
@@ -7779,6 +7872,337 @@ async function run() {
 
   ok('the opening raises no errors', introErrs.length === 0, introErrs.slice(0, 3).join(' | '));
   await loud.close();
+
+  /* ============ 1.43: one screen, nothing scrolls ============
+     Every screen and every window, at a small, a common and a large phone:
+     nothing scrolls, nothing is cut off or pushed off the screen, a window
+     that holds more turns in pages and every page fits, and none of the
+     looking about - drawers, pages, viewpoints, windows opened and closed -
+     spends a phase or changes anything in the forge. */
+  section('1.43: every screen fits the phone, and nothing scrolls');
+  {
+    // what is wrong with the screen as it stands, if anything
+    const fitProblems = (pg) => pg.evaluate(() => {
+      const out = [];
+      const de = document.documentElement;
+      if (de.scrollHeight > innerHeight + 1) out.push('page scrolls down (' + de.scrollHeight + ')');
+      if (de.scrollWidth > innerWidth + 1) out.push('page scrolls across (' + de.scrollWidth + ')');
+      const named = (el) => el.tagName + (el.id ? '#' + el.id : '') + '.' + String(el.className).split(' ')[0];
+      for (const el of document.querySelectorAll('body *')) {
+        if (!el.getClientRects().length) continue;
+        const cs = getComputedStyle(el);
+        if ((/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) ||
+            (/(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1)) out.push('scrolls: ' + named(el));
+      }
+      for (const h of document.querySelectorAll('.pg-host')) {
+        if (h.getClientRects().length && h.scrollHeight > h.clientHeight + 1) {
+          out.push('page overflows: ' + named(h) + ' ' + h.scrollHeight + '>' + h.clientHeight);
+        }
+      }
+      const shown = (el) => {
+        for (let a = el; a && a !== document.body; a = a.parentElement) {
+          const s = getComputedStyle(a);
+          if (s.visibility === 'hidden' || s.display === 'none') return false;
+        }
+        return true;
+      };
+      const skip = '.sprite-defs, #intro, .fx-layer, .scene-fx, .sr-only, .scene-sizer, svg, .stamp, #toast';
+      for (const el of document.querySelectorAll('button, input, select, p, h1, h2, h3, li, .stat')) {
+        if (out.length > 12) break;
+        if (el.closest(skip) || !el.getClientRects().length || !shown(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) continue;
+        if (r.top < -1 || r.bottom > innerHeight + 1 || r.left < -1 || r.right > innerWidth + 1) {
+          out.push('off screen: ' + named(el) + ' "' + el.textContent.trim().slice(0, 24) + '"');
+          continue;
+        }
+        for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+          const s = getComputedStyle(a);
+          if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
+          const b = a.getBoundingClientRect();
+          const across = a.classList.contains('scene');      // the room is looked along, by view
+          if (r.bottom > b.bottom + 1 || r.top < b.top - 1 ||
+              (!across && (r.right > b.right + 1 || r.left < b.left - 1))) {
+            out.push('cut off: ' + named(el) + ' "' + el.textContent.trim().slice(0, 24) + '" by ' + named(a));
+            break;
+          }
+        }
+      }
+      return out;
+    });
+    // every page of a window, turned with its own Next, must fit as well
+    const everyPage = async (pg, hostSel, label, bad) => {
+      const n = await pg.evaluate((s) => Number(document.querySelector(s).dataset.pages || 1), hostSel);
+      for (let p = 1; p <= n; p++) {
+        const probs = await fitProblems(pg);
+        if (probs.length) bad.push(label + ' p' + p + '/' + n + ': ' + probs.slice(0, 3).join('; '));
+        if (p < n) {
+          await pg.evaluate((s) => document.querySelector(s).nextElementSibling.querySelector('[data-pg="1"]').click(), hostSel);
+          await pg.waitForTimeout(40);
+        }
+      }
+      return n;
+    };
+
+    for (const [w, h] of [[320, 568], [360, 640], [412, 915]]) {
+      ctx = await browser.newContext({ viewport: { width: w, height: h }, hasTouch: true });
+      page = paged(await ctx.newPage());
+      const errs = [];
+      page.on('pageerror', (e) => errs.push(String(e)));
+      await page.goto(FILE);
+      await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+      const tag = w + 'x' + h;
+      const bad = [];
+      const look = async (label) => {
+        await page.waitForTimeout(80);
+        const p = await fitProblems(page);
+        if (p.length) bad.push(label + ': ' + p.slice(0, 3).join('; '));
+      };
+
+      // the main menu, for each mode
+      for (const m of ['forge', 'endless', 'versus', 'shop']) {
+        await page.click(`.mode-card[data-mode="${m}"]`);
+        await everyPage(page, '#titleBody', 'menu ' + m, bad);
+      }
+      await page.click('#titleHelpBtn');
+      for (const t of ['basics', 'forge', 'endless', 'versus', 'shop']) {
+        await page.click(`#helpTabs [data-help-tab="${t}"]`);
+        await everyPage(page, '#helpBody', 'how to play: ' + t, bad);
+      }
+      await page.click('#helpClose');
+      await page.click('.mode-card[data-mode="endless"]');
+      await page.click('#shopBtn');
+      await everyPage(page, '#shop .win-body', 'endless upgrades', bad);
+      await page.click('#shopClose');
+
+      // the Forge: its gallery, then every design on the anvil with its symbols
+      await page.click('.mode-card[data-mode="forge"]');
+      await page.click('#beginBtn');
+      await page.waitForSelector('#designView:not([hidden])');
+      await everyPage(page, '#designGrid', 'design gallery', bad);
+      const designs = await page.evaluate(() => window.CHECKSMITH.core.FORGE_PIECE_ORDER);
+      let smallest = 999;
+      for (const id of designs) {
+        await page.evaluate((d) => window.CHECKSMITH.pickDesign(d), id);
+        await page.waitForTimeout(160);
+        await look('forge ' + id);
+        smallest = Math.min(smallest, await page.evaluate(() => Math.min.apply(null,
+          Array.from(document.querySelectorAll('#board .tile:not([data-air])')).map((t) => t.getBoundingClientRect().width))));
+      }
+      ok(tag + ': every weapon design is on the screen whole, its squares still tappable',
+        smallest >= (h < 600 ? 15 : 17), 'smallest square ' + smallest + 'px');
+      await page.click('#legendBtn');
+      await everyPage(page, '#infoWinBody', 'symbols', bad);
+      await page.click('#infoWinClose');
+
+      // Endless at its largest board, and Versus with both boards and one
+      await page.evaluate(() => document.getElementById('menuBtn').click());
+      if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+      await page.click('.mode-card[data-mode="endless"]');
+      await page.click('#beginBtn');
+      await page.waitForFunction(() => window.CHECKSMITH.app.game);
+      await look('endless');
+      await page.evaluate(() => document.getElementById('menuBtn').click());
+      if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+      await page.evaluate(() => { window.CHECKSMITH.app.vsSize = 6; });
+      await page.click('.mode-card[data-mode="versus"]');
+      await page.click('#beginBtn');
+      await page.waitForFunction(() => document.querySelectorAll('#youBoard .tile').length === 36, null, { timeout: 15000 });
+      await look('versus 6x6');
+      await page.evaluate(() => { const F = window.CHECKSMITH; F.vs.focus = 'you'; F.vsRender(); });
+      await look('versus 6x6, your board enlarged');
+      await page.evaluate(() => { const F = window.CHECKSMITH; F.vs.focus = 'none'; F.vsRender(); });
+      await page.evaluate(() => document.getElementById('menuBtn').click());
+      if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+
+      // Open Your Forge, grown as large as it goes and full of everything
+      await page.click('.mode-card[data-mode="shop"]');
+      await page.click('#beginBtn');
+      await page.waitForSelector('#nameForge:not([hidden])');
+      await page.fill('#nameForgeInput', 'The Longest Named Forge Yet');
+      await page.click('#nameForgeGo');
+      await page.waitForSelector('#shopSheet:not([hidden])');
+      await everyPage(page, '#shopSheetBody', 'starting crafts', bad);
+      await chooseCrafts(page);
+      await page.evaluate(() => {
+        const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+        sh.gold = 5e7;
+        for (const id of Object.keys(C.SHOP.growth)) for (let i = 0; i < 40; i++) if (!C.shopBuyGrowth(sh, id).ok) break;
+        const types = C.SHOP.stands.map((s) => s.id);
+        for (let i = 0; sh.stands.length < C.standCap(sh) + 3 && i < 60; i++) C.shopBuyStand(sh, types[i % types.length]);
+        const roles = C.SHOP.roles.map((r) => r.id);
+        for (let i = 0; sh.staff.length < C.staffCapacity(sh) && i < 200; i++) {
+          C.shopHire(sh, C.shopSearchStaff(sh, roles[i % roles.length], 1)[0].id);
+        }
+        for (const c of C.SHOP.categories) C.shopTakeUpDiscipline(sh, c.id);
+        for (const it of C.SHOP.items.slice(0, 40)) C.addStorage(sh, it.id + ':bronze', 3, 80);
+        for (const m of C.SHOP.materials) { sh.materials[m.id] = 999; C.addOre(sh, m.id, 30); }
+        for (let i = 0; i < 40; i++) sh.town.push(C.makeTownsfolk(sh, C.SHOP.customers[i % C.SHOP.customers.length].id));
+        F.shopUi.tab = null;
+        F.shopRender();
+      });
+      await page.waitForTimeout(150);
+      // everything that must not move while the player only looks
+      const ledger = () => page.evaluate(() => {
+        const sh = window.CHECKSMITH.app.shop;
+        return JSON.stringify({ day: sh.day, phase: sh.phaseIndex, gold: sh.gold, stands: sh.stands,
+          staff: sh.staff.map((e) => e.id), jobs: sh.assignments, storage: sh.storage, mats: sh.materials });
+      });
+      const before = await ledger();
+      await look('the shop floor');
+
+      // every drawer and every page of it
+      const drawerPages = {};
+      for (const tab of ['shelf', 'storage', 'metal', 'grow', 'ledger', 'props', 'town', 'staff']) {
+        await page.evaluate((t) => { const F = window.CHECKSMITH; F.shopUi.tab = t; F.shopRender(); }, tab);
+        drawerPages[tab] = await everyPage(page, '#shPanel', 'drawer ' + tab, bad);
+      }
+      await page.click('#shDrawerClose');
+      // every station's window
+      for (const st of ['counter', 'forge', 'store', 'door', 'board', 'sign']) {
+        await page.evaluate((s) => window.CHECKSMITH.shopOpenStation(s), st);
+        await everyPage(page, '#shopSheetBody', 'station ' + st, bad);
+        await page.evaluate(() => window.CHECKSMITH.shopSheetClose());
+      }
+      // the Almanac: its crafts, a tree through every tier, and the named pieces
+      await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.almanacCat = null; F.shopOpenAlmanac(); });
+      await everyPage(page, '#shopSheetBody', 'almanac crafts', bad);
+      const treeSeen = await page.evaluate(async () => {
+        const F = window.CHECKSMITH, C = F.core;
+        F.shopUi.almanacCat = 'armor'; F.shopUi.almanacSpecials = false; F.shopUi.almTier = {};
+        F.shopOpenAlmanac();
+        const seen = new Set(), tiers = [];
+        for (let i = 0; i < 8; i++) {
+          await new Promise((r) => setTimeout(r, 30));
+          for (const n of document.querySelectorAll('#almTree .alm-node')) seen.add(n.dataset.recipe);
+          tiers.push(document.getElementById('almTree').dataset.tiers);
+          const next = document.querySelector('#almTree [data-alm-tier="1"]:not([disabled])');
+          if (!next) break;
+          next.click();
+        }
+        const want = C.disciplineTree('armor').nodes.map((n) => n.id);
+        return { all: want.every((id) => seen.has(id)), tiers: tiers };
+      });
+      ok(tag + ': the Almanac shows every blueprint of a tall tree across its tier pages',
+        treeSeen.all, JSON.stringify(treeSeen));
+      await look('almanac tree');
+      await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.almanacCat = 'swords'; F.shopUi.almanacSpecials = true; F.shopOpenAlmanac(); });
+      await everyPage(page, '#shopSheetBody', 'almanac named blueprints', bad);
+      await page.evaluate(() => { const F = window.CHECKSMITH; F.shopUi.almanacCat = null; F.shopUi.almanacSpecials = false; F.shopSheetClose(); });
+
+      // the room, view by view: every station and every floor space is seen
+      // whole from some view, and a swipe or a wheel never just scrolls it
+      const views = await page.evaluate(async () => {
+        const scene = document.getElementById('shScene');
+        const ids = (b) => b.dataset.station || 'spot' + (b.dataset.spot || b.dataset.sstand);
+        const all = new Set(Array.from(document.querySelectorAll('#shThings [data-station], #shThings [data-spot], #shThings [data-sstand]')).map(ids));
+        const whole = new Set(), lefts = [];
+        document.querySelector('#shViews [data-jump="work"]').click();
+        await new Promise((r) => setTimeout(r, 800));
+        for (let i = 0; i < 12; i++) {
+          const r = scene.getBoundingClientRect();
+          for (const b of document.querySelectorAll('#shThings [data-station], #shThings [data-spot], #shThings [data-sstand]')) {
+            const q = b.getBoundingClientRect();
+            if (q.left >= r.left - 1 && q.right <= r.right + 1) whole.add(ids(b));
+          }
+          lefts.push(scene.scrollLeft);
+          const was = scene.scrollLeft;
+          scene.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+          await new Promise((r) => setTimeout(r, 800));
+          if (scene.scrollLeft === was) break;
+        }
+        return { missing: Array.from(all).filter((x) => !whole.has(x)), views: lefts.length, lefts: lefts,
+          names: Array.from(document.querySelectorAll('#shViews [data-jump]')).map((b) => b.textContent) };
+      });
+      ok(tag + ': the room is seen from fixed views, and every station and stand is whole in one',
+        views.missing.length === 0 && views.views >= 3, JSON.stringify(views));
+      const box = await page.locator('#shScene').boundingBox();
+      const at = await page.evaluate(() => document.getElementById('shScene').scrollLeft);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(400, 0);
+      await page.waitForTimeout(150);
+      const wheeled = await page.evaluate(() => document.getElementById('shScene').scrollLeft);
+      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(900);
+      const swiped = await page.evaluate(() => {
+        const sc = document.getElementById('shScene');
+        return { left: sc.scrollLeft, view: document.querySelector('#shViews [aria-pressed="true"]').textContent };
+      });
+      ok(tag + ': a wheel does not scroll the room; a swipe steps back one whole view',
+        wheeled === at && swiped.left < at && views.lefts.indexOf(swiped.left) >= 0,
+        JSON.stringify({ at: at, wheeled: wheeled, swiped: swiped, lefts: views.lefts }));
+
+      ok(tag + ': looking through every drawer, window, page and view spends nothing and changes nothing',
+        (await ledger()) === before);
+
+      // Edit Shop with a back room of stands, its tray paged
+      await page.evaluate(() => {
+        const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+        for (const st of sh.stands.slice(0, 8)) C.storeStand(sh, st.id);
+        F.shopRender();
+      });
+      await page.click('#shEditBtn');
+      await page.waitForTimeout(300);
+      await everyPage(page, '#shEditTray .tray-body', 'edit tray', bad);
+      await page.click('[data-tray-act="done"]');
+      await page.evaluate(() => {
+        const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+        for (const st of sh.stands) if (!C.standPlaced(st)) { const s = C.firstFreeSlot(sh); if (s != null) C.placeStand(sh, st.id, s); }
+        F.shopRender();
+      });
+
+      // a drawer remembers its tab and its page; a window opened from it
+      // hides it, and Back brings it back exactly as it was
+      const restore = await page.evaluate(async () => {
+        const F = window.CHECKSMITH;
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        F.shopUi.tab = 'town'; F.shopRender();
+        await wait(50);
+        const pg = document.getElementById('shPanel');
+        const pages = Number(pg.dataset.pages);
+        if (pages > 1) { pg.nextElementSibling.querySelector('[data-pg="1"]').click(); await wait(30); }
+        const left = pg.dataset.page;
+        document.getElementById('shDrawerClose').click();
+        await wait(50);
+        document.querySelector('#shGroups [data-group="business"]').click();
+        await wait(80);
+        const back = { tab: F.shopUi.tab, page: pg.dataset.page };
+        // a person from the list: one window at a time
+        const person = Array.from(pg.querySelectorAll('[data-town]')).find((b) => !b.closest('.pg-off'));
+        person.click();
+        await wait(80);
+        const stacked = { sheet: !document.getElementById('shopSheet').hidden,
+          drawerHidden: getComputedStyle(document.getElementById('shDrawer')).visibility === 'hidden' };
+        document.querySelector('#shopSheet [data-win-back]').click();
+        await wait(80);
+        return { pages: pages, left: left, back: back, stacked: stacked,
+          after: { drawer: getComputedStyle(document.getElementById('shDrawer')).visibility, page: pg.dataset.page } };
+      });
+      ok(tag + ': a drawer reopens on the tab and the page it was left at',
+        restore.back.tab === 'town' && restore.back.page === restore.left, JSON.stringify(restore));
+      ok(tag + ': a window opened from a drawer is the only one showing, and Back returns to the drawer as it was',
+        restore.stacked.sheet && restore.stacked.drawerHidden && restore.after.drawer === 'visible' &&
+        restore.after.page === restore.left, JSON.stringify(restore));
+      // and the system Back gesture walks the same way out
+      const backs = await page.evaluate(() => {
+        const r = [];
+        r.push(window.checksmithBack(), document.getElementById('shDrawer').hidden);
+        return r;
+      });
+      ok(tag + ': Back closes the drawer and stays in the forge', backs[0] === true && backs[1] === true &&
+        await page.isVisible('#shopView'), JSON.stringify(backs));
+
+      ok(tag + ': long windows are turned in pages, not scrolled', drawerPages.town > 1 && drawerPages.grow > 1,
+        JSON.stringify(drawerPages));
+      ok(tag + ': every screen and every page fits, with nothing scrolling and nothing cut off',
+        bad.length === 0, bad.slice(0, 6).join(' | '));
+      ok(tag + ': the tour raises no errors', errs.length === 0, errs.slice(0, 3).join(' | '));
+      await ctx.close();
+    }
+  }
 
   await browser.close();
   console.log('\n' + (failures.length ? 'FAILED: ' + failures.join('; ') : 'All browser checks passed') +

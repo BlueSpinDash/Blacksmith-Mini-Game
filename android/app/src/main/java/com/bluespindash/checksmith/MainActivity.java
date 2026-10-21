@@ -88,8 +88,11 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * Back closes whatever the page has open - results, how to play, the
-     * discard prompt - and only leaves the app when the board is clear.
+     * Back follows the page's own navigation: it closes the window on top
+     * (or steps Back to the window it came from), then leaves a mode for the
+     * main menu, and only leaves the app from the main menu itself. The page
+     * decides, through window.checksmithBack(); the older fallback below only
+     * runs if that is missing.
      */
     @Override
     @SuppressWarnings("deprecation")
@@ -100,9 +103,10 @@ public class MainActivity extends Activity {
         }
         web.evaluateJavascript(
                 "(function(){" +
-                "  var open=document.querySelector('.overlay:not([hidden])');" +
+                "  if(window.checksmithBack) return !!window.checksmithBack();" +
+                "  var open=document.querySelector('.overlay:not([hidden]):not(.title-screen)');" +
                 "  if(!open) return false;" +
-                "  var close=open.querySelector('#helpClose,#confirmNo,#rChange');" +
+                "  var close=open.querySelector('[data-win-back],#confirmNo,#rChange');" +
                 "  if(close){close.click();} else {open.hidden=true;}" +
                 "  return true;" +
                 "})()",
