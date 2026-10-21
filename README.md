@@ -1926,6 +1926,121 @@ looking about the Almanac never spend a phase or change the forge; a browser
 check tours every drawer, page, station, view and window of a fully grown forge
 and compares the forge before and after.
 
+## Scene first: the shop is the screen (1.44)
+
+Open Your Forge is the shop itself now, drawn edge to edge between two slim
+dark bars, and everything the old rows of buttons and drawers did is done by
+walking up to the thing in the shop that does it. This replaces the 1.43
+viewpoints, the status card, the action and drawer rows and the crew line.
+
+**The bars.** The bar over the shop says the day and the phase, the gold and
+the rating, has the **menu** (☰), and names the three places; the one in view is
+underlined. The bar under it shows how far through the day it is (three pips)
+and ends the phase. On the shop floor it also has **Arrange**, which is Edit
+Shop. Rent, wages, staffing and money moved into the objects that own them, and
+what the player must not miss is said as a **notice**: one line over the top of
+the shop that fades by itself, said over a window if one is open. The day's
+first notice says when the weekly bill falls due within two days (and by how
+much the purse is short), and when a commission is due today or tomorrow.
+
+**Three places, each composed for a phone.** Each place is laid out once, in
+its own 360×600 units, and drawn as large as the space between the bars allows
+without cropping a fixture. Its backdrop is drawn past those units out to the
+screen's edges, so a taller, wider or shorter phone sees more wall, floor, sky
+or street around the same furniture and never an empty margin.
+
+- **The Workshop**: the forge (it grows grander with its upgrade level), an
+  anvil for every Smith's place, the storeroom shelves (showing the metals and
+  ore held), the supplies crates and the Almanac's blueprint table, with the
+  quench tub and coal scuttle on the flagstones. Smiths stand behind their
+  anvils, or at the forge's mouth when smelting; the apprentice works the
+  bellows.
+- **The Shop Floor**: the displays in rows, as large as the floor allows (three
+  across, then four, then five as the floor grows) with a roped-off space while
+  it can still grow; the counter with the Salesperson behind it; the ledger on
+  its lectern; and the plans for the next improvement pinned to the wall. More
+  windows appear on the back wall as the building grows.
+- **The Front**, from the street: the sign with the shop's name, the door
+  (closed, and open while a phase plays out), the **hiring board** to the left of
+  it and the **commission board** to the right, neither touching it, lanterns
+  either side, the cart on the cobbles once there is a vehicle, and the Runners
+  on the street.
+
+**Swiping is how you move.** A finger drags the three places sideways and, let
+go, they glide to a whole place: the next one along when the swipe went a fifth
+of the way across or was flung, back where they were otherwise. Past the first
+and last place the row gives a little and no further. The camera never rests
+between two places. A tap is never a swipe (a press that moved more than ten
+pixels does not land as a tap), and a swipe is never a tap. The names in the top
+bar and the arrow keys move between places too. Nothing moves while a window is
+open or while the floor is being arranged, and closing a window leaves the
+camera where it was. A shop opens on its floor.
+
+**The environment is the button.** Every fixture is a labelled object with a
+generous touch area that lifts under the finger; objects with something waiting
+carry a small badge (offers on the commission board, staff ready for promotion
+on the hiring board, goods ready to cart at the door, the bill coming due at the
+ledger). Employees, displays and empty floor are tappable too, as before.
+
+**Every object opens one window, organised by what it is for**, with a tab for
+each page of its subject, its own art in the head, and its actions at the foot:
+
+| Object | Window and tabs |
+|---|---|
+| Forge, anvils | **Forge**: batch size, forge level and ingots at a glance; Special Commissions worked at the anvil; batches cooling; who is at the anvils this phase (Smith and Apprentice places, tap to assign). *Forge a Batch.* |
+| Storeroom | **Storeroom**: *Metal & Ore* (a tile per metal; ore to smelt) and *Finished Goods* (a tile per line, quality at a glance; what arrives tomorrow). |
+| Supplies | **Supplies**: today's market prices and the Runner's places. *Buy Metal.* |
+| Almanac table | **The Checksmith Almanac**, as in 1.43. |
+| Counter | **Counter**: *Counter* (what is on display, the town, the rating, who is behind the counter; *Tend the Store*), *Displays* (every stand; *Arrange Floor*, *Buy Stand*), *Customers*. |
+| Ledger | **Ledger**: *Accounts* (the purse, the next bill and whether it is covered, the bill line by line, the next commission due, and the money the shop's records show: sales, Runners' purchases, carted commissions, weekly bills), *Properties* (mines and deeds). |
+| Plans | **Upgrades**: *Shop* (Store Expansion, each display, the fittings), *Workshop* (Forge, Smith Staffing), *Staff* (Employment, the other Staffing tracks, Salesperson Earnings). Every card says its level, what it gives now, what the next level changes, the cost, and whether it can be bought. |
+| Hiring board | **Hiring Board**: *Employees* (the roster, promotions called out), *Schedule* (the day's roster), *Hire* (a card for each trade, how many are hired, "See applicants"). |
+| Commission board | **Commission Board**: *Available*, *Active* and *Completed*, each with **Special Commissions** (gold-sealed, no deadline, design → mold → perfect forge) and **Bulk Orders** (a lot, a deadline, a price) kept apart. Completed bulk orders are remembered per forge, outside the save itself. |
+| Door, cart | **Entrance**: *Deliveries* (what is crated and ready to cart, deliver it yourself, the Runner's places) and *Vehicles*. |
+| Sign | **Shop Settings**: name, phase animation, worker camera. |
+
+Opening a window, switching tabs, turning pages and swiping never spend a
+phase; only the actions that always did still do.
+
+**The menu (☰)** replaces the top bar's mute, volume and leave buttons in every
+mode. It holds sound (mute and volume), the mode's own items (Shop Settings in
+the shop, Symbols on This Board on a board), How to Play, and the way out (Save
+and Leave in the shop, Main Menu elsewhere, asking first wherever leaving loses
+something). Android's back gesture closes the window on top, then leaves
+arranging or skips a playback, then opens the menu; on the title it still
+closes the app.
+
+**The phase playback** visits the places: the camera goes to the place each
+employee works in, waits until it is there, plays their job and moves on, and
+comes back to the place the player left. Swiping or choosing a place takes the
+camera for the rest of the phase. Customers walk in to the counter, Runners walk
+off down the street, the door stands open.
+
+**The other modes, board first.** How to Play moved from every board's row into
+the menu, and Main Menu with it, so the rows under the boards hold only what
+acts on the board (Restart, All Designs, New Puzzle, Symbols; Concede in
+Versus). The **Forge's gallery** is an item picker: the chosen design fills the
+screen (its shape, name, difficulty, size, parts and best result) over a strip
+of every design, and **Forge the Dagger** (or whichever is chosen) lays it on
+the anvil. **Versus** stands its two boards one above the other, each with its
+score beside it, whenever that makes them larger, which on most phones it does.
+**Results** lead with the outcome ("Masterwork", "Stranded") in large letters,
+then the quality, then the details.
+
+**Windows** are one family in the fantasy style: dark wood, a bronze edge, a
+gold title, a crest or the object's own art in the head, Close or Back in the
+same place, over a visible, darkened shop. The shop's light and glow are still
+isolated under every window.
+
+**Responsive.** Portrait phones get the full layout with safe areas padded in
+both bars. On a phone on its side the bars become a column beside the shop. The
+Android build is held in portrait.
+
+**Nothing about the game changed.** The core is byte-for-byte that of 1.43: all
+1036 core checks pass unchanged and the board fingerprint is the same. Saves
+load as they were; the only new stored data are the remembered completed bulk
+orders, kept beside the saves.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded
