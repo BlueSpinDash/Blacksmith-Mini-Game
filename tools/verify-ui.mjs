@@ -4664,9 +4664,11 @@ async function run() {
     const double = { staff: sh.staff.length, open: !document.getElementById('shopSheet').hidden,
       left: document.querySelectorAll('#shopSheetBody [data-hire]').length };
     for (let i = 0; i < 2; i++) {
-      document.querySelector('#shopSheetBody [data-hire]').click();
+      // a real second hire, after the moment that would count as a double tap
       await new Promise((r) => setTimeout(r, 450));
+      document.querySelector('#shopSheetBody [data-hire]').click();
     }
+    await new Promise((r) => setTimeout(r, 100));
     const out = { was: was, double: double, tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length,
       gold: sh.gold, booked: Object.keys(sh.assignments).length };
     F.shopSheetClose();
@@ -7620,7 +7622,8 @@ async function run() {
     });
     const clearSheets = async () => {
       for (let k = 0; k < 8 && (await page.isVisible('#shopSheet')); k++) {
-        await page.click('#shopSheetActions button:first-child');
+        // the first action, wherever it sits: a lone Close is in the window's head
+        await page.click('#shopSheet [data-at="0"]');
         await page.waitForTimeout(120);
       }
     };
