@@ -7182,7 +7182,7 @@ function itemPlural(it) {
   if (/(ch|sh|x|z)$/i.test(n)) return n + 'es';
   return n + 's';
 }
-/* A count and what it is of: "1 Iron Longsword", "3 Steel Daggers". */
+/* A count and what it is of: "1 Silver Longsword", "3 Bronze Daggers". */
 function lineCount(key, qty) {
   const p = splitKey(key), it = shopItem(p.item), mt = shopMaterial(p.material);
   if (!it || !mt) return qty + ' \u00d7 ' + key;

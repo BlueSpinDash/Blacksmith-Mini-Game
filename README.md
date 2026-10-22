@@ -2270,11 +2270,11 @@ work, now name each item and count it:
 
 | Who | Before | Now |
 |-----|--------|-----|
-| Smith | `+1 made` | `+1 Iron Longsword Made` |
-| Store Hand | `+3 shelved` | `+3 Steel Daggers Stocked`, one line per kind of item |
-| Salesperson | `+58g` | `+58g`, with `+1 Iron Longsword Sold` above it, one line per kind |
-| You, stocking | `Stocked 4 items onto stands.` | `+3 Bronze Arming Swords Stocked · +1 Iron Arming Sword Stocked` |
-| You, at the counter | `Afternoon has started.` | `+2 Bronze Arming Swords Sold · +1 Iron Arming Sword Sold` |
+| Smith | `+1 made` | `+1 Silver Longsword Made` |
+| Store Hand | `+3 shelved` | `+3 Bronze Daggers Stocked`, one line per kind of item |
+| Salesperson | `+58g` | `+58g`, with `+1 Silver Longsword Sold` above it, one line per kind |
+| You, stocking | `Stocked 4 items onto stands.` | `+3 Bronze Arming Swords Stocked · +1 Silver Arming Sword Stocked` |
+| You, at the counter | `Afternoon has started.` | `+2 Bronze Arming Swords Sold · +1 Silver Arming Sword Sold` |
 | You, at the anvil | `Afternoon has started.` | `+2 Bronze Arming Swords Made` |
 
 Names come from the item and metal tables through `lineCount(key, qty)`: one

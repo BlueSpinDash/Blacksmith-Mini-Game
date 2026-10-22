@@ -5855,9 +5855,9 @@ async function run() {
       F.setPhaseAnim(false);
       const sword = C.lineKey('shortsword', 'bronze');
       // stocking: two lines onto two stands, one of them a single piece
-      const iron = C.lineKey('shortsword', 'iron');
+      const silver = C.lineKey('shortsword', 'silver');
       C.addStorage(sh, sword, 6, 80, 1);
-      C.addStorage(sh, iron, 6, 80, 1);
+      C.addStorage(sh, silver, 6, 80, 1);
       const weapons = () => sh.stands.filter((st) => st.type === 'weapon' && C.standPlaced(st));
       sh.gold = 1000000;
       while (weapons().length < 2) {
@@ -5869,7 +5869,7 @@ async function run() {
       for (const st of [weapon, shield]) { st.key = null; st.qty = 0; st.price = 0; }
       sh.phaseIndex = 0;
       F.shopUi.picks = [{ stand: weapon.id, key: sword }, { stand: weapon.id, key: sword },
-        { stand: weapon.id, key: sword }, { stand: shield.id, key: iron }];
+        { stand: weapon.id, key: sword }, { stand: shield.id, key: silver }];
       window.shopConfirmStock(null);
       await new Promise((r) => setTimeout(r, 80));
       out.stock = document.getElementById('shPromptText').textContent;
@@ -5877,7 +5877,7 @@ async function run() {
       // selling at the counter yourself
       sh.phaseIndex = 0;
       F.shopUi.session = { report: { customers: 3, sold: 3, revenue: 120, bonus: 0, haggles: 0, won: 0,
-        left: 0, lines: { [sword]: 2, [iron]: 1 } } };
+        left: 0, lines: { [sword]: 2, [silver]: 1 } } };
       window.shopCloseCounter();
       await new Promise((r) => setTimeout(r, 80));
       document.querySelector('#shopSheet [data-at="0"]').click();
@@ -5897,9 +5897,9 @@ async function run() {
       return out;
     });
     ok('stocking stands yourself names each item stocked, and how many',
-      mine.stock === '+3 Bronze Arming Swords Stocked · +1 Iron Arming Sword Stocked', mine.stock);
+      mine.stock === '+3 Bronze Arming Swords Stocked · +1 Silver Arming Sword Stocked', mine.stock);
     ok('selling at the counter yourself names what was sold',
-      mine.sold === '+2 Bronze Arming Swords Sold · +1 Iron Arming Sword Sold', mine.sold);
+      mine.sold === '+2 Bronze Arming Swords Sold · +1 Silver Arming Sword Sold', mine.sold);
     ok('and a batch of your own names what was made', mine.made === '+2 Bronze Arming Swords Made', mine.made);
 
     await page.evaluate(() => {
