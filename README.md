@@ -2340,7 +2340,7 @@ off while the forge is closed, while a phase is still playing out, and on a
 day given to study, as before. The hiring board, the search and How to Play
 say so.
 
-Ten new core checks and seven browser checks cover cooling from every phase
+Ten new core checks and six browser checks cover cooling from every phase
 and across the day, Smiths and the player alike, contracts, stocking while
 cooling, saves old and new, hiring several without a phase passing, and the
 limits that still apply; checks that expected the next morning, or a phase
@@ -2489,8 +2489,8 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 1108 rule/generation checks
-node tools/verify-ui.mjs                                    # 1073 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 1118 rule/generation checks
+node tools/verify-ui.mjs                                    # 1079 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
