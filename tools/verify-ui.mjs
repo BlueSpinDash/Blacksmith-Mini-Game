@@ -2698,6 +2698,16 @@ async function run() {
   });
   ok('stocking moves goods onto a stand', stocked.shelf > 0, JSON.stringify(stocked));
   ok('a fresh line starts at its recommended price', stocked.price === stocked.rec);
+  // stocking spent the phase, and the page it was done from went with it
+  const putAway = await page.evaluate(() => ({ drawer: document.getElementById('shDrawer').hidden,
+    tab: window.CHECKSMITH.shopUi.tab }));
+  ok('stocking spends the phase, which puts the Displays page away', putAway.drawer && putAway.tab == null,
+    JSON.stringify(putAway));
+  await page.evaluate(() => {
+    const F = window.CHECKSMITH;
+    F.shopUi.tab = 'shelf';
+    F.shopRender();
+  });
   const floor = await page.evaluate(() => {
     const sh = window.CHECKSMITH.app.shop, C = window.CHECKSMITH.core;
     return { boxes: document.querySelectorAll('#shPanel .shelf-box').length,
@@ -5635,6 +5645,276 @@ async function run() {
   /* Staffing upgrades add places per phase; Salesperson Earnings adds a share
      of every hired Salesperson's sale. Bought from Growth, used on the Staff
      screen, resolved in one phase, and kept across a reload. */
+  /* A phase that passes puts away whatever was open; anything that spends no
+     phase leaves it. Either way the camera stays where the player left it. */
+  section('Open Your Forge: a phase that passes closes the menus');
+  {
+    const menus = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      F.testKeptMenus = F.core.serializeShop(sh);
+      F.setPhaseAnim(false);
+      sh.staff = []; sh.assignments = {}; sh.standing = []; sh.closed = false;
+      const out = {};
+      let confirmed = 0;
+      const opens = {
+        place: () => window.shopOpenPlace('ledger'),
+        dialog: () => window.shopOpenSettings(),
+        stacked: () => { window.shopOpenPlace('counter'); window.shopOpenSettings(); },
+        menu: () => window.openGameMenu(),
+        help: () => window.openHelp(),
+        info: () => window.infoWindow('Symbols', '<p>x</p>', 'legend'),
+        confirm: () => window.askConfirm('Sure?', () => { confirmed++; })
+      };
+      const isNew = (title) => /summary$|^Day /.test(title);
+      for (const view of ['work', 'floor', 'front']) {
+        for (const k in opens) {
+          F.sceneView(view, false);
+          opens[k]();
+          await new Promise((r) => setTimeout(r, 60));
+          const was = sh.day * 3 + sh.phaseIndex;
+          F.shopSpendPhase(null);
+          await new Promise((r) => setTimeout(r, 60));
+          // what opens now is the new phase's own (its summary, a new day's
+          // report), never the window that was open before
+          const sheet = document.getElementById('shopSheet');
+          const title = document.getElementById('shopSheetTitle').textContent;
+          out[view + ':' + k] = { advanced: sh.day * 3 + sh.phaseIndex === was + 1,
+            closed: ['shDrawer', 'gameMenu', 'help', 'infoWin', 'confirm'].every((id) => document.getElementById(id).hidden) &&
+              (sheet.hidden || isNew(title)),
+            tab: F.shopUi.tab, view: F.shopUi.view, want: view, title: sheet.hidden ? '' : title };
+          for (let n = 0; n < 6 && !sheet.hidden; n++) {
+            const b = document.querySelector('#shopSheet [data-at="0"]');
+            if (b) b.click(); else F.shopSheetClose();
+            await new Promise((r) => setTimeout(r, 60));
+          }
+        }
+      }
+      out.confirmed = confirmed;
+      return out;
+    });
+    const all = Object.keys(menus).filter((k) => k !== 'confirmed').map((k) => menus[k]);
+    ok('every kind of window closes when the phase advances', all.length === 21 &&
+      all.every((m) => m.advanced && m.closed && m.tab == null), JSON.stringify(menus).slice(0, 600));
+    ok('a question left open is answered no, not yes', menus.confirmed === 0, String(menus.confirmed));
+    ok('and the camera stays in the place it was in', all.every((m) => m.view === m.want),
+      JSON.stringify(all.map((m) => m.want + '>' + m.view)));
+
+    const kept = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      const out = {};
+      const tick = () => sh.day * 3 + sh.phaseIndex;
+      const open = (id) => !document.getElementById(id).hidden;
+      F.sceneView('floor', false);
+      // opening a window and turning to another of its pages spends nothing
+      window.shopOpenPlace('ledger');
+      await new Promise((r) => setTimeout(r, 60));
+      let was = tick();
+      window.shopShowTab('props');
+      out.tab = { open: open('shDrawer'), tab: F.shopUi.tab, tick: tick() === was };
+      // a free action from inside it, then backing out of what it offers
+      sh.gold = 1000000;
+      while (sh.stands.length >= F.core.standCap(sh) && F.core.shopBuyGrowth(sh, 'floor').ok) { /* room for one more */ }
+      window.shopBuyStandFrom('weapon');
+      await new Promise((r) => setTimeout(r, 60));
+      out.free = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
+      const back = Array.from(document.querySelectorAll('#shopSheet button')).find((b) => /Keep in the Back/.test(b.textContent));
+      if (back) back.click();
+      await new Promise((r) => setTimeout(r, 60));
+      out.cancel = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
+      // a question answered no closes only itself
+      window.askConfirm('Sure?', () => {});
+      document.getElementById('confirmNo').click();
+      out.no = { drawer: open('shDrawer'), tick: tick() === was };
+      // a phase that cannot be spent (one already playing out) closes nothing
+      window.shopOpenSettings();
+      await new Promise((r) => setTimeout(r, 60));
+      was = tick();
+      F.shopUi.playing = { finish: function () {} };
+      F.shopSpendPhase(null);
+      F.shopUi.playing = null;
+      out.playing = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
+      // nor does one a closed forge has none of
+      sh.closed = true;
+      F.shopSpendPhase(null);
+      sh.closed = false;
+      out.closed = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
+      out.view = F.shopUi.view;
+      F.shopSheetClose();
+      F.shopUi.tab = null;
+      F.shopRender();
+      return out;
+    });
+    ok('opening a window, turning its pages and backing out of an offer spend nothing and close nothing',
+      kept.tab.open && kept.tab.tab === 'props' && kept.tab.tick && kept.free.drawer && kept.free.sheet &&
+      kept.free.tick && kept.cancel.drawer && !kept.cancel.sheet && kept.cancel.tick && kept.no.drawer && kept.no.tick,
+      JSON.stringify(kept));
+    ok('and an attempt to end a phase that cannot be ended leaves everything open',
+      kept.playing.drawer && kept.playing.sheet && kept.playing.tick &&
+      kept.closed.drawer && kept.closed.sheet && kept.closed.tick && kept.view === 'floor', JSON.stringify(kept));
+  }
+
+  section('Open Your Forge: notifications name the goods');
+  {
+    // a phase with a Smith, a Store Hand and a Salesperson, watched to the end
+    const watched = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.gold = 50000; sh.reputation = 40; sh.phaseIndex = 0; sh.closed = false;
+      sh.assignments = {}; sh.standing = [];
+      for (const one of sh.town) one.gold = 40000;
+      sh.materials.bronze = 20;
+      const key = C.lineKey('shortsword', 'bronze');
+      if (!C.recipeKnown(sh, 'shortsword')) C.learnRecipe(sh, 'shortsword', 'study');
+      C.addStorage(sh, key, 8, 80, 1);
+      const stand = sh.stands.find((st) => st.type === 'weapon' && C.standPlaced(st));
+      if (stand.key && stand.key !== key) { stand.key = null; stand.qty = 0; stand.price = 0; }
+      if (!stand.qty) C.shopStockStand(sh, stand.id, key, 2);
+      sh.staff = [
+        { id: 911, name: 'Sal Counter', role: 'salesperson', rank: 'C', power: 3, wage: 20, xp: 0, face: 'guard' },
+        { id: 912, name: 'Smi Anvil', role: 'smith', rank: 'S', power: 6, wage: 20, xp: 0, face: 'cleric' },
+        { id: 914, name: 'Sto Floor', role: 'storehand', rank: 'C', power: 3, wage: 20, xp: 0, face: 'miner' }];
+      C.shopAssign(sh, 911, {}, 'morning');
+      C.shopAssign(sh, 912, { order: { item: 'shortsword', material: 'bronze' } }, 'morning');
+      C.shopAssign(sh, 914, { order: { keys: [] } }, 'morning');
+      F.setPhaseAnim(true); F.setWorkerCam(true);
+      F.shopRender();
+      const floats = [];
+      const obs = new MutationObserver((ms) => {
+        for (const m of ms) for (const n of m.addedNodes) {
+          if (!n.classList || !n.classList.contains('fx-float')) continue;
+          const stage = n.parentElement;
+          floats.push({ text: n.textContent, left: parseFloat(n.style.left), w: n.offsetWidth,
+            stageW: stage ? stage.offsetWidth : 0 });
+        }
+      });
+      obs.observe(document.getElementById('shFx'), { childList: true, subtree: true });
+      F.sceneView('floor', false);
+      F.shopSpendPhase(null);
+      const t0 = Date.now();
+      while (F.shopUi.playing && Date.now() - t0 < 40000) await new Promise((r) => setTimeout(r, 80));
+      obs.disconnect();
+      for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+        document.querySelector('#shopSheet [data-at="0"]').click();
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      const today = sh.log.filter((r) => r.day === sh.day && r.phase === 'morning' && r.ok);
+      const want = [];
+      for (const r of today) {
+        if (r.kind === 'smith' && r.made > 0) want.push('+' + C.lineCount(C.lineKey(r.item, r.material), r.made) + ' Made');
+        if (r.kind === 'storehand' || r.kind === 'sales') {
+          for (const k in r.lines || {}) {
+            want.push('+' + C.lineCount(k, r.lines[k]) + ' ' + (r.kind === 'sales' ? 'Sold' : 'Stocked'));
+          }
+        }
+      }
+      F.setPhaseAnim(false);
+      return { floats: floats, want: want, kinds: today.map((r) => r.kind + ':' + (r.made || r.moved || r.sold || 0)),
+        view: F.shopUi.view };
+    });
+    const texts = watched.floats.map((f) => f.text);
+    ok('every Smith, Store Hand and Salesperson note names its items and counts them',
+      watched.want.length >= 2 && watched.want.every((w) => texts.indexOf(w) >= 0),
+      JSON.stringify({ want: watched.want, got: texts, kinds: watched.kinds }).slice(0, 500));
+    ok('no note counts items without naming them any more',
+      !texts.some((t) => /^\+\d+ (made|shelved)$/.test(t)), JSON.stringify(texts));
+    ok('the takings still float up as before', texts.some((t) => /^\+[\d,]+g$/.test(t)) ||
+      !watched.kinds.some((k) => /^sales:[1-9]/.test(k)), JSON.stringify(texts));
+    ok('every note stays inside its place, however long the name',
+      watched.floats.every((f) => !f.stageW || (f.left - f.w / 2 >= 0 && f.left + f.w / 2 <= f.stageW)),
+      JSON.stringify(watched.floats.map((f) => [f.text, f.left, f.w])).slice(0, 400));
+
+    const longName = await page.evaluate(() => {
+      const st = document.querySelector('#shFx .loc-stage');
+      window.sceneFloat('floor', 4, 200, '+12 Adamantine Articulated Gauntlets Stocked');
+      window.sceneFloat('floor', 356, 220, '+12 Adamantine Articulated Gauntlets Stocked and a good deal more besides');
+      const els = Array.from(document.querySelectorAll('#shFx .fx-float')).slice(-2);
+      const out = els.map((el) => ({ left: parseFloat(el.style.left), w: el.offsetWidth,
+        stage: el.parentElement.offsetWidth, wrap: el.classList.contains('wrap') }));
+      els.forEach((el) => el.remove());
+      // a sale of many kinds stacks one a line, every line in the place and
+      // none on top of another; the last says where the takings can go
+      const many = Array.from({ length: 12 }, (x, i) => '+1 Bronze Arming Sword Sold ' + i);
+      const last = window.sceneFloatLines('floor', 268, 160, many);
+      const stack = Array.from(document.querySelectorAll('#shFx .fx-float')).slice(-12);
+      const tops = stack.map((el) => parseFloat(el.style.top));
+      stack.forEach((el) => el.remove());
+      return { long: out, tops: tops, last: last };
+    });
+    ok('a long name at the edge of a place is drawn in, and a very long one wraps',
+      longName.long.every((f) => f.left - f.w / 2 >= 0 && f.left + f.w / 2 <= f.stage) && !longName.long[0].wrap &&
+      longName.long[1].wrap, JSON.stringify(longName.long));
+    ok('many kinds sold at once stack apart, below the top of the place',
+      longName.tops.length === 12 && longName.tops[0] >= 18 &&
+      longName.tops.every((y, i) => !i || y - longName.tops[i - 1] >= 16) &&
+      longName.last === longName.tops[11] && longName.last + 16 > 176, JSON.stringify(longName));
+
+    // the player's own work says what it was, on the notice line
+    const mine = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      const out = {};
+      sh.staff = []; sh.assignments = {}; sh.closed = false;
+      F.setPhaseAnim(false);
+      const sword = C.lineKey('shortsword', 'bronze');
+      // stocking: two lines onto two stands, one of them a single piece
+      const iron = C.lineKey('shortsword', 'iron');
+      C.addStorage(sh, sword, 6, 80, 1);
+      C.addStorage(sh, iron, 6, 80, 1);
+      const weapons = () => sh.stands.filter((st) => st.type === 'weapon' && C.standPlaced(st));
+      sh.gold = 1000000;
+      while (weapons().length < 2) {
+        if (sh.stands.length >= C.standCap(sh) && !C.shopBuyGrowth(sh, 'floor').ok) break;
+        const res = C.shopBuyStand(sh, 'weapon');
+        if (!res.ok || !C.placeStand(sh, res.stand.id).ok) break;
+      }
+      const weapon = weapons()[0], shield = weapons()[1];
+      for (const st of [weapon, shield]) { st.key = null; st.qty = 0; st.price = 0; }
+      sh.phaseIndex = 0;
+      F.shopUi.picks = [{ stand: weapon.id, key: sword }, { stand: weapon.id, key: sword },
+        { stand: weapon.id, key: sword }, { stand: shield.id, key: iron }];
+      window.shopConfirmStock(null);
+      await new Promise((r) => setTimeout(r, 80));
+      out.stock = document.getElementById('shPromptText').textContent;
+      F.shopSheetClose();
+      // selling at the counter yourself
+      sh.phaseIndex = 0;
+      F.shopUi.session = { report: { customers: 3, sold: 3, revenue: 120, bonus: 0, haggles: 0, won: 0,
+        left: 0, lines: { [sword]: 2, [iron]: 1 } } };
+      window.shopCloseCounter();
+      await new Promise((r) => setTimeout(r, 80));
+      document.querySelector('#shopSheet [data-at="0"]').click();
+      await new Promise((r) => setTimeout(r, 80));
+      out.sold = document.getElementById('shPromptText').textContent;
+      F.shopSheetClose();
+      // a batch of your own off the anvil
+      sh.phaseIndex = 0;
+      sh.materials.bronze = 10;
+      F.shopUi.order = { item: 'shortsword', material: 'bronze', qty: 2 };
+      window.shopForgeComplete({ quality: 82, label: 'Good' });
+      await new Promise((r) => setTimeout(r, 120));
+      document.querySelector('#shopSheet [data-at="0"]').click();
+      await new Promise((r) => setTimeout(r, 120));
+      out.made = document.getElementById('shPromptText').textContent;
+      F.shopSheetClose();
+      return out;
+    });
+    ok('stocking stands yourself names each item stocked, and how many',
+      mine.stock === '+3 Bronze Arming Swords Stocked · +1 Iron Arming Sword Stocked', mine.stock);
+    ok('selling at the counter yourself names what was sold',
+      mine.sold === '+2 Bronze Arming Swords Sold · +1 Iron Arming Sword Sold', mine.sold);
+    ok('and a batch of your own names what was made', mine.made === '+2 Bronze Arming Swords Made', mine.made);
+
+    await page.evaluate(() => {
+      const F = window.CHECKSMITH;
+      if (F.testKeptMenus) {
+        F.app.shop = F.core.restoreShop(JSON.parse(JSON.stringify(F.testKeptMenus)), F.app.shop.rnd);
+        F.testKeptMenus = null;
+      }
+      F.shopUi.picks = []; F.shopUi.session = null; F.shopUi.order = null;
+      F.setPhaseAnim(false);
+      F.shopSheetClose();
+      F.shopRender();
+    });
+  }
+
   section('Open Your Forge: Staffing and Salesperson Earnings');
   const keptForStaffing = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;

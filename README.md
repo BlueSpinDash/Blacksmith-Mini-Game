@@ -2248,6 +2248,50 @@ specializations, every order and lot carries no value bonus, and no study is
 under way. Production orders now also keep their blueprint level and
 commission across a reload, which they previously lost.
 
+## Menus close at the turn of a phase, and notes name the goods (1.47)
+
+**A phase that passes puts everything away.** Whenever a phase actually
+advances (ending it from the bar, finishing a batch at the anvil, closing the
+counter, stocking stands, or any other way; all of them pass through the one
+`shopAdvancePhase` call) every window,
+page, menu and question still open is closed and the shop is in view again. A
+question left open is answered *no*, never *yes*. The camera stays exactly
+where it was: Workshop, Shop Floor or Front. What the new phase opens itself
+(its summary, a new day's report) still opens as before. Nothing that spends
+no phase closes anything: opening a window, turning its pages, backing out,
+free actions such as buying a stand, and an attempt to end a phase that cannot
+be ended (one still playing out, or a closed forge) all leave the windows as
+they were. `shopCloseMenus()` is called from the one place a phase is spent,
+`shopSpendPhase`, and only when `shopAdvancePhase` reports that it advanced.
+
+**The small notes say what the goods were.** The floating notes over the
+scene during the phase playback, and the notice line for the player's own
+work, now name each item and count it:
+
+| Who | Before | Now |
+|-----|--------|-----|
+| Smith | `+1 made` | `+1 Iron Longsword Made` |
+| Store Hand | `+3 shelved` | `+3 Steel Daggers Stocked`, one line per kind of item |
+| Salesperson | `+58g` | `+58g`, with `+1 Iron Longsword Sold` above it, one line per kind |
+| You, stocking | `Stocked 4 items onto stands.` | `+3 Bronze Arming Swords Stocked · +1 Iron Arming Sword Stocked` |
+| You, at the counter | `Afternoon has started.` | `+2 Bronze Arming Swords Sold · +1 Iron Arming Sword Sold` |
+| You, at the anvil | `Afternoon has started.` | `+2 Bronze Arming Swords Made` |
+
+Names come from the item and metal tables through `lineCount(key, qty)`: one
+piece takes the item's name, more than one its plural from `itemPlural(it)`.
+Most names take an *s* (*Knife* to *Knives*, *Lockbox* to *Lockboxes*), names
+that are already a pair or a set stay as they are (*Reinforced Boots*,
+*Arrowheads*), and the three whose plural is their own carry it in the table
+(`plural`: *Becs de Corbin*, *Decorative Gatework*, *Sovereign’s Aegises*). The
+notes keep their animation, place, timing and colours. A long name is drawn in
+from the edge of the place so none of it is cut off, and one wider than the
+place itself wraps, centred. Several kinds of goods stack one a line. The
+Smith's smelting note (`+2 ingots`) and the gold note are unchanged, and no new
+panel or summary was added.
+
+The rules are untouched: the phases advance exactly as before, the economy and
+staff are the same, and the board fingerprint is unchanged.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded

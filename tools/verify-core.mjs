@@ -5544,6 +5544,23 @@ section('Open Your Forge: specialisations');
   })());
 }
 
+
+section('Open Your Forge: goods named in a notice');
+{
+  ok('one is the item’s own name, more than one its plural', (() =>
+    C.lineCount(C.lineKey('longsword', 'silver'), 1) === '1 Silver Longsword' &&
+    C.lineCount(C.lineKey('longsword', 'silver'), 3) === '3 Silver Longswords'));
+  ok('plurals follow the name: knives, lockboxes, and pairs stay pairs', (() => {
+    const p = (id) => C.itemPlural(C.shopItem(id));
+    return p('cookknife') === 'Cooking Knives' && p('lockbox') === 'Lockboxes' &&
+      p('boots') === 'Reinforced Boots' && p('arrowheads') === 'Arrowheads' && p('manacles') === 'Manacles';
+  })());
+  ok('an item with a plural of its own says so in the table', (() =>
+    C.itemPlural(C.shopItem('becdecorbin')) === 'Becs de Corbin' &&
+    C.itemPlural(C.shopItem('gatework')) === 'Decorative Gatework'));
+  ok('every item has a plural to show', C.SHOP.items.every((it) => C.itemPlural(it).length > 0));
+}
+
 /* ---------- mines ---------- */
 section('Properties: deeds, shafts and what comes up');
 {

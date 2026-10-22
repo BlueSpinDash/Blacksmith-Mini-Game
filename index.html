@@ -801,6 +801,7 @@ input[type=range]{
 .fx-float{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:13px;font-weight:800;
   color:#e8dcc0;text-shadow:0 1px 0 #12141a,0 0 5px #12141a;animation:scFloat 1.5s ease-out forwards;}
 .fx-float.gold{color:#f2d06e;} .fx-float.quiet{color:#a9b0b8;font-weight:600;}
+.fx-float.wrap{white-space:normal;width:348px;text-align:center;line-height:1.2;}
 @keyframes scFloat{0%{opacity:0;transform:translate(-50%,6px);}15%{opacity:1;}100%{opacity:0;transform:translate(-50%,-36px);}}
 /* around the room */
 .scene-skip{position:absolute;right:8px;top:8px;z-index:90;padding:6px 13px;border-radius:999px;
@@ -5832,7 +5833,7 @@ const SHOP = {
     { id: 'smithhammer',    name: 'Smithing Hammer',       cat: 'hammers',   size: 3, price:  20, tier: 0, needs: [], tags: ['craftsman', 'laborer', 'miner'] },
     { id: 'warhammer',      name: 'Warhammer',             cat: 'hammers',   size: 5, price:  84, tier: 1, needs: ['smithhammer'], tags: ['knight', 'soldier', 'mercenary'] },
     { id: 'maul',           name: 'Maul',                  cat: 'hammers',   size: 5, price:  98, tier: 2, needs: ['warhammer'], tags: ['mercenary', 'laborer', 'miner'] },
-    { id: 'becdecorbin',    name: 'Bec de Corbin',         cat: 'hammers',   size: 6, price: 136, tier: 3, needs: ['warhammer'], tags: ['knight', 'noble', 'collector'] },
+    { id: 'becdecorbin',    name: 'Bec de Corbin', plural: 'Becs de Corbin', cat: 'hammers',   size: 6, price: 136, tier: 3, needs: ['warhammer'], tags: ['knight', 'noble', 'collector'] },
     // Shields
     { id: 'buckler',        name: 'Buckler',               cat: 'shields',   size: 3, price:  32, tier: 0, needs: [], tags: ['rogue', 'scout', 'mercenary', 'adventurer'] },
     { id: 'roundshield',    name: 'Round Shield',          cat: 'shields',   size: 4, price:  48, tier: 1, needs: ['buckler'], tags: ['militia', 'guard', 'adventurer'] },
@@ -5889,7 +5890,7 @@ const SHOP = {
     { id: 'firetools',      name: 'Fireplace Tools',       cat: 'household', size: 4, price:  42, tier: 1, needs: ['cleaver'], tags: ['merchant', 'noble', 'cook'] },
     // Specialty
     { id: 'manacles',       name: 'Manacles',              cat: 'specialty', size: 3, price:  36, tier: 0, needs: [], tags: ['guard', 'merchant', 'soldier'] },
-    { id: 'gatework',       name: 'Decorative Gatework',   cat: 'specialty', size: 5, price:  98, tier: 2, needs: ['lockbox'], tags: ['noble', 'merchant', 'collector'] },
+    { id: 'gatework',       name: 'Decorative Gatework', plural: 'Decorative Gatework', cat: 'specialty', size: 5, price:  98, tier: 2, needs: ['lockbox'], tags: ['noble', 'merchant', 'collector'] },
     { id: 'lockbox',        name: 'Lockbox',               cat: 'specialty', size: 4, price:  66, tier: 1, needs: ['manacles'], tags: ['merchant', 'noble', 'collector'] },
     { id: 'ironcrown',      name: 'Iron Crown',            cat: 'specialty', size: 5, price: 160, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] },
     { id: 'ceremonial',     name: 'Ceremonial Weapon',     cat: 'specialty', size: 6, price: 210, tier: 3, needs: ['gatework'], tags: ['noble', 'collector'] },
@@ -5907,7 +5908,7 @@ const SHOP = {
     { id: 'gatewarden',     name: 'Gatewarden',            cat: 'shields',   size: 6, price: 168, tier: 3, needs: [], tags: ['guard', 'soldier', 'knight'], special: true },
     { id: 'whisperfang',    name: 'Whisperfang',           cat: 'daggers',   size: 5, price: 128, tier: 3, needs: [], tags: ['rogue', 'scout', 'collector'], special: true },
     { id: 'vowkeeper',      name: 'Vowkeeper',             cat: 'swords',    size: 5, price: 124, tier: 3, needs: [], tags: ['knight', 'noble', 'collector'], special: true },
-    { id: 'aegis',          name: 'Sovereign\u2019s Aegis',  cat: 'armor',     size: 6, price: 206, tier: 3, needs: [], tags: ['noble', 'knight', 'collector'], special: true }
+    { id: 'aegis',          name: 'Sovereign\u2019s Aegis', plural: 'Sovereign\u2019s Aegises', cat: 'armor',     size: 6, price: 206, tier: 3, needs: [], tags: ['noble', 'knight', 'collector'], special: true }
   ],
 
   /* The eight a new forge opens with: one weapon, one blade, one axe, a cap,
@@ -7167,6 +7168,25 @@ function lineName(key) {
   const p = splitKey(key), it = shopItem(p.item), mt = shopMaterial(p.material);
   if (!it || !mt) return key;
   return mt.name + ' ' + it.name;
+}
+/* An item's name for more than one of it. Most take an s; a name that is
+   already a pair or a set (Boots, Arrowheads, Manacles) stays as it is; an
+   item whose plural is its own says so in the table (`plural`). */
+function itemPlural(it) {
+  if (!it) return '';
+  if (it.plural) return it.plural;
+  const n = it.name;
+  if (/s$/i.test(n)) return n;
+  if (/fe$/i.test(n)) return n.slice(0, -2) + 'ves';
+  if (/[^aeiou]y$/i.test(n)) return n.slice(0, -1) + 'ies';
+  if (/(ch|sh|x|z)$/i.test(n)) return n + 'es';
+  return n + 's';
+}
+/* A count and what it is of: "1 Iron Longsword", "3 Steel Daggers". */
+function lineCount(key, qty) {
+  const p = splitKey(key), it = shopItem(p.item), mt = shopMaterial(p.material);
+  if (!it || !mt) return qty + ' \u00d7 ' + key;
+  return qty + ' ' + mt.name + ' ' + (qty === 1 ? it.name : itemPlural(it));
 }
 
 /* ---------- display stands ---------------------------------------------
@@ -11516,6 +11536,7 @@ const CHECKSMITH_CORE = {
   staffingTrack: staffingTrack, assignmentsAt: assignmentsAt, seatsTaken: seatsTaken,
   bookedToday: bookedToday, salesBonusRate: salesBonusRate, salesBonusFor: salesBonusFor,
   shopUpgradeLevel: shopUpgradeLevel, lineKey: lineKey, splitKey: splitKey, lineName: lineName,
+  itemPlural: itemPlural, lineCount: lineCount,
   shelfCapacity: shelfCapacity, storageCapacity: storageCapacity, staffCapacity: staffCapacity,
   shopStandDef: shopStandDef, standCategories: standCategories, standTakes: standTakes,
   standForItem: standForItem, deriveCustomerLikes: deriveCustomerLikes,
@@ -15359,6 +15380,29 @@ function sceneFloat(loc, x, y, text, cls) {
   el.style.top = y + 'px';
   el.textContent = text;
   sceneFxStage(loc).appendChild(el);
+  // a long name stays inside the place: drawn in from the edge, and only
+  // wrapped if it is wider than the place itself
+  const pad = 6;
+  let w = el.offsetWidth;
+  if (w > SCENE.W - pad * 2) { el.classList.add('wrap'); w = el.offsetWidth; }
+  if (w > 0) el.style.left = Math.max(pad + w / 2, Math.min(SCENE.W - pad - w / 2, x)) + 'px';
+}
+/* Several notes at once, one a line, stacked upwards from (x, y) so the last
+   sits where a single note would; kept clear of the top of the place. Gives
+   back where the last line went, which is lower than y only when there were
+   too many to fit above it. */
+function sceneFloatLines(loc, x, y, lines, cls) {
+  const step = 16;
+  const top = Math.max(18, y - (lines.length - 1) * step);
+  lines.forEach(function (text, i) { sceneFloat(loc, x, top + i * step, text, cls); });
+  return top + (lines.length - 1) * step;
+}
+/* "+3 Bronze Daggers Stocked": one line per kind of item, from a report's
+   or an action's { lineKey: count }. */
+function goodsLines(lines, verb) {
+  return Object.keys(lines || {}).filter(function (k) { return lines[k] > 0; }).map(function (k) {
+    return '+' + lineCount(k, lines[k]) + ' ' + verb;
+  });
 }
 function sceneWalker(loc, face, from, to, ms) {
   const el = document.createElement('span');
@@ -15482,7 +15526,10 @@ function phaseShots(reports, crew, L, forged) {
         T.at(500, function () { T.busy(seller); });
         T.at(walk + (n - 1) * 320 + 200, function () {
           const gold = (sale.revenue || 0) + (sale.bonus || 0);
-          if (gold > 0) sceneFloat('floor', 268, 176, '+' + coin(gold) + 'g', 'gold');
+          // what was bought, item by item, over the takings
+          const sold = goodsLines(sale.lines, 'Sold');
+          const last = sold.length ? sceneFloatLines('floor', 268, 160, sold) : 160;
+          if (gold > 0) sceneFloat('floor', 268, Math.max(176, last + 16), '+' + coin(gold) + 'g', 'gold');
           if (sale.sold > 0) sceneShowAfter('floor');
           else sceneFloat('floor', 268, 176, 'no sale', 'quiet');
           T.at(900, end);
@@ -15497,7 +15544,9 @@ function phaseShots(reports, crew, L, forged) {
         const x = this.x, y = this.y;
         sceneShowAfter('floor');
         T.busy(this.fig, function () {
-          sceneFloat('floor', x + 20, y - 6, '+' + hand.moved + ' shelved');
+          const stocked = goodsLines(hand.lines, 'Stocked');
+          if (stocked.length) sceneFloatLines('floor', x + 20, y - 6, stocked);
+          else sceneFloat('floor', x + 20, y - 6, '+' + hand.moved + ' shelved');
           T.at(700, end);
         });
       } });
@@ -15515,7 +15564,10 @@ function phaseShots(reports, crew, L, forged) {
         if (!smelt) T.busy(station('anvil'));
         T.busy(this.fig, function () {
           if (smelt) sceneFloat('work', x + 24, y - 8, '+' + smith.made + ' ingots');
-          else if (smith.made > 0) sceneFloat('work', x + 24, y - 8, '+' + smith.made + ' made');
+          else if (smith.made > 0) {
+            sceneFloat('work', x + 24, y - 8,
+              '+' + lineCount(lineKey(smith.item, smith.material), smith.made) + ' Made');
+          }
           else sceneFloat('work', x + 24, y - 8, 'did not come off', 'quiet');
           T.at(700, end);
         });
@@ -18664,14 +18716,15 @@ function shopConfirmStock(hand) {
   }
   // each pick was made for a named stand, so it goes to that stand and no other
   let moved = 0;
+  const lines = {};
   for (const pick of SHOPUI.picks || []) {
-    moved += shopStockStand(sh, pick.stand, pick.key, 1).moved;
+    const n = shopStockStand(sh, pick.stand, pick.key, 1).moved;
+    moved += n;
+    if (n) lines[pick.key] = (lines[pick.key] || 0) + n;
   }
   if (moved > 0) SOUNDS.shelve();
   shopSheetClose();
-  shopSpendPhase(moved > 0
-    ? 'Stocked ' + moved + ' item' + (moved === 1 ? '' : 's') + ' onto stands.'
-    : 'No items were stocked.');
+  shopSpendPhase(moved > 0 ? goodsLines(lines, 'Stocked').join(' \u00b7 ') : 'No items were stocked.');
 }
 
 /* ---------- the town ---------------------------------------------------
@@ -19894,7 +19947,8 @@ function shopCloseCounter() {
   report.who = 'You';
   shopLog(shop(), report);
   SHOPUI.session = null;
-  shopShowReport(report, function () { shopSpendPhase(null); });
+  const sold = goodsLines(report.lines, 'Sold');
+  shopShowReport(report, function () { shopSpendPhase(sold.length ? sold.join(' \u00b7 ') : null); });
 }
 
 /* ---------- reports ----------------------------------------------------
@@ -20668,7 +20722,6 @@ function shopSpendPhase(note) {
   // a phase already playing out cannot be spent again underneath it
   if (SHOPUI.playing) return;
   SOUNDS.chime();
-  if (note) shopToast(note);
   SHOPUI.editing = false;
   SHOPUI.editSel = null;
   const closing = shopPhaseName(sh);
@@ -20683,6 +20736,9 @@ function shopSpendPhase(note) {
   // the phase resolves HERE, once. Nothing after this line decides anything.
   const result = shopAdvancePhase(sh);
   const reports = result.reports || [];
+  // whatever was open belonged to the phase that has just passed
+  if (result.ok) shopCloseMenus();
+  if (note) shopToast(note);
   // finished and failed orders go into the Commission Board's record
   for (const r of reports) {
     if (r && r.ok && r.kind === 'delivery' && r.done) {
@@ -20702,6 +20758,22 @@ function shopSpendPhase(note) {
     shopPlayPhase(reports, note, closing, crew, next, { forged: forged });
   } else {
     next();
+  }
+}
+
+/* A phase has passed: every menu, window and question still open is put
+   away and the shop itself is in view again. Where the camera stands is
+   left alone - only what was covering it goes. Called only once a phase has
+   actually advanced; anything that spends no phase never comes here. */
+function shopCloseMenus() {
+  if (!$('confirm').hidden) $('confirmNo').click();
+  for (const id of ['infoWin', 'help', 'gameMenu']) {
+    if (!$(id).hidden) hide($(id));
+  }
+  if (!$('shopSheet').hidden) shopSheetClose();
+  if (SHOPUI.tab != null || !$('shDrawer').hidden) {
+    SHOPUI.tab = null;
+    hide($('shDrawer'));
   }
 }
 
@@ -20917,7 +20989,11 @@ function shopForgeComplete(result) {
       coin(worth) + 'g each.' : esc(res.why), res.ok ? '' : 'warn');
   shopSheet('Batch Forged', body,
     [{ label: 'Return to Shop', primary: true,
-      onClick: function () { shopSheetClose(); SHOPUI.forgedNow = true; shopSpendPhase(null); } }],
+      onClick: function () {
+        shopSheetClose();
+        SHOPUI.forgedNow = true;
+        shopSpendPhase(res.ok ? '+' + lineCount(lineKey(order.item, order.material), order.qty) + ' Made' : null);
+      } }],
     itemSprite(order.item, order.material));
 }
 
