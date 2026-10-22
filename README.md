@@ -2290,7 +2290,11 @@ Smith's smelting note (`+2 ingots`) and the gold note are unchanged, and no new
 panel or summary was added.
 
 The rules are untouched: the phases advance exactly as before, the economy and
-staff are the same, and the board fingerprint is unchanged.
+staff are the same, and the board fingerprint is unchanged. Four new core
+checks cover the names and plurals; fifteen new browser checks cover every
+kind of window closing at the turn of a phase from each of the three places,
+nothing closing when no phase passes, the notes of every worker and of the
+player, and long names and long lists staying inside the place.
 
 ## Fair boards
 
@@ -2434,8 +2438,8 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 ## Tests
 
 ```sh
-node tools/verify-core.mjs                                  # 1103 rule/generation checks
-node tools/verify-ui.mjs                                    # 1059 browser checks (Playwright)
+node tools/verify-core.mjs                                  # 1108 rule/generation checks
+node tools/verify-ui.mjs                                    # 1073 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
