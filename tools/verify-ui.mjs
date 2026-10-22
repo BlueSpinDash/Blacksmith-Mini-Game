@@ -5733,10 +5733,13 @@ async function run() {
       F.shopSpendPhase(null);
       F.shopUi.playing = null;
       out.playing = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
-      // nor does one a closed forge has none of
+      // nor does one a closed forge has none of. A closed forge's save is
+      // deleted when it is drawn, so the slot is put back and saved again
+      const slot = F.app.shopSlot;
       sh.closed = true;
       F.shopSpendPhase(null);
       sh.closed = false;
+      F.app.shopSlot = slot;
       out.closed = { drawer: open('shDrawer'), sheet: open('shopSheet'), tick: tick() === was };
       out.view = F.shopUi.view;
       F.shopSheetClose();
