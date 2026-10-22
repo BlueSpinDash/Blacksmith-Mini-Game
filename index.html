@@ -5717,6 +5717,7 @@ const SHOP = {
   phases: ['morning', 'afternoon', 'evening'],
   phaseName: { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' },
   weekLength: 7,               // rent falls due at the end of every 7th day
+  coolPhases: 1,               // finished work cools this many phases before it can be used
   batchPerTier: 3,             // pieces in a batch per step up the difficulty tiers
   // Gold is where the work starts to bite. This rung and every one above it
   // is worked `hardenBy` difficulty steps harder than the batch alone would
@@ -7467,7 +7468,7 @@ function createShop(opts) {
     storage: {},          // key -> { qty, quality }
     stands: [],           // the fixtures on the shop floor, one line each
     staff: [],
-    orders: [],           // batches in production, delivered next day
+    orders: [],           // finished work cooling, in storage a phase later
     known: [],            // the recipes this forge can work, derived from blueprints
     disciplines: [],      // the crafts taken up; empty until the smith chooses two
     xp: {},               // discipline -> experience in hand, spent in the Almanac
@@ -7792,6 +7793,11 @@ function restoreShop(data, rnd) {
       qty: qty, quality: num(raw.quality, 0, 100, 80),
       maker: String(raw.maker || 'you'),
       dueDay: whole(raw.dueDay, 1, 100000, shop.day),
+      /* Cooling is counted in phases. A save from before knows only the day
+         an order was due, so it is ready at the next phase or that morning,
+         whichever is sooner: never later than it would have been. */
+      readyTick: raw.readyTick != null ? whole(raw.readyTick, 0, 1e7, shopTick(shop) + 1)
+        : Math.min(phaseTick(whole(raw.dueDay, 1, 100000, shop.day), 0), shopTick(shop) + 1),
       // the blueprint it was made on and the hand's workmanship travel with it
       level: num(raw.level, 1, SHOP.craft.maxLevel, 1),
       value: num(raw.value, -50, 100, 0), extra: whole(raw.extra, 0, 1, 0) };
@@ -8483,8 +8489,70 @@ function forgeBoardSpec(shop, itemId, materialId, qty) {
     perfect: mt.strikes, spent: mt.strikes + 1, ladder: shopLadder() };
 }
 
+/* ---------- cooling ---------------------------------------------------------
+   Finished work cools for SHOP.coolPhases phase before it can be used:
+   whatever comes off an anvil in a phase - the player's batch or a Smith's
+   piece - is in storage (or its commission's crate) from the next phase on,
+   the first phase of the next day when it was made in the last. Until then it
+   is an order, which nothing can stock, sell, deliver or count as stock.
+   Time is counted in phases, never on a clock. */
+function phaseTick(day, phaseIndex) { return (day - 1) * SHOP.phases.length + phaseIndex; }
+function shopTick(shop) { return phaseTick(shop.day, shop.phaseIndex); }
+function tickDay(tick) { return Math.floor(tick / SHOP.phases.length) + 1; }
+function tickPhase(tick) { return SHOP.phases[tick % SHOP.phases.length]; }
+/* The phase an order is ready in. One saved before cooling was counted in
+   phases knows only its day, and is ready at that day's first phase. */
+function orderReadyTick(order) {
+  return order.readyTick != null ? order.readyTick : phaseTick(order.dueDay || 1, 0);
+}
+/* Work done in the phase the forge is in now is ready this many phases on. */
+function coolingTick(shop) { return shopTick(shop) + SHOP.coolPhases; }
+/* "this afternoon", "tomorrow morning": when an order comes out of cooling,
+   said from where the forge stands now. */
+function readyWhen(shop, order) {
+  const tick = orderReadyTick(order);
+  if (tick <= shopTick(shop)) return 'now';
+  const day = tickDay(tick), phase = SHOP.phaseName[tickPhase(tick)].toLowerCase();
+  if (day === shop.day) return 'this ' + phase;
+  if (day === shop.day + 1) return 'tomorrow ' + phase;
+  return 'on day ' + day + ', ' + phase;
+}
+/* Whatever has finished cooling goes into storage, or its contract's crate.
+   Called at every turn of a phase, after the forge has moved on, so work done
+   in a phase is never ready in that same phase and never waits a phase more. */
+function settleCooling(shop) {
+  const delivered = [];
+  const now = shopTick(shop);
+  const still = [];
+  for (const order of shop.orders) {
+    if (orderReadyTick(order) <= now) {
+      /* A batch forged for a contract goes straight into its crate, if the
+         contract is still open and the work is good enough. Whatever is over
+         the amount owed, or not good enough, lands in storage like any other
+         batch - nothing is ever created or dropped on the way. */
+      let promised = 0;
+      const com = order.commission ? commissionById(shop, order.commission) : null;
+      if (com && com.key === order.key && order.quality >= com.quality) {
+        promised = Math.min(order.qty, commissionToMake(com));
+        com.value = blendValue(com.value, com.filled, order.value, promised);
+        com.filled += promised;
+        com.level = order.level || com.level || 1;
+      }
+      const rest = order.qty - promised;
+      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality, order.level, order.value)
+        : { stored: 0, lost: 0 };
+      delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
+        quality: order.quality, level: order.level || 1, maker: order.maker,
+        value: order.value || 0, extra: order.extra || 0,
+        promised: promised, commission: com ? com.id : null });
+    } else still.push(order);
+  }
+  shop.orders = still;
+  return delivered;
+}
+
 /* Materials are spent only when the puzzle is actually won; a ruined board
-   costs the phase, not the metal. The batch is delivered the following day. */
+   costs the phase, not the metal. The batch cools for a phase like any work. */
 function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
   if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const check = forgeCheck(shop, itemId, materialId, qty);
@@ -8492,7 +8560,8 @@ function shopFinishForge(shop, itemId, materialId, qty, quality, maker) {
   shop.materials[materialId] -= qty;
   const order = {
     id: shop.nextId++, key: lineKey(itemId, materialId), item: itemId, material: materialId,
-    qty: qty, quality: quality, maker: maker || 'you', dueDay: shop.day + 1,
+    qty: qty, quality: quality, maker: maker || 'you',
+    readyTick: coolingTick(shop), dueDay: tickDay(coolingTick(shop)),
     // the blueprint as it stood when the work was done, kept with the batch
     level: Math.max(1, blueprintLevel(shop, itemId))
   };
@@ -9733,7 +9802,7 @@ function shopSearchStaff(shop, roleId, count) {
 }
 
 function shopHire(shop, applicantId) {
-  // taking somebody on is the player's own phase, which study has taken
+  // a day given to study is the player's whole day, hiring included
   if (researchingToday(shop)) return { ok: false, why: 'today is given to research' };
   const idx = shop.applicants.findIndex(function (a) { return a.id === applicantId; });
   if (idx < 0) return { ok: false, why: 'no such applicant' };
@@ -10310,9 +10379,10 @@ function runSmith(shop, employee, order) {
     const value = specialtyStat(employee, 'value', ctx);
     const batch = { id: shop.nextId++, key: lineKey(order.item, order.material),
       item: order.item, material: order.material, qty: made, quality: quality,
-      maker: employee.name, dueDay: shop.day + 1, level: level, value: value, extra: extra };
-    // Work promised to a contract is marked as such, so when it comes off the
-    // anvil tomorrow it goes into the crate rather than onto a stand.
+      maker: employee.name, readyTick: coolingTick(shop), dueDay: tickDay(coolingTick(shop)),
+      level: level, value: value, extra: extra };
+    // Work promised to a contract is marked as such, so when it has cooled
+    // it goes into the crate rather than onto a stand.
     if (order.commission) batch.commission = order.commission;
     shop.orders.push(batch);
     // work is work, whoever swung the hammer: the forge learns from it either way
@@ -10463,13 +10533,13 @@ function shopAdvancePhase(shop) {
   const reports = runAssignments(shop);
   if (shop.phaseIndex < SHOP.phases.length - 1) {
     shop.phaseIndex++;
-    return { ok: true, reports: reports, newDay: false };
+    // what was made in the phase just ended has cooled, and is ready now
+    return { ok: true, reports: reports, newDay: false, delivered: settleCooling(shop) };
   }
   return Object.assign({ ok: true, reports: reports }, shopEndDay(shop));
 }
 
 function shopEndDay(shop) {
-  const delivered = [];
   // what everybody was down for, kept so the player can say "again" tomorrow
   shop.lastRoster = captureRoster(shop);
   // a day given to study counts now that it is over
@@ -10487,32 +10557,9 @@ function shopEndDay(shop) {
     if (v.busy && v.busy.day < shop.day) v.busy = null;
   }
 
-  // yesterday's production comes off the anvil and into storage
-  const still = [];
-  for (const order of shop.orders) {
-    if (order.dueDay <= shop.day) {
-      /* A batch forged for a contract goes straight into its crate, if the
-         contract is still open and the work is good enough. Whatever is over
-         the amount owed, or not good enough, lands in storage like any other
-         batch - nothing is ever created or dropped on the way. */
-      let promised = 0;
-      const com = order.commission ? commissionById(shop, order.commission) : null;
-      if (com && com.key === order.key && order.quality >= com.quality) {
-        promised = Math.min(order.qty, commissionToMake(com));
-        com.value = blendValue(com.value, com.filled, order.value, promised);
-        com.filled += promised;
-        com.level = order.level || com.level || 1;
-      }
-      const rest = order.qty - promised;
-      const res = rest > 0 ? addStorage(shop, order.key, rest, order.quality, order.level, order.value)
-        : { stored: 0, lost: 0 };
-      delivered.push({ key: order.key, qty: res.stored, lost: res.lost,
-        quality: order.quality, level: order.level || 1, maker: order.maker,
-        value: order.value || 0, extra: order.extra || 0,
-        promised: promised, commission: com ? com.id : null });
-    } else still.push(order);
-  }
-  shop.orders = still;
+  // last evening's work has cooled, and comes into storage or its crate
+  // before any contract is answered to
+  const delivered = settleCooling(shop);
 
   // wants change as people give up looking, whatever else the day held
   const drifted = driftWants(shop);
@@ -11536,6 +11583,8 @@ const CHECKSMITH_CORE = {
   staffingTrack: staffingTrack, assignmentsAt: assignmentsAt, seatsTaken: seatsTaken,
   bookedToday: bookedToday, salesBonusRate: salesBonusRate, salesBonusFor: salesBonusFor,
   shopUpgradeLevel: shopUpgradeLevel, lineKey: lineKey, splitKey: splitKey, lineName: lineName,
+  phaseTick: phaseTick, shopTick: shopTick, orderReadyTick: orderReadyTick, readyWhen: readyWhen,
+  settleCooling: settleCooling,
   itemPlural: itemPlural, lineCount: lineCount,
   shelfCapacity: shelfCapacity, storageCapacity: storageCapacity, staffCapacity: staffCapacity,
   shopStandDef: shopStandDef, standCategories: standCategories, standTakes: standTakes,
@@ -15839,6 +15888,10 @@ function phaseSummaryHtml(replay) {
       '. Open their card from the Staff noticeboard to decide.</span></div>';
   }
   for (const f of t.failed) html += '<p class="station-why">' + esc(f) + '</p>';
+  for (const d of replay.lost || []) {
+    html += '<p class="station-why">Storage was full: ' + esc(lineCount(d.key, d.lost)) +
+      ' finished cooling with nowhere to go and ' + (d.lost === 1 ? 'was' : 'were') + ' lost.</p>';
+  }
   // contracts a salesperson took down wait for YOUR answer, here and on the commission board
   const offers = sh.commissionOffers || [];
   if (offers.length) {
@@ -15882,7 +15935,7 @@ function phaseSummaryHtml(replay) {
 function shopShowSummary(replay, done) {
   const reports = replay.reports || [];
   const offers = (shop().commissionOffers || []).length + (shop().specialOffers || []).length;
-  if (!reports.length && !offers) { if (done) done(); return; }
+  if (!reports.length && !offers && !(replay.lost || []).length) { if (done) done(); return; }
   const draw = function () {
     shopSheet((replay.closing || 'Phase') + ' summary', phaseSummaryHtml(replay),
       [{ label: 'Close', primary: true,
@@ -16107,10 +16160,10 @@ function placeForge(sh) {
     html += '</div>';
   }
   if (sh.orders.length) {
-    html += placeSec('Cooling', 'in storage tomorrow morning');
+    html += placeSec('Cooling', 'in storage after one phase');
     html += '<div class="shop-list">' + sh.orders.map(function (o) {
       return rowHtml(lineSprite(o.key) + ' ' + o.qty + ' &times; ' + esc(lineName(o.key)),
-        o.maker === 'you' ? 'forged by you' : 'forged by ' + esc(o.maker), '');
+        (o.maker === 'you' ? 'forged by you' : 'forged by ' + esc(o.maker)) + ' · ready ' + readyWhen(sh, o), '');
     }).join('') + '</div>';
   }
   html += placeSec('At the anvils this ' + shopPhaseName(sh).toLowerCase());
@@ -16156,8 +16209,8 @@ function placeStorage(sh) {
   let html = '<p class="shop-cap">' + countStorage(sh) + ' / ' + storageCapacity(sh) + ' stored ' +
     placeMeter(countStorage(sh), storageCapacity(sh)) + '</p>';
   if (!keys.length && !sh.orders.length) {
-    html += '<p class="shop-empty">Nothing is stored. Forged batches arrive here the morning after ' +
-      'they are made; put them on a display from its stand on the shop floor.</p>';
+    html += '<p class="shop-empty">Nothing is stored. Forged batches cool for one phase and then ' +
+      'arrive here; put them on a display from its stand on the shop floor.</p>';
   }
   if (keys.length) {
     html += '<div class="goods-grid">';
@@ -16176,11 +16229,11 @@ function placeStorage(sh) {
     html += '</div>';
   }
   if (sh.orders.length) {
-    html += placeSec('Arriving tomorrow');
+    html += placeSec('Cooling', 'not yet usable');
     html += '<div class="shop-list">';
     for (const o of sh.orders) {
       html += rowHtml(lineSprite(o.key) + ' ' + esc(lineName(o.key)) + ' &times;' + o.qty,
-        'by ' + esc(o.maker), '<span class="q-' + qualityBand(o.quality).tone + '">' +
+        'by ' + esc(o.maker) + ' · ready ' + readyWhen(sh, o), '<span class="q-' + qualityBand(o.quality).tone + '">' +
         esc(qualityBandName(o.quality)) + '</span>');
     }
     html += '</div>';
@@ -16460,7 +16513,7 @@ function placeHire(sh) {
       '<span class="tc-blurb">' + esc(t.blurb) + '</span>' +
       '<span class="tc-go">See applicants &rsaquo;</span></button>';
   }
-  html += '</div><p class="hire-note">Looking is free. Hiring someone uses this phase.</p>';
+  html += '</div><p class="hire-note">Looking and hiring are both free: neither uses a phase.</p>';
   return { html: html, foot: [] };
 }
 
@@ -18256,10 +18309,10 @@ function shopForgeBody(smith) {
     html += dlgNote('One piece this phase. If it does not come off, the ingot is lost' +
       (look.conserve > 0 ? ', though there is a ' + look.conserve + '% chance it is saved' : '') +
       (look.waste > 0 ? ', and there is a ' + look.waste + '% chance another is spoiled' : '') +
-      '. A finished piece is in storage tomorrow morning.');
+      '. A finished piece cools for one phase, then goes into storage.');
   } else {
     html += check.ok
-      ? dlgNote('The ingots are used only if the puzzle is finished. The batch is in storage tomorrow morning.')
+      ? dlgNote('The ingots are used only if the puzzle is finished. The batch cools for one phase, then goes into storage.')
       : dlgNote(esc(check.why) + '.', 'warn');
   }
   return html;
@@ -19418,9 +19471,9 @@ function hireTrades() {
 }
 
 /* Whether the player's own phase can be spent right now, and if not, why.
-   Hiring asks this before it acts, so a hire is never made that the phase
-   could not then be charged for. The search itself never asks: browsing,
-   switching roles and searching again stay free and open either way. */
+   Hiring uses no phase, but is refused at exactly these times as it always
+   was, so it asks this before it acts. The search itself never asks:
+   browsing, switching roles and searching again stay free and open. */
 function shopPhaseBlocker() {
   const sh = shop();
   if (!sh || sh.closed) return 'The forge has closed, so no phases remain.';
@@ -19452,7 +19505,7 @@ function shopOpenHire(tradeId) {
   const acts = [];
   if (!trade) {
     html += hirePlacesStrip(sh, null);
-    html += dlgNote('Choose a trade to see who is looking for work. Searching is free; hiring someone uses this phase.');
+    html += dlgNote('Choose a trade to see who is looking for work. Searching and hiring are both free: neither uses a phase.');
     shopSheet('Search for Employees', html,
       [{ label: 'Close', ghost: true, onClick: shopSheetClose }]);
     return;
@@ -19510,7 +19563,7 @@ function shopOpenHire(tradeId) {
     }
   }
 
-  html += placeSec(esc(trade.name) + ' applicants', 'hiring uses this phase');
+  html += placeSec(esc(trade.name) + ' applicants', 'hiring uses no phase');
   const list = trade.mine ? (mine.applicants || []) : (sh.applicants || []);
   html += '<div class="dlg-apps">';
   for (const a of list) {
@@ -20005,7 +20058,7 @@ function reportBody(r) {
           '<dt>Ingots lost</dt><dd>' + (1 + (r.wasted || 0) - (r.saved || 0)) +
             (r.saved ? ' (one saved, Conservation)' : '') + (r.wasted ? ' (one spoiled, Wasteful)' : '') + '</dd>') +
       '</dl>' + specReportHtml(r) + '<p style="margin:9px 0 0;font-size:12px;color:var(--muted)">' +
-      (r.made ? 'The items go into storage at the start of tomorrow.' : 'A failed attempt still counts as work.') +
+      (r.made ? 'The items cool for one phase, then go into storage.' : 'A failed attempt still counts as work.') +
       '</p></div>';
   }
   if (r.kind === 'delivery') {
@@ -20093,7 +20146,7 @@ function reportHero(r) {
   if (r.kind === 'smith') {
     return r.made
       ? dlgHero(itemSprite(r.item, r.material, 'lg'), r.made + ' × ' + esc(lineName(lineKey(r.item, r.material))),
-        (r.extra ? 'one extra from Production · ' : '') + 'in storage tomorrow',
+        (r.extra ? 'one extra from Production · ' : '') + 'in storage after one phase',
         '<b>' + r.quality + '</b>' + esc(qualityBandName(r.quality).toLowerCase()))
       : dlgHero(itemSprite(r.item, r.material, 'lg'), 'It did not come off',
         esc(lineName(lineKey(r.item, r.material))) + ' · ' + r.chance + '% chance',
@@ -20750,7 +20803,10 @@ function shopSpendPhase(note) {
      before a frame of it is shown - so a game closed during the playback
      opens again on the same summary, and a replay has nothing to recompute. */
   SHOPUI.replay = JSON.parse(JSON.stringify({ reports: reports, note: note || null,
-    closing: closing, phase: closingId, crew: crew, result: result.newDay ? result : null }));
+    closing: closing, phase: closingId, crew: crew, result: result.newDay ? result : null,
+    // work that cooled at this turn with no room left in storage (a new day's
+    // report lists its own arrivals)
+    lost: result.newDay ? [] : (result.delivered || []).filter(function (d) { return d.lost > 0; }) }));
   saveShop();
   const replay = SHOPUI.replay;
   const next = function () { shopAfterPhase(replay); };
@@ -20781,7 +20837,7 @@ function shopDayBreak(result) {
   const sh = shop();
   shopRender();
   let html = '';
-  // a tile to a thing that arrived overnight, however many there were
+  // a tile to a thing that arrived overnight (last evening's work), however many there were
   const tiles = function (list) {
     return '<div class="dlg-tiles' + (list.length > 2 ? '' : ' two') + ' still">' +
       list.map(function (t) {
@@ -20985,8 +21041,8 @@ function shopForgeComplete(result) {
     '<dt>Quality</dt><dd class="good">' + result.quality + ' · ' + esc(result.label) + '</dd>' +
     '<dt>Ingots spent</dt><dd>' + order.qty + '</dd>' +
     '<dt>Recommended price</dt><dd class="good">' + coin(worth * order.qty) + 'g</dd>' +
-    '</dl></div>' + dlgNote(res.ok ? 'The items go into storage at the start of tomorrow, at about ' +
-      coin(worth) + 'g each.' : esc(res.why), res.ok ? '' : 'warn');
+    '</dl></div>' + dlgNote(res.ok ? 'The items cool for one phase and go into storage ' +
+      readyWhen(sh, res.order) + ', at about ' + coin(worth) + 'g each.' : esc(res.why), res.ok ? '' : 'warn');
   shopSheet('Batch Forged', body,
     [{ label: 'Return to Shop', primary: true,
       onClick: function () {
@@ -21641,31 +21697,41 @@ function wireShop() {
       shopHireSearch('miner');
       return;
     }
-    /* The one moment that costs a phase, and only once it has succeeded:
-       a refusal (no room, no coin) leaves the day exactly as it was. */
+    /* Hiring uses no phase. It is still refused whenever it was before - a
+       closed forge, a phase still playing out, a day given to study, no room,
+       no coin - and a refusal changes nothing. The list stays open with the
+       one taken on gone from it, so several can be hired one after another;
+       nobody hired is booked into any phase. The next applicant's button
+       comes up where the last one was, so a tap straight after a hire is
+       taken as the same tap twice and hires nobody more. */
     const hire = e.target.closest ? e.target.closest('[data-hire]') : null;
     if (hire && !hire.disabled) {
-      // checked first, so a hire is only ever made when its phase can be paid
+      if (Date.now() - (SHOPUI.hiredAt || 0) < 400) return;
       const blocked = shopPhaseBlocker();
       if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
       const res = shopHire(shop(), Number(hire.dataset.hire));
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SHOPUI.hiredAt = Date.now();
       SOUNDS.prosper(false);
-      shopSheetClose();
-      shopSpendPhase('Hired ' + res.staff.name + ' (' + res.staff.rank + '-rank ' +
+      shopOpenHire(SHOPUI.hireTrade);
+      shopRender();
+      shopToast('Hired ' + res.staff.name + ' (' + res.staff.rank + '-rank ' +
         shopRole(res.staff.role).name + ') for ' + coin(res.staff.wage) +
         'g per week. Employees gain XP by completing assigned work.');
       return;
     }
     const minehire = e.target.closest ? e.target.closest('[data-minehire]') : null;
     if (minehire && !minehire.disabled) {
+      if (Date.now() - (SHOPUI.hiredAt || 0) < 400) return;
       const blocked = shopPhaseBlocker();
       if (blocked) { SOUNDS.invalid(); shopToast(blocked); return; }
       const res = shopHireMiner(shop(), SHOPUI.hireMine, Number(minehire.dataset.minehire));
       if (!res.ok) { SOUNDS.invalid(); shopToast(res.why); return; }
+      SHOPUI.hiredAt = Date.now();
       SOUNDS.prosper(false);
-      shopSheetClose();
-      shopSpendPhase('Hired ' + res.miner.name + ' (E-rank Miner) for ' + coin(res.miner.wage) +
+      shopOpenHire('miner');
+      shopRender();
+      shopToast('Hired ' + res.miner.name + ' (E-rank Miner) for ' + coin(res.miner.wage) +
         'g per week.');
       return;
     }
@@ -23378,9 +23444,9 @@ function helpHtml() {
   html += H('Open Your Forge: Days');
   html += P('Each day has ' + SHOP.phases.length + ' phases: ' +
     and(SHOP.phases.map(function (p) { return SHOP.phaseName[p]; })) + '. In each phase you ' +
-    'take one action that uses the phase: Forge, Tend Store, Buy Metal, Stock Stands, Hire ' +
-    'Staff, deliver a commission yourself, smelt ore yourself, or End Phase. Browsing, the ' +
-    'Almanac, assigning and promoting staff, setting prices, buying stands, upgrades, deeds ' +
+    'take one action that uses the phase: Forge, Tend Store, Buy Metal, Stock Stands, ' +
+    'deliver a commission yourself, smelt ore yourself, or End Phase. Browsing, the ' +
+    'Almanac, hiring, assigning and promoting staff, setting prices, buying stands, upgrades, deeds ' +
     'and vehicles, and answering and managing commissions are free.');
   html += P('Rent and wages (staff and Miners) are paid every ' + SHOP.weekLength +
     ' days. If you cannot ' +
@@ -23401,7 +23467,8 @@ function helpHtml() {
     hardenFrom.name + ' or higher metals ' +
     'add ' + SHOP.hardenBy + ' more. The order sheet shows the difficulty before you start. ' +
     'If you run out of legal moves the batch fails: the phase is used, but no ingots are ' +
-    'spent. Finished items go into storage at the start of the next day.');
+    'spent. Finished items cool for one phase, then go into storage: a batch forged in the ' +
+    'morning is ready in the afternoon, and one forged in the evening is ready the next morning.');
   html += P('Quality (0–100) sets the sale price. Bands: ' + SHOP.qualityBands.map(function (b) {
     return b.name + ' ' + b.from + '+';
   }).join(', ') + '. Some customers will not buy below a set band.');

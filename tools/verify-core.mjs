@@ -5025,11 +5025,11 @@ section('Open Your Forge: a Smith works one piece at a time');
       '55-65,60-70,65-75,70-80,75-85,80-90';
   })());
 
-  ok('one attempt, one ingot: what comes off is one piece and goes to tomorrow’s storeroom', (() => {
+  ok('one attempt, one ingot: what comes off is one piece and cools until the next phase', (() => {
     const s = forge(seq(0.1, 0.5));
     const r = C.runSmith(s, hand('C'), { item: 'shortsword', material: 'bronze', qty: 5 });
     return r.ok && r.attempted && r.made === 1 && s.materials.bronze === 999 &&
-      s.orders.length === 1 && s.orders[0].qty === 1 && s.orders[0].dueDay === s.day + 1;
+      s.orders.length === 1 && s.orders[0].qty === 1 && s.orders[0].readyTick === C.shopTick(s) + 1;
   })());
 
   ok('a failed attempt makes nothing and still spends its ingot', (() => {
@@ -5559,6 +5559,145 @@ section('Open Your Forge: goods named in a notice');
     C.itemPlural(C.shopItem('becdecorbin')) === 'Becs de Corbin' &&
     C.itemPlural(C.shopItem('gatework')) === 'Decorative Gatework'));
   ok('every item has a plural to show', C.SHOP.items.every((it) => C.itemPlural(it).length > 0));
+}
+
+section('Open Your Forge: finished work cools for one phase');
+{
+  const key = C.lineKey('shortsword', 'bronze');
+  const fresh = (seed) => {
+    const s = apprenticed(C.createShop({ rnd: C.mulberry32(seed), gold: 100000 }));
+    s.materials.bronze = 200;
+    noContracts(s);
+    return s;
+  };
+  const stored = (s) => (s.storage[key] ? s.storage[key].qty : 0);
+  const smith = (id) => ({ id: id || 61, name: 'Cole Ember', role: 'smith', rank: 'S', power: 6, wage: 30,
+    xp: 0, specs: [], found: {}, flaw: null });
+
+  ok('a batch forged in the morning is in storage in the afternoon, and not before', (() => {
+    const s = fresh(5601);
+    const before = stored(s);
+    const res = C.shopFinishForge(s, 'shortsword', 'bronze', 3, 80, 'you');
+    const cooling = stored(s) === before && s.orders.length === 1 && C.readyWhen(s, s.orders[0]) === 'this afternoon';
+    const turn = C.shopAdvancePhase(s);
+    return res.ok && cooling && s.phaseIndex === 1 && s.orders.length === 0 && stored(s) === before + 3 &&
+      turn.delivered.length === 1 && turn.delivered[0].qty === 3;
+  })());
+
+  ok('one forged in the evening is in storage on the next morning, with that day’s report', (() => {
+    const s = fresh(5602);
+    s.phaseIndex = 2;
+    const before = stored(s);
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 80, 'you');
+    const when = C.readyWhen(s, s.orders[0]);
+    const turn = C.shopAdvancePhase(s);
+    return when === 'tomorrow morning' && turn.newDay && s.day === 2 && s.phaseIndex === 0 &&
+      stored(s) === before + 2 && turn.delivered.length === 1 && s.orders.length === 0;
+  })());
+
+  ok('cooling takes exactly one turn: never released in its own phase, never held for two', (() => {
+    const s = fresh(5603);
+    C.shopFinishForge(s, 'shortsword', 'bronze', 1, 80, 'you');
+    // asking again in the same phase releases nothing
+    const same = C.settleCooling(s);
+    C.shopAdvancePhase(s);
+    const one = stored(s);
+    C.shopAdvancePhase(s);
+    return same.length === 0 && one === stored(s) && s.orders.length === 0;
+  })());
+
+  ok('work from different phases keeps its own time', (() => {
+    const s = fresh(5604);
+    const before = stored(s);
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 80, 'you');      // morning
+    C.shopAdvancePhase(s);
+    const afterMorning = stored(s) - before;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 80, 'you');      // afternoon
+    const waiting = s.orders.map((o) => o.qty).join(',');
+    C.shopAdvancePhase(s);
+    return afterMorning === 2 && waiting === '3' && stored(s) - before === 5 && s.orders.length === 0;
+  })());
+
+  ok('what is cooling cannot be stocked, sold or counted as stock', (() => {
+    const s = fresh(5605);
+    for (const k in s.storage) delete s.storage[k];
+    const stand = s.stands.find((st) => st.type === 'weapon' && C.standPlaced(st));
+    stand.key = null; stand.qty = 0;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 3, 80, 'you');
+    const early = C.shopStockStand(s, stand.id, key, 1);
+    const counted = C.countStorage(s);
+    C.shopAdvancePhase(s);
+    const later = C.shopStockStand(s, stand.id, key, 1);
+    return early.moved === 0 && /nothing in storage/.test(early.why) && counted === 0 && later.moved === 1;
+  })());
+
+  ok('a Smith’s piece follows the same rule, in every phase of the day', (() => {
+    const s = fresh(5606);
+    const out = [];
+    for (let p = 0; p < 3; p++) {
+      s.rnd = () => 0.01;                       // it comes off
+      const r = C.runSmith(s, smith(61 + p), { item: 'shortsword', material: 'bronze' });
+      const ready = C.readyWhen(s, s.orders[s.orders.length - 1]);
+      const turn = C.shopAdvancePhase(s);
+      out.push(r.made === 1 && ready === (p < 2 ? 'this ' + ['afternoon', 'evening'][p] : 'tomorrow morning') &&
+        turn.delivered.length === 1 && s.orders.length === 0);
+    }
+    return out.every(Boolean) && s.day === 2;
+  })());
+
+  ok('a contract piece goes into its crate as soon as it has cooled', (() => {
+    const s = C.createShop({ rnd: C.mulberry32(5607), gold: 20000 });
+    const com = offerOn(s);
+    com.quality = 0;
+    C.acceptCommission(s, com.id);
+    const parts = C.splitKey(com.key);
+    s.materials[parts.material] = 40;
+    s.rnd = () => 0.5;
+    C.runSmith(s, smith(), { item: parts.item, material: parts.material, commission: com.id });
+    const early = com.filled;
+    C.shopAdvancePhase(s);
+    return early === 0 && com.filled === 1 && s.day === 1 && s.orders.length === 0;
+  })());
+
+  ok('cooling survives a save, and an older save is never made to wait longer', (() => {
+    const s = fresh(5608);
+    s.phaseIndex = 1;
+    C.shopFinishForge(s, 'shortsword', 'bronze', 2, 80, 'you');
+    const back = C.restoreShop(JSON.parse(JSON.stringify(C.serializeShop(s))), C.mulberry32(9));
+    const kept = back.orders.length === 1 && back.orders[0].readyTick === s.orders[0].readyTick &&
+      C.readyWhen(back, back.orders[0]) === 'this evening';
+    // a 1.47 save knows only the day: tomorrow, so at the latest the next phase
+    const old = C.serializeShop(s);
+    for (const o of old.orders) { delete o.readyTick; o.dueDay = s.day + 1; }
+    const was = C.restoreShop(JSON.parse(JSON.stringify(old)), C.mulberry32(9));
+    const soon = C.orderReadyTick(was.orders[0]) === C.shopTick(was) + 1;
+    C.shopAdvancePhase(was);
+    return kept && soon && was.orders.length === 0;
+  })());
+
+  ok('hiring takes nobody’s phase: the day stands still and nobody is booked', (() => {
+    const s = fresh(5609);
+    s.upgrades.hands = 4;
+    C.shopSearchStaff(s, 'smith');
+    const tick = C.shopTick(s), wage = s.applicants.map((a) => a.wage);
+    const a = C.shopHire(s, s.applicants[0].id);
+    const b = C.shopHire(s, s.applicants[0].id);
+    return a.ok && b.ok && C.shopTick(s) === tick && Object.keys(s.assignments).length === 0 &&
+      a.staff.wage === wage[0] && b.staff.wage === wage[1];
+  })());
+
+  ok('and its limits hold: no room, no hire', (() => {
+    const s = fresh(5610);
+    C.shopSearchStaff(s, 'smith');
+    let last = null;
+    for (let i = 0; i < 40; i++) {
+      if (!s.applicants.length) C.shopSearchStaff(s, 'smith');
+      last = C.shopHire(s, s.applicants[0].id);
+      if (!last.ok) break;
+    }
+    return last && !last.ok && /all staff places are filled/.test(last.why) &&
+      s.staff.length === C.staffCapacity(s);
+  })());
 }
 
 /* ---------- mines ---------- */
@@ -6886,7 +7025,8 @@ section('Open Your Forge: the day the book made');
     const made = s.orders.length;
     const first = C.shopAdvancePhase(s);
     const second = C.shopAdvancePhase(s);
-    return made === 0 && s.orders.length === 1 &&
+    // the morning's piece has cooled by the afternoon and is in storage
+    return made === 0 && s.orders.length === 0 && first.delivered.length === 1 &&
       first.reports.some((r) => r.kind === 'smith') &&
       second.reports.some((r) => r.kind === 'sales');
   })());
@@ -8207,7 +8347,8 @@ section('Open Your Forge: Staffing upgrades add places per phase');
     // one attempt each, one ingot each, whatever the old orders asked for
     return smiths.length === 3 && smiths.every((r) => r.ok && r.attempted) &&
       new Set(smiths.map((r) => r.staffId)).size === 3 &&
-      s.materials.bronze === 27 && s.orders.length === smiths.filter((r) => r.made).length &&
+      s.materials.bronze === 27 && s.orders.length === 0 &&
+      res.delivered.length === smiths.filter((r) => r.made).length &&
       s.phaseIndex === 1 &&
       s.staff.every((e) => e.xp > 0) && Object.values(s.assignments).every((a) => a.done);
   })());

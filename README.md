@@ -749,12 +749,13 @@ Generation holds up across the whole matrix: 240/240 boards over every size 3–
 Five swords take **one** board, not five. Batch size comes from the forge
 itself (3 for a new one), the Forge upgrade in Growth and whichever Apprentice
 is at the anvil. Finish the
-board and the ingots are spent and the batch goes on the anvil overnight; ruin
+board and the ingots are spent and the batch is left to cool; ruin
 it and the phase is gone but **the metal is not**. The puzzle's quality score
 becomes the goods' quality, which sets what they are worth.
 
-Finished work lands in **storage** the next morning. It never goes straight to
-the floor — moving it there costs a phase (or a Store Hand).
+Finished work **cools for one phase**, then lands in **storage** (since 1.48;
+it used to wait for the next morning). It never goes straight to the floor —
+moving it there costs a phase (or a Store Hand).
 
 ### The Almanac: sixteen crafts, sixteen trees
 
@@ -1001,19 +1002,20 @@ come with a flaw. `shopSearchStaff(shop, roleId, count)` refuses a
 role it does not recognise and returns only that role, which is what lets the
 hiring screen ask which trade first.
 
-Asking is free. `shopAct('hire')` opens the sheet with no trade chosen and
-turns up nobody; picking a trade, switching trade, re-asking and leaving are
-all plain redraws. Exactly one path spends a phase — a `data-hire` or
-`data-minehire` click that *succeeded* — so a refusal for want of room or coin
-leaves the day untouched.
+Asking is free, and since 1.48 so is hiring. `shopAct('hire')` opens the
+sheet with no trade chosen and turns up nobody; picking a trade, switching
+trade, re-asking, leaving and hiring are all plain redraws, and none of them
+spends a phase. A hire redraws the list without the one taken on, so several
+can be hired one after another, and books nobody into any phase.
 
-A hire is only attempted when that phase can actually be paid.
-`shopPhaseBlocker()` names the reason it cannot (the forge has closed, the
-last phase is still playing out, or the counter is open), and while it does
-the search still opens and browses, every hire button is off and the sheet
-says why. Both hire handlers ask it again before calling `shopHire` or
-`shopHireMiner`, so a hire can never land without its phase, and a second tap
-finds the applicant gone or the phase already playing and spends nothing.
+A hire is still refused exactly when it always was. `shopPhaseBlocker()`
+names the reason (the forge has closed, the last phase is still playing out,
+the counter is open, or the day is given to study), and while it does the
+search still opens and browses, every hire button is off and the sheet says
+why. Both hire handlers ask it again before calling `shopHire` or
+`shopHireMiner`, which check room, coin and study themselves. Because the
+next applicant's button comes up where the last one was, a second tap within
+400 ms of a hire is taken as the same tap and hires nobody more.
 
 ### Rank is earned at the work
 
@@ -2295,6 +2297,55 @@ checks cover the names and plurals; fifteen new browser checks cover every
 kind of window closing at the turn of a phase from each of the three places,
 nothing closing when no phase passes, the notes of every worker and of the
 player, and long names and long lists staying inside the place.
+
+## One phase to cool, and hiring is free (1.48)
+
+Two changes to Open Your Forge, on top of 1.47's menus closing at the turn of
+a phase and notes that name the goods (both unchanged).
+
+### Finished work cools for one phase
+
+Whatever comes off an anvil — the player's batch or a Smith's piece — cools
+for **one phase** and is then in storage, or its commission's crate, ready to
+stock, sell or deliver. A batch forged in the morning is ready in the
+afternoon; one made in the evening is ready the next morning.
+
+- Time is counted in phases, never on a clock. Each order carries the phase
+  it is ready in (`readyTick`: `phaseTick(day, phaseIndex)`, a count of
+  phases since the forge opened), set to the phase it was made in plus
+  `SHOP.coolPhases` (1).
+- `settleCooling` releases what is ready at **every** turn of a phase, after
+  the forge has moved on, so work is never ready in the phase it was made in
+  and never waits a phase more. At the turn of the day it runs where the old
+  morning delivery did, before contracts are answered to, and the morning
+  report lists what arrived overnight as before.
+- Until then it is an order, which nothing can stock, sell, deliver or count
+  as stock. The Forge and the Storeroom list what is cooling and say when it
+  will be ready ("ready this afternoon", "ready tomorrow morning").
+- A piece that cools into a full storeroom is lost, as before. At the turn of
+  the day the morning report already said so; at the turn of a phase the
+  phase summary now says so in one line, so a loss is never silent.
+- **Saves** keep each order's ready phase. An order from a 1.47 save knows
+  only its day, and is ready at the next phase or that morning, whichever
+  is sooner.
+
+### Hiring uses no phase
+
+Opening the search, browsing, switching trade, searching again, leaving, and
+**hiring** itself are all free. The list stays open after a hire, with the one
+taken on gone from it, so several can be hired in a row; nobody hired is
+booked into any phase. Wages, the up-front cost of a Miner, staff places,
+mine shafts, ranks, flaws and every refusal are unchanged: hiring is still
+off while the forge is closed, while a phase is still playing out, and on a
+day given to study, as before. The hiring board, the search and How to Play
+say so.
+
+Ten new core checks and seven browser checks cover cooling from every phase
+and across the day, Smiths and the player alike, contracts, stocking while
+cooling, saves old and new, hiring several without a phase passing, and the
+limits that still apply; checks that expected the next morning, or a phase
+spent by a hire, now expect the new rules. The board fingerprint is
+unchanged.
 
 ## Fair boards
 

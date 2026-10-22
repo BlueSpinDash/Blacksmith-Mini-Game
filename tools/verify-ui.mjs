@@ -2511,6 +2511,7 @@ async function run() {
   await page.evaluate(() => {
     const F = window.CHECKSMITH;
     F.app.shop.materials.silver = 6;
+    F.testStoredBefore = F.core.countStorage(F.app.shop);
     F.shopUi.draft = { item: 'stiletto', material: 'silver', qty: 1 };
     F.shopStartForge();
   });
@@ -2544,17 +2545,24 @@ async function run() {
       body: document.getElementById('shopSheetBody').innerText,
       orders: F.app.shop.orders.length,
       made: F.app.shop.orders[0] ? F.app.shop.orders[0].qty : 0,
+      stored: F.core.countStorage(F.app.shop), storedBefore: F.testStoredBefore,
       silverLeft: F.app.shop.materials.silver };
   });
   ok('finishing the board ends the order', /Batch Forged/.test(batch.title), batch.title);
   ok('one puzzle produced the whole batch', batch.orders === 1 && batch.made >= 1);
   ok('the metal was spent only on success',
     batch.silverLeft === 6 - batch.made, JSON.stringify(batch));
-  ok('the batch is not available yet', /start of tomorrow/i.test(batch.body), batch.body);
+  ok('the batch is not available yet: it cools for one phase',
+    /cool for one phase and go into storage this afternoon/i.test(batch.body) && batch.orders === 1 &&
+    batch.stored === batch.storedBefore, batch.body);
   await page.click('#shopSheet [data-at="0"]');
   await page.waitForTimeout(250);
   ok('working the anvil spent the phase', await page.evaluate(
     () => document.getElementById('shPhase').textContent === 'Afternoon'));
+  const cooled = await page.evaluate(() => ({ orders: window.CHECKSMITH.app.shop.orders.length,
+    stored: window.CHECKSMITH.core.countStorage(window.CHECKSMITH.app.shop) }));
+  ok('and by the afternoon the batch has cooled and is in storage',
+    cooled.orders === 0 && cooled.stored === batch.storedBefore + batch.made, JSON.stringify(cooled));
   ok('and the shop screen is back', await page.evaluate(
     () => !document.getElementById('shopView').hidden &&
       !document.getElementById('forgeBanner')));
@@ -2571,7 +2579,7 @@ async function run() {
     storage: window.CHECKSMITH.core.countStorage(window.CHECKSMITH.app.shop),
     shelf: window.CHECKSMITH.core.countShelf(window.CHECKSMITH.app.shop)
   }));
-  ok('the batch arrives in storage the next day',
+  ok('the next day the batch is still in storage',
     nextDay.day === '2' && nextDay.storage > 0, JSON.stringify(nextDay));
   ok('and lands in storage, never straight onto the shelf', nextDay.shelf === 0);
 
@@ -2933,7 +2941,8 @@ async function run() {
     phase: document.getElementById('shPhase').textContent
   }));
   ok('hiring puts them on the books', hired.staff === 1, JSON.stringify(hired));
-  ok('taking somebody on costs the phase', hired.phase !== 'Morning', hired.phase);
+  ok('taking somebody on uses no phase', hired.phase === 'Morning', hired.phase);
+  await page.evaluate(() => window.CHECKSMITH.shopSheetClose());
 
   const delegated = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
@@ -4504,14 +4513,14 @@ async function run() {
   });
   ok('taking somebody on hires them at E', engaged.staff === engaged.was.staff + 1 &&
     engaged.rank === 'E' && engaged.xp === 0, JSON.stringify(engaged));
-  ok('and that is the moment the phase is spent',
-    engaged.phase !== engaged.was.phase || engaged.day !== engaged.was.day,
+  ok('and spends no phase doing it',
+    engaged.phase === engaged.was.phase && engaged.day === engaged.was.day,
     JSON.stringify(engaged));
 
-  /* The search is a menu, not an action. Every way in and out of it is
-     free; a hire is the only thing that spends the phase, it spends exactly
-     one, and when there is no phase to spend it is refused and says why. */
-  section('Open Your Forge: searching is free, hiring costs one phase');
+  /* The search is a menu, and hiring uses no phase either. A hire is still
+     refused, and says why, whenever it always was: the forge closed, a
+     phase still playing out, a day of study. */
+  section('Open Your Forge: searching and hiring are both free');
   const clockOf = () => page.evaluate(() => {
     const sh = window.CHECKSMITH.app.shop;
     return { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length, gold: sh.gold };
@@ -4600,7 +4609,7 @@ async function run() {
     poorMiner.tick === poorMiner.was.tick && poorMiner.miners === poorMiner.was.miners &&
     poorMiner.open, JSON.stringify(poorMiner));
 
-  // with no phase to spend the search still opens and browses, but will not hire
+  // while a phase plays out or the forge is closed, the search opens and browses but will not hire
   const noPhase = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
     sh.gold = 4000;
@@ -4638,26 +4647,37 @@ async function run() {
     noPhase.closed.tick === noPhase.closed.was.tick && noPhase.closed.staff === noPhase.closed.was.staff &&
     /no phases remain/.test(noPhase.closed.toast), JSON.stringify(noPhase).slice(0, 400));
 
-  // a real hire, tapped twice in a row: one employee, one phase
+  // a real hire, tapped twice in a row where the button stands: one employee,
+  // and the list stays open for the next; then two more, one after another
   const once = await page.evaluate(async () => {
     const F = window.CHECKSMITH, sh = F.app.shop;
+    sh.gold = 100000;
+    sh.upgrades.hands = Math.max(sh.upgrades.hands || 0, 4);
+    sh.assignments = {};
     Array.from(document.querySelectorAll('#shopSheetBody .trade'))
       .find((b) => b.innerText.trim() === 'Runner').click();
     await new Promise((r) => setTimeout(r, 180));
-    const was = { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length };
-    const btn = document.querySelector('#shopSheetBody [data-hire]');
-    btn.click();
-    btn.click();
+    const was = { tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length, gold: sh.gold };
+    document.querySelector('#shopSheetBody [data-hire]').click();
+    document.querySelector('#shopSheetBody [data-hire]').click();
     await new Promise((r) => setTimeout(r, 300));
-    for (let i = 0; i < 10 && !document.getElementById('shopSheet').hidden; i++) {
-      const close = document.querySelector('#shopSheet [data-at="0"]');
-      if (close) close.click();
-      await new Promise((r) => setTimeout(r, 80));
+    const double = { staff: sh.staff.length, open: !document.getElementById('shopSheet').hidden,
+      left: document.querySelectorAll('#shopSheetBody [data-hire]').length };
+    for (let i = 0; i < 2; i++) {
+      document.querySelector('#shopSheetBody [data-hire]').click();
+      await new Promise((r) => setTimeout(r, 450));
     }
-    return { was: was, tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length };
+    const out = { was: was, double: double, tick: sh.day * 3 + sh.phaseIndex, staff: sh.staff.length,
+      gold: sh.gold, booked: Object.keys(sh.assignments).length };
+    F.shopSheetClose();
+    return out;
   });
-  ok('a hire tapped twice hires one employee and spends exactly one phase',
-    once.staff === once.was.staff + 1 && once.tick === once.was.tick + 1, JSON.stringify(once));
+  ok('a hire tapped twice hires one employee, spends no phase and leaves the list open',
+    once.double.staff === once.was.staff + 1 && once.double.open && once.double.left === 2,
+    JSON.stringify(once));
+  ok('and hiring several one after another never moves the day on, or books anybody',
+    once.staff === once.was.staff + 3 && once.tick === once.was.tick && once.booked === 0 &&
+    once.gold === once.was.gold, JSON.stringify(once));
   await page.evaluate(() => {
     const F = window.CHECKSMITH, sh = F.app.shop, kept = F.testKept;
     sh.staff = kept.staff; sh.gold = kept.gold; sh.mines = kept.mines;
@@ -5918,6 +5938,58 @@ async function run() {
     });
   }
 
+  /* Finished work cools for one phase. The forge and the storeroom say when
+     each piece will be ready, and a piece that cools into a full storeroom is
+     never lost without a word. */
+  section('Open Your Forge: finished work cools for one phase');
+  {
+    const cooling = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      const kept = C.serializeShop(sh);
+      F.setPhaseAnim(false);
+      sh.staff = []; sh.assignments = {}; sh.standing = []; sh.closed = false;
+      sh.phaseIndex = 0; sh.materials.bronze = 40; sh.research = null;
+      sh.commissionOffers = []; sh.specialOffers = [];
+      C.learnRecipe(sh, 'shortsword', 'study');
+      C.shopFinishForge(sh, 'shortsword', 'bronze', 2, 80, 'you');
+      const read = (tab) => { F.shopUi.tab = tab; F.shopRender(); return document.getElementById('shPanel').textContent; };
+      const out = { forge: read('forge'), store: read('storage') };
+      F.shopUi.tab = null; F.shopRender();
+      // a full storeroom: the batch cools with nowhere to go, and the summary says so
+      const room = C.storageCapacity(sh) - C.countStorage(sh);
+      if (room > 0) C.addStorage(sh, C.lineKey('shortsword', 'silver'), room, 70, 1);
+      F.shopSpendPhase(null);
+      await new Promise((r) => setTimeout(r, 120));
+      out.summary = document.getElementById('shopSheet').hidden ? '' :
+        document.getElementById('shopSheetBody').textContent.replace(/\s+/g, ' ');
+      out.orders = sh.orders.length;
+      for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+        document.querySelector('#shopSheet [data-at="0"]').click();
+        await new Promise((r) => setTimeout(r, 60));
+      }
+      window.openHelp();
+      await new Promise((r) => setTimeout(r, 120));
+      out.help = document.getElementById('help').textContent.replace(/\s+/g, ' ');
+      document.getElementById('helpClose').click();
+      F.app.shop = C.restoreShop(JSON.parse(JSON.stringify(kept)), sh.rnd);
+      F.shopRender();
+      return out;
+    });
+    ok('the forge and the storeroom list what is cooling, and when it will be ready',
+      /Cooling/.test(cooling.forge) && /in storage after one phase/i.test(cooling.forge) &&
+      /ready this afternoon/.test(cooling.forge) && /Cooling/.test(cooling.store) &&
+      /ready this afternoon/.test(cooling.store) && !/tomorrow/i.test(cooling.store),
+      JSON.stringify({ forge: cooling.forge.slice(0, 300), store: cooling.store.slice(0, 300) }));
+    ok('work that cools into a full storeroom is reported lost, never silently',
+      cooling.orders === 0 &&
+      /Storage was full: 2 Bronze Arming Swords finished cooling with nowhere to go and were lost/.test(cooling.summary),
+      cooling.summary.slice(0, 300));
+    ok('How to Play says finished items cool for one phase, and hiring is free',
+      /cool for one phase/.test(cooling.help) && !/start of the next day/.test(cooling.help) &&
+      /hiring, assigning and promoting staff/.test(cooling.help) && !/Hire Staff/.test(cooling.help),
+      cooling.help.slice(0, 200));
+  }
+
   section('Open Your Forge: Staffing and Salesperson Earnings');
   const keptForStaffing = await page.evaluate(() => {
     const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
@@ -6089,6 +6161,7 @@ async function run() {
     const made = sh.log.filter((r) => r.kind === 'smith' && r.ok && r.day === sh.day);
     return { lefts: lefts, figs: figs.every(Boolean), before: before,
       tick: sh.day * 3 + sh.phaseIndex, bronze: sh.materials.bronze, orders: sh.orders.length,
+      pieces: made.reduce((n, r) => n + (r.made || 0), 0),
       made: made.length, ids: new Set(made.map((r) => r.staffId)).size,
       cameOff: made.filter((r) => r.made > 0).length,
       shown: shown.length, visible: shown.every((x) => x.visible) };
@@ -6096,9 +6169,11 @@ async function run() {
   ok('three Smiths stand at three different places in the room',
     three.figs && new Set(three.lefts).size === 3, JSON.stringify(three.lefts));
   ok('all three forge in the same phase, and that phase is spent once',
-    // one attempt and one ingot each; only what came off is in production
+    // one attempt and one ingot each; what came off has cooled by the next
+    // phase, so nothing of it is still cooling
     three.made === 3 && three.ids === 3 && three.tick === three.before.tick + 1 &&
-    three.before.bronze - three.bronze === 3 && three.orders === three.before.orders + three.cameOff,
+    three.before.bronze - three.bronze === 3 && three.orders === three.before.orders &&
+    three.pieces > 0 && three.cameOff > 0,
     JSON.stringify(three));
   ok('and the camera shows each of them at work', three.shown === 3 && three.visible,
     JSON.stringify(three));
