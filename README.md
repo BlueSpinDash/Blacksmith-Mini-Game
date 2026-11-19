@@ -2393,6 +2393,12 @@ the middle of them opens the counter. "Skip Animations" sits over the corner
 of the floor while a phase plays out. The Upgrades board's name sits on the
 ledge under the board, over the rolled plans, as drawn.
 
+Twelve new browser checks hold these in place: the title on a touch screen,
+the mode cards, the duty seats, the marks and walking layers and what is
+drawn over what, the Schedule's headings on a 320×568 phone, the bottom bar,
+and the Forge's buttons under the longest instruction. Core checks and the
+board fingerprint are unchanged.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded
@@ -2536,7 +2542,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 1118 rule/generation checks
-node tools/verify-ui.mjs                                    # 1079 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 1091 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
