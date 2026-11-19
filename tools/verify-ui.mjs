@@ -6415,11 +6415,11 @@ async function run() {
       sh.commissionOffers.push({ id: 99901, name: 'Test Buyer', item: 'shortsword', key: C.lineKey('shortsword', 'bronze'),
         qty: 4, quality: 40, pay: 100, advance: 25, days: 5, offeredDay: sh.day, trade: 'Farmer' });
       F.shopRender();
-      const b = document.querySelector('#shThings [data-station="commissions"] .sc-badge');
+      const b = document.querySelector('#shMarks [data-station="commissions"] .sc-badge');
       const out = { badge: b ? b.textContent : null };
       sh.commissionOffers = offers;
       F.shopRender();
-      out.after = !!document.querySelector('#shThings [data-station="commissions"] .sc-badge') ===
+      out.after = !!document.querySelector('#shMarks [data-station="commissions"] .sc-badge') ===
         (offers.length + (sh.specialOffers || []).length > 0);
       return out;
     });
@@ -8034,7 +8034,7 @@ async function run() {
       document.querySelector('#shopSheet [data-at="0"]').click();
       F.shopUi.tab = 'offers'; F.shopRender();
       const card = document.querySelector('#shPanel [data-special-offer="embercleaver"]');
-      const badge = document.querySelector('#shThings [data-station="commissions"] .sc-badge');
+      const badge = document.querySelector('#shMarks [data-station="commissions"] .sc-badge');
       return { text: card ? card.innerText.replace(/\s+/g, ' ') : '', sprite: !!(card && card.querySelector('.sprite.named')),
         badge: badge ? badge.textContent : '' };
     });
@@ -9143,6 +9143,193 @@ async function run() {
       ok(tag + ': the tour raises no errors', errs.length === 0, errs.slice(0, 3).join(' | '));
       await ctx.close();
     }
+  }
+
+  /* 1.49: a visual audit of every screen. These hold the things it found
+     in place: what draws over what, what lines up with what, and what fits
+     the smallest phone. */
+  section('1.49: the screens line up');
+  {
+    // the title, as a phone with no keyboard sees it on launch
+    ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    page = paged(await ctx.newPage());
+    await page.goto(RAW_FILE);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.CHECKSMITH.introSkip && window.CHECKSMITH.introSkip());
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.waitForTimeout(1200);
+    const title = await page.evaluate(() => ({
+      focused: document.activeElement && document.activeElement.id,
+      cards: Array.from(document.querySelectorAll('.mode-card')).map((c) => {
+        const r = c.getBoundingClientRect(), n = c.querySelector('.mc-name').getBoundingClientRect();
+        return { best: getComputedStyle(c.querySelector('.mc-best')).display,
+          off: Math.round(Math.abs((n.top + n.bottom) / 2 - (r.top + r.bottom) / 2)) };
+      })
+    }));
+    ok('a phone with no keyboard opens on the title without a focus ring on Begin',
+      title.focused !== 'beginBtn', String(title.focused));
+    ok('a mode with no record yet shows its name alone, centred in its card',
+      title.cards.length === 4 && title.cards.every((c) => c.best === 'none' && c.off <= 2), JSON.stringify(title.cards));
+    // the duty seats in a place window, and the design gallery's name, each in their own style
+    await page.click('.mode-card[data-mode="shop"]'); await page.click('#beginBtn');
+    await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+    await page.fill('#nameForgeInput', 'Lineup Forge'); await page.click('#nameForgeGo');
+    await page.waitForTimeout(300);
+    await chooseCrafts(page);
+    const seats = await page.evaluate(async () => {
+      const F = window.CHECKSMITH;
+      F.sceneView('work', false); F.shopOpenPlace('forge');
+      await new Promise((r) => setTimeout(r, 200));
+      const names = Array.from(document.querySelectorAll('#shPanel .duty-seat .ds-name')).map((e) => parseFloat(getComputedStyle(e).fontSize));
+      F.shopUi.tab = null; F.shopRender();
+      return names;
+    });
+    ok('a duty seat’s name is set in the seat’s own small type, not the gallery’s heading',
+      seats.length > 0 && seats.every((px) => px <= 14), JSON.stringify(seats));
+    // the names and counts on the fixtures sit over the lighting and over the people
+    const marks = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      sh.phaseIndex = 2; F.shopRender(); F.sceneView('work', false);
+      await new Promise((r) => setTimeout(r, 300));
+      const z = (sel) => parseInt(getComputedStyle(document.querySelector(sel)).zIndex, 10);
+      const stations = Array.from(document.querySelectorAll('#shMarks .sc-mark')).map((m) => {
+        const st = document.querySelector('#shThings .loc-stage[data-loc="' + m.parentElement.dataset.loc + '"] [data-station="' + m.dataset.station + '"]');
+        const a = m.getBoundingClientRect(), b = st ? st.getBoundingClientRect() : { left: -99, top: -99 };
+        return Math.abs(a.left - b.left) + Math.abs(a.top - b.top);
+      });
+      // what is drawn on top at the middle of the Forge's name, pointer rules aside
+      const label = document.querySelector('#shMarks .loc-stage[data-loc="work"] .st-forge .sc-label');
+      const r = label.getBoundingClientRect();
+      const st = document.createElement('style'); st.textContent = '* { pointer-events: auto !important; }';
+      document.head.appendChild(st);
+      const stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      st.remove();
+      // the name comes before the glow and the time of day's tint in the paint order
+      const at = (fn) => stack.findIndex(fn);
+      const top = at((e) => e === label || label.contains(e)) <
+        Math.min(...[at((e) => e.classList && e.classList.contains('glow')), at((e) => e.classList && e.classList.contains('scene-light'))]
+          .filter((i) => i >= 0));
+      sh.phaseIndex = 0; F.shopRender();
+      return { inThings: document.querySelectorAll('#shThings .sc-label, #shThings .sc-badge').length,
+        layers: [z('#shThings'), z('#shWalk'), z('.scene-light'), z('#shGlow'), z('#shMarks'), z('#shFx')],
+        offsets: stations, top: top };
+    });
+    ok('the fixtures’ names and counts are drawn in their own layer, each over its fixture exactly',
+      marks.inThings === 0 && marks.offsets.length >= 10 && marks.offsets.every((d) => d < 1), JSON.stringify(marks));
+    ok('that layer is above the time of day and the glow, and under only the floating notes',
+      marks.layers[4] > marks.layers[2] && marks.layers[4] > marks.layers[3] && marks.layers[4] < marks.layers[5] &&
+      marks.layers[1] > marks.layers[0] && marks.layers[1] < marks.layers[2], JSON.stringify(marks.layers));
+    ok('so the Forge’s name is not washed out by the fire’s glow', marks.top, JSON.stringify(marks));
+    const queue = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      sh.gold = 100000; sh.phaseIndex = 0;
+      C.learnRecipe(sh, 'shortsword', 'study');
+      C.addStorage(sh, C.lineKey('shortsword', 'bronze'), 12, 82, 1);
+      const w = sh.stands.find((s) => s.type === 'weapon' && C.standPlaced(s));
+      w.key = null; w.qty = 0; C.shopStockStand(sh, w.id, C.lineKey('shortsword', 'bronze'), 6);
+      for (const one of sh.town) one.gold = 5000;
+      sh.staff = [{ id: 951, name: 'Quinn Ledger', role: 'salesperson', rank: 'B', power: 4, wage: 40, xp: 0, face: 'guard' }];
+      sh.assignments = {};
+      C.shopAssign(sh, 951, {}, 'morning');
+      F.setPhaseAnim(true); F.setWorkerCam(true); F.shopRender(); F.sceneView('floor', false);
+      F.shopSpendPhase(null);
+      await new Promise((r) => setTimeout(r, 2400));
+      const label = document.querySelector('#shMarks .loc-stage[data-loc="floor"] .st-counter .sc-label');
+      const r = label.getBoundingClientRect();
+      const st = document.createElement('style'); st.textContent = '* { pointer-events: auto !important; }';
+      document.head.appendChild(st);
+      const stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      st.remove();
+      const named = stack.findIndex((e) => e === label || label.contains(e));
+      const people = stack.findIndex((e) => e.closest && e.closest('.walker, .fig'));
+      const out = { walk: document.querySelectorAll('#shWalk .walker').length, fx: document.querySelectorAll('#shFx .walker').length,
+        top: named >= 0 && (people < 0 || named < people), named, people };
+      for (let k = 0; k < 400 && F.shopUi.playing; k++) await new Promise((res) => setTimeout(res, 50));
+      for (let k = 0; k < 6 && !document.getElementById('shopSheet').hidden; k++) {
+        document.querySelector('#shopSheet [data-at="0"]').click();
+        await new Promise((res) => setTimeout(res, 60));
+      }
+      out.after = document.querySelectorAll('#shWalk .walker').length;
+      F.setPhaseAnim(false);
+      return out;
+    });
+    ok('people walking during a playback pass in front of the fixtures but under their names',
+      queue.walk > 0 && queue.fx === 0 && queue.top, JSON.stringify(queue));
+    ok('and they are cleared away when the playback ends', queue.after === 0, JSON.stringify(queue));
+    const bar = await page.evaluate(() => {
+      const a = document.getElementById('shEditBtn').getBoundingClientRect(), b = document.getElementById('shAdvanceBtn').getBoundingClientRect();
+      return [Math.round(a.top), Math.round(a.height), Math.round(b.top), Math.round(b.height)];
+    });
+    ok('Arrange and End Phase are the same height, side by side', bar[1] === bar[3] && Math.abs(bar[0] - bar[2]) <= 1, JSON.stringify(bar));
+    await ctx.close();
+
+    // the smallest phone: a role's name stays with its boxes, and a long
+    // instruction never pushes the Forge's buttons off the screen
+    ctx = await browser.newContext({ viewport: { width: 320, height: 568 }, hasTouch: true });
+    page = paged(await ctx.newPage());
+    await page.goto(FILE);
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    await page.click('.mode-card[data-mode="shop"]'); await page.click('#beginBtn');
+    await page.waitForSelector('#nameForge:not([hidden])', { timeout: 8000 });
+    await page.fill('#nameForgeInput', 'Small Forge'); await page.click('#nameForgeGo');
+    await page.waitForTimeout(300);
+    await chooseCrafts(page);
+    const roster = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, C = F.core, sh = F.app.shop;
+      // a hand of every trade, so every role has its row on the Schedule
+      sh.upgrades.hands = 6;
+      sh.staff = ['salesperson', 'smith', 'runner', 'storehand', 'apprentice'].map((role, i) =>
+        ({ id: 960 + i, name: 'Hand ' + i, role: role, rank: 'C', power: 3, wage: 30, xp: 0, face: 'guard' }));
+      F.shopRender();
+      F.sceneView('front', false); F.shopOpenPlace('board', 'staff');
+      await new Promise((r) => setTimeout(r, 250));
+      const host = document.getElementById('shPanel');
+      const pages = Number(host.dataset.pages || 1);
+      const orphans = [], heads = [];
+      const seen = (el) => !el.closest('.pg-off') && el.getBoundingClientRect().height > 0;
+      for (let p = 1; p <= pages; p++) {
+        for (const head of host.querySelectorAll('.roster-head')) {
+          if (!seen(head)) continue;
+          // a heading is shown whole, with at least the first of its boxes
+          const box = head.nextElementSibling && head.nextElementSibling.querySelector('.roster-box');
+          if (!seen(head.querySelector('.what:not(.rh-count)')) || !box || !seen(box)) orphans.push(p + ':' + head.querySelector('b').textContent);
+          const b = head.querySelector('b').getBoundingClientRect(), c = head.querySelector('.rh-count').getBoundingClientRect();
+          heads.push(Math.abs(b.top - c.top) <= 3 && c.left > b.right);
+        }
+        if (p < pages) { host.nextElementSibling.querySelector('[data-pg="1"]').click(); await new Promise((r) => setTimeout(r, 60)); }
+      }
+      F.shopUi.tab = null; F.shopRender();
+      return { pages, orphans, heads };
+    });
+    ok('on the Schedule, no role’s heading is left at the foot of a page without its boxes',
+      roster.pages > 1 && roster.orphans.length === 0, JSON.stringify(roster));
+    ok('and every role’s count sits on its name’s line, at the right', roster.heads.length >= 5 && roster.heads.every(Boolean),
+      JSON.stringify(roster));
+    await page.evaluate(() => window.CHECKSMITH.menuLeave());
+    if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+    await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    const fits = [];
+    for (const d of ['longsword', 'spearhead', 'shortsword']) {
+      await page.click('.mode-card[data-mode="forge"]'); await page.click('#beginBtn');
+      await page.waitForSelector('#designView:not([hidden])', { timeout: 8000 });
+      await page.click('#designGrid [data-design="' + d + '"]'); await page.click('#designGo');
+      await page.waitForFunction(() => window.CHECKSMITH.app.game, null, { timeout: 10000 });
+      fits.push(await page.evaluate(async (name) => {
+        // the longest instruction there is, on three lines at this width
+        document.getElementById('promptText').textContent =
+          'Knight: strike a square two away in one direction and one away in the other (an L shape).';
+        await new Promise((r) => setTimeout(r, 400));
+        const a = document.getElementById('forgeActions').getBoundingClientRect();
+        const tile = Array.from(document.querySelectorAll('#board .tile')).find((t) => t.getBoundingClientRect().width > 0);
+        return { name, bottom: Math.round(a.bottom), vh: innerHeight, sq: Math.round(tile.getBoundingClientRect().width) };
+      }, d));
+      await page.evaluate(() => window.CHECKSMITH.menuLeave());
+      if (await page.isVisible('#confirm')) await page.click('#confirmYes');
+      await page.waitForSelector('#titleScreen:not([hidden])', { timeout: 8000 });
+    }
+    ok('a three-line instruction never pushes the Forge’s buttons off a 320×568 screen',
+      fits.every((f) => f.bottom <= f.vh && f.sq >= 14), JSON.stringify(fits));
+    await ctx.close();
   }
 
   await browser.close();

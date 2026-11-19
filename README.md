@@ -2347,6 +2347,52 @@ limits that still apply; checks that expected the next morning, or a phase
 spent by a hire, now expect the new rules. The board fingerprint is
 unchanged.
 
+## A visual audit of every screen (1.49)
+
+Every screen of the game was opened at seven portrait sizes, from 320×568 to
+an 800×1280 tablet, and measured as well as looked at. That covers the title,
+How to Play, the Forge gallery and every design, the square boards, Endless,
+Versus at every size, and Open Your Forge's three places, every window and
+every page of each, the anvil, a special commission, the counter, the phase
+playback, summaries and reports. The measurements looked for text or
+controls cut off by their window or the screen, text that does not fit its
+box, text painted over by something else, buttons a tap at their centre does
+not reach, rows of buttons that do not line up, and headings left at the
+foot of a page. Every board was checked for tiles of one size on a regular
+grid, every tile reachable by a tap at its centre, the board centred, and the
+silhouette around the tiles. These are what it found and what changed:
+
+| Where | What was wrong | Now |
+|-------|----------------|-----|
+| Every place window's duty seats (Forge, Supplies, Counter, Storeroom, Entrance) | "Assign" and the names in the seats were 22px gold capitals: the Forge gallery's design-name style, because both used the class `.ds-name` and the gallery's rule came later | The gallery's rule is scoped to the gallery (`.ds-text .ds-name`); a seat is in its own small type again |
+| Title screen's mode cards | Each card's name sat at the top over an empty line: the "best" line holds a no-break space when there is no record yet, so the rule that hides an empty one never applied | A card with no record shows its name alone, centred; a card with a record shows both lines |
+| Title screen on a phone | A focus ring was drawn round Begin before anything had been touched, because Begin is focused from a script for keyboard players | Begin is focused only where there is a keyboard-like pointer (`focusForKeys`); a touch-only screen opens clean |
+| Fixtures' names and counts in the shop | Drawn inside each fixture, so the evening's tint dimmed them, the forge's glow washed out "Forge", and customers queueing at the counter hid "Counter" | Drawn in their own layer (`#shMarks`) in a box the same size and place as the fixture, over the time of day and the glow and anyone standing in front, under only the floating notes; dimmed with the fixtures while arranging |
+| People walking during a playback | Drawn in the effects layer over everything, so they were never in the time of day's light while the people standing at the fixtures were, and they covered the fixtures' names | Drawn in their own layer (`#shWalk`) just over the fixtures: in the same light as everyone else, under the names, and cleared when the playback ends |
+| The Schedule | A role's heading could be split from its boxes at the foot of a page ("Runner" alone at the bottom of a page, its boxes on the next); and a role's "1 hired · 1 per phase" sat beside its name or under its description depending on how long the description was | The heading is one block (`data-pg-whole`) kept with what follows (`pg-keep`); the name and the count share the first line, the description is under them, for every role |
+| The Forge on a 320×568 phone | A three-line instruction (the Knight's) pushed the Restart, All Designs and Symbols buttons off the bottom of the screen on the longer designs, because the tiles could shrink no further than 16px | A tall piece closes its gaps to 3px and then 2px before its squares shrink, and only then goes below 16px; the whole screen stays in view |
+| The bottom bar in the shop | Arrange was 44px tall beside a 46px End Phase (52px when it wraps on a phone on its side) | Arrange takes the height of the bar |
+
+**Checked and found right.** Every board, at every size, has tiles of one
+size on an even grid, every tile is reached by a tap at its centre, and every
+tile sits inside its silhouette. No fixture's art spills outside the area a
+tap on it answers to. The shop sign fits the longest name possible (24 wide
+letters) by compressing it. On a tablet the game stays in its phone-wide
+column, centred. On a phone on its side (in a browser; the Android app is
+held upright) the shop's bars become a column beside the room. The Android
+shell keeps the page clear of the status and navigation bars with
+`fitsSystemWindows`, which matters now that Android 15 draws every app edge to
+edge; that was checked by reading the shell, not on a device.
+
+**Left as they are, on purpose.** The tallest designs on the smallest phones
+have small squares (the Longsword's are 16px at 320×568, a 6×6 Versus board's
+20px), because the whole board has to be in view without scrolling. The
+notice at the top of the shop covers the top of the room for the few seconds
+it shows. A Salesperson behind the counter is partly behind it, so a tap on
+the middle of them opens the counter. "Skip Animations" sits over the corner
+of the floor while a phase plays out. The Upgrades board's name sits on the
+ledge under the board, over the rolled plans, as drawn.
+
 ## Fair boards
 
 Symbols are never scattered at random. Generation is solution-first: a bounded

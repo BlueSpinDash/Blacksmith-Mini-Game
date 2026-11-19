@@ -717,11 +717,19 @@ input[type=range]{
   --lamp:.12;--flame:.35;}
 .scene-world[data-phase="afternoon"]{--sky:#f2c98f;--street:#f0cf9a;--tint:rgba(255,168,90,.16);--lamp:.22;--flame:.5;}
 .scene-world[data-phase="evening"]{--sky:#1f2748;--street:#262d4b;--tint:rgba(16,18,50,.52);--lamp:1;--flame:1;}
-.scene-back,.scene-things,.scene-light,.scene-glow,.scene-fx{position:absolute;inset:0;}
+.scene-back,.scene-things,.scene-walk,.scene-light,.scene-glow,.scene-marks,.scene-fx{position:absolute;inset:0;}
 .scene-back svg{display:block;}
 .scene-things{z-index:5;}
+/* people on the move during a playback: in front of every fixture, in the
+   same light as the people standing at them, under the fixtures' names */
+.scene-walk{z-index:6;pointer-events:none;}
 .scene-light{z-index:60;pointer-events:none;background:var(--tint);mix-blend-mode:multiply;transition:background .9s;}
 .scene-glow{z-index:61;pointer-events:none;mix-blend-mode:screen;}
+/* the names and the counts on the fixtures are read, not lit: they sit over
+   the time of day and the lamps and the forge's glow, and over anyone
+   standing in front of a fixture, under only the floating notes */
+.scene-marks{z-index:65;pointer-events:none;}
+.sc-mark{position:absolute;pointer-events:none;}
 .scene-fx{z-index:70;pointer-events:none;}
 .sc-sky{fill:var(--sky);transition:fill .9s;}
 .sc-street{fill:var(--street);}
@@ -782,7 +790,7 @@ input[type=range]{
 .spot.stand.sel{box-shadow:inset 0 0 0 2px var(--ember) !important;background:rgba(224,122,63,.16);}
 .spot.bad,.station.bad{animation:scBad .5s;}
 @keyframes scBad{0%,100%{box-shadow:inset 0 0 0 0 rgba(208,70,60,0);}40%{box-shadow:inset 0 0 0 3px rgba(208,70,60,.95);}}
-.editing .station,.editing .fig{opacity:.55;}
+.editing .station,.editing .fig,.editing .sc-mark{opacity:.55;}
 /* the people */
 .fig{position:absolute;width:40px;padding:0;border:0;background:none;cursor:pointer;
   display:flex;flex-direction:column;align-items:center;}
@@ -1104,11 +1112,15 @@ input[type=range]{
    which is what keeps three phases side by side on a phone and lets them
    spread on anything wider. */
 .roster-role{margin:0 0 12px;}
+/* the name and the count on one line, what the role does under them -
+   the same for every role, however long its description */
 .roster-head{
-  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 5px;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;column-gap:8px;row-gap:1px;
+  margin:0 0 5px;
 }
 .roster-head b{font-size:13px;color:var(--text);letter-spacing:.02em;}
-.roster-head .what{font-size:11px;color:var(--muted);flex:1;min-width:120px;}
+.roster-head .what{font-size:11px;color:var(--muted);grid-column:1 / -1;}
+.roster-head .what.rh-count{grid-column:2;grid-row:1;white-space:nowrap;}
 .roster-grid{
   display:grid;gap:6px;
   /* 84px is what lets all three phases sit on one line at 320px, the
@@ -2246,7 +2258,7 @@ body{min-height:0;overscroll-behavior:none;}
   position:absolute;top:var(--oy,0px);left:calc(var(--vw,360px) * var(--i) + var(--ox,0px));
   width:360px;height:600px;transform:scale(var(--s,1));transform-origin:0 0;
 }
-.scene-glow .loc-stage,.scene-fx .loc-stage{pointer-events:none;}
+.scene-walk .loc-stage,.scene-glow .loc-stage,.scene-marks .loc-stage,.scene-fx .loc-stage{pointer-events:none;}
 /* the objects: a soft lift under the finger, a ring for the keyboard */
 .station{-webkit-touch-callout:none;}
 .station:active{filter:drop-shadow(0 0 7px rgba(243,215,145,.55)) brightness(1.12);}
@@ -2307,7 +2319,7 @@ body{min-height:0;overscroll-behavior:none;}
 .sh-track i.done{background:#6b5325;}
 .sh-track i.now{background:var(--gold);border-color:var(--gold);box-shadow:0 0 8px rgba(243,215,145,.6);}
 .sh-edit{
-  flex:none;min-height:44px;padding:0 13px;border-radius:10px;cursor:pointer;font-size:13px;
+  flex:none;align-self:stretch;min-height:44px;padding:0 13px;border-radius:10px;cursor:pointer;font-size:13px;
   background:#211e1c;border:1px solid var(--bronze-d);color:#e8dcc0;
 }
 .sh-edit.on{background:var(--ember);border-color:var(--ember);color:#16110c;font-weight:700;}
@@ -2467,7 +2479,8 @@ body{min-height:0;overscroll-behavior:none;}
 .ds-pic{flex:1 1 0;min-height:80px;display:flex;align-items:center;justify-content:center;}
 .ds-pic .design-pic{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 6px 14px rgba(0,0,0,.55));}
 .ds-text{flex:none;text-align:center;}
-.ds-name{margin:0;font-size:22px;color:var(--gold);letter-spacing:.04em;font-weight:600;}
+/* scoped to the gallery: .ds-name is also the name in a duty seat */
+.ds-text .ds-name{margin:0;font-size:22px;color:var(--gold);letter-spacing:.04em;font-weight:600;}
 .ds-meta{margin:2px 0 0;font-size:13px;color:var(--muted);}
 .ds-meta .dc-level{color:var(--brass);}
 .ds-blurb{margin:4px 0 0;font-size:13px;color:#ded8cd;line-height:1.4;}
@@ -2983,8 +2996,10 @@ body{min-height:0;overscroll-behavior:none;}
         <div class="scene-world" id="shWorld" data-phase="morning" data-stage="1">
           <div class="scene-back" id="shBack"></div>
           <div class="scene-things" id="shThings"></div>
+          <div class="scene-walk" id="shWalk" aria-hidden="true"></div>
           <div class="scene-light" aria-hidden="true"></div>
           <div class="scene-glow" id="shGlow" aria-hidden="true"></div>
+          <div class="scene-marks" id="shMarks" aria-hidden="true"></div>
           <div class="scene-fx" id="shFx" aria-hidden="true"></div>
         </div>
       </div>
@@ -14848,13 +14863,27 @@ function sceneFloorHtml(sh, L) {
   return html;
 }
 
+/* A fixture is its art and its touch area. Its name and its count are drawn
+   in the marks layer above (sceneMarksHtml), in a box the same size and in
+   the same place, so they are positioned exactly as before but are never
+   tinted by the time of day, washed out by a glow or hidden by a figure. */
 function sceneStation(id, x, y, w, h, z, art, label, aria, extraCls, badge) {
+  if (sceneStation.marks && (label || badge)) {
+    sceneStation.marks.push({ id: id, x: x, y: y, w: w, h: h, label: label, badge: badge, cls: extraCls });
+  }
   return '<button type="button" class="station st-' + id + (extraCls ? ' ' + extraCls : '') +
     '" data-station="' + id + '" style="left:' + x + 'px;top:' + y + 'px;width:' + w +
-    'px;height:' + h + 'px;z-index:' + z + '" aria-label="' + esc(aria) + '">' + art +
-    (label ? '<span class="sc-label" aria-hidden="true">' + esc(label) + '</span>' : '') +
-    (badge ? '<span class="sc-badge' + (badge.warn ? ' warn' : '') + '" aria-hidden="true">' +
-      esc(String(badge.text)) + '</span>' : '') + '</button>';
+    'px;height:' + h + 'px;z-index:' + z + '" aria-label="' + esc(aria) + '">' + art + '</button>';
+}
+sceneStation.marks = null;
+function sceneMarksHtml(marks) {
+  return marks.map(function (m) {
+    return '<span class="sc-mark st-' + m.id + (m.cls ? ' ' + m.cls : '') + '" data-station="' + m.id +
+      '" style="left:' + m.x + 'px;top:' + m.y + 'px;width:' + m.w + 'px;height:' + m.h + 'px">' +
+      (m.label ? '<span class="sc-label">' + esc(m.label) + '</span>' : '') +
+      (m.badge ? '<span class="sc-badge' + (m.badge.warn ? ' warn' : '') + '">' +
+        esc(String(m.badge.text)) + '</span>' : '') + '</span>';
+  }).join('');
 }
 /* What is waiting at each fixture, as a small mark on it: offers on the
    commission board, staff ready for promotion on the hiring board, the
@@ -14960,17 +14989,23 @@ function sceneRender() {
       sceneBackFront(sh, fit.box, L.stage);
     SHOPUI.backKey = key;
   }
-  let things = '', glow = '';
+  let things = '', glow = '', marks = '';
   for (const loc of SCENE_LOCS) {
+    sceneStation.marks = [];
     things += sceneStageDiv(loc.id, sceneStationsHtml(sh, L, loc.id) +
       (loc.id === 'floor' ? sceneFloorHtml(sh, L) : '') +
       (SHOPUI.editing ? '' : sceneStaffHtml(sh, L, loc.id)));
+    marks += sceneStageDiv(loc.id, sceneMarksHtml(sceneStation.marks));
+    sceneStation.marks = null;
     glow += sceneStageDiv(loc.id, sceneGlowHtml(sh, L, loc.id));
   }
   $('shThings').innerHTML = things;
+  $('shMarks').innerHTML = marks;
   $('shGlow').innerHTML = glow;
-  if (!$('shFx').querySelector('.loc-stage')) {
-    $('shFx').innerHTML = SCENE_LOCS.map(function (l) { return sceneStageDiv(l.id, ''); }).join('');
+  for (const id of ['shWalk', 'shFx']) {
+    if (!$(id).querySelector('.loc-stage')) {
+      $(id).innerHTML = SCENE_LOCS.map(function (l) { return sceneStageDiv(l.id, ''); }).join('');
+    }
   }
   sceneRenderTray(sh);
   // a shop opened for the first time this visit opens on its floor
@@ -15422,6 +15457,9 @@ function wireScene() {
 function sceneFxStage(loc) {
   return $('shFx').querySelector('.loc-stage[data-loc="' + loc + '"]') || $('shFx');
 }
+function sceneWalkStage(loc) {
+  return $('shWalk').querySelector('.loc-stage[data-loc="' + loc + '"]') || $('shWalk');
+}
 function sceneFloat(loc, x, y, text, cls) {
   const el = document.createElement('span');
   el.className = 'fx-float' + (cls ? ' ' + cls : '');
@@ -15459,7 +15497,7 @@ function sceneWalker(loc, face, from, to, ms) {
   el.innerHTML = sceneFigure(face, '#4f4a45');
   el.style.left = from.x + 'px';
   el.style.top = from.y + 'px';
-  sceneFxStage(loc).appendChild(el);
+  sceneWalkStage(loc).appendChild(el);
   if (el.animate) {
     el.animate([{ transform: 'translate(0,0)', opacity: 0 },
       { transform: 'translate(0,0)', opacity: 1, offset: 0.12 },
@@ -15686,7 +15724,7 @@ function shopPlayPhase(reports, note, closing, crew, done, opts) {
     SHOPUI.sceneOpen = false;
     view.classList.remove('playing');
     $('shSkip').hidden = true;
-    for (const st of $('shFx').querySelectorAll('.loc-stage')) st.innerHTML = '';
+    for (const st of document.querySelectorAll('#shFx .loc-stage, #shWalk .loc-stage')) st.innerHTML = '';
     done();
   };
   SHOPUI.playing = { finish: finish };
@@ -16917,10 +16955,10 @@ function shopRosterHtml(sh) {
     for (const phase of SHOP.phases) {
       for (const h of assignmentsAt(sh, role.id, phase)) seats = Math.max(seats, h.seat + 1);
     }
-    html += '<div class="roster-role"><div class="roster-head"><b>' + esc(role.name) + '</b>' +
-      '<span class="what">' + esc(role.blurb) + '</span>' +
-      '<span class="what" style="flex:0 0 auto">' + mine.length + ' hired · ' +
-      phaseSeats(sh, role.id) + ' per phase</span></div>' +
+    html += '<div class="roster-role"><div class="roster-head pg-keep" data-pg-whole><b>' + esc(role.name) + '</b>' +
+      '<span class="what rh-count">' + mine.length + ' hired · ' +
+      phaseSeats(sh, role.id) + ' per phase</span>' +
+      '<span class="what">' + esc(role.blurb) + '</span></div>' +
       '<div class="roster-grid">';
     for (let seat = 0; seat < seats; seat++) {
       for (const phase of SHOP.phases) html += rosterBox(sh, role, phase, seat);
@@ -22016,6 +22054,15 @@ function confirmForgeName() {
   if (then) then(typed);
 }
 
+/* Focus a control for whoever uses a keyboard. A screen that is only ever
+   touched has no keyboard to move from there, and focusing from a script
+   before anything has been pressed draws a focus ring nobody asked for. */
+function focusForKeys(el) {
+  const touchOnly = window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
+    !window.matchMedia('(any-pointer: fine)').matches;
+  if (el && !touchOnly) el.focus();
+}
+
 /* ---------- title screen --------------------------------------------- */
 function syncTitleUi() {
   const endless = App.mode === 'endless';
@@ -22055,6 +22102,10 @@ function syncTitleUi() {
   const forged = FORGE_PIECE_ORDER.filter((id) => App.best[id] != null).length;
   $('forgeBest').textContent = forged ? forged + ' of ' + FORGE_PIECE_ORDER.length + ' designs forged' : '\u00a0';
   $('endlessBest').textContent = App.endlessBest ? 'Best score: ' + App.endlessBest : '\u00a0';
+  // a card with no record shows its name alone, centred, not over an empty line
+  for (const el of document.querySelectorAll('.mode-card .mc-best')) {
+    el.classList.toggle('none', !el.textContent.trim());
+  }
   $('titleGold').textContent = formatGold(App.gold);
   $('titlePurse').hidden = App.gold <= 0 && !Object.keys(App.upgrades).length;
 }
@@ -22078,7 +22129,7 @@ function showTitle() {
   hide($('results'));
   syncTitleUi();
   $('titleScreen').hidden = false;
-  $('beginBtn').focus();
+  focusForKeys($('beginBtn'));
 }
 
 /* Chrome that differs between the two modes. */
@@ -22705,14 +22756,16 @@ function fitBoard(app) {
     const rows = Number(board.style.getPropertyValue('--rows')) || n;
     const side = Number(board.style.getPropertyValue('--side')) || 0;
     const padY = 18, padX = 16;
-    // a tall piece on a short screen closes up its gaps before its squares shrink
+    // a tall piece on a short screen closes up its gaps before its squares
+    // shrink, and only below 16px when nothing else will keep the whole
+    // screen in view (a third line of instructions on the smallest phones)
     let gap = 6, sq = 0;
-    for (const g of [6, 4]) {
+    for (const g of [6, 4, 3, 2]) {
       gap = g;
       const byW = ((innerW - padX) * n / (n + 2 * side) - (n - 1) * gap) / n;
       const byH = (availH - padY - (rows - 1) * gap - 0.62 * gap) / (rows + 0.62);
-      sq = Math.max(16, Math.min(byW, byH, (484 - (n - 1) * gap) / n));
-      if (sq >= 26) break;
+      sq = Math.max(14, Math.min(byW, byH, (484 - (n - 1) * gap) / n));
+      if (sq >= 26 || (g <= 4 && sq >= 16 && byH >= 16)) break;
     }
     board.style.setProperty('--gap', gap + 'px');
     board.style.setProperty('--piece-w', (sq * n + (n - 1) * gap).toFixed(1) + 'px');
@@ -23246,7 +23299,7 @@ function introFinish() {
     el.hidden = true;
     $('introLogo').classList.remove('lit');
     $('introCard').classList.remove('lit');
-    $('beginBtn').focus();
+    focusForKeys($('beginBtn'));
   }, t + 30);
   announce('Checksmith. Choose a mode to begin.');
 }
