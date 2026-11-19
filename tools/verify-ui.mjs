@@ -9261,6 +9261,54 @@ async function run() {
       return [Math.round(a.top), Math.round(a.height), Math.round(b.top), Math.round(b.height)];
     });
     ok('Arrange and End Phase are the same height, side by side', bar[1] === bar[3] && Math.abs(bar[0] - bar[2]) <= 1, JSON.stringify(bar));
+    // the front: the two boards either side of the door stand level, the
+    // hiring board clear of the shop's sign, and no name or count on any
+    // place runs off the edge of a phone as wide as the place
+    const front = await page.evaluate(async () => {
+      const F = window.CHECKSMITH, sh = F.app.shop;
+      const kept = { staff: sh.staff, hands: sh.upgrades.hands, offers: sh.commissionOffers };
+      sh.upgrades.hands = 10;
+      sh.staff = Array.from({ length: 9 }, (x, i) => ({ id: 980 + i, name: 'Hand ' + i,
+        role: ['salesperson', 'smith', 'runner', 'storehand', 'apprentice'][i % 5], rank: 'C', power: 3, wage: 30,
+        xp: 99999, face: 'guard' }));
+      sh.commissionOffers = [{ id: 1 }];
+      F.shopRender();
+      const paint = (el) => {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const e of el.querySelectorAll('svg *')) {
+          const r = e.getBoundingClientRect(); if (!r.width && !r.height) continue;
+          x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom);
+        }
+        return { left: x0, top: y0, right: x1, bottom: y1 };
+      };
+      const meets = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+      const out = { outside: [] };
+      for (const loc of ['work', 'floor', 'front']) {
+        F.sceneView(loc, false);
+        await new Promise((r) => setTimeout(r, 300));
+        const scene = document.getElementById('shScene').getBoundingClientRect();
+        for (const e of document.querySelectorAll('#shMarks .loc-stage[data-loc="' + loc + '"] .sc-label, #shMarks .loc-stage[data-loc="' + loc + '"] .sc-badge')) {
+          const r = e.getBoundingClientRect();
+          if (r.left < scene.left - 0.5 || r.right > scene.right + 0.5 || r.top < scene.top - 0.5 || r.bottom > scene.bottom + 0.5) {
+            out.outside.push(loc + ':' + e.parentElement.dataset.station);
+          }
+        }
+        if (loc === 'front') {
+          const at = (id) => document.querySelector('#shThings .loc-stage[data-loc="front"] [data-station="' + id + '"]');
+          const board = paint(at('board')), comm = paint(at('commissions')), sign = paint(at('sign'));
+          const badge = document.querySelector('#shMarks .loc-stage[data-loc="front"] .st-board .sc-badge').getBoundingClientRect();
+          out.level = Math.abs(board.top - comm.top);
+          out.clear = !meets(board, sign) && !meets(badge, sign);
+        }
+      }
+      sh.staff = kept.staff; sh.upgrades.hands = kept.hands; sh.commissionOffers = kept.offers;
+      F.shopRender();
+      return out;
+    });
+    ok('the hiring board stands level with the commission board, clear of the shop’s sign and its count too',
+      front.level <= 1 && front.clear, JSON.stringify(front));
+    ok('no fixture’s name or count runs off the edge of a phone as wide as the place',
+      front.outside.length === 0, JSON.stringify(front.outside));
     await ctx.close();
 
     // the smallest phone: a role's name stays with its boxes, and a long

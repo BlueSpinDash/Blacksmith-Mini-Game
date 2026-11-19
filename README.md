@@ -2372,6 +2372,8 @@ silhouette around the tiles. These are what it found and what changed:
 | The Schedule | A role's heading could be split from its boxes at the foot of a page ("Runner" alone at the bottom of a page, its boxes on the next); and a role's "1 hired · 1 per phase" sat beside its name or under its description depending on how long the description was | The heading is one block (`data-pg-whole`) kept with what follows (`pg-keep`); the name and the count share the first line, the description is under them, for every role |
 | The Forge on a 320×568 phone | A three-line instruction (the Knight's) pushed the Restart, All Designs and Symbols buttons off the bottom of the screen on the longer designs, because the tiles could shrink no further than 16px | A tall piece closes its gaps to 3px and then 2px before its squares shrink, and only then goes below 16px; the whole screen stays in view |
 | The bottom bar in the shop | Arrange was 44px tall beside a 46px End Phase (52px when it wraps on a phone on its side) | Arrange takes the height of the bar |
+| The front of the shop (1.49.1) | The hiring board stood 22px higher than the commission board across the door, so its top corner ran under the shop's sign, and its count sat over the sign's edge | The hiring board stands level with the commission board (both at y 284 of the place), clear of the sign; its count sits on its own corner |
+| The commission board's count (1.49.1) | Hung 7px past the board, which is already at the place's right-hand edge, so a phone as wide as the place cut it off | Kept inside the board's edge; every name and count on every place is inside the screen |
 
 **Checked and found right.** Every board, at every size, has tiles of one
 size on an even grid, every tile is reached by a tap at its centre, and every
@@ -2393,10 +2395,11 @@ the middle of them opens the counter. "Skip Animations" sits over the corner
 of the floor while a phase plays out. The Upgrades board's name sits on the
 ledge under the board, over the rolled plans, as drawn.
 
-Twelve new browser checks hold these in place: the title on a touch screen,
+Fourteen new browser checks hold these in place: the title on a touch screen,
 the mode cards, the duty seats, the marks and walking layers and what is
-drawn over what, the Schedule's headings on a 320×568 phone, the bottom bar,
-and the Forge's buttons under the longest instruction. Core checks and the
+drawn over what, the front's two boards and the sign, every name and count
+inside the screen, the Schedule's headings on a 320×568 phone, the bottom
+bar, and the Forge's buttons under the longest instruction. Core checks and the
 board fingerprint are unchanged.
 
 ## Fair boards

@@ -2278,6 +2278,12 @@ body{min-height:0;overscroll-behavior:none;}
   animation:scBadge 2.4s ease-in-out infinite;
 }
 .sc-badge.warn{background:var(--danger);color:#fff;}
+/* the hiring board's corner is just under the shop's sign: its count sits on
+   the corner rather than over the sign's edge */
+.st-board .sc-badge{top:0;}
+/* the commission board stands at the right-hand edge of the place: its count
+   is kept inside it, where a phone as wide as the place can show it */
+.st-commissions .sc-badge{right:0;}
 @keyframes scBadge{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
 .st-cart .sc-cart{width:100%;height:100%;}
 .spark{left:82px;top:200px;}
@@ -14933,7 +14939,8 @@ function sceneStationsHtml(sh, L, loc) {
     const posted = (sh.commissionOffers || []).length + (sh.specialOffers || []).length;
     html += sceneStation('sign', 85, 230, 190, 58, 14, sceneSignArt(sh, L.stage), '',
       'Shop sign: ' + sh.name + '. Tap for the shop’s name and settings.');
-    html += sceneStation('board', 14, 262, 94, 182, 14, sceneBoardArt(sh), 'Hiring',
+    // level with the commission board across the door, and clear of the sign
+    html += sceneStation('board', 14, 284, 94, 182, 14, sceneBoardArt(sh), 'Hiring',
       'Hiring board: ' + sh.staff.length + ' of ' + staffCapacity(sh) +
       ' staff places filled. Tap to hire and manage staff.', '', B.board);
     html += sceneStation('commissions', 262, 284, 92, 144, 14, sceneCommissionArt(sh), 'Commissions',
