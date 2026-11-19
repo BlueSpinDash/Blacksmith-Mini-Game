@@ -2545,7 +2545,7 @@ terms, with the numbers the code actually uses (1.37 audit). The conventions:
 
 ```sh
 node tools/verify-core.mjs                                  # 1118 rule/generation checks
-node tools/verify-ui.mjs                                    # 1091 browser checks (Playwright)
+node tools/verify-ui.mjs                                    # 1093 browser checks (Playwright)
 node tools/design-specials.mjs <id> [seeds]                 # lay out a special commission's puzzle
 PW_PATH=/path/to/playwright node tools/verify-ui.mjs        # if Playwright is installed globally
 ```
